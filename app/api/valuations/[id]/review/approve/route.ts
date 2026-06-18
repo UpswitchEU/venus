@@ -1,16 +1,13 @@
+import { type NextRequest, NextResponse } from 'next/server'
+import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { encodeTitanPathSegment } from '../../../../_utils/agentActionProxy'
 import { proxyTitanReviewJsonRoute } from '../../../../_utils/proxyTitanReviewJson'
-import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
-import { type NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 35
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!id) {
     return NextResponse.json(

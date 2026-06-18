@@ -164,7 +164,9 @@ export const useClientContext = create<ClientContextState>()(
         }
 
         if (isPersistedContextStaleForUrl(state.relationshipId)) {
-          generalLogger.warn('[ClientContext] Stale relationshipId for URL clientId — clearing headers')
+          generalLogger.warn(
+            '[ClientContext] Stale relationshipId for URL clientId — clearing headers'
+          )
           clearDelegatedClientContext(() => get().clearClientContext())
           return {} as Record<string, string>
         }

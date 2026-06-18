@@ -45,9 +45,9 @@ describe('deriveClientScopedSessionKey (Venus side)', () => {
 describe('deriveAdvisorWorkspaceSessionKey (Venus side)', () => {
   it('returns the shared advisor workspace key for every contract case', () => {
     for (const testCase of aiConversationKeyContract.workspaceCases) {
-      expect(
-        deriveAdvisorWorkspaceSessionKey(testCase.advisorUserId, testCase.pathname)
-      ).toBe(testCase.expected)
+      expect(deriveAdvisorWorkspaceSessionKey(testCase.advisorUserId, testCase.pathname)).toBe(
+        testCase.expected
+      )
     }
   })
 })

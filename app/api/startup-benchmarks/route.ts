@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           rows: staticRows(region, stage, sector),
-          source: 'offline-benchmark-fallback',
+          source: 'venus-static-fallback',
           warning: `Benchmark feed returned ${res.status}`,
         },
         { headers: { 'cache-control': 'public, s-maxage=60' } }
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           rows: staticRows(region, stage, sector),
-          source: 'offline-benchmark-fallback',
+          source: 'venus-static-fallback',
           warning: 'Benchmark feed returned malformed JSON — using static Q1 2026 numbers.',
         },
         { headers: { 'cache-control': 'public, s-maxage=60' } }
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         rows: staticRows(region, stage, sector),
-        source: 'offline-benchmark-fallback',
+        source: 'venus-static-fallback',
         warning: 'Benchmark feed unreachable — using static Q1 2026 numbers.',
       },
       { headers: { 'cache-control': 'public, s-maxage=60' } }

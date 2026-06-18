@@ -6,15 +6,15 @@
  * React #185 / ErrorBoundary on preview (2026-05-27).
  */
 
+import type { ValuationSession } from '../../types/valuation'
+import { looksLikeExistingReportId } from '../../utils/identifiers'
+import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
+import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import {
   getDelegatedUrlClientId,
   isPersistedContextStaleForUrl,
 } from '../auth/persistedClientContext'
 import type { BootstrapContext, IdentityState } from '../bootstrap/types'
-import type { ValuationSession } from '../../types/valuation'
-import { looksLikeExistingReportId } from '../../utils/identifiers'
-import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
-import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
 
 /** Signals for Mercury → Venus advisor-for-client opens (existing report handoff). */
 export type DelegatedMercuryHandoffSignals = {
@@ -74,9 +74,7 @@ export function shouldWaitForMercuryClientContextBeforeBootstrap(input: {
   const reportId = input.reportId?.trim()
   if (!reportId || !looksLikeExistingReportId(reportId)) return false
   const mode =
-    input.mercuryPersonaMode?.trim() ||
-    parseMercuryModeFromBootstrapUrl(input.url)?.trim() ||
-    null
+    input.mercuryPersonaMode?.trim() || parseMercuryModeFromBootstrapUrl(input.url)?.trim() || null
   return isMercuryAdvisorModeParam(mode)
 }
 

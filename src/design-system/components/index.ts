@@ -67,9 +67,9 @@ export {
 export type {
   BusinessType,
   BusinessTypeSearchInputProps,
-  KboConfirmedCardProps,
   KBOCompany,
   KBOSearchInputProps,
+  KboConfirmedCardProps,
 } from './EntitySearch'
 // ─────────────────────────────────────────
 // ENTITY SEARCH (KBO + BUSINESS TYPE)
@@ -77,8 +77,8 @@ export type {
 export {
   BusinessTypeSearchInput,
   categoryIcons,
-  KboConfirmedCard,
   KBOSearchInput,
+  KboConfirmedCard,
 } from './EntitySearch'
 export {
   AuroraFormAlert,

@@ -37,8 +37,8 @@ import {
   buildIdentityFingerprint,
   readNewValuationPrefill,
 } from '../utils/newValuationPrefillStorage'
-import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
+import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 
 const logger = createContextLogger('BootstrapSync')
@@ -252,13 +252,11 @@ function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string
   }
   if (prefillData.financials?.dataSource)
     fields._financial_data_source = prefillData.financials.dataSource
-  const companyAddress = formatBootstrapCompanyAddress(
-    {
-      address: prefillData.companyInfo?.address || prefillData.kboData?.address,
-      postalCode: prefillData.companyInfo?.postalCode || prefillData.kboData?.postalCode,
-      city: prefillData.companyInfo?.city || prefillData.kboData?.city,
-    }
-  )
+  const companyAddress = formatBootstrapCompanyAddress({
+    address: prefillData.companyInfo?.address || prefillData.kboData?.address,
+    postalCode: prefillData.companyInfo?.postalCode || prefillData.kboData?.postalCode,
+    city: prefillData.companyInfo?.city || prefillData.kboData?.city,
+  })
   const companyStatus =
     prefillData.kboData?.status ||
     (prefillData.companyInfo?.isActive === true
@@ -1056,15 +1054,16 @@ function syncClientContext(state: SessionBootstrapState): void {
       syncStatusRef.current.clientContext = true
       return
     }
+    const clientContext = identity.clientContext
 
     const clientContextStore = useClientContext.getState()
     const currentClient = clientContextStore.client
 
     // Check if context is already set correctly (relationship matters when client user is null)
     if (
-      (currentClient?.id ?? null) === (identity.clientContext.clientUserId ?? null) &&
-      clientContextStore.accountant?.id === identity.clientContext.accountantUserId &&
-      clientContextStore.relationshipId === identity.clientContext.relationshipId
+      (currentClient?.id ?? null) === (clientContext.clientUserId ?? null) &&
+      clientContextStore.accountant?.id === clientContext.accountantUserId &&
+      clientContextStore.relationshipId === clientContext.relationshipId
     ) {
       logger.debug('Client context already synced')
       syncStatusRef.current.clientContext = true
@@ -1072,36 +1071,38 @@ function syncClientContext(state: SessionBootstrapState): void {
     }
 
     // Set client context (clientUser null when invitation not accepted)
-    const clientCompanyName = identity.clientContext.clientCompanyName || 'Client'
-    const clientUserId = identity.clientContext.clientUserId
+    const clientCompanyName = clientContext.clientCompanyName || 'Client'
+    const clientUserId = clientContext.clientUserId
 
     clientContextStore.setClientContext({
       accountantUser: {
-        id: identity.clientContext.accountantUserId,
-        email: identity.clientContext.accountantEmail || '',
+        id: clientContext.accountantUserId,
+        email: clientContext.accountantEmail || '',
         full_name: '', // Bootstrap doesn't have this, but field is required
       },
       clientUser: clientUserId
         ? {
             id: clientUserId,
-            email: identity.clientContext.clientEmail || '',
+            email: clientContext.clientEmail || '',
             full_name: clientCompanyName,
             avatar_url: null,
           }
         : null,
       relationship: {
-        id: identity.clientContext.relationshipId,
+        id: clientContext.relationshipId,
         customer_name: clientCompanyName,
       },
     })
 
-    void import('../lib/auth/clientContextGate').then(({ resolveDelegatedContextGateIfBootstrapSynced }) => {
-      resolveDelegatedContextGateIfBootstrapSynced(identity.clientContext!.relationshipId)
-    })
+    void import('../lib/auth/clientContextGate').then(
+      ({ resolveDelegatedContextGateIfBootstrapSynced }) => {
+        resolveDelegatedContextGateIfBootstrapSynced(clientContext.relationshipId)
+      }
+    )
 
     logger.info('Client context synced from bootstrap', {
       clientUserId: clientUserId?.substring(0, 8) ?? 'null',
-      accountantUserId: identity.clientContext.accountantUserId.substring(0, 8),
+      accountantUserId: clientContext.accountantUserId.substring(0, 8),
     })
 
     syncStatusRef.current.clientContext = true

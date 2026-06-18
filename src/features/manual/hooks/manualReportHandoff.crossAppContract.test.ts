@@ -11,12 +11,7 @@ import { describe, expect, it } from 'vitest'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const manualHooksRoot = '.'
 const manualComponentsRoot = '../components'
-const venusRoot = join(__dirname, '../../..')
 const venusAppRoot = join(__dirname, '../../../..')
-
-function readVenus(pathFromSrc: string): string {
-  return readFileSync(join(venusRoot, pathFromSrc), 'utf8')
-}
 
 function readVenusApp(pathFromApp: string): string {
   return readFileSync(join(venusAppRoot, pathFromApp), 'utf8')
@@ -28,7 +23,9 @@ describe('manual report handoff load contract', () => {
       join(__dirname, manualHooksRoot, 'useValuationPersistenceCoordinator.ts'),
       'utf8'
     )
-    expect(source).toMatch(/return useMemo\(\s*\(\) => \(\{ enqueueMethod, enqueuePreparer, setBaseline, isPersisting \}\)/)
+    expect(source).toMatch(
+      /return useMemo\(\s*\(\) => \(\{ enqueueMethod, enqueuePreparer, setBaseline, isPersisting \}\)/
+    )
     expect(source).toMatch(/intent\.signature === lastSignatureRef\.current/)
   })
 
@@ -41,7 +38,9 @@ describe('manual report handoff load contract', () => {
     expect(source).toMatch(/lastEnqueuedSelectedMethodRef\.current === null/)
     expect(source).toMatch(/userInitiatedMethodChangeRef/)
     expect(source).toMatch(/userInitiatedAtEffectStart/)
-    expect(source).toMatch(/serverMethod && selectedMethod !== serverMethod && !userInitiatedAtEffectStart/)
+    expect(source).toMatch(
+      /serverMethod && selectedMethod !== serverMethod && !userInitiatedAtEffectStart/
+    )
     expect(source).not.toMatch(/persistCoordinator/)
     expect(source).toMatch(/enqueueMethodRef/)
     expect(source).toMatch(/currentSignature === serverSignature/)
@@ -99,12 +98,16 @@ describe('manual report handoff load contract', () => {
   })
 
   it('attestation BFF routes resolve Titan host from the incoming request', () => {
-    expect(readVenusApp('app/api/attestations/readiness/route.ts')).toMatch(/getTitanApiUrl\(request\)/)
+    expect(readVenusApp('app/api/attestations/readiness/route.ts')).toMatch(
+      /getTitanApiUrl\(request\)/
+    )
     expect(readVenusApp('app/api/attestations/route.ts')).toMatch(/getTitanApiUrl\(request\)/)
   })
 
   it('review BFF routes resolve Titan host from the incoming request', () => {
-    expect(readVenusApp('app/api/valuations/[id]/review/route.ts')).toMatch(/getTitanApiUrl\(request\)/)
+    expect(readVenusApp('app/api/valuations/[id]/review/route.ts')).toMatch(
+      /getTitanApiUrl\(request\)/
+    )
     expect(readVenusApp('app/api/valuations/[id]/review/approve/route.ts')).toMatch(
       /getTitanApiUrl\(request\)/
     )
@@ -175,14 +178,11 @@ describe('manual report handoff load contract', () => {
       'utf8'
     )
     expect(source).toMatch(/generatePdfRef/)
-    expect(source).not.toMatch(/generatePdf,\n    isMobile/)
+    expect(source).not.toMatch(/generatePdf,\n {4}isMobile/)
   })
 
   it('ManualLayout wires PDF staleness lifecycle with generation state', () => {
-    const source = readFileSync(
-      join(__dirname, manualComponentsRoot, 'ManualLayout.tsx'),
-      'utf8'
-    )
+    const source = readFileSync(join(__dirname, manualComponentsRoot, 'ManualLayout.tsx'), 'utf8')
     expect(source).toMatch(/isPdfGenerating/)
     expect(source).toMatch(/usePdfStalenessLifecycle/)
     expect(source).toMatch(/isPdfReady/)

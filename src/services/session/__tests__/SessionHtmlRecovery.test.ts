@@ -2,10 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationSession } from '../../../types/valuation'
 import { backendAPI } from '../../backendApi'
-import {
-  __resetEnsureHtmlStateForTests,
-  tryRefetchAfterEnsureHtml,
-} from '../SessionHtmlRecovery'
+import { __resetEnsureHtmlStateForTests, tryRefetchAfterEnsureHtml } from '../SessionHtmlRecovery'
 
 vi.mock('../../backendApi', () => ({
   backendAPI: {
@@ -299,7 +296,7 @@ describe('tryRefetchAfterEnsureHtml', () => {
     const first = tryRefetchAfterEnsureHtml(reportId, session)
     const second = tryRefetchAfterEnsureHtml(reportId, session)
 
-    resolveEnsure!({
+    resolveEnsure?.({
       success: true,
       status: 'recovered',
       reportId,
@@ -417,9 +414,7 @@ describe('tryRefetchAfterEnsureHtml', () => {
 
     const result = await tryRefetchAfterEnsureHtml(reportId, session)
 
-    expect(result?.session?.sessionData).toEqual(
-      expect.objectContaining({ _htmlReport: fullHtml })
-    )
+    expect(result?.session?.sessionData).toEqual(expect.objectContaining({ _htmlReport: fullHtml }))
     expect(getValuationSession).toHaveBeenCalledWith(reportId)
   })
 

@@ -72,8 +72,7 @@ export function needsManualReportHtmlRecovery(params: {
   if (!reportId || reportId === 'new') return false
 
   const recoverySession = buildManualHtmlRecoverySession(reportId, session, result ?? null)
-  const needsFromSession =
-    session != null && sessionNeedsRenderableHtmlFromPayload(recoverySession)
+  const needsFromSession = session != null && sessionNeedsRenderableHtmlFromPayload(recoverySession)
   const needsFromResult =
     !!result &&
     resultHasValuationRange(result) &&

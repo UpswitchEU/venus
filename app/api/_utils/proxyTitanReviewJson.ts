@@ -1,6 +1,6 @@
+import { type NextRequest, NextResponse } from 'next/server'
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
-import { type NextRequest, NextResponse } from 'next/server'
 import {
   isTransientUpstreamStatus,
   transientUpstreamFailureBody,
@@ -9,12 +9,7 @@ import {
 export const TITAN_REVIEW_PROXY_TIMEOUT_MS = 35_000
 
 function extractUpstreamMessage(json: unknown, fallback: string): string {
-  if (
-    typeof json === 'object' &&
-    json &&
-    'message' in json &&
-    typeof json.message === 'string'
-  ) {
+  if (typeof json === 'object' && json && 'message' in json && typeof json.message === 'string') {
     return json.message
   }
   return fallback

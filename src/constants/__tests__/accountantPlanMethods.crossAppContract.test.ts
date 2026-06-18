@@ -3,19 +3,16 @@
  *
  * Why this exists
  * ----------------
- * Venus carries two **fallback** lookup tables that mirror Titan's
+ * Venus carries fallback logic that mirrors Titan's
  * `PRICING_CONFIG[*].features.allowed_methods`:
  *
- *   1. `FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS` — used when Titan's
- *      `/api/v2/credits/plan` response omits `allowed_methods` (defensive
- *      fallback). If this list drifts from Titan, a Free advisor sees the
- *      wrong "locked" badges (or worse, an unlocked method that 402s
- *      server-side after they fill out the whole form).
- *   2. `resolveAllowedMethodKeys(undefined, planType)` — assumes every paid
- *      tier (`starter`, `pro`, `expert`, `enterprise`, `premium`) returns
- *      `null` from Titan ("all methods allowed"). If Titan starts returning
- *      a restricted list for any of these tiers, Venus would silently keep
- *      every method unlocked in the UI until the next deploy lands.
+ *   1. `FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS` — mirrors Titan Free's
+ *      `allowed_methods: null` contract ("all methods allowed").
+ *   2. `resolveAllowedMethodKeys(undefined, planType)` — assumes every known
+ *      tier (`free`, `starter`, `pro`, `expert`, `enterprise`, `premium`)
+ *      returns `null` from Titan. If Titan starts returning a restricted list
+ *      for any of these tiers, Venus would silently keep every method unlocked
+ *      in the UI until the next deploy lands.
  *
  * Both apps are deployed independently, so a single PR can ship a Titan
  * config change without Venus catching up. This test reads Titan's source
@@ -25,8 +22,8 @@
  * Symmetrical Titan-side guard: none yet. Titan's `PRICING_CONFIG` is the
  * authoritative source — Venus is the consumer that must follow.
  *
- * If you intentionally change Titan's free-tier `allowed_methods` (or any
- * paid tier's `allowed_methods` away from `null`), you MUST update
+ * If you intentionally change Titan's free-tier `allowed_methods` (or any paid
+ * tier's `allowed_methods` away from `null`), you MUST update
  * `apps/venus/src/constants/accountantPlanMethods.ts` in the same change
  * set, then redeploy Titan + Venus together to avoid a drift window where
  * the UI and server enforcement disagree on what a user can run.
@@ -116,17 +113,16 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
   const titanSource = readFileSync(TITAN_PRICING_CONFIG_PATH, 'utf-8')
 
   it('Free tier `allowed_methods` matches Venus FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS exactly', () => {
-    // Order matters here because Venus's UI sorts methods in declaration
-    // order in some surfaces (upsell teasers). Use `toEqual` to lock both
-    // membership AND order — anything else is silent UX drift.
     const titanFreeMethods = extractAllowedMethodsFromTitan(titanSource, 'FREE')
-    expect(titanFreeMethods).toEqual([...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS])
+    expect(titanFreeMethods).toBeNull()
+    expect(FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS).toBeNull()
+    expect(resolveAllowedMethodKeys(undefined, 'free')).toBeNull()
   })
 
-  it('Free keeps DCF available while PDF download remains Starter-gated', () => {
+  it('Free keeps all methods available while PDF download remains Starter-gated', () => {
     const titanFreeMethods = extractAllowedMethodsFromTitan(titanSource, 'FREE')
 
-    expect(titanFreeMethods).toContain('dcf')
+    expect(titanFreeMethods).toBeNull()
     expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'valuation_download')).toBe(false)
     expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'valuation_download')).toBe(true)
   })
@@ -224,24 +220,8 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
     }
   })
 
-  it('Venus FREE list contains exactly the founder triad + advisor extras (snapshot)', () => {
-    // Pin the EXACT 7 keys so that:
-    //   - The 3 founder methods (upswitch_adaptive, arr_multiple,
-    //     startup_valuation) stay free for owners self-serving in Venus.
-    //   - The 4 advisor extras (dcf, ebitda_multiple, adjusted_nav,
-    //     liquidation_analysis) stay free for accountants on the Free PLG
-    //     tier. Liquidation rides on the same balance-sheet inputs as NAV
-    //     so it stays in the same gating bucket.
-    // Any silent reshuffle (e.g. dropping `dcf` from Free) will fail here
-    // BEFORE customers see the wrong nav.
-    expect([...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS]).toEqual([
-      'upswitch_adaptive',
-      'dcf',
-      'ebitda_multiple',
-      'adjusted_nav',
-      'arr_multiple',
-      'startup_valuation',
-      'liquidation_analysis',
-    ])
+  it('Venus FREE fallback keeps all methods available (snapshot)', () => {
+    expect(FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS).toBeNull()
+    expect(resolveAllowedMethodKeys(undefined, 'free')).toBeNull()
   })
 })

@@ -310,7 +310,10 @@ export const AuroraChatPanel: React.FC<AuroraChatPanelProps> = ({
       {showAuroraBackground && <AuroraBackground />}
 
       {/* Messages area */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-4 relative z-10">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-4 relative z-10"
+      >
         <AnimatePresence mode="popLayout">
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />

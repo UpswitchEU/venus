@@ -1,5 +1,5 @@
-import type { ChatMessage } from './ChatAssistantTypes'
 import { scrollContainerToBottom } from '@/utils/scrollContainer'
+import type { ChatMessage } from './ChatAssistantTypes'
 
 const renderableCardCollections: Array<keyof ChatMessage> = [
   'fieldUpdates',

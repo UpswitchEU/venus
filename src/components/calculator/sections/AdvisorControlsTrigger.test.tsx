@@ -59,9 +59,7 @@ describe('AdvisorControlsTrigger', () => {
 
   it('omits the prefilled pill when no advisor defaults applied', () => {
     render(<AdvisorControlsTrigger {...baseProps} />)
-    expect(
-      screen.queryByTestId('advisor-controls-prefilled-pill')
-    ).not.toBeInTheDocument()
+    expect(screen.queryByTestId('advisor-controls-prefilled-pill')).not.toBeInTheDocument()
   })
 
   it('renders the prefilled pill when at least one field was seeded from settings', () => {
@@ -71,9 +69,7 @@ describe('AdvisorControlsTrigger', () => {
         advisorDefaultsAppliedFields={['multiple_calibration_adjustment']}
       />
     )
-    expect(
-      screen.getByTestId('advisor-controls-prefilled-pill')
-    ).toBeInTheDocument()
+    expect(screen.getByTestId('advisor-controls-prefilled-pill')).toBeInTheDocument()
   })
 
   it('closes the modal on unmount so a valuation switch never carries open=true forward', () => {

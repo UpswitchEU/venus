@@ -127,8 +127,6 @@ export {
   type UseManualNavigationControllerParams,
   useManualNavigationController,
 } from './useManualNavigationController'
-export { useManualReportApproval } from './useManualReportApproval'
-export { useManualReportAttestation } from './useManualReportAttestation'
 export {
   type UseManualNewValuationFlowParams,
   type UseManualNewValuationFlowResult,
@@ -188,6 +186,12 @@ export {
   type UseManualRecentValuationsResult,
   useManualRecentValuations,
 } from './useManualRecentValuations'
+export { useManualReportApproval } from './useManualReportApproval'
+export { useManualReportAttestation } from './useManualReportAttestation'
+export {
+  type UseManualReportHtmlRecoveryParams,
+  useManualReportHtmlRecovery,
+} from './useManualReportHtmlRecovery'
 export {
   type ManualReportIdentifiers,
   type UseManualReportIdentifiersParams,
@@ -199,10 +203,6 @@ export {
   type UseManualReportMethodHydrationResult,
   useManualReportMethodHydration,
 } from './useManualReportMethodHydration'
-export {
-  type UseManualReportHtmlRecoveryParams,
-  useManualReportHtmlRecovery,
-} from './useManualReportHtmlRecovery'
 export {
   type UseManualReportRefreshAfterEditParams,
   type UseManualReportRefreshAfterEditResult,
@@ -233,10 +233,6 @@ export {
   type ManualSynthesisController,
   useManualSynthesisController,
 } from './useManualSynthesisController'
-export {
-  type UseSynthesisReportHeadlineSyncParams,
-  useSynthesisReportHeadlineSync,
-} from './useSynthesisReportHeadlineSync'
 export {
   type UseManualSynthesisSkippedWarningsParams,
   type UseManualSynthesisSkippedWarningsResult,
@@ -275,6 +271,10 @@ export {
   type UseResultToReportBridgeParams,
   useResultToReportBridge,
 } from './useResultToReportBridge'
+export {
+  type UseSynthesisReportHeadlineSyncParams,
+  useSynthesisReportHeadlineSync,
+} from './useSynthesisReportHeadlineSync'
 export {
   type MethodPersistIntent,
   type PersistIntent,

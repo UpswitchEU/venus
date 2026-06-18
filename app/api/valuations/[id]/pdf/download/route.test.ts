@@ -76,13 +76,16 @@ describe('/api/valuations/[id]/pdf/download', () => {
       .mockResolvedValueOnce(jsonResponse(200, { success: true, pdfUrl: 'https://cdn/report.pdf' }))
       .mockResolvedValueOnce(pdfResponse())
 
-    const req = new NextRequest('https://valuation.upswitch.app/api/valuations/report-1/pdf/download', {
-      headers: {
-        'X-Relationship-Id': 'rel-1',
-        'X-Accountant-User-Id': 'adv-1',
-        'X-Client-User-Id': 'client-1',
-      },
-    })
+    const req = new NextRequest(
+      'https://valuation.upswitch.app/api/valuations/report-1/pdf/download',
+      {
+        headers: {
+          'X-Relationship-Id': 'rel-1',
+          'X-Accountant-User-Id': 'adv-1',
+          'X-Client-User-Id': 'client-1',
+        },
+      }
+    )
 
     await GET(req, { params: Promise.resolve({ id: 'report-1' }) })
 

@@ -10,7 +10,7 @@ describe('resolveAcademicValidationIssues', () => {
       resolveAcademicValidationIssues({
         academic_validation_issues: ['Top-level issue'],
         details: { academic_validation_issues: ['Nested issue'] },
-      }),
+      })
     ).toEqual(['Top-level issue'])
   })
 
@@ -18,7 +18,7 @@ describe('resolveAcademicValidationIssues', () => {
     expect(
       resolveAcademicValidationIssues({
         details: { academic_validation_issues: ['WACC outside SME band'] },
-      }),
+      })
     ).toEqual(['WACC outside SME band'])
   })
 
@@ -26,7 +26,7 @@ describe('resolveAcademicValidationIssues', () => {
     expect(
       resolveAcademicValidationIssues({
         validation_warnings: [{ type: 'wacc', severity: 'high', message: 'WACC out of band' }],
-      }),
+      })
     ).toEqual(['WACC out of band'])
   })
 

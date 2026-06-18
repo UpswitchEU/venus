@@ -1,10 +1,10 @@
 // @vitest-environment node
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ValuationSession } from '../../../../types/valuation'
 import { backendAPI } from '../../../../services/backendApi'
 import { __resetEnsureHtmlStateForTests } from '../../../../services/session/SessionHtmlRecovery'
 import { useSessionStore } from '../../../../store/useSessionStore'
+import type { ValuationSession } from '../../../../types/valuation'
 import { recoverManualReportHtmlIfNeeded } from '../manualReportHtmlRecoveryUtil'
 
 vi.mock('../../../../services/backendApi', () => ({

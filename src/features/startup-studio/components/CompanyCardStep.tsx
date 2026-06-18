@@ -425,7 +425,10 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
       }
 
       const primaryPatch = buildBusinessTypeFormData(primaryBusinessType)
-      const segmentPatch = buildBusinessTypeSegmentsFormData(selectedBusinessTypes, businessTypeSegments)
+      const segmentPatch = buildBusinessTypeSegmentsFormData(
+        selectedBusinessTypes,
+        businessTypeSegments
+      )
 
       updateFormData({
         ...extraUpdates,

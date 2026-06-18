@@ -62,7 +62,9 @@ describe('/[locale]/waarderen landing', () => {
     expect(enMeta.alternates?.canonical).toBe('/en/waarderen')
     expect(nlMeta.title).toBe('Startup waarderen — Upswitch · Gratis pre-revenue valuation')
     expect(nlMeta.alternates?.canonical).toBe('/nl/waarderen')
-    expect(frMeta.title).toBe('Valoriser une startup — Upswitch · Valorisation pré-revenus gratuite')
+    expect(frMeta.title).toBe(
+      'Valoriser une startup — Upswitch · Valorisation pré-revenus gratuite'
+    )
     expect(frMeta.alternates?.canonical).toBe('/fr/waarderen')
   })
 })

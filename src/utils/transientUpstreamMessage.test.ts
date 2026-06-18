@@ -24,10 +24,10 @@ describe('transientUpstreamMessage', () => {
 
   it('feeds fetch retry logic', () => {
     expect(
-      shouldRetryTransientBffResponse(
-        new Response(null, { status: 503 }),
-        { success: false, message: TRANSIENT_UPSTREAM_MESSAGE }
-      )
+      shouldRetryTransientBffResponse(new Response(null, { status: 503 }), {
+        success: false,
+        message: TRANSIENT_UPSTREAM_MESSAGE,
+      })
     ).toBe(true)
     expect(
       shouldRetryTransientBffResponse(new Response(null, { status: 403 }), {

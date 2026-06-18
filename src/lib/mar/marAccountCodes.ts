@@ -9,7 +9,10 @@
 /** Leading digit run from provider GL codes (NBSP, dots, suffixes stripped). */
 export function normalizedMarAccountCodePrefix(accountCode: string | null | undefined): string {
   if (accountCode == null) return ''
-  let s = String(accountCode).replace(/\ufeff/g, '').replace(/\u00a0/g, ' ').trim()
+  let s = String(accountCode)
+    .replace(/\ufeff/g, '')
+    .replace(/\u00a0/g, ' ')
+    .trim()
   s = s.replace(/\./g, '')
   s = s.replace(/\s+/g, '')
   if (!s) return ''
@@ -26,7 +29,9 @@ export function isMarPersonnelSocialChargesBucket(accountCode: string | null | u
 }
 
 /** Owner / director compensation codes (excludes 62000x personnel massa). */
-export function isMarOwnerDirectorCompensationAccount(accountCode: string | null | undefined): boolean {
+export function isMarOwnerDirectorCompensationAccount(
+  accountCode: string | null | undefined
+): boolean {
   const code = normalizedMarAccountCodePrefix(accountCode)
   if (!code) return false
   return (

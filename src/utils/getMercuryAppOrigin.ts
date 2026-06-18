@@ -22,30 +22,30 @@
  *     send the advisor to a 404.
  */
 
-const TRAILING_SLASHES = /\/+$/;
-const KNOWN_VENUS_HOST_PREFIXES = ['venus.', 'calculator.'] as const;
+const TRAILING_SLASHES = /\/+$/
+const KNOWN_VENUS_HOST_PREFIXES = ['venus.', 'calculator.'] as const
 
 export function getMercuryAppOrigin(
   envValue: string | undefined,
-  currentLocation: { protocol: string; host: string } | null,
+  currentLocation: { protocol: string; host: string } | null
 ): string | null {
-  const trimmed = envValue?.trim();
-  if (trimmed) return trimmed.replace(TRAILING_SLASHES, '');
+  const trimmed = envValue?.trim()
+  if (trimmed) return trimmed.replace(TRAILING_SLASHES, '')
 
-  if (!currentLocation) return null;
-  const { protocol, host } = currentLocation;
-  if (!protocol || !host) return null;
+  if (!currentLocation) return null
+  const { protocol, host } = currentLocation
+  if (!protocol || !host) return null
 
   for (const prefix of KNOWN_VENUS_HOST_PREFIXES) {
     if (host.startsWith(prefix)) {
-      return `${protocol}//${host.slice(prefix.length)}`;
+      return `${protocol}//${host.slice(prefix.length)}`
     }
   }
 
   // Preview / monolith case: the Mercury settings route is hosted on the
   // same origin (Next.js rewrites or shared deploy). Returning the current
   // origin keeps the deep link working in that topology.
-  return `${protocol}//${host}`;
+  return `${protocol}//${host}`
 }
 
 /**
@@ -55,10 +55,10 @@ export function getMercuryAppOrigin(
  */
 export function resolveMercuryAppOrigin(): string | null {
   if (typeof window === 'undefined') {
-    return getMercuryAppOrigin(process.env.NEXT_PUBLIC_MERCURY_URL, null);
+    return getMercuryAppOrigin(process.env.NEXT_PUBLIC_MERCURY_URL, null)
   }
   return getMercuryAppOrigin(process.env.NEXT_PUBLIC_MERCURY_URL, {
     protocol: window.location.protocol,
     host: window.location.host,
-  });
+  })
 }

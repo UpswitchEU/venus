@@ -184,7 +184,9 @@ describe('usePdfStalenessLifecycle', () => {
         if (pollCalls <= 2) {
           throw new APIError('pooler', 503)
         }
-        return new Promise<ValuationResponse>(() => {})
+        return new Promise<ValuationResponse>(() => {
+          // Keep the poll pending so the lifecycle stays in its in-flight state.
+        })
       })
       const { result } = renderHook(() =>
         usePdfStalenessLifecycle(makeParams({ report, getReport }))
@@ -650,9 +652,7 @@ describe('usePdfStalenessLifecycle', () => {
     const getReport = vi.fn().mockRejectedValue(new APIError('pooler', 503))
     const showRetryFailureToast = vi.fn()
     const { result } = renderHook(() =>
-      usePdfStalenessLifecycle(
-        makeParams({ report, getReport, showRetryFailureToast })
-      )
+      usePdfStalenessLifecycle(makeParams({ report, getReport, showRetryFailureToast }))
     )
 
     await act(async () => {

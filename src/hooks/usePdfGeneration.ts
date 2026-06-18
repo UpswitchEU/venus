@@ -9,11 +9,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellation'
-import { useClientContext } from '../stores/clientContext'
 import { useSessionStore } from '../store/useSessionStore'
+import { useClientContext } from '../stores/clientContext'
 import { APIError } from '../types/errors'
-import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import { generalLogger } from '../utils/logger'
+import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 
 /** Let the BFF return its structured 504 before the browser gives up. */
 const PDF_DOWNLOAD_FETCH_MS = 125_000

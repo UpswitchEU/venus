@@ -359,7 +359,9 @@ describe('sessionReadiness', () => {
     it('returns null when no auth user — caller must bail to avoid engine-null seed', () => {
       expect(buildSeedIdentity({ authUser: null, clientContext: emptyClientCtx })).toBeNull()
       expect(buildSeedIdentity({ authUser: undefined, clientContext: emptyClientCtx })).toBeNull()
-      expect(buildSeedIdentity({ authUser: { email: 'a@b' }, clientContext: emptyClientCtx })).toBeNull()
+      expect(
+        buildSeedIdentity({ authUser: { email: 'a@b' }, clientContext: emptyClientCtx })
+      ).toBeNull()
     })
 
     it('returns plain authenticated identity outside accountant flow', () => {

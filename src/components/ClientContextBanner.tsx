@@ -61,7 +61,8 @@ export function ClientContextBanner() {
         error: error instanceof Error ? error.message : String(error),
       })
       try {
-        const loc = locale && (locale === 'en' || locale === 'nl' || locale === 'fr') ? locale : 'en'
+        const loc =
+          locale && (locale === 'en' || locale === 'nl' || locale === 'fr') ? locale : 'en'
         window.location.href = `${getMercuryUrl()}/${loc}/advisor/dashboard`
       } catch (fallbackError) {
         generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {

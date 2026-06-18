@@ -114,8 +114,14 @@ function releaseBodyScrollLock() {
 
   const html = document.documentElement
   const body = document.body
-  const { scrollY, htmlOverflow, bodyStyles, nestedScrollEl, nestedScrollTop, originalNestedOverflow } =
-    snapshot
+  const {
+    scrollY,
+    htmlOverflow,
+    bodyStyles,
+    nestedScrollEl,
+    nestedScrollTop,
+    originalNestedOverflow,
+  } = snapshot
 
   html.style.overflow = htmlOverflow
   body.style.overflow = bodyStyles.overflow

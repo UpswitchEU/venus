@@ -131,14 +131,12 @@ describe('RevenueQualitySectionStack', () => {
       <RevenueQualitySectionStack
         step={7}
         methods={['revenue_multiple']}
-        formData={
-          formData({
-            rev_contract_backlog: '250.000',
-            rev_recurring_amount: '400.000',
-            rev_top_client_amount: '150.000',
-            revenue: '1.000.000',
-          } as unknown as Partial<ManualValuationFormData>)
-        }
+        formData={formData({
+          rev_contract_backlog: '250.000',
+          rev_recurring_amount: '400.000',
+          rev_top_client_amount: '150.000',
+          revenue: '1.000.000',
+        } as unknown as Partial<ManualValuationFormData>)}
         onFieldChange={vi.fn()}
       />
     )

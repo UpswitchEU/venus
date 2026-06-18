@@ -65,10 +65,7 @@ function walkSourceFiles(dir: string, acc: string[] = []): string[] {
     if (entry.isDirectory()) {
       if (entry.name === 'node_modules' || entry.name === '__tests__') continue
       walkSourceFiles(full, acc)
-    } else if (
-      /\.(ts|tsx)$/.test(entry.name) &&
-      !/\.(test|spec)\.(ts|tsx)$/.test(entry.name)
-    ) {
+    } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.(test|spec)\.(ts|tsx)$/.test(entry.name)) {
       acc.push(full)
     }
   }

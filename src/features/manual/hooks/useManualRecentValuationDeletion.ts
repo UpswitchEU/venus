@@ -1,6 +1,10 @@
 import { type Dispatch, type SetStateAction, useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { RecentValuation, RightPanelView, ValuationReportData } from '../../../components/calculator'
+import type {
+  RecentValuation,
+  RightPanelView,
+  ValuationReportData,
+} from '../../../components/calculator'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
 import { reportService } from '../../../services'
 import { backendAPI } from '../../../services/backendApi'
@@ -22,15 +26,12 @@ import {
   readManualMercuryHandoffFromBrowser,
 } from '../utils/manualMercuryNavigate'
 import { filterRemainingRecentValuationsAfterDelete } from '../utils/manualRecentValuations'
-import { restoreManualWorkspaceAfterDeleteFailure } from '../utils/restoreManualWorkspaceAfterDeleteFailure'
+import { clearReportsDeleting, markReportsDeleting } from '../utils/manualReportDeleteGuard'
 import {
   beginOptimisticCurrentReportDelete,
   resetManualWorkspaceState,
 } from '../utils/resetManualWorkspaceState'
-import {
-  clearReportsDeleting,
-  markReportsDeleting,
-} from '../utils/manualReportDeleteGuard'
+import { restoreManualWorkspaceAfterDeleteFailure } from '../utils/restoreManualWorkspaceAfterDeleteFailure'
 
 interface ManualDeletionRouter {
   push: (href: string) => void

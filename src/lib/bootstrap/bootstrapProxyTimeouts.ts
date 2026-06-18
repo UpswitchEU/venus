@@ -22,5 +22,8 @@ export function remainingBootstrapRouteBudgetMs(startTimeMs: number, nowMs = Dat
 }
 
 export function bootstrapTitanCallTimeoutMs(startTimeMs: number, nowMs = Date.now()): number {
-  return Math.min(VENUS_BOOTSTRAP_BFF_TIMEOUT_MS, remainingBootstrapRouteBudgetMs(startTimeMs, nowMs))
+  return Math.min(
+    VENUS_BOOTSTRAP_BFF_TIMEOUT_MS,
+    remainingBootstrapRouteBudgetMs(startTimeMs, nowMs)
+  )
 }

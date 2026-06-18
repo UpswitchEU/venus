@@ -36,14 +36,7 @@ export interface ParsedCSVData {
   headers: string[]
   rows: string[][]
   totalRows: number
-  detectedType:
-    | 'yuki'
-    | 'exact'
-    | 'odoo'
-    | 'octopus'
-    | 'silverfin'
-    | 'accountable'
-    | 'generic'
+  detectedType: 'yuki' | 'exact' | 'odoo' | 'octopus' | 'silverfin' | 'accountable' | 'generic'
   fiscalYears: string[]
 }
 

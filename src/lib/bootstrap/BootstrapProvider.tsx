@@ -22,8 +22,8 @@ import { useIsMountedRef } from '../../features/manual/hooks/useNavigationCancel
 import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
-import { refreshDelegatedClientContextIfNeeded } from '../auth/delegatedClientContextRefresh'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
+import { refreshDelegatedClientContextIfNeeded } from '../auth/delegatedClientContextRefresh'
 import {
   isDelegatedClientContextReadyForBootstrap,
   shouldWaitForMercuryClientContextBeforeBootstrap,
@@ -318,8 +318,7 @@ export function BootstrapProvider({
         {
           reportId: activeContext.reportId?.substring(0, 30),
           hasClientId: !!activeContext.clientId?.trim(),
-          storedRelationshipId:
-            useClientContext.getState().relationshipId?.substring(0, 8) ?? null,
+          storedRelationshipId: useClientContext.getState().relationshipId?.substring(0, 8) ?? null,
           authError: useAuthStore.getState().error?.substring(0, 80),
         }
       )

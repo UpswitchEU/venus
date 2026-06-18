@@ -1,23 +1,9 @@
 /**
- * Mirrors Titan `PRICING_CONFIG[free].features.allowed_methods` — keep in sync with
- * apps/titan-api/src/billing/config/pricing.config.ts
- *
- * NOTE: ``arr_multiple`` and ``startup_valuation`` are part of the Free tier so
- * pre-revenue founders + business owners can run the SaaS / Startup paths without
- * upgrading. Both methods are non-combinable in the synthesis flow.
- *
- * ``liquidation_analysis`` shares the balance-sheet input contract with
- * ``adjusted_nav``; gating it differently from NAV would be confusing UX.
+ * Mirrors Titan `PRICING_CONFIG[free].features.allowed_methods` — `null` means
+ * "all methods allowed". Keep in sync with
+ * apps/titan-api/src/billing/config/pricing.config.ts.
  */
-export const FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS = [
-  'upswitch_adaptive',
-  'dcf',
-  'ebitda_multiple',
-  'adjusted_nav',
-  'arr_multiple',
-  'startup_valuation',
-  'liquidation_analysis',
-] as const
+export const FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS: string[] | null = null
 
 /**
  * Business owners / founders in Venus (non-accountant flow): Light Venus + startup campaign.
@@ -109,21 +95,19 @@ export function isAccountantFreeOrStarterTier(planType: string | undefined): boo
  * @param allowedFromApi - from GET /api/v2/credits/plan `allowed_methods`; omit if unknown
  * @param planType - user plan_type when API omits allowed_methods
  *
- * Returning `null` means "all methods allowed" (paid tiers). For unknown
- * plan strings we fall back to the Free-tier restricted list so a typo or
- * a new tier name added on the backend does NOT accidentally unlock paid
- * methods in the UI before the matching Venus deploy lands. Server-side
- * `CreditAPI.saveValuation` is still authoritative and will 402 on
- * insufficient credits regardless of what the UI shows.
+ * Returning `null` means "all methods allowed". Titan currently resolves Free,
+ * paid tiers, and unknown legacy plan strings to configs whose
+ * `allowed_methods` are `null`; Venus mirrors that fallback so degraded
+ * `/credits/plan` responses do not invent stricter UI locks than server
+ * enforcement. Server-side `CreditAPI.saveValuation` is still authoritative
+ * and will 402 on insufficient credits regardless of what the UI shows.
  */
 export function resolveAllowedMethodKeys(
   allowedFromApi: string[] | null | undefined,
-  planType: string | undefined
+  _planType: string | undefined
 ): string[] | null {
-  if (allowedFromApi !== undefined && allowedFromApi !== null) {
+  if (allowedFromApi !== undefined) {
     return allowedFromApi
   }
-  const pt = (planType || 'free').toLowerCase()
-  if (['starter', 'pro', 'expert', 'enterprise', 'premium'].includes(pt)) return null
-  return [...FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS]
+  return FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS
 }

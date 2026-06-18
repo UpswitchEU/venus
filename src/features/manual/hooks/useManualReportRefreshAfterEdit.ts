@@ -14,8 +14,8 @@ import {
   resolveSynthesisAwarePresentation,
   shouldAlignRecommendedAskingWithSynthesis,
 } from '../components/manualReportPresentation'
-import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
 
 type ManualPdfGenerator = () => Promise<string | null>
 
@@ -133,14 +133,13 @@ export function useManualReportRefreshAfterEdit({
             generatePdf,
             isPdfGenerating,
             reportMeta: {
-              reportUpdatedAt: fresh.updated_at
-                ? new Date(String(fresh.updated_at))
-                : undefined,
+              reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : undefined,
               pdfGeneratedAt:
                 fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
                   ? new Date(String(fresh.pdf_generated_at))
                   : null,
-              pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
+              pdfUrl:
+                canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
             },
           })
         }

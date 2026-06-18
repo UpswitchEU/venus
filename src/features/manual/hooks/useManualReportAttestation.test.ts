@@ -16,21 +16,15 @@ describe('isAttestationMenuVisible', () => {
   })
 
   it('hides the menu when attest is disabled in Titan', () => {
-    expect(
-      isAttestationMenuVisible({ attestEnabled: false }, true, 'report-1')
-    ).toBe(false)
+    expect(isAttestationMenuVisible({ attestEnabled: false }, true, 'report-1')).toBe(false)
   })
 
   it('shows the menu only when attestEnabled is true', () => {
-    expect(
-      isAttestationMenuVisible({ attestEnabled: true }, true, 'report-1')
-    ).toBe(true)
+    expect(isAttestationMenuVisible({ attestEnabled: true }, true, 'report-1')).toBe(true)
   })
 
   it('hides the menu after a failed readiness probe', () => {
-    expect(isAttestationMenuVisible({ enabled: false }, true, 'report-1')).toBe(
-      false
-    )
+    expect(isAttestationMenuVisible({ enabled: false }, true, 'report-1')).toBe(false)
   })
 })
 
@@ -59,9 +53,7 @@ describe('useManualReportAttestation', () => {
 
   it('maps not-finalized Titan errors to localized copy', async () => {
     fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ attestEnabled: true }), { status: 200 })
-      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ attestEnabled: true }), { status: 200 }))
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -91,9 +83,7 @@ describe('useManualReportAttestation', () => {
   it('ignores duplicate attest clicks while one request is in flight', async () => {
     let resolvePost: (() => void) | null = null
     fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ attestEnabled: true }), { status: 200 })
-      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ attestEnabled: true }), { status: 200 }))
       .mockImplementationOnce(
         () =>
           new Promise<Response>((resolve) => {

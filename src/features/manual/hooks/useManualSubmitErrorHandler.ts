@@ -78,7 +78,9 @@ export function useManualSubmitErrorHandler({
           // Keep the server message in logs (English, useful for support /
           // Cowork sessions) even though we show a localized toast.
           serverMessage: error.message,
-          via503: Boolean((error.context as { via_503_passthrough?: boolean })?.via_503_passthrough),
+          via503: Boolean(
+            (error.context as { via_503_passthrough?: boolean })?.via_503_passthrough
+          ),
         })
         return
       }

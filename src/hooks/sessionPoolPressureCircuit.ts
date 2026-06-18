@@ -18,7 +18,10 @@ export function isUpstreamPoolPressureHttpStatus(status: number | undefined | nu
   return status === 503 || status === 504
 }
 
-export function parseRetryAfterMs(retryAfter: string | undefined | null, now = Date.now()): number | undefined {
+export function parseRetryAfterMs(
+  retryAfter: string | undefined | null,
+  now = Date.now()
+): number | undefined {
   if (!retryAfter?.trim()) {
     return undefined
   }
@@ -34,7 +37,10 @@ export function parseRetryAfterMs(retryAfter: string | undefined | null, now = D
   return undefined
 }
 
-function readRetryAfterHeader(headers: Record<string, unknown> | undefined, now: number): number | undefined {
+function readRetryAfterHeader(
+  headers: Record<string, unknown> | undefined,
+  now: number
+): number | undefined {
   if (!headers) {
     return undefined
   }

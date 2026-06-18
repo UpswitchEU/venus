@@ -24,8 +24,8 @@
  */
 
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react'
-import { backendAPI } from '../../../services/backendApi'
 import type { AccountantValuationDefaults } from '../../../services/api/profile/AccountantSettingsAPI'
+import { backendAPI } from '../../../services/backendApi'
 import type { ManualValuationFormData } from '../../../types/valuation'
 import { apiLogger } from '../../../utils/logger'
 
@@ -118,8 +118,7 @@ export function useApplyAdvisorValuationDefaults({
       defaults.default_show_enterprise_to_equity_bridge != null &&
       formData.show_enterprise_to_equity_bridge === undefined
     ) {
-      updates.show_enterprise_to_equity_bridge =
-        defaults.default_show_enterprise_to_equity_bridge
+      updates.show_enterprise_to_equity_bridge = defaults.default_show_enterprise_to_equity_bridge
       fields.push('show_enterprise_to_equity_bridge')
     }
 

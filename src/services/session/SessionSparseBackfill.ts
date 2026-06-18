@@ -8,13 +8,13 @@ import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import {
-  businessTypeWeightsFromSegments,
-  resolveBusinessTypeSegments,
-} from '../../utils/normalizeBusinessTypeSegments'
-import {
   mergeSessionSurfaceForOptionalPrefill,
   sessionEnvelopeHasIdentitySignals,
 } from '../../utils/mergeOptionalSessionPrefillFields'
+import {
+  businessTypeWeightsFromSegments,
+  resolveBusinessTypeSegments,
+} from '../../utils/normalizeBusinessTypeSegments'
 // Read these constants directly from their source to side-step a Vite SSR
 // re-export hazard: when SessionSparseBackfill is loaded via the SessionService
 // → SessionBackgroundRevalidation chain in vitest, the re-export through

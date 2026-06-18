@@ -95,8 +95,7 @@ describe('useManualMethodPersistenceController', () => {
   it('enqueues method persist only after a user-initiated method change', () => {
     const setSelectedMethod = vi.fn()
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       { initialProps: makeParams({ setSelectedMethod }) }
     )
 
@@ -116,8 +115,7 @@ describe('useManualMethodPersistenceController', () => {
 
   it('does not enqueue when selectedMethod changes programmatically after seeding', () => {
     const { rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       { initialProps: makeParams() }
     )
 
@@ -130,8 +128,7 @@ describe('useManualMethodPersistenceController', () => {
 
   it('does not enqueue before restorationComplete', () => {
     const { rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       {
         initialProps: makeParams({ restorationComplete: false }),
       }
@@ -148,8 +145,7 @@ describe('useManualMethodPersistenceController', () => {
       ebitda: { available: true, value: 900_000 },
     }
     const { rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       {
         initialProps: makeParams({
           restorationComplete: true,
@@ -180,8 +176,7 @@ describe('useManualMethodPersistenceController', () => {
 
   it('does not arm enqueue tracking before result hydrates on open', () => {
     const { rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       {
         initialProps: makeParams({
           restorationComplete: true,
@@ -215,8 +210,7 @@ describe('useManualMethodPersistenceController', () => {
     }
 
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       {
         initialProps: makeParams({
           restorationComplete: true,
@@ -270,8 +264,7 @@ describe('useManualMethodPersistenceController', () => {
     }
 
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       {
         initialProps: makeParams({
           restorationComplete: true,
@@ -307,8 +300,7 @@ describe('useManualMethodPersistenceController', () => {
   it('enqueues when handlePreSelectMethod changes the active method', () => {
     const setPreSelectedMethod = vi.fn()
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       { initialProps: makeParams({ setPreSelectedMethod }) }
     )
 
@@ -327,8 +319,7 @@ describe('useManualMethodPersistenceController', () => {
   it('does not enqueue method persist when toggling pre-selected methods only', () => {
     const togglePreSelectedMethod = vi.fn()
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       { initialProps: makeParams({ togglePreSelectedMethod }) }
     )
 
@@ -364,8 +355,7 @@ describe('useManualMethodPersistenceController', () => {
 
   it('enqueues preparer persist when preparer fields change in the edit modal', () => {
     const { rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       {
         initialProps: makeParams({
           showValuationEditModal: true,
@@ -392,8 +382,7 @@ describe('useManualMethodPersistenceController', () => {
   it('does not re-enqueue method persist when rollback runs after a failed persist', () => {
     const setSelectedMethod = vi.fn()
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       { initialProps: makeParams({ setSelectedMethod }) }
     )
 

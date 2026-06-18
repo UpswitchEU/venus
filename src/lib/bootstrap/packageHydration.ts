@@ -34,8 +34,7 @@ export function applyBootstrapPackageHydration(
       generalLogger.warn(
         '[BootstrapProvider] Package hydration failed - triggering full restoration',
         {
-          error:
-            hydrationError instanceof Error ? hydrationError.message : String(hydrationError),
+          error: hydrationError instanceof Error ? hydrationError.message : String(hydrationError),
         }
       )
 

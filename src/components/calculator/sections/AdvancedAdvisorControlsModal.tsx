@@ -17,7 +17,12 @@
  */
 
 import { useTranslations } from 'next-intl'
-import { Modal, ModalContent, ModalHeader, ModalTitle } from '../../../design-system/components/Modal'
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+} from '../../../design-system/components/Modal'
 import {
   AdvancedAdvisorControlsSection,
   type AdvancedAdvisorControlsSectionProps,

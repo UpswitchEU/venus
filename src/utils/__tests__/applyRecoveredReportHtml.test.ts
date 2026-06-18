@@ -1,10 +1,10 @@
 // @vitest-environment node
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { ValuationSession } from '../../types/valuation'
+import { SessionRestorationService } from '../../services/session/SessionRestorationService'
 import { useManualResultsStore } from '../../store/manual'
 import { useSessionStore } from '../../store/useSessionStore'
-import { SessionRestorationService } from '../../services/session/SessionRestorationService'
+import type { ValuationSession } from '../../types/valuation'
 import { applyRecoveredReportHtml } from '../applyRecoveredReportHtml'
 
 const safetyNetHtml =

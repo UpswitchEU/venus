@@ -16,9 +16,7 @@ describe('isExplicitUserDcfIntent', () => {
   })
 
   it('returns false for auto-seeded WACC alone', () => {
-    expect(
-      isExplicitUserDcfIntent({ dcf_wacc_pct: 10.5 }, {} as ValuationFormData, 0)
-    ).toBe(false)
+    expect(isExplicitUserDcfIntent({ dcf_wacc_pct: 10.5 }, {} as ValuationFormData, 0)).toBe(false)
   })
 
   it('returns true for FCFF-only mode', () => {

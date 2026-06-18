@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  encodeStreamFallbackErrorSseBytes,
-  encodeStreamRecoveryMetaSseBytes,
-} from './chat-to-sse'
+import { encodeStreamFallbackErrorSseBytes, encodeStreamRecoveryMetaSseBytes } from './chat-to-sse'
 
 describe('encodeStreamRecoveryMetaSseBytes', () => {
   it('emits a BFF-only stream_recovery chunk the FE uses to skip duplicate fallback', () => {

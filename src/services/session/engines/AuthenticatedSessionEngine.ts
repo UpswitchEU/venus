@@ -18,11 +18,11 @@
  * @module services/session/engines/AuthenticatedSessionEngine
  */
 
-import type { ValuationSession } from '../../../types/valuation'
 import {
   awaitSessionPoolPressureGate,
   recordSessionPoolPressureFromHttpError,
 } from '../../../hooks/sessionPoolPressureCircuit'
+import type { ValuationSession } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../../../utils/reportHtmlRecovery'
 import { sessionService } from '../../index'

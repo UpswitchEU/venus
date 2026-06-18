@@ -25,11 +25,11 @@ vi.mock('../../../utils/logger', async (importOriginal) => {
   }
 })
 
-import { AuthenticatedSessionEngine } from './AuthenticatedSessionEngine'
 import {
   recordSessionPoolPressure503,
   resetSessionPoolPressureCircuitForTests,
 } from '../../../hooks/sessionPoolPressureCircuit'
+import { AuthenticatedSessionEngine } from './AuthenticatedSessionEngine'
 
 function deferred<T>() {
   let resolve!: (value: T) => void

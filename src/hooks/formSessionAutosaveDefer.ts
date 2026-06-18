@@ -65,8 +65,10 @@ export function markRestorationObserved(
   observedAt: number = Date.now()
 ): void {
   if (!isMercuryDelegatedExistingReport(reportId)) return
-  if (!restorationObservedAtByReport.has(reportId!)) {
-    restorationObservedAtByReport.set(reportId!, observedAt)
+  const delegatedReportId = reportId
+  if (!delegatedReportId) return
+  if (!restorationObservedAtByReport.has(delegatedReportId)) {
+    restorationObservedAtByReport.set(delegatedReportId, observedAt)
   }
 }
 
@@ -96,10 +98,17 @@ export function getMercuryDelegatedAutosaveDeferRemainingMs(args: {
   const { reportId, restorationComplete, now = Date.now() } = args
   const sourceApp = args.sourceApp ?? getMercurySourceApp()
   if (!restorationComplete || !isMercuryDelegatedExistingReport(reportId)) return 0
+  const delegatedReportId = reportId
+  if (!delegatedReportId) return 0
   if (!sourceApp?.includes('mercury')) return 0
 
-  observeMercuryDelegatedRestoration({ reportId, restorationComplete: true, sourceApp, now })
-  const observedAt = restorationObservedAtByReport.get(reportId!)
+  observeMercuryDelegatedRestoration({
+    reportId: delegatedReportId,
+    restorationComplete: true,
+    sourceApp,
+    now,
+  })
+  const observedAt = restorationObservedAtByReport.get(delegatedReportId)
   if (observedAt == null) return 0
   const remaining = MERCURY_DELEGATED_AUTOSAVE_DEFER_MS - (now - observedAt)
   return remaining > 0 ? remaining : 0

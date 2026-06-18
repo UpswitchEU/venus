@@ -21,7 +21,6 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import {
   applyGrootboekCountryOverrides,
   DEFAULT_LEDGER_ACCOUNTS,
@@ -36,6 +35,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import {
   calculateLatencyAmount,

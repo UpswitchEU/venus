@@ -526,9 +526,7 @@ export function SynthesisWeightingSection({
                           title={c.apvBridge.doubleCountingGuard ?? synth('apvBadgeTooltip')}
                         >
                           {synth(
-                            c.apvBridge.isCustomerTemplate
-                              ? 'apvCustomerTemplateBasis'
-                              : 'apvBasis'
+                            c.apvBridge.isCustomerTemplate ? 'apvCustomerTemplateBasis' : 'apvBasis'
                           )}
                         </span>
                       )}

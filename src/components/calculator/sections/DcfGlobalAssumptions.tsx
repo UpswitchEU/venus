@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Switch } from '@/design-system/components/Switch'
 import { cn } from '@/design-system/utils'
+import { AcademicValidationNotice } from './AcademicValidationNotice'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import {
   DCF_DEFAULT_CAPEX_PCT,
@@ -18,7 +19,6 @@ import {
   DCF_DEFAULT_TERMINAL_GROWTH_PCT,
 } from './dcfEngineDefaults'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
-import { AcademicValidationNotice } from './AcademicValidationNotice'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
 export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'

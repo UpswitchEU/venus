@@ -51,10 +51,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const isMaxUpdateDepth =
       error.name === 'Error' &&
-      (error.message.includes('Maximum update depth') || error.message.includes('maximum update depth'))
+      (error.message.includes('Maximum update depth') ||
+        error.message.includes('maximum update depth'))
 
-    const search =
-      typeof window !== 'undefined' ? window.location.search : undefined
+    const search = typeof window !== 'undefined' ? window.location.search : undefined
     const mercuryHandoff =
       search != null
         ? {

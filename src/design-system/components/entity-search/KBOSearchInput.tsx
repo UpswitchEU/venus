@@ -6,12 +6,11 @@ import { Building2, Check, Loader2, Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
-import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { formatLegalFormLabel } from '@/utils/registryCompanyDisplay'
+import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { cn, safeString } from '../../utils'
-import { KboConfirmedCard } from './KboConfirmedCard'
 import type { KBOCompany } from './EntitySearchTypes'
 import {
   dropdownVariants,
@@ -20,6 +19,7 @@ import {
   searchFieldVariants,
   searchGroupVariants,
 } from './EntitySearchVariants'
+import { KboConfirmedCard } from './KboConfirmedCard'
 
 export interface KBOSearchInputProps extends VariantProps<typeof searchFieldVariants> {
   /** Floating label text */

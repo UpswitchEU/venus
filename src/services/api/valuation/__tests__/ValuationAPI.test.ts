@@ -77,7 +77,8 @@ describe('ValuationAPI validation handling', () => {
         status: 422,
         data: {
           code: 'BENCHMARK_CONTRACT_REQUIRED',
-          message: 'A business type is required so Upswitch can attach the Delphi-resolved benchmark contract to this calculation.',
+          message:
+            'A business type is required so Upswitch can attach the Delphi-resolved benchmark contract to this calculation.',
           country_code: 'BE',
           reason: 'missing_business_type_id',
         },

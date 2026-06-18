@@ -261,10 +261,7 @@ export class SessionBootstrapService {
 
     // Guard 2: Result cache
     if (this.hasCompletedFor(context)) {
-      if (
-        this.lastSuccessfulResult &&
-        (await this.isDelegatedBootstrapCacheAllowed(context))
-      ) {
+      if (this.lastSuccessfulResult && (await this.isDelegatedBootstrapCacheAllowed(context))) {
         recordBootstrapReportMode(
           this.lastSuccessfulResult.report.reportId,
           this.lastSuccessfulResult.report.mode
@@ -932,7 +929,10 @@ export class SessionBootstrapService {
       const msg = `[Bootstrap] Circuit breaker: ${this.callTimestamps.length} calls in ${SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS / 1000}s window — refusing further calls`
       this.logger.error(msg)
       const cachedResult = this.getCachedResult(context)
-      if (cachedResult && (await this.isDelegatedBootstrapCacheAllowed(context, hints.hasClientToken))) {
+      if (
+        cachedResult &&
+        (await this.isDelegatedBootstrapCacheAllowed(context, hints.hasClientToken))
+      ) {
         this.logger.info('[Bootstrap] Returning scoped cached result from circuit breaker')
         recordBootstrapReportMode(cachedResult.report.reportId, cachedResult.report.mode)
         return cachedResult

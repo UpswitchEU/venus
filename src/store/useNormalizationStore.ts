@@ -16,18 +16,18 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { isUpstreamPoolPressureHttpStatus } from '../hooks/sessionPoolPressureCircuit'
 import type {
   NormalizationItem,
   NormalizationSource,
   NormalizationStatus,
 } from '../components/calculator/UnifiedNormalizationTypes'
 import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
-import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
 import {
   getMercurySourceApp,
   getSessionAutosaveDeferRemainingMs,
 } from '../hooks/formSessionAutosaveDefer'
+import { isUpstreamPoolPressureHttpStatus } from '../hooks/sessionPoolPressureCircuit'
+import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
 import type {
   ConfidenceScoreValue,
   CreateNormalizationRequest,
@@ -41,9 +41,9 @@ import {
   writeBrowserRecoveryValue,
 } from '../utils/browserRecoveryStorage'
 import { generalLogger } from '../utils/logger'
-import { useSessionStore } from './useSessionStore'
 import { appliesToYear } from '../utils/normalizationMath'
 import { isValidSessionId } from '../utils/sessionIdValidation'
+import { useSessionStore } from './useSessionStore'
 
 // ─────────────────────────────────────────
 // CATEGORY MAPPING

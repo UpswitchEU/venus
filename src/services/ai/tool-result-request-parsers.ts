@@ -2,6 +2,7 @@ import { optionalString, optionalStringList, recordValue } from './tool-result-p
 import type {
   AcknowledgeWarningRequest,
   BelgianCompanyBootstrap,
+  BulkValuationRunRequest,
   BuyerProfilePreview,
   ClientCreateRequest,
   ClientDataReadinessPreview,
@@ -10,24 +11,23 @@ import type {
   ImportReviewRequestPending,
   IntegrationConnectRequest,
   IntegrationSyncRequest,
+  ListingFieldUpdateRequest,
   ListingPreview,
   ListingVisibilityRequest,
   MethodReadinessPreview,
   MultiSelectRequest,
+  NormalizationDismissRequest,
   OwnerProfileAnswerRequest,
   OwnerReminderRequest,
   SecureCredentialRequest,
   ShareTokenRequest,
   ShareTokenRevokeRequest,
   SingleSelectRequest,
-  BulkValuationRunRequest,
-  ListingFieldUpdateRequest,
-  NormalizationDismissRequest,
   ValuationDefaultsPreview,
   ValuationDefaultsRequest,
   ValuationMethodPreferenceRequest,
-  WorkspaceClientsPreview,
   ValuationSessionRequest,
+  WorkspaceClientsPreview,
 } from './tool-result-types'
 
 function ownerProfileAnswerValue(value: unknown): OwnerProfileAnswerRequest['value'] | undefined {
@@ -315,9 +315,7 @@ export function parseValuationMethodPreferenceRequest(
   return []
 }
 
-export function parseNormalizationDismissRequest(
-  data: unknown
-): NormalizationDismissRequest[] {
+export function parseNormalizationDismissRequest(data: unknown): NormalizationDismissRequest[] {
   const d = recordValue(data)
   if (!d) return []
   const req = recordValue(d.request)
@@ -328,8 +326,7 @@ export function parseNormalizationDismissRequest(
         reportId: optionalString(req.report_id),
         adjustmentId: optionalString(req.adjustment_id),
         category: optionalString(req.category),
-        amount:
-          typeof req.amount === 'number' && Number.isFinite(req.amount) ? req.amount : null,
+        amount: typeof req.amount === 'number' && Number.isFinite(req.amount) ? req.amount : null,
         reason: optionalString(req.reason),
         message: optionalString(d.message),
       },
@@ -347,9 +344,7 @@ export function parseNormalizationDismissRequest(
   return []
 }
 
-export function parseListingFieldUpdateRequest(
-  data: unknown
-): ListingFieldUpdateRequest[] {
+export function parseListingFieldUpdateRequest(data: unknown): ListingFieldUpdateRequest[] {
   const d = recordValue(data)
   if (!d) return []
   const req = recordValue(d.request)
@@ -398,9 +393,7 @@ export function parseListingFieldUpdateRequest(
   return []
 }
 
-export function parseBulkValuationRunRequest(
-  data: unknown
-): BulkValuationRunRequest[] {
+export function parseBulkValuationRunRequest(data: unknown): BulkValuationRunRequest[] {
   const d = recordValue(data)
   if (!d) return []
   const req = recordValue(d.request)
@@ -412,8 +405,7 @@ export function parseBulkValuationRunRequest(
       {
         status: 'pending_approval',
         clientIds: ids,
-        clientCount:
-          typeof req.client_count === 'number' ? req.client_count : ids?.length,
+        clientCount: typeof req.client_count === 'number' ? req.client_count : ids?.length,
         estimatedCredits:
           typeof req.estimated_credits === 'number' ? req.estimated_credits : undefined,
         rejectedCount:
@@ -437,9 +429,7 @@ export function parseBulkValuationRunRequest(
   return []
 }
 
-export function parseValuationDefaultsRequest(
-  data: unknown
-): ValuationDefaultsRequest[] {
+export function parseValuationDefaultsRequest(data: unknown): ValuationDefaultsRequest[] {
   const d = recordValue(data)
   if (!d) return []
   const req = recordValue(d.request)
@@ -455,8 +445,7 @@ export function parseValuationDefaultsRequest(
     if ('historical_ebitda_weighting_mode' in rawChange) {
       const v = rawChange.historical_ebitda_weighting_mode
       if (v === null) change.historical_ebitda_weighting_mode = null
-      else if (v === 'standard' || v === 'weighted')
-        change.historical_ebitda_weighting_mode = v
+      else if (v === 'standard' || v === 'weighted') change.historical_ebitda_weighting_mode = v
     }
     if ('show_enterprise_to_equity_bridge' in rawChange) {
       const v = rawChange.show_enterprise_to_equity_bridge
@@ -484,9 +473,7 @@ export function parseValuationDefaultsRequest(
   return []
 }
 
-export function parseWorkspaceClientsPreview(
-  data: unknown
-): WorkspaceClientsPreview[] {
+export function parseWorkspaceClientsPreview(data: unknown): WorkspaceClientsPreview[] {
   const d = recordValue(data)
   if (!d) return []
   if (d.status === 'ok') {
@@ -510,10 +497,7 @@ export function parseWorkspaceClientsPreview(
           accepted_at: typeof row.accepted_at === 'string' ? row.accepted_at : null,
         }
       })
-      .filter(
-        (c): c is NonNullable<WorkspaceClientsPreview['clients']>[number] =>
-          c !== null
-      )
+      .filter((c): c is NonNullable<WorkspaceClientsPreview['clients']>[number] => c !== null)
     const counts = recordValue(d.counts) ?? {}
     const filter = recordValue(d.filter) ?? null
     const filterStatus =
@@ -526,8 +510,7 @@ export function parseWorkspaceClientsPreview(
         status: 'ok',
         clients,
         totalClients: typeof d.total_clients === 'number' ? d.total_clients : undefined,
-        returnedCount:
-          typeof d.returned_count === 'number' ? d.returned_count : clients.length,
+        returnedCount: typeof d.returned_count === 'number' ? d.returned_count : clients.length,
         truncated: d.truncated === true,
         counts: {
           draft: typeof counts.draft === 'number' ? counts.draft : 0,
@@ -555,9 +538,7 @@ export function parseWorkspaceClientsPreview(
   return []
 }
 
-export function parseValuationDefaultsPreview(
-  data: unknown
-): ValuationDefaultsPreview[] {
+export function parseValuationDefaultsPreview(data: unknown): ValuationDefaultsPreview[] {
   const d = recordValue(data)
   if (!d) return []
   if (d.status === 'ok') {
@@ -573,13 +554,10 @@ export function parseValuationDefaultsPreview(
             typeof adj === 'number' && Number.isFinite(adj) ? adj : null,
           historical_ebitda_weighting_mode:
             weighting === 'standard' || weighting === 'weighted' ? weighting : null,
-          show_enterprise_to_equity_bridge:
-            typeof bridge === 'boolean' ? bridge : null,
+          show_enterprise_to_equity_bridge: typeof bridge === 'boolean' ? bridge : null,
         },
         allDefaultsAtSystem:
-          typeof d.all_defaults_at_system === 'boolean'
-            ? d.all_defaults_at_system
-            : undefined,
+          typeof d.all_defaults_at_system === 'boolean' ? d.all_defaults_at_system : undefined,
         message: optionalString(d.message),
       },
     ]
@@ -741,8 +719,7 @@ export function parseClientCreateRequest(data: unknown): ClientCreateRequest[] {
   const status = d.status
   const req = recordValue(d.request)
   if ((status === 'pending_approval' || status === 'auto_approved') && req) {
-    const companyNumber =
-      typeof req.company_number === 'string' ? req.company_number.trim() : ''
+    const companyNumber = typeof req.company_number === 'string' ? req.company_number.trim() : ''
     if (!companyNumber) return []
 
     return [

@@ -26,19 +26,21 @@ const clientContextState = {
     clientContextState.relationshipId = null
     clientContextState.contextGateResolved = false
   }),
-  setClientContext: vi.fn((context: {
-    accountantUser: { id: string; email: string; full_name: string }
-    relationship: { id: string; customer_name: string }
-  }) => {
-    clientContextState.isActingAsClient = true
-    clientContextState.accountant = {
-      id: context.accountantUser.id,
-      email: context.accountantUser.email,
-      fullName: context.accountantUser.full_name,
+  setClientContext: vi.fn(
+    (context: {
+      accountantUser: { id: string; email: string; full_name: string }
+      relationship: { id: string; customer_name: string }
+    }) => {
+      clientContextState.isActingAsClient = true
+      clientContextState.accountant = {
+        id: context.accountantUser.id,
+        email: context.accountantUser.email,
+        fullName: context.accountantUser.full_name,
+      }
+      clientContextState.relationshipId = context.relationship.id
+      clientContextState.contextGateResolved = false
     }
-    clientContextState.relationshipId = context.relationship.id
-    clientContextState.contextGateResolved = false
-  }),
+  ),
 }
 
 vi.mock('../initRuntime', () => ({

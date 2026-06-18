@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   awaitSessionPoolPressureGate,
   getSessionPatchThrottleRemainingMs,
@@ -71,10 +71,7 @@ describe('sessionPoolPressureCircuit', () => {
 
   it('records pool pressure from HTTP 503/504 errors only', () => {
     const now = 10_000
-    recordSessionPoolPressureFromHttpError(
-      { response: { status: 502, headers: {} } },
-      now
-    )
+    recordSessionPoolPressureFromHttpError({ response: { status: 502, headers: {} } }, now)
     expect(isSessionPoolPressureCircuitOpen(now)).toBe(false)
 
     recordSessionPoolPressureFromHttpError(

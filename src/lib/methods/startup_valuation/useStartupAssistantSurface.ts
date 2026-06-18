@@ -27,7 +27,7 @@ const STUDIO_STEP_LABELS: Record<StudioIssue['step'], { en: string; nl: string; 
   profile: { en: 'Profile', nl: 'Profiel', fr: 'Profil' },
   berkus: { en: 'Risk reduction', nl: 'Risico-reductie', fr: 'Réduction des risques' },
   scorecard: { en: 'Defensibility', nl: 'Verdedigbaarheid', fr: 'Défendabilité' },
-  founder_pedigree: { en: 'Team pedigree', nl: 'Team', fr: 'Pedigree de l\'équipe' },
+  founder_pedigree: { en: 'Team pedigree', nl: 'Team', fr: "Pedigree de l'équipe" },
   traction: { en: 'Traction', nl: 'Tractie', fr: 'Traction' },
   exit_story: { en: 'Exit story', nl: 'Exit-verhaal', fr: 'Histoire de sortie' },
   round_simulator: { en: 'Round', nl: 'Ronde', fr: 'Tour' },
@@ -98,14 +98,8 @@ export function useStartupAssistantSurface(
         ctaPrompt: formatStartupAssistantPrompt(issue.assistantPrompt[assistantLocale]),
         quickFixLabel: getStartupIssueQuickFixLabel(issue.id, assistantLocale),
         jumpLabel: `${
-          assistantLocale === 'fr'
-            ? 'Aller à'
-            : assistantLocale === 'nl'
-              ? 'Ga naar'
-              : 'Jump to'
-        } ${
-          STUDIO_STEP_LABELS[issue.step][assistantLocale]
-        }`,
+          assistantLocale === 'fr' ? 'Aller à' : assistantLocale === 'nl' ? 'Ga naar' : 'Jump to'
+        } ${STUDIO_STEP_LABELS[issue.step][assistantLocale]}`,
       }))
   }, [
     acknowledgedStartupIssues,

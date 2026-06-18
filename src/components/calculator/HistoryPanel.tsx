@@ -368,8 +368,7 @@ export function HistoryPanel({
   const { user } = useAuth()
   const hp = useTranslations('historyPanel')
   const rawLocale = useLocale()
-  const locale: HistoryLocale =
-    rawLocale === 'fr' ? 'fr' : rawLocale === 'nl' ? 'nl' : 'en'
+  const locale: HistoryLocale = rawLocale === 'fr' ? 'fr' : rawLocale === 'nl' ? 'nl' : 'en'
   // ── Real version data from store ──
   // Use explicit reportId prop (session key) when report is null (new session)
   const reportId = reportIdProp ?? report?.id

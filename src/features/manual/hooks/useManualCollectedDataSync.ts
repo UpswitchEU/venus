@@ -223,8 +223,7 @@ function readManualSessionIdentitySurface(
   const postalCode = (merged.postal_code || merged.postalCode) as string | undefined
   const city = merged.city as string | undefined
   const streetAddress = (
-    (merged.company_address as string | undefined) ||
-    (merged.address as string | undefined)
+    (merged.company_address as string | undefined) || (merged.address as string | undefined)
   )?.trim()
 
   return {

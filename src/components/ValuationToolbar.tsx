@@ -32,9 +32,9 @@ import {
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
 import { APIError } from '../types/errors'
-import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
+import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import { UserDropdown } from './UserDropdown'
 
 export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({

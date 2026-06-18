@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_BFF_TRANSIENT_RETRY_OPTIONS } from './fetchBffJsonWithTransientRetry'
 import {
+  DEFAULT_BFF_TRANSIENT_RETRY_OPTIONS,
   fetchBffJsonWithTransientRetry,
   shouldRetryBffJsonResult,
 } from './fetchBffJsonWithTransientRetry'
@@ -50,9 +50,11 @@ describe('fetchBffJsonWithTransientRetry', () => {
   })
 
   it('does not retry permanent client errors', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: false, message: 'Forbidden' }), { status: 403 })
-    )
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: false, message: 'Forbidden' }), { status: 403 })
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await fetchBffJsonWithTransientRetry('/api/valuations/r1/review/approve', {

@@ -149,10 +149,7 @@ export function applyMercuryNewClientNameQuery(
   if (!trimmed) return urlString
   try {
     const u = new URL(urlString)
-    if (
-      !u.pathname.includes('/advisor/clients/') &&
-      !u.pathname.includes('/accountant/clients/')
-    ) {
+    if (!u.pathname.includes('/advisor/clients/') && !u.pathname.includes('/accountant/clients/')) {
       return urlString
     }
     u.searchParams.set(MERCURY_NEW_CLIENT_NAME_QUERY_KEY, trimmed)
@@ -170,10 +167,7 @@ export function applyMercuryReportIdQuery(
   if (!trimmed) return urlString
   try {
     const u = new URL(urlString)
-    if (
-      !u.pathname.includes('/advisor/clients/') &&
-      !u.pathname.includes('/accountant/clients/')
-    ) {
+    if (!u.pathname.includes('/advisor/clients/') && !u.pathname.includes('/accountant/clients/')) {
       return urlString
     }
     u.searchParams.set(MERCURY_REPORT_ID_QUERY_KEY, trimmed)
@@ -279,9 +273,7 @@ export function getSafeMercuryReturnUrl(
   const mercuryUrl = getMercuryUrl()
   /** When set, stored Mercury paths are rewritten to this locale; when omitted, stored URLs are kept as-is. */
   const explicitLocaleOpt =
-    options?.locale && ['en', 'nl', 'fr'].includes(options.locale)
-      ? options.locale
-      : undefined
+    options?.locale && ['en', 'nl', 'fr'].includes(options.locale) ? options.locale : undefined
   const pathLocale = mercuryPathLocale(explicitLocaleOpt ?? 'en')
   const celebrate = options?.celebrateMercuryReturn === true
 

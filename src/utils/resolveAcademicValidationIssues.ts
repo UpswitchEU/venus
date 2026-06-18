@@ -11,7 +11,11 @@ function validationWarningMessages(value: unknown): string[] {
   return value
     .map((item) => {
       if (typeof item === 'string') return item
-      if (item && typeof item === 'object' && typeof (item as { message?: string }).message === 'string') {
+      if (
+        item &&
+        typeof item === 'object' &&
+        typeof (item as { message?: string }).message === 'string'
+      ) {
         return (item as { message: string }).message
       }
       return null
@@ -24,7 +28,7 @@ export function resolveAcademicValidationIssues(
   result:
     | Pick<ValuationResponse, 'academic_validation_issues' | 'details' | 'validation_warnings'>
     | null
-    | undefined,
+    | undefined
 ): string[] | undefined {
   if (!result) return undefined
 

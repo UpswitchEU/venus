@@ -38,13 +38,13 @@ import type { ValuationResponse } from '@/types/valuation'
 import { hydrateClientValuationResultsMap } from '@/utils/extractValuationResultsMap'
 import { isSessionKey } from '@/utils/identifiers'
 import { generalLogger } from '@/utils/logger'
+import { isPdfTransientUpstreamStatus } from '@/utils/pdfTransientUpstream'
 import { getRenderableReportHtmlFromCurrentOrFallback } from '@/utils/safetyNetReportHtml'
 import {
   resolveSynthesisAwarePresentation,
   shouldAlignRecommendedAskingWithSynthesis,
 } from '../components/manualReportPresentation'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
-import { isPdfTransientUpstreamStatus } from '@/utils/pdfTransientUpstream'
 import { useIsMountedRef, useLatestRef } from './useNavigationCancellation'
 
 const PDF_STALE_POLL_INTERVAL_MS = 2_500
@@ -329,8 +329,7 @@ export function usePdfStalenessLifecycle(
         return
       }
 
-      const pdfGenMs =
-        patch.pdfGeneratedAt instanceof Date ? patch.pdfGeneratedAt.getTime() : null
+      const pdfGenMs = patch.pdfGeneratedAt instanceof Date ? patch.pdfGeneratedAt.getTime() : null
       const stillNoPdf = pdfGenMs == null
 
       if (stillNoPdf) {
@@ -376,7 +375,8 @@ export function usePdfStalenessLifecycle(
         return true
       } catch (err) {
         if (isActive && !isActive()) return false
-        const isSession404 = err instanceof APIError && err.statusCode === 404 && isSessionKey(lookupId)
+        const isSession404 =
+          err instanceof APIError && err.statusCode === 404 && isSessionKey(lookupId)
         if (isSession404) {
           const streak = ++bySession404StreakRef.current
           const delayMs = Math.min(
@@ -529,7 +529,10 @@ export function usePdfStalenessLifecycle(
     setPdfPollTransientCount(0)
     if (!pdfStale) return
     scheduleWaitTimeout()
-    void runStalePollOnce(persistedReportLookupId, () => lookupIdRef.current === persistedReportLookupId)
+    void runStalePollOnce(
+      persistedReportLookupId,
+      () => lookupIdRef.current === persistedReportLookupId
+    )
   }, [
     isPdfGenerating,
     pdfStale,

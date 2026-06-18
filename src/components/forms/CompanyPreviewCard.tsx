@@ -105,7 +105,9 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
 
       {/* Company details */}
       <div className="space-y-1">
-        <h4 className="text-lg font-semibold leading-snug text-foreground">{company.company_name}</h4>
+        <h4 className="text-lg font-semibold leading-snug text-foreground">
+          {company.company_name}
+        </h4>
         {metaParts.length > 0 && (
           <p className="text-sm text-muted-foreground">
             {legalFormLabel && <span title={legalFormTitle}>{legalFormLabel}</span>}
@@ -132,7 +134,9 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
           </div>
         )}
         {activityDescription && (
-          <p className="text-xs leading-relaxed text-muted-foreground pt-1">{activityDescription}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground pt-1">
+            {activityDescription}
+          </p>
         )}
       </div>
     </div>

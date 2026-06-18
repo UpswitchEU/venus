@@ -1023,7 +1023,7 @@ describe('SessionBootstrapService', () => {
         },
         report: {
           mode: 'existing',
-          reportId: context.reportId!,
+          reportId: context.reportId ?? 'report-1',
           hasExistingData: true,
           status: 'active',
         },

@@ -54,9 +54,7 @@ export class AccountantSettingsAPI extends HttpClient {
    * when the row is missing — sole-trader / first-login advisors land
    * here.
    */
-  async getValuationDefaults(
-    options?: APIRequestConfig
-  ): Promise<AccountantValuationDefaults> {
+  async getValuationDefaults(options?: APIRequestConfig): Promise<AccountantValuationDefaults> {
     try {
       const response = await this.executeRequest<{
         success: boolean

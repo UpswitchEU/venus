@@ -1,6 +1,7 @@
 import { tryRefetchAfterEnsureHtml } from '../../../services/session/SessionHtmlRecovery'
 import { useManualResultsStore } from '../../../store/manual'
 import type { ValuationResponse, ValuationSession } from '../../../types/valuation'
+import { applyRecoveredReportHtml } from '../../../utils/applyRecoveredReportHtml'
 import { enrichRecoveryValuationSnapshot } from '../../../utils/reportHtmlRecovery'
 import {
   buildManualHtmlRecoverySession,
@@ -10,7 +11,6 @@ import {
   resultMissingRenderableHtml,
   sessionNeedsRenderableHtmlFromPayload,
 } from './manualReportHtmlRecoveryCore'
-import { applyRecoveredReportHtml } from '../../../utils/applyRecoveredReportHtml'
 
 export {
   buildManualHtmlRecoverySession,

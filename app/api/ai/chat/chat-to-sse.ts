@@ -219,8 +219,6 @@ export function hasVisibleTitanChatPayload(response: TitanChatJsonResponse): boo
   if (content.length > 0) return true
   return (response.toolResults ?? []).some(
     (tr) =>
-      typeof tr.toolName === 'string' &&
-      tr.toolName.trim().length > 0 &&
-      tr.data !== undefined
+      typeof tr.toolName === 'string' && tr.toolName.trim().length > 0 && tr.data !== undefined
   )
 }

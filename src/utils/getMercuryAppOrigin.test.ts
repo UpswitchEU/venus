@@ -10,9 +10,7 @@ describe('getMercuryAppOrigin', () => {
       })
     ).toBe('https://app.upswitch.com')
 
-    expect(
-      getMercuryAppOrigin('https://app.upswitch.com', null)
-    ).toBe('https://app.upswitch.com')
+    expect(getMercuryAppOrigin('https://app.upswitch.com', null)).toBe('https://app.upswitch.com')
   })
 
   it('strips a Venus subdomain prefix from the current host', () => {
@@ -48,11 +46,7 @@ describe('getMercuryAppOrigin', () => {
   })
 
   it('returns null when the location object is missing fields', () => {
-    expect(
-      getMercuryAppOrigin(undefined, { protocol: '', host: 'venus.upswitch.com' })
-    ).toBeNull()
-    expect(
-      getMercuryAppOrigin(undefined, { protocol: 'https:', host: '' })
-    ).toBeNull()
+    expect(getMercuryAppOrigin(undefined, { protocol: '', host: 'venus.upswitch.com' })).toBeNull()
+    expect(getMercuryAppOrigin(undefined, { protocol: 'https:', host: '' })).toBeNull()
   })
 })

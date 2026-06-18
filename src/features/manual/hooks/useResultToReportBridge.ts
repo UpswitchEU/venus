@@ -44,11 +44,11 @@ import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { generalLogger } from '@/utils/logger'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 import {
   mapValuationResultToReport,
   type ReportTranslator,
 } from '../utils/mapValuationResultToReport'
-import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 import { useLatestRef } from './useNavigationCancellation'
 
 export interface UseResultToReportBridgeParams {

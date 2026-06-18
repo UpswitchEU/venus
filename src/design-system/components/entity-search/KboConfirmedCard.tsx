@@ -1,13 +1,13 @@
 'use client'
 
 import { Check } from 'lucide-react'
-import { cn, safeString } from '../../utils'
 import {
   formatLegalFormLabel,
   formatRegistryCompanyLocation,
   formatRegistryNumber,
   getRegistryActivityDescription,
 } from '@/utils/registryCompanyDisplay'
+import { cn, safeString } from '../../utils'
 import type { KBOCompany } from './EntitySearchTypes'
 
 export interface KboConfirmedCardProps {
@@ -27,9 +27,7 @@ export function KboConfirmedCard({
   const name = safeString(company.name)
   const { label: legalFormLabel, title: legalFormTitle } = formatLegalFormLabel(company.legalForm)
   const kboRaw = safeString(company.kboNumber)
-  const kboFormatted = kboRaw
-    ? formatRegistryNumber(kboRaw, company.countryCode ?? 'BE')
-    : ''
+  const kboFormatted = kboRaw ? formatRegistryNumber(kboRaw, company.countryCode ?? 'BE') : ''
   const location = formatRegistryCompanyLocation({
     address: company.address,
     postalCode: company.postalCode,
@@ -58,18 +56,12 @@ export function KboConfirmedCard({
           )}
           {metaParts.length > 0 && (
             <p className="text-xs text-foreground/50">
-              {legalFormLabel && (
-                <span title={legalFormTitle}>{legalFormLabel}</span>
-              )}
-              {legalFormLabel && kboFormatted && (
-                <span aria-hidden="true"> · </span>
-              )}
+              {legalFormLabel && <span title={legalFormTitle}>{legalFormLabel}</span>}
+              {legalFormLabel && kboFormatted && <span aria-hidden="true"> · </span>}
               {kboFormatted && <span className="font-mono">{kboFormatted}</span>}
             </p>
           )}
-          {location && (
-            <p className="text-xs leading-relaxed text-foreground/40">{location}</p>
-          )}
+          {location && <p className="text-xs leading-relaxed text-foreground/40">{location}</p>}
           {(activityCode || activityDescription) && (
             <div className="space-y-1 pt-1">
               {activityCode && (

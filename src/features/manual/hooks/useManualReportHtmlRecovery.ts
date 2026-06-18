@@ -107,7 +107,10 @@ export function useManualReportHtmlRecovery({
     const schedulePass = (pass: number) => {
       if (cancelled || pass >= HOOK_RECOVERY_MAX_PASSES) return
 
-      const delay = HOOK_RECOVERY_RETRY_MS[pass] ?? HOOK_RECOVERY_RETRY_MS.at(-1)!
+      const delay =
+        HOOK_RECOVERY_RETRY_MS[pass] ??
+        HOOK_RECOVERY_RETRY_MS[HOOK_RECOVERY_RETRY_MS.length - 1] ??
+        0
       clearTimer()
       timerRef.current = setTimeout(() => {
         timerRef.current = null

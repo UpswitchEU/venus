@@ -7,7 +7,10 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { resetBootstrapSyncGateForRetry, resetGlobalBootstrapSyncGateForTests } from '../useBootstrapSync'
+import {
+  resetBootstrapSyncGateForRetry,
+  resetGlobalBootstrapSyncGateForTests,
+} from '../useBootstrapSync'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 

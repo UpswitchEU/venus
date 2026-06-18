@@ -20,8 +20,11 @@ import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
 import { PrefillBadge } from '@/features/startup-studio/components/PrefillBadge'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
-import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
 import { useStartupPrefilledKeys } from '@/features/startup-studio/hooks/useStartupPrefilledKeys'
+import {
+  coerceStudioLocale,
+  studioIntlLocale,
+} from '@/features/startup-studio/i18n/useStudioLocale'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 

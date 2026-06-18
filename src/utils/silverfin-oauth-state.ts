@@ -40,7 +40,7 @@ export function decodeSilverfinOAuthState(state: string | null): string | null {
 }
 
 export function decodeSilverfinOAuthStatePayload(
-  state: string | null,
+  state: string | null
 ): SilverfinOAuthStatePayload | null {
   if (!state?.trim()) {
     return null

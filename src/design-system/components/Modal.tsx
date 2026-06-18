@@ -73,18 +73,13 @@ export interface ModalContentProps
 // ROOT COMPONENT
 // ─────────────────────────────────────────
 
-function Modal({
-  coordinatedScrollLock = false,
-  modal,
-  open,
-  ...props
-}: ModalProps) {
+function Modal({ coordinatedScrollLock = false, modal, open, ...props }: ModalProps) {
   useScrollLock(Boolean(open && coordinatedScrollLock))
 
   return (
     <DialogPrimitive.Root
       open={open}
-      modal={coordinatedScrollLock ? false : modal ?? true}
+      modal={coordinatedScrollLock ? false : (modal ?? true)}
       {...props}
     />
   )

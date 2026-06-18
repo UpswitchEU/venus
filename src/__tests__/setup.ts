@@ -131,7 +131,9 @@ class ResizeObserverMock {
   observe = vi.fn()
   unobserve = vi.fn()
   disconnect = vi.fn()
-  constructor(_callback: ResizeObserverCallback) {}
+  constructor(_callback: ResizeObserverCallback) {
+    void _callback
+  }
 }
 global.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
 
@@ -140,7 +142,9 @@ class IntersectionObserverMock {
   observe = vi.fn()
   unobserve = vi.fn()
   disconnect = vi.fn()
-  constructor(_callback: IntersectionObserverCallback) {}
+  constructor(_callback: IntersectionObserverCallback) {
+    void _callback
+  }
 }
 global.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver
 

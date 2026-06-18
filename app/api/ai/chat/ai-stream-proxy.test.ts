@@ -122,9 +122,7 @@ describe('wrapAiSseBodyForObservability', () => {
     const upstream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(
-          new TextEncoder().encode(
-            'data: {"type":"text","content":"Partial announcement"}\n\n'
-          )
+          new TextEncoder().encode('data: {"type":"text","content":"Partial announcement"}\n\n')
         )
         controller.close()
       },
@@ -150,9 +148,7 @@ describe('wrapAiSseBodyForObservability', () => {
     const upstream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(
-          new TextEncoder().encode(
-            'data: {"type":"text","content":"Partial announcement"}\n\n'
-          )
+          new TextEncoder().encode('data: {"type":"text","content":"Partial announcement"}\n\n')
         )
         controller.close()
       },
@@ -207,7 +203,7 @@ describe('wrapAiSseBodyForObservability', () => {
     const pending = reader.read()
     await Promise.resolve()
     await reader.cancel('client navigated away')
-    await pending.catch(() => {})
+    await pending.catch(() => undefined)
     await new Promise((resolve) => setTimeout(resolve, 10))
 
     expect(upstreamCancelled).toBe(true)

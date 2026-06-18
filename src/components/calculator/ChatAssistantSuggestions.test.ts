@@ -41,11 +41,7 @@ describe('getContextualSuggestionKeys', () => {
         acceptedNormalizationsCount: 3,
         pendingNormalizationsCount: 0,
       }).map((item) => item.key)
-    ).toEqual([
-      'suggestions.explainValue',
-      'suggestions.explainEbitda',
-      'suggestions.askQuestion',
-    ])
+    ).toEqual(['suggestions.explainValue', 'suggestions.explainEbitda', 'suggestions.askQuestion'])
   })
 
   it('prefers cap-breach explanation over new norm suggestions', () => {

@@ -23,6 +23,7 @@ import {
   buildAxiosEffectiveRequestUrl,
   isBySessionReportUrl,
 } from '../../constants/reportBySessionRetry'
+import { waitForClientContext } from '../../lib/auth'
 // AUTH-FIRST: useGuestSessionStore removed - guest sessions are no longer supported
 import { env } from '../../utils/env'
 import {
@@ -30,7 +31,6 @@ import {
   type ErrorCategory,
   getUserFriendlyErrorMessage,
 } from '../../utils/errorRecovery'
-import { waitForClientContext } from '../../lib/auth'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
 import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'

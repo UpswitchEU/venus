@@ -13,11 +13,14 @@ vi.mock('../../../../_utils/agentActionProxy', () => ({
 import { POST } from './route'
 
 function jsonRequest(body: unknown) {
-  return new NextRequest('https://valuation.upswitch.app/api/integrations/accounting/yuki/connect', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  return new NextRequest(
+    'https://valuation.upswitch.app/api/integrations/accounting/yuki/connect',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  )
 }
 
 beforeEach(() => {

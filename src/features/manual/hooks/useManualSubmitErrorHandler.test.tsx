@@ -15,8 +15,8 @@
  */
 
 import { renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   AuthenticationError,
   CreditError,

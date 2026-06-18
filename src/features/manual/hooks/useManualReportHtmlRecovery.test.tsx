@@ -2,11 +2,11 @@
 
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ValuationSession } from '../../../types/valuation'
 import { backendAPI } from '../../../services/backendApi'
 import { __resetEnsureHtmlStateForTests } from '../../../services/session/SessionHtmlRecovery'
 import { useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
+import type { ValuationSession } from '../../../types/valuation'
 import { clearReportsDeleting } from '../utils/manualReportDeleteGuard'
 import { recoverManualReportHtmlIfNeeded } from '../utils/manualReportHtmlRecoveryUtil'
 import { useManualReportHtmlRecovery } from './useManualReportHtmlRecovery'

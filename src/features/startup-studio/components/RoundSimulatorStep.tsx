@@ -24,7 +24,10 @@ import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEdito
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
-import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
+import {
+  coerceStudioLocale,
+  studioIntlLocale,
+} from '@/features/startup-studio/i18n/useStudioLocale'
 import { resolveHeadlinePreMoney } from '@/features/startup-studio/utils/resolveHeadlinePreMoney'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {

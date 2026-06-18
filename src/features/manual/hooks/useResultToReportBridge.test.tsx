@@ -11,10 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
-import {
-  clearReportsDeleting,
-  markReportsDeleting,
-} from '../utils/manualReportDeleteGuard'
+import { clearReportsDeleting, markReportsDeleting } from '../utils/manualReportDeleteGuard'
 import {
   type UseResultToReportBridgeParams,
   useResultToReportBridge,

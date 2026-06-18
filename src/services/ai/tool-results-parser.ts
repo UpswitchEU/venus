@@ -15,6 +15,7 @@ import { recordValue } from './tool-result-parser-utils'
 import {
   parseAcknowledgeWarningRequest,
   parseBelgianCompanyBootstrap,
+  parseBulkValuationRunRequest,
   parseBuyerProfilePreview,
   parseClientCreateRequest,
   parseClientDataReadiness,
@@ -22,10 +23,12 @@ import {
   parseImportReviewRequest,
   parseIntegrationConnectRequest,
   parseIntegrationSyncRequest,
+  parseListingFieldUpdateRequest,
   parseListingPreview,
   parseListingVisibilityRequest,
   parseMethodReadiness,
   parseMultiSelectRequest,
+  parseNormalizationDismissRequest,
   parseOwnerInviteAccountantRequest,
   parseOwnerProfileAnswerRequest,
   parseOwnerReminderRequest,
@@ -34,14 +37,11 @@ import {
   parseShareTokenRevokeRequest,
   parseSingleSelectRequest,
   parseSyncStatus,
-  parseBulkValuationRunRequest,
-  parseListingFieldUpdateRequest,
-  parseNormalizationDismissRequest,
   parseValuationDefaultsPreview,
   parseValuationDefaultsRequest,
   parseValuationMethodPreferenceRequest,
-  parseWorkspaceClientsPreview,
   parseValuationSessionRequest,
+  parseWorkspaceClientsPreview,
 } from './tool-result-request-parsers'
 import type { ParsedToolResults } from './tool-result-types'
 import {
@@ -309,13 +309,10 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
       case 'add_client_widget': {
         const widgetData =
           data && typeof data === 'object' ? (data as Record<string, unknown>) : null
-        const subject =
-          typeof widgetData?.subject === 'string' ? widgetData.subject : ''
-        const registryRaw =
-          typeof widgetData?.registry === 'string' ? widgetData.registry : 'KBO'
+        const subject = typeof widgetData?.subject === 'string' ? widgetData.subject : ''
+        const registryRaw = typeof widgetData?.registry === 'string' ? widgetData.registry : 'KBO'
         const registry = registryRaw === 'KVK' ? 'KVK' : 'KBO'
-        const note =
-          typeof widgetData?.message === 'string' ? widgetData.message : undefined
+        const note = typeof widgetData?.message === 'string' ? widgetData.message : undefined
         out.registrySearchResults.push(
           ...parseRegistrySearchResults({
             registry,

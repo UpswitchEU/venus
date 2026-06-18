@@ -7,10 +7,10 @@ import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
 import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
+import { isFiniteNumeric } from '@/utils/isFiniteNumeric'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { PreviewMetricCard } from './previewMetricCards'
-import { isFiniteNumeric } from '@/utils/isFiniteNumeric'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 const SAAS_BUSINESS_TYPE_IDS = new Set([

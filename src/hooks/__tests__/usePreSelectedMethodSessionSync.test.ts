@@ -8,9 +8,7 @@ import {
 } from '../../constants/sessionUiKeys'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import {
-  resetRestorationObservedForTests,
-} from '../formSessionAutosaveDefer'
+import { resetRestorationObservedForTests } from '../formSessionAutosaveDefer'
 import { resetSessionPoolPressureCircuitForTests } from '../sessionPoolPressureCircuit'
 import { usePreSelectedMethodSessionSync } from '../usePreSelectedMethodSessionSync'
 

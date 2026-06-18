@@ -49,7 +49,11 @@ export interface MilestoneCopy {
 
 export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
   sound_idea: {
-    title: { en: 'Idea & problem-solution fit', nl: 'Idee & probleem-oplossing fit', fr: 'Idée et adéquation problème-solution' },
+    title: {
+      en: 'Idea & problem-solution fit',
+      nl: 'Idee & probleem-oplossing fit',
+      fr: 'Idée et adéquation problème-solution',
+    },
     subtitle: {
       en: 'Defendable problem with proof of demand',
       nl: 'Verdedigbaar probleem met aantoonbare vraag',
@@ -72,9 +76,9 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
         'Sortlist — gekwantificeerde €X procurement-pijn in marketing-services sourcing.',
       ],
       fr: [
-        'Showpad - une douleur claire en matière d\'aide à la vente B2B validée avec plus de 30 entretiens avant tout code.',
-        'Henchman — Legal-tech belge : 12 lettres d\'intention de cabinets d\'avocats avant MVP.',
-        'Sortlist - a quantifié X € de difficulté d\'approvisionnement dans l\'approvisionnement en services marketing.',
+        "Showpad - une douleur claire en matière d'aide à la vente B2B validée avec plus de 30 entretiens avant tout code.",
+        "Henchman — Legal-tech belge : 12 lettres d'intention de cabinets d'avocats avant MVP.",
+        "Sortlist - a quantifié X € de difficulté d'approvisionnement dans l'approvisionnement en services marketing.",
       ],
     },
     options: [
@@ -91,7 +95,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
         label: {
           en: '20+ interviews + written demand signals (LOIs, waitlist, surveys).',
           nl: '20+ interviews + schriftelijke vraagsignalen (LOIs, wachtlijst, surveys).',
-          fr: 'Plus de 20 entretiens + signaux de demande écrits (LOI, liste d\'attente, enquêtes).',
+          fr: "Plus de 20 entretiens + signaux de demande écrits (LOI, liste d'attente, enquêtes).",
         },
       },
       {
@@ -114,7 +118,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
     evidencePrompt: {
       en: 'Cite the strongest demand signal you have (e.g. "1,200 waitlist sign-ups + 8 paid pilots in Q4 2025").',
       nl: 'Noem het sterkste vraagsignaal dat je hebt (bv. "1.200 wachtlijst-aanmeldingen + 8 betaalde pilots in Q4 2025").',
-      fr: 'Citez le signal de demande le plus fort dont vous disposez (par exemple « 1 200 inscriptions sur liste d\'attente + 8 pilotes rémunérés au quatrième trimestre 2025 »).',
+      fr: "Citez le signal de demande le plus fort dont vous disposez (par exemple « 1 200 inscriptions sur liste d'attente + 8 pilotes rémunérés au quatrième trimestre 2025 »).",
     },
   },
 
@@ -128,7 +132,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
     why: {
       en: 'A demoable MVP — not a Figma — proves you can build it. Live customers using it weekly is the gold standard at pre-seed.',
       nl: 'Een demoable MVP — geen Figma — bewijst dat je het kunt bouwen. Live klanten die er wekelijks mee werken is de gouden standaard bij pre-seed.',
-      fr: 'Un MVP démontable – pas un Figma – prouve que vous pouvez le construire. Les clients en direct qui l\'utilisent chaque semaine sont la référence en matière de pré-amorçage.',
+      fr: "Un MVP démontable – pas un Figma – prouve que vous pouvez le construire. Les clients en direct qui l'utilisent chaque semaine sont la référence en matière de pré-amorçage.",
     },
     examples: {
       en: [
@@ -150,7 +154,11 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
     options: [
       {
         level: 'none',
-        label: { en: 'Concept only — no build yet.', nl: 'Alleen concept — nog niets gebouwd.', fr: 'Concept uniquement – ​​pas encore de construction.' },
+        label: {
+          en: 'Concept only — no build yet.',
+          nl: 'Alleen concept — nog niets gebouwd.',
+          fr: 'Concept uniquement – ​​pas encore de construction.',
+        },
       },
       {
         level: 'basic',
@@ -165,7 +173,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
         label: {
           en: 'Working MVP with 5+ design partners using it weekly.',
           nl: 'Werkende MVP met 5+ design partners die er wekelijks mee werken.',
-          fr: 'Travailler MVP avec plus de 5 partenaires de conception qui l\'utilisent chaque semaine.',
+          fr: "Travailler MVP avec plus de 5 partenaires de conception qui l'utilisent chaque semaine.",
         },
       },
       {
@@ -194,7 +202,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
     why: {
       en: 'Investors back people first at pre-seed. Complete teams (tech + commercial), domain expertise, and prior shipping history compound trust.',
       nl: 'Investeerders steken eerst geld in mensen bij pre-seed. Complete teams (tech + commercial), domeinexpertise en eerder shipping-track-record stapelen vertrouwen op.',
-      fr: 'Les investisseurs soutiennent d’abord les gens dès le pré-amorçage. Des équipes complètes (technologiques + commerciales), une expertise dans le domaine et un historique d\'expédition antérieur renforcent la confiance.',
+      fr: "Les investisseurs soutiennent d’abord les gens dès le pré-amorçage. Des équipes complètes (technologiques + commerciales), une expertise dans le domaine et un historique d'expédition antérieur renforcent la confiance.",
     },
     examples: {
       en: [
@@ -255,16 +263,20 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
   },
 
   strategic_relationships: {
-    title: { en: 'Strategic relationships', nl: 'Strategische relaties', fr: 'Relations stratégiques' },
+    title: {
+      en: 'Strategic relationships',
+      nl: 'Strategische relaties',
+      fr: 'Relations stratégiques',
+    },
     subtitle: {
       en: 'Signed LOIs, design partners, distribution deals',
       nl: 'Getekende LOIs, design partners, distributiedeals',
-      fr: 'Lettres d\'intention signées, partenaires de conception, accords de distribution',
+      fr: "Lettres d'intention signées, partenaires de conception, accords de distribution",
     },
     why: {
       en: 'Distribution > product at pre-seed. Signed letters of intent, design partners with real budget, and channel partners de-risk go-to-market for investors.',
       nl: 'Distributie > product bij pre-seed. Getekende LOIs, design partners met echte budgetten en kanaalpartners verlagen het GTM-risico voor investeerders.',
-      fr: 'Distribution > produit en pré-amorçage. Des lettres d\'intention signées, des partenaires de conception dotés d\'un budget réel et des partenaires de distribution réduisent les risques de mise sur le marché pour les investisseurs.',
+      fr: "Distribution > produit en pré-amorçage. Des lettres d'intention signées, des partenaires de conception dotés d'un budget réel et des partenaires de distribution réduisent les risques de mise sur le marché pour les investisseurs.",
     },
     examples: {
       en: [
@@ -278,7 +290,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
         'Theodo — kanaalpartnerschap met Imec.istart pre-launch.',
       ],
       fr: [
-        'Homme de main – Allen & Overy en tant que pilote rémunéré, a signé une lettre d\'intention pour le déploiement.',
+        "Homme de main – Allen & Overy en tant que pilote rémunéré, a signé une lettre d'intention pour le déploiement.",
         'Aikido – répertorié sur Atlassian Marketplace jour 1.',
         'Theodo — partenariat de distribution avec le pré-lancement Imec.istart.',
       ],
@@ -286,7 +298,11 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
     options: [
       {
         level: 'none',
-        label: { en: 'No partners or LOIs yet.', nl: 'Nog geen partners of LOIs.', fr: 'Pas de partenaires ni de lettres d\'intention pour l\'instant.' },
+        label: {
+          en: 'No partners or LOIs yet.',
+          nl: 'Nog geen partners of LOIs.',
+          fr: "Pas de partenaires ni de lettres d'intention pour l'instant.",
+        },
       },
       {
         level: 'basic',
@@ -301,7 +317,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
         label: {
           en: '3+ signed LOIs or paid design partners with named enterprise pilots.',
           nl: '3+ getekende LOIs of betaalde design partners met benoemde enterprise-pilots.',
-          fr: 'Plus de 3 lettres d\'intention signées ou partenaires de conception payants avec des pilotes d\'entreprise nommés.',
+          fr: "Plus de 3 lettres d'intention signées ou partenaires de conception payants avec des pilotes d'entreprise nommés.",
         },
       },
       {
@@ -321,7 +337,11 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
   },
 
   product_rollout: {
-    title: { en: 'Rollout & first revenue', nl: 'Uitrol & eerste omzet', fr: 'Déploiement et premiers revenus' },
+    title: {
+      en: 'Rollout & first revenue',
+      nl: 'Uitrol & eerste omzet',
+      fr: 'Déploiement et premiers revenus',
+    },
     subtitle: {
       en: 'Live customers, paid pilots or first ARR',
       nl: 'Live klanten, betaalde pilots of eerste ARR',
@@ -352,7 +372,11 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
     options: [
       {
         level: 'none',
-        label: { en: 'No revenue, no live customers.', nl: 'Geen omzet, geen live klanten.', fr: 'Pas de revenus, pas de clients en direct.' },
+        label: {
+          en: 'No revenue, no live customers.',
+          nl: 'Geen omzet, geen live klanten.',
+          fr: 'Pas de revenus, pas de clients en direct.',
+        },
       },
       {
         level: 'basic',
@@ -382,7 +406,7 @@ export const BERKUS_MILESTONES: Record<StudioBerkusKey, MilestoneCopy> = {
     evidencePrompt: {
       en: 'Quantify revenue and the retention story (e.g. "€8k MRR, all 5 pilots renewed").',
       nl: 'Kwantificeer omzet en het retentieverhaal (bv. "€8k MRR, alle 5 pilots verlengd").',
-      fr: 'Quantifiez les revenus et l\'historique de fidélisation (par exemple « 8 000 € de MRR, les 5 pilotes renouvelés »).',
+      fr: "Quantifiez les revenus et l'historique de fidélisation (par exemple « 8 000 € de MRR, les 5 pilotes renouvelés »).",
     },
   },
 }
@@ -409,7 +433,7 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
       why: {
         en: 'Bill Payne 2024: a defensible €1B+ TAM with double-digit growth tilts the Scorecard up by 25–30%. Smaller TAMs tilt it down sharply.',
         nl: 'Bill Payne 2024: een verdedigbare €1B+ TAM met dubbele-cijfer groei tilt de Scorecard 25–30% omhoog. Kleinere TAMs trekken hem scherp omlaag.',
-        fr: 'Bill Payne 2024 : un TAM défendable de plus d\'un milliard d\'euros avec une croissance à deux chiffres fait grimper le tableau de bord de 25 à 30 %. Les TAM plus petits l\'inclinent fortement vers le bas.',
+        fr: "Bill Payne 2024 : un TAM défendable de plus d'un milliard d'euros avec une croissance à deux chiffres fait grimper le tableau de bord de 25 à 30 %. Les TAM plus petits l'inclinent fortement vers le bas.",
       },
       examples: {
         en: [
@@ -423,9 +447,9 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
           'Wereldwijde B2B AI tooling: €30B+ TAM — uitzonderlijk.',
         ],
         fr: [
-          'Technologie juridique européenne : ~ 8 milliards d\'euros de TAM en croissance de 12 % – forte.',
+          "Technologie juridique européenne : ~ 8 milliards d'euros de TAM en croissance de 12 % – forte.",
           'SaaS logistique uniquement belge : ~80 M€ TAM — en dessous de la moyenne.',
-          'Outils d\'IA B2B mondiaux : 30 milliards d\'euros + TAM – exceptionnel.',
+          "Outils d'IA B2B mondiaux : 30 milliards d'euros + TAM – exceptionnel.",
         ],
       },
       options: [
@@ -458,20 +482,24 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
           label: {
             en: 'Global category-defining market — TAM €10B+, 20%+ growth.',
             nl: 'Wereldwijde category-defining markt — TAM €10B+, 20%+ groei.',
-            fr: 'Marché mondial définissant la catégorie – TAM 10 milliards d\'euros +, croissance de plus de 20 %.',
+            fr: "Marché mondial définissant la catégorie – TAM 10 milliards d'euros +, croissance de plus de 20 %.",
           },
         },
       ],
       evidencePrompt: {
         en: 'Quote your TAM source and growth rate (e.g. "Gartner 2025: €8B legal-tech, 12% YoY").',
         nl: 'Citeer je TAM-bron en groei (bv. "Gartner 2025: €8B legal-tech, 12% YoY").',
-        fr: 'Citez votre source TAM et votre taux de croissance (par exemple « Gartner 2025 : 8 milliards d\'euros de technologie juridique, 12 % en glissement annuel »).',
+        fr: "Citez votre source TAM et votre taux de croissance (par exemple « Gartner 2025 : 8 milliards d'euros de technologie juridique, 12 % en glissement annuel »).",
       },
     },
 
     competitive_environment: {
       weight_pct: 15,
-      title: { en: 'Competitive environment', nl: 'Concurrentieomgeving', fr: 'Environnement compétitif' },
+      title: {
+        en: 'Competitive environment',
+        nl: 'Concurrentieomgeving',
+        fr: 'Environnement compétitif',
+      },
       subtitle: {
         en: 'Defensibility, IP, switching costs',
         nl: 'Verdedigbaarheid, IP, switching costs',
@@ -494,7 +522,7 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
           'Generieke CRM-kloon in 2026 — verzadigd, geen moat.',
         ],
         fr: [
-          'Aikido — distribution open source + intégration étroite d\'Atlassian.',
+          "Aikido — distribution open source + intégration étroite d'Atlassian.",
           'Henchman – ensemble de données de clauses contractuelles exclusives.',
           'Clone générique du CRM en 2026 – saturé, sans fossé.',
         ],
@@ -542,7 +570,11 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
 
     sales_marketing_channels: {
       weight_pct: 25,
-      title: { en: 'Go-to-market & partnerships', nl: 'Go-to-market & partnerschappen', fr: 'Mise sur le marché et partenariats' },
+      title: {
+        en: 'Go-to-market & partnerships',
+        nl: 'Go-to-market & partnerschappen',
+        fr: 'Mise sur le marché et partenariats',
+      },
       subtitle: {
         en: 'Repeatable distribution and proof of CAC payback',
         nl: 'Herhaalbare distributie en bewijs van CAC payback',
@@ -565,15 +597,19 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
           'Geen GTM-hypothese = beneden gemiddeld.',
         ],
         fr: [
-          'Aïkido — entonnoir open source : gratuit → plan d\'équipe en 14 jours.',
-          'Linéaire : liste d\'attente gérée par la communauté avec 50 000 inscriptions.',
-          'Pas d\'hypothèse GTM = en dessous de la moyenne.',
+          "Aïkido — entonnoir open source : gratuit → plan d'équipe en 14 jours.",
+          "Linéaire : liste d'attente gérée par la communauté avec 50 000 inscriptions.",
+          "Pas d'hypothèse GTM = en dessous de la moyenne.",
         ],
       },
       options: [
         {
           level: 'none',
-          label: { en: 'No clear GTM hypothesis.', nl: 'Geen duidelijke GTM-hypothese.', fr: 'Aucune hypothèse GTM claire.' },
+          label: {
+            en: 'No clear GTM hypothesis.',
+            nl: 'Geen duidelijke GTM-hypothese.',
+            fr: 'Aucune hypothèse GTM claire.',
+          },
         },
         {
           level: 'basic',
@@ -674,13 +710,17 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
       evidencePrompt: {
         en: 'State runway and break-even target (e.g. "24 months runway, break-even Q4 2027").',
         nl: 'Geef runway en break-even target (bv. "24 maanden runway, break-even Q4 2027").',
-        fr: 'Indiquer la piste et l\'objectif d\'équilibre (par exemple « piste de 24 mois, seuil de rentabilité au quatrième trimestre 2027 »).',
+        fr: "Indiquer la piste et l'objectif d'équilibre (par exemple « piste de 24 mois, seuil de rentabilité au quatrième trimestre 2027 »).",
       },
     },
 
     other_factors: {
       weight_pct: 15,
-      title: { en: 'Other defensibility factors', nl: 'Overige defensibility-factoren', fr: 'Autres facteurs de défense' },
+      title: {
+        en: 'Other defensibility factors',
+        nl: 'Overige defensibility-factoren',
+        fr: 'Autres facteurs de défense',
+      },
       subtitle: {
         en: 'Regulation, geography, timing, brand',
         nl: 'Regulering, geografie, timing, merk',
@@ -689,7 +729,7 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
       why: {
         en: 'Catch-all for everything not in the other factors: regulatory advantages, geography, timing, brand, customer love, NPS, talent magnet status.',
         nl: 'Verzamelbak voor alles wat niet in de andere factoren past: regulatorische voordelen, geografie, timing, merk, klantliefde, NPS, talent magnet.',
-        fr: 'Un fourre-tout qui ne tient pas compte des autres facteurs : avantages réglementaires, géographie, timing, marque, amour des clients, NPS, statut d\'aimant à talents.',
+        fr: "Un fourre-tout qui ne tient pas compte des autres facteurs : avantages réglementaires, géographie, timing, marque, amour des clients, NPS, statut d'aimant à talents.",
       },
       examples: {
         en: [
@@ -711,11 +751,19 @@ export const SCORECARD_FACTORS: Record<StudioScorecardKey, MilestoneCopy & { wei
       options: [
         {
           level: 'none',
-          label: { en: 'Headwinds (regulatory, timing).', nl: 'Tegenwind (regulering, timing).', fr: 'Vents contraires (réglementaire, timing).' },
+          label: {
+            en: 'Headwinds (regulatory, timing).',
+            nl: 'Tegenwind (regulering, timing).',
+            fr: 'Vents contraires (réglementaire, timing).',
+          },
         },
         {
           level: 'basic',
-          label: { en: 'Neutral environment.', nl: 'Neutrale omgeving.', fr: 'Environnement neutre.' },
+          label: {
+            en: 'Neutral environment.',
+            nl: 'Neutrale omgeving.',
+            fr: 'Environnement neutre.',
+          },
         },
         {
           level: 'strong',

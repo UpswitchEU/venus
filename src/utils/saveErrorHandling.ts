@@ -13,10 +13,7 @@ export function isSlowSaveError(error: unknown): boolean {
   )
 }
 
-export function toastSaveFailure(
-  error: unknown,
-  tReport: (key: string) => string
-): void {
+export function toastSaveFailure(error: unknown, tReport: (key: string) => string): void {
   if (isSlowSaveError(error)) {
     toast.error(tReport('saveStillInProgress'), {
       description: tReport('saveStillInProgressDesc'),

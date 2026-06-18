@@ -8,7 +8,7 @@ describe('validateBusinessTypeSelection', () => {
         businessTypeId: 'accounting',
         businessTypeTitle: 'Fintech — Lending & Credit',
         industry: 'lending',
-      }),
+      })
     ).toMatch(/Fintech/)
   })
 
@@ -18,7 +18,7 @@ describe('validateBusinessTypeSelection', () => {
         businessTypeId: 'fintech-lending',
         businessTypeTitle: 'Fintech — Lending & Credit',
         industry: 'lending',
-      }),
+      })
     ).toBeNull()
   })
 })

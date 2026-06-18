@@ -1,7 +1,7 @@
+import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
-import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import {
   clearHtmlFromMissingRestorationAssets,
   mergeRecoveredHtmlIntoValuationSnapshot,

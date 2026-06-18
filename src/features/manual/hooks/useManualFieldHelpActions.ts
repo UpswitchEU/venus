@@ -1,6 +1,6 @@
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
-import type { FieldContext, FieldHelpContext } from '../../../components/calculator'
 import type { AssistantIntent } from '@/services/ai/local-chat-fallback'
+import type { FieldContext, FieldHelpContext } from '../../../components/calculator'
 import { buildManualFieldContext, buildManualFieldHelpQuestion } from '../utils/manualFieldHelp'
 
 import type { ManualChatSendHandler } from './useManualChatMessageActions'

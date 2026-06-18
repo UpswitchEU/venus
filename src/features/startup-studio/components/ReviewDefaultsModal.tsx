@@ -40,8 +40,8 @@
 import { AlertCircle, Check, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo } from 'react'
-import { scrollAnchorIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { getRegionalBaseline } from '@/components/calculator/sections/startup/regionalBaseline'
+import { scrollAnchorIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {

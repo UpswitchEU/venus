@@ -7,13 +7,13 @@ import { fetchWithBySession404Retry } from '../../utils/fetchWithBySession404Ret
 import { isSessionKey, isUuid, looksLikeExistingReportId } from '../../utils/identifiers'
 import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
 import { shouldWaitForMercuryClientContextBeforeBootstrap } from '../mercury/sessionReadiness'
-import { API_URL } from './config'
 import {
   initClientContextPromise,
   rejectClientContext,
   resetDelegatedClientContextGate,
   resolveClientContext,
 } from './clientContextGate'
+import { API_URL } from './config'
 import { isInitCompleted } from './initRuntime'
 import {
   clearDelegatedClientContext,
@@ -192,10 +192,7 @@ export async function refreshDelegatedClientContextIfNeeded(
           clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
         }
         await fetchClientContextById(urlClientId)
-      } else if (
-        input.reportId &&
-        (isSessionKey(input.reportId) || isUuid(input.reportId))
-      ) {
+      } else if (input.reportId && (isSessionKey(input.reportId) || isUuid(input.reportId))) {
         await restoreClientContextFromReport(input.reportId, mercuryDelegatedExisting)
       } else if (mercuryDelegatedExisting) {
         const message = 'Delegated client context was not available for this report'

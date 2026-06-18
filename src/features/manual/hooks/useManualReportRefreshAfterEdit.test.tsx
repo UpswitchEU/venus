@@ -66,12 +66,14 @@ describe('useManualReportRefreshAfterEdit', () => {
       pdf_generated_at: '2026-05-27T10:00:00.000Z',
     })
     const generatePdf = vi.fn().mockResolvedValue('https://cdn.example/new.pdf')
-    const setReport = vi.fn((updater: (prev: ValuationReportData | null) => ValuationReportData | null) => {
-      updater({
-        id: REPORT_ID,
-        htmlReport: '<div>old</div>',
-      } as ValuationReportData)
-    })
+    const setReport = vi.fn(
+      (updater: (prev: ValuationReportData | null) => ValuationReportData | null) => {
+        updater({
+          id: REPORT_ID,
+          htmlReport: '<div>old</div>',
+        } as ValuationReportData)
+      }
+    )
 
     const { result } = renderHook(() =>
       useManualReportRefreshAfterEdit({
@@ -96,12 +98,14 @@ describe('useManualReportRefreshAfterEdit', () => {
       pdf_generated_at: '2026-05-27T10:00:00.000Z',
     })
     const generatePdf = vi.fn().mockResolvedValue('https://cdn.example/new.pdf')
-    const setReport = vi.fn((updater: (prev: ValuationReportData | null) => ValuationReportData | null) => {
-      updater({
-        id: REPORT_ID,
-        htmlReport: '<div>old</div>',
-      } as ValuationReportData)
-    })
+    const setReport = vi.fn(
+      (updater: (prev: ValuationReportData | null) => ValuationReportData | null) => {
+        updater({
+          id: REPORT_ID,
+          htmlReport: '<div>old</div>',
+        } as ValuationReportData)
+      }
+    )
 
     const { result } = renderHook(() =>
       useManualReportRefreshAfterEdit({
@@ -124,12 +128,14 @@ describe('useManualReportRefreshAfterEdit', () => {
   it('force-regenerates PDF from patch HTML when getReport fails', async () => {
     getReport.mockRejectedValue(new Error('timeout'))
     const generatePdf = vi.fn().mockResolvedValue('https://cdn.example/new.pdf')
-    const setReport = vi.fn((updater: (prev: ValuationReportData | null) => ValuationReportData | null) => {
-      updater({
-        id: REPORT_ID,
-        htmlReport: '<div>old</div>',
-      } as ValuationReportData)
-    })
+    const setReport = vi.fn(
+      (updater: (prev: ValuationReportData | null) => ValuationReportData | null) => {
+        updater({
+          id: REPORT_ID,
+          htmlReport: '<div>old</div>',
+        } as ValuationReportData)
+      }
+    )
 
     const { result } = renderHook(() =>
       useManualReportRefreshAfterEdit({

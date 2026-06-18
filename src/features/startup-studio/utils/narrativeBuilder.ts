@@ -80,7 +80,10 @@ function fmt(eur: number | null | undefined): string {
  * Build the headline narrative — the *one* sentence that goes on the deck.
  * Reads in any context (no jargon, no leg names, no method names).
  */
-export function buildHeadlineNarrative(ctx: NarrativeContext, locale: 'en' | 'nl' | 'fr' = 'en'): string {
+export function buildHeadlineNarrative(
+  ctx: NarrativeContext,
+  locale: 'en' | 'nl' | 'fr' = 'en'
+): string {
   const n = narrativeBundle(locale)
   const post = ctx.preMoney + ctx.raise
   const dilution = post > 0 ? (ctx.raise / post) * 100 : 0
@@ -100,7 +103,10 @@ export function buildHeadlineNarrative(ctx: NarrativeContext, locale: 'en' | 'nl
  * jargon footnote on the live receipt.  Two short paragraphs that any
  * non-finance owner can read aloud.
  */
-export function buildWhyNarrative(ctx: NarrativeContext, locale: 'en' | 'nl' | 'fr' = 'en'): string[] {
+export function buildWhyNarrative(
+  ctx: NarrativeContext,
+  locale: 'en' | 'nl' | 'fr' = 'en'
+): string[] {
   const n = narrativeBundle(locale)
   const lines: string[] = []
 

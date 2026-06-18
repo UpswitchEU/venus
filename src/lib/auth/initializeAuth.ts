@@ -1,8 +1,8 @@
 import { isAccountantTierRole } from '../../constants/accountantPlanMethods'
 import { fetchWithBySession404Retry } from '../../utils/fetchWithBySession404Retry'
 import { isSessionKey, isUuid, looksLikeExistingReportId } from '../../utils/identifiers'
-import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
 import { generalLogger } from '../../utils/logger'
+import { isMercuryAdvisorModeParam } from '../../utils/reportMode'
 import { createRandomId } from '../../utils/secureRandom'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '../authLogger'
 import { isSafeMercuryReturnUrlInput } from '../return-url'
@@ -11,11 +11,6 @@ import {
   rejectClientContext,
   resolveClientContext,
 } from './clientContextGate'
-import {
-  clearDelegatedClientContext,
-  clearPersistedClientContextStorage,
-  isPersistedContextStaleForUrl,
-} from './persistedClientContext'
 import { API_URL } from './config'
 import { isReloadLooping, markInitSuccess, wasRecentlyInitialized } from './initGuards'
 import {
@@ -25,6 +20,11 @@ import {
   setInitPromise,
   setInitTraceId,
 } from './initRuntime'
+import {
+  clearDelegatedClientContext,
+  clearPersistedClientContextStorage,
+  isPersistedContextStaleForUrl,
+} from './persistedClientContext'
 import { getCachedRequest } from './requestCache'
 import { useAuthStore } from './store'
 import { sanitizeUrl } from './urlSecurity'
@@ -124,7 +124,8 @@ export async function initializeAuth(): Promise<void> {
           sanitizeUrl(['clientToken', 'client_id', 'prefilledQuery', 'autoSend'])
           const { useClientContext } = await import('../../stores/clientContext')
           clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
-          const message = 'Invalid valuation link. Please create a new valuation from the client page.'
+          const message =
+            'Invalid valuation link. Please create a new valuation from the client page.'
           rejectClientContext(new Error(message))
           useAuthStore.getState().setError(message)
         } else {
@@ -395,7 +396,9 @@ export async function initializeAuth(): Promise<void> {
                 const failDelegatedRestore = (message: string) => {
                   if (!mercuryDelegatedExisting) return
                   rejectClientContext(new Error(message))
-                  clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
+                  clearDelegatedClientContext(() =>
+                    useClientContext.getState().clearClientContext()
+                  )
                   useAuthStore.getState().setError(message)
                 }
 

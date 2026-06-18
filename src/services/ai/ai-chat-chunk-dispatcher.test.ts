@@ -54,7 +54,7 @@ describe('dispatchAIChatChunk', () => {
     expect(state.doneReceived).toBe(false)
   })
 
-  it('skips onText when content is empty (so empty intro chunks don\'t fire as content)', () => {
+  it("skips onText when content is empty (so empty intro chunks don't fire as content)", () => {
     const { callbacks, spies } = makeCallbacks()
     dispatchAIChatChunk(
       { type: 'text', content: '', conversationId: 'conv-1' },
@@ -68,11 +68,7 @@ describe('dispatchAIChatChunk', () => {
     const { callbacks, spies } = makeCallbacks()
     const state = makeChunkDispatchState()
 
-    dispatchAIChatChunk(
-      { type: 'tool_start', toolName: 'run_valuation' },
-      state,
-      callbacks
-    )
+    dispatchAIChatChunk({ type: 'tool_start', toolName: 'run_valuation' }, state, callbacks)
     dispatchAIChatChunk(
       { type: 'tool_result', toolName: 'run_valuation', toolResult: { id: 'r1' } },
       state,
@@ -88,11 +84,7 @@ describe('dispatchAIChatChunk', () => {
     const state = makeChunkDispatchState()
     state.resolvedConversationId = 'state-conv'
 
-    dispatchAIChatChunk(
-      { type: 'done', conversationId: 'done-conv' },
-      state,
-      callbacks
-    )
+    dispatchAIChatChunk({ type: 'done', conversationId: 'done-conv' }, state, callbacks)
 
     expect(state.doneReceived).toBe(true)
     expect(spies.onDone).toHaveBeenCalledWith('done-conv', { incomplete: false })
@@ -209,11 +201,7 @@ describe('dispatchAIChatChunk', () => {
       state,
       callbacks
     )
-    dispatchAIChatChunk(
-      { type: 'error', error: 'AI stream fallback failed' },
-      state,
-      callbacks
-    )
+    dispatchAIChatChunk({ type: 'error', error: 'AI stream fallback failed' }, state, callbacks)
 
     expect(onBffStreamRecovery).toHaveBeenCalledWith('bff-fallback-failed')
     expect(spies.onError).toHaveBeenCalledWith('AI stream fallback failed')

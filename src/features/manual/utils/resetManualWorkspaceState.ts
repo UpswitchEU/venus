@@ -1,8 +1,9 @@
 import { flushSync } from 'react-dom'
 import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
+import { resetBootstrapSyncGateForRetry } from '../../../hooks/useBootstrapSync'
 import { resetBootstrapGuard } from '../../../lib/bootstrap/BootstrapProvider'
 import { bootstrapService } from '../../../lib/bootstrap/SessionBootstrapService'
-import { resetBootstrapSyncGateForRetry } from '../../../hooks/useBootstrapSync'
+import { resetSessionEngine } from '../../../services/session/SessionEngineFactory'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { usePreparerMultipleStore } from '../../../store/manual/usePreparerMultipleStore'
 import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
@@ -10,7 +11,6 @@ import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
-import { resetSessionEngine } from '../../../services/session/SessionEngineFactory'
 
 export interface ResetManualWorkspaceStateOptions {
   /** When true, keep form inputs (delete flow keeps left-panel prefill). */

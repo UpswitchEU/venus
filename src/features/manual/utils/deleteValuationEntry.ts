@@ -1,7 +1,7 @@
 import { PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS } from '@/lib/cross-app/preservedReportBootstrapParams'
+import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type { RecentValuation } from '../../../components/calculator'
 import { isSessionKey } from '../../../utils/identifiers'
-import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import {
   buildManualExitClientViewTarget,
   buildManualSafeMercuryReturnUrl,

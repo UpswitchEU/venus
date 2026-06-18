@@ -48,8 +48,8 @@ import {
 import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsContent'
 import { applyUserVsOfficialVariance } from '../utils/officialFinancialsVariance'
 import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
-import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
 import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
+import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
 import {
   type BootstrapPrefillPatch,

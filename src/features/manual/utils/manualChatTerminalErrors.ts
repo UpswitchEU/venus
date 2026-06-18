@@ -92,7 +92,10 @@ export function buildManualChatTerminalErrorPatchFromAIResponse(
   }
 
   if (response.success === false && response.error) {
-    return buildManualChatTerminalErrorPatch({ kind: 'generic', message: response.error }, translate)
+    return buildManualChatTerminalErrorPatch(
+      { kind: 'generic', message: response.error },
+      translate
+    )
   }
 
   return null

@@ -7,6 +7,11 @@
  * @module services/api/session/SessionAPI
  */
 
+import {
+  awaitSessionPoolPressureGate,
+  recordSessionPoolPressureFromHttpError,
+  recordSuccessfulSessionPatch,
+} from '../../../hooks/sessionPoolPressureCircuit'
 import type {
   CreateValuationSessionRequest,
   UpdateValuationSessionRequest,
@@ -27,11 +32,6 @@ import {
   isValidationError,
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
-import {
-  awaitSessionPoolPressureGate,
-  recordSessionPoolPressureFromHttpError,
-  recordSuccessfulSessionPatch,
-} from '../../../hooks/sessionPoolPressureCircuit'
 import {
   stripReportBlobsFromSessionPatch,
   stripReportBlobsFromValuationResult,

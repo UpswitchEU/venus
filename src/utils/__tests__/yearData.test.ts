@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildCurrentYearData, isYearRowForecast, mergeYearDataRows, pickDefinedYearDataFields } from '../yearData'
+import {
+  buildCurrentYearData,
+  isYearRowForecast,
+  mergeYearDataRows,
+  pickDefinedYearDataFields,
+} from '../yearData'
 
 describe('isYearRowForecast', () => {
   it('detects camelCase and snake_case forecast flags', () => {

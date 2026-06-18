@@ -102,7 +102,9 @@ function rebalanceWeightsToHundred(weights: number[]): number[] {
     (bestIndex, weight, index) => (weight > rounded[bestIndex] ? index : bestIndex),
     0
   )
-  return rounded.map((weight, index) => (index === targetIndex ? roundPercent(weight + diff) : weight))
+  return rounded.map((weight, index) =>
+    index === targetIndex ? roundPercent(weight + diff) : weight
+  )
 }
 
 function equalWeights(count: number): number[] {

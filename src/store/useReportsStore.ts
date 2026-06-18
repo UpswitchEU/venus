@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { reportService } from '../services/reports'
 import type { ValuationSession } from '../types/valuation'
-import { isValuationIdSameAsActiveReport, isSessionKey } from '../utils/identifiers'
+import { isSessionKey, isValuationIdSameAsActiveReport } from '../utils/identifiers'
 import { createContextLogger } from '../utils/logger'
 
 const reportsLogger = createContextLogger('ReportsStore')
@@ -133,7 +133,12 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
           )
           const sessionReportIdForGuard = isSessionKey(activeId) ? undefined : activeId
           const activeSessionKeyForGuard = isSessionKey(activeId) ? activeId : undefined
-          markReportsDeleting([reportId, activeId, sessionReportIdForGuard, activeSessionKeyForGuard])
+          markReportsDeleting([
+            reportId,
+            activeId,
+            sessionReportIdForGuard,
+            activeSessionKeyForGuard,
+          ])
           tearDownWorkspaceAfterActiveReportDeleted([reportId, activeId])
           didClearSession = true
           reportsLogger.info('Active session cleared for deleted report', { reportId })

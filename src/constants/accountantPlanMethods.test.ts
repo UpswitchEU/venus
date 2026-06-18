@@ -32,22 +32,14 @@ describe('isAccountantFreeOrStarterTier', () => {
 })
 
 describe('resolveAllowedMethodKeys', () => {
-  it('returns free allowlist when API omits allowed_methods for free', () => {
-    const keys = resolveAllowedMethodKeys(undefined, 'free')
-    expect(keys).toContain('dcf')
-    expect(keys).toContain('upswitch_adaptive')
-    expect(keys).toContain('arr_multiple')
-    expect(keys).toContain('startup_valuation')
-    expect(keys).toContain('liquidation_analysis')
-    expect(keys?.length).toBe(7)
+  it('returns null (all methods) when API omits allowed_methods for free', () => {
+    expect(resolveAllowedMethodKeys(undefined, 'free')).toBeNull()
   })
 
-  // Cross-app contract: paid tiers must always resolve to `null`
+  // Cross-app contract: every known tier currently resolves to `null`
   // (= "all methods allowed"). Returning a restricted allowlist for any of
-  // these would silently lock down paid-tier UI before the next deploy of
-  // Titan's `/credits/plan` ships an explicit `allowed_methods` array. Pin
-  // every plan literal that Mercury knows about so a typo in either app
-  // surfaces here rather than on a customer screen.
+  // these would silently lock down UI before the next deploy of Titan's
+  // `/credits/plan` ships an explicit `allowed_methods` array.
   it.each([
     'starter',
     'pro',
@@ -65,14 +57,10 @@ describe('resolveAllowedMethodKeys', () => {
     expect(resolveAllowedMethodKeys(null, 'pro')).toBeNull()
   })
 
-  it('falls back to the free allowlist for unknown plan strings (defense in depth)', () => {
-    // Defends against a future Titan tier landing before Venus picks it up:
-    // an unrecognised string MUST collapse to the most restrictive list so
-    // we never accidentally unlock paid methods in the UI.
-    const keys = resolveAllowedMethodKeys(undefined, 'mystery_tier')
-    expect(keys?.length).toBe(7)
-    expect(keys).toContain('dcf')
-    expect(keys).toContain('liquidation_analysis')
+  it('falls back like Titan for unknown plan strings', () => {
+    // Titan maps unknown plan_type values to Free, and Free currently has
+    // `allowed_methods: null`. Venus mirrors that server-side fallback.
+    expect(resolveAllowedMethodKeys(undefined, 'mystery_tier')).toBeNull()
   })
 })
 

@@ -12,10 +12,10 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Building2, FileText, Image as ImageIcon, Loader2, Paperclip, Send, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
-import { scrollContainerToBottom } from '@/utils/scrollContainer'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { AuroraInput as Input } from '@/design-system/components/Input'
 import { cn } from '@/design-system/utils'
+import { scrollContainerToBottom } from '@/utils/scrollContainer'
 
 // Types
 export interface ChatMessage {

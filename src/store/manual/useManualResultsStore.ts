@@ -28,8 +28,8 @@ import {
   hydrateClientValuationResultsMap,
   resolveSelectedValuationMethodForExtraction,
 } from '../../utils/extractValuationResultsMap'
-import { normalizeValuationResultEnvelope } from '../../utils/resolveAcademicValidationIssues'
 import { storeLogger } from '../../utils/logger'
+import { normalizeValuationResultEnvelope } from '../../utils/resolveAcademicValidationIssues'
 import {
   getFirstRenderableReportHtml,
   getRenderableReportHtml,

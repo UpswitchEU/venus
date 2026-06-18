@@ -6,6 +6,11 @@ import { useClientContext } from '../../../stores/clientContext'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import { generalLogger } from '../../../utils/logger'
 import {
+  navigateToMercuryFromManualHandoff,
+  performManualMercuryNavigation,
+  readManualMercuryHandoffFromBrowser,
+} from '../utils/manualMercuryNavigate'
+import {
   buildManualContinueToListingUrl,
   buildManualExitClientViewFallbackUrl,
   buildManualExitClientViewTarget,
@@ -20,15 +25,10 @@ import {
   getManualBackNavigationDecision,
   getManualMercuryLocale,
   hasCompletedManualValuation,
+  type ManualMercuryLocale,
   resolveManualMercuryCompanyName,
   resolveManualMercuryReportId,
-  type ManualMercuryLocale,
 } from '../utils/manualMercuryNavigation'
-import {
-  navigateToMercuryFromManualHandoff,
-  performManualMercuryNavigation,
-  readManualMercuryHandoffFromBrowser,
-} from '../utils/manualMercuryNavigate'
 
 interface ManualNavigationRouter {
   back: () => void

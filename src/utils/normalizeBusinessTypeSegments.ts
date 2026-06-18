@@ -72,7 +72,5 @@ export function resolveBusinessTypeSegments(input: {
   const mix = normalizeBusinessTypeSegments(input.business_type_mix ?? undefined)
   if (mix.length > 0) return mix
 
-  return normalizeBusinessTypeSegments(
-    businessTypeSegmentsFromWeights(input.business_type_weights)
-  )
+  return normalizeBusinessTypeSegments(businessTypeSegmentsFromWeights(input.business_type_weights))
 }

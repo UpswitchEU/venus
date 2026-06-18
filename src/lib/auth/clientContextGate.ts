@@ -4,7 +4,10 @@
  * context is loaded.
  */
 import { useClientContext } from '../../stores/clientContext'
-import { getDelegatedUrlClientId, urlRequiresDelegatedClientContext } from './persistedClientContext'
+import {
+  getDelegatedUrlClientId,
+  urlRequiresDelegatedClientContext,
+} from './persistedClientContext'
 
 let clientContextInitialized = false
 let clientContextPromise: Promise<void> | null = null

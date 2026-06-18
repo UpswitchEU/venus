@@ -73,8 +73,7 @@ describe('useManualMethodPersistenceController integration', () => {
 
   it('does not persist and clears isMethodSwitchRendering after a re-render storm on open', async () => {
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       { initialProps: makeParams() }
     )
 
@@ -93,8 +92,7 @@ describe('useManualMethodPersistenceController integration', () => {
   it('sets isMethodSwitchRendering during user method change then clears after persist', async () => {
     const setSelectedMethod = vi.fn()
     const { result, rerender } = renderHook(
-      (params: ReturnType<typeof makeParams>) =>
-        useManualMethodPersistenceController(params),
+      (params: ReturnType<typeof makeParams>) => useManualMethodPersistenceController(params),
       { initialProps: makeParams({ setSelectedMethod }) }
     )
 

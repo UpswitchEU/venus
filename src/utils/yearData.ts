@@ -1,10 +1,15 @@
 import type { YearDataInput } from '../types/valuation'
 
 /** True when a year row is marked as forecast (camelCase UI or snake_case API). */
-export function isYearRowForecast(row: {
-  isForecast?: boolean
-  is_forecast?: boolean
-} | null | undefined): boolean {
+export function isYearRowForecast(
+  row:
+    | {
+        isForecast?: boolean
+        is_forecast?: boolean
+      }
+    | null
+    | undefined
+): boolean {
   if (!row) return false
   return row.isForecast === true || row.is_forecast === true
 }

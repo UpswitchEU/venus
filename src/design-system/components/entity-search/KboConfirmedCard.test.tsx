@@ -23,9 +23,9 @@ describe('KboConfirmedCard', () => {
 
     expect(screen.getByText('Bakker Aldo')).toBeInTheDocument()
     expect(screen.getByText('0631.747.439')).toBeInTheDocument()
-    expect(screen.getByTitle('Besloten vennootschap met beperkte aansprakelijkhe')).toHaveTextContent(
-      'BV'
-    )
+    expect(
+      screen.getByTitle('Besloten vennootschap met beperkte aansprakelijkhe')
+    ).toHaveTextContent('BV')
     expect(screen.getByText('Kerkstraat 1, 2018 Antwerpen')).toBeInTheDocument()
     expect(screen.getByText('NACE 47241')).toBeInTheDocument()
     expect(

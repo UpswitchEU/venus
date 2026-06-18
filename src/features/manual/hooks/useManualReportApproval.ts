@@ -75,8 +75,7 @@ function resolveApproveFailureMessage(
 function isNetworkFailure(error: unknown): boolean {
   return (
     error instanceof TypeError ||
-    (error instanceof Error &&
-      (error.name === 'AbortError' || error.message === 'Failed to fetch'))
+    (error instanceof Error && (error.name === 'AbortError' || error.message === 'Failed to fetch'))
   )
 }
 

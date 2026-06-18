@@ -249,9 +249,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/Invalid client token format/)
     expect(source).toMatch(/rejectClientContext/)
-    expect(source).not.toMatch(
-      /Invalid client token format[\s\S]{0,200}resolveClientContext\(\)/
-    )
+    expect(source).not.toMatch(/Invalid client token format[\s\S]{0,200}resolveClientContext\(\)/)
   })
 
   it('initializeAuth clears stale persisted context when URL clientId mismatches', () => {

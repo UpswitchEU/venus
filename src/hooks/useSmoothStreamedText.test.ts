@@ -24,7 +24,7 @@ describe('useSmoothStreamedText', () => {
       rafCallbacks.push(cb)
       return ++id
     })
-    vi.stubGlobal('cancelAnimationFrame', () => {})
+    vi.stubGlobal('cancelAnimationFrame', () => undefined)
   })
 
   afterEach(() => {

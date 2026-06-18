@@ -131,7 +131,12 @@ export async function revalidateSessionCacheInBackground(reportId: string): Prom
               valuationResult: mergedSession.valuationResult,
               sessionData: mergedSession.sessionData,
             }
-            if (canonicalIsValid && canonicalReportId && storeRid && canonicalReportId !== storeRid) {
+            if (
+              canonicalIsValid &&
+              canonicalReportId &&
+              storeRid &&
+              canonicalReportId !== storeRid
+            ) {
               hydratePayload.reportId = canonicalReportId
             }
             useSessionStore.getState().hydrateSession(hydratePayload)

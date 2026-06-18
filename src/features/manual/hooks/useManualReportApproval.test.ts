@@ -49,7 +49,8 @@ describe('useManualReportApproval gating', () => {
 
     expect(
       isReviewPendingReportFailure(new Response(null, { status: 404 }), {
-        message: 'Valuation report not found. Session may not have a report yet (run valuation first).',
+        message:
+          'Valuation report not found. Session may not have a report yet (run valuation first).',
       })
     ).toBe(true)
     expect(

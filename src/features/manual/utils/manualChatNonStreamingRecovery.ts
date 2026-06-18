@@ -67,9 +67,16 @@ export async function requestManualChatNonStreamingRecovery({
   createId,
 }: ManualChatNonStreamingRecoveryParams): Promise<ManualChatNonStreamingRecoveryOutcome> {
   try {
-    const aiResponse = await sendMessage({ ...aiRequest, stream: false, recoverFromStreamTurn: true })
+    const aiResponse = await sendMessage({
+      ...aiRequest,
+      stream: false,
+      recoverFromStreamTurn: true,
+    })
 
-    const terminalErrorPatch = buildManualChatTerminalErrorPatchFromAIResponse(aiResponse, translate)
+    const terminalErrorPatch = buildManualChatTerminalErrorPatchFromAIResponse(
+      aiResponse,
+      translate
+    )
     if (terminalErrorPatch) {
       return { status: 'terminal_error', patch: terminalErrorPatch }
     }

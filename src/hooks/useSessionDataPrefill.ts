@@ -25,7 +25,6 @@ import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationFormData } from '../types/valuation'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { generalLogger } from '../utils/logger'
-import { formatRegistryCompanyLocation } from '../utils/registryCompanyDisplay'
 import {
   getSessionOptionalPrefillSignature,
   mergeOptionalSessionPrefillFields,
@@ -33,6 +32,7 @@ import {
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
 import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
+import { formatRegistryCompanyLocation } from '../utils/registryCompanyDisplay'
 import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
 import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 

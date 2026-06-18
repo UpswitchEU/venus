@@ -40,8 +40,8 @@ export interface ClientScopedKeyArgs {
 }
 
 export {
-  deriveClientScopedSessionKey as deriveClientScopedSessionKeyFromPackage,
   deriveAdvisorWorkspaceSessionKey,
+  deriveClientScopedSessionKey as deriveClientScopedSessionKeyFromPackage,
 } from '@upswitch/ai-actions'
 
 /**

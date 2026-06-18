@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: LocaleLayoutProps): Promise<M
       ? 'Upswitch | Indicative business estimate'
       : locale === 'fr'
         ? 'Upswitch | Estimation indicative d’entreprise'
-      : 'Upswitch | Indicatieve bedrijfsschatting'
+        : 'Upswitch | Indicatieve bedrijfsschatting'
 
   return {
     title: {

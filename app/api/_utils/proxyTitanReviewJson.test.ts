@@ -29,7 +29,9 @@ describe('proxyTitanReviewJsonRoute', () => {
       json: { reviewState: 'auto_generated' },
     })
 
-    const request = new NextRequest('https://preview.valuation.upswitch.app/api/valuations/r1/review')
+    const request = new NextRequest(
+      'https://preview.valuation.upswitch.app/api/valuations/r1/review'
+    )
     const response = await proxyTitanReviewJsonRoute(
       request,
       'https://api-staging.upswitch.app/api/v2/valuations/r1/review',
@@ -53,7 +55,9 @@ describe('proxyTitanReviewJsonRoute', () => {
   it('maps upstream timeouts to the shared transient failure envelope', async () => {
     mocks.fetchJsonWithTimeout.mockRejectedValue(new Error('fetch timeout after 35000ms'))
 
-    const request = new NextRequest('https://preview.valuation.upswitch.app/api/valuations/r1/review')
+    const request = new NextRequest(
+      'https://preview.valuation.upswitch.app/api/valuations/r1/review'
+    )
     const response = await proxyTitanReviewJsonRoute(
       request,
       'https://api-staging.upswitch.app/api/v2/valuations/r1/review',

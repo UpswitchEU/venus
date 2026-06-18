@@ -106,7 +106,10 @@ export function useManualReportAttestation({
       if (!res.ok || json.success === false) {
         throw new Error(json.message || failedTitle)
       }
-      toast.success(successTitle, successDescription ? { description: successDescription } : undefined)
+      toast.success(
+        successTitle,
+        successDescription ? { description: successDescription } : undefined
+      )
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : undefined
       toast.error(failedTitle, {

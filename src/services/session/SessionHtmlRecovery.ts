@@ -4,18 +4,18 @@ import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { isSessionKey, isUuid } from '../../utils/identifiers'
 import { createContextLogger } from '../../utils/logger'
 import {
+  extractRenderableHtmlFromSessionPayload,
+  extractRenderableHtmlFromSources,
+  isTransientEnsureHtmlSkipStatus,
+  mergeRecoveredHtmlIntoValuationSnapshot,
+  sessionNeedsRenderableHtmlRecovery,
+} from '../../utils/reportHtmlRecovery'
+import {
   orderedValuationSessionLookupIds,
   resolveEnsureHtmlAlternateReportId,
   resolveEnsureHtmlSessionKey,
 } from '../../utils/sessionHelpers'
 import { extractStableSessionKeyFromMergedSession } from '../../utils/sessionReportIdentity'
-import {
-  extractRenderableHtmlFromSources,
-  extractRenderableHtmlFromSessionPayload,
-  isTransientEnsureHtmlSkipStatus,
-  mergeRecoveredHtmlIntoValuationSnapshot,
-  sessionNeedsRenderableHtmlRecovery,
-} from '../../utils/reportHtmlRecovery'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
@@ -89,7 +89,9 @@ function isPayloadTooLargeStatus(response: Record<string, unknown>): boolean {
   )
 }
 
-function extractRenderableHtmlFromEnsureResponse(response: Record<string, unknown>): string | undefined {
+function extractRenderableHtmlFromEnsureResponse(
+  response: Record<string, unknown>
+): string | undefined {
   return extractRenderableHtmlFromSources(
     typeof response.html_report_view === 'string' ? response.html_report_view : undefined,
     typeof response.html_report === 'string' ? response.html_report : undefined
@@ -212,10 +214,13 @@ async function executeEnsureHtmlRefetch(params: {
     if ((ensureResponse as { success?: boolean }).success === false) {
       if (inlineHtml) {
         clearEnsureHtmlFailure(dedupeKey)
-        logger.info('HTML self-heal applying inline html from ensure-html response (success=false)', {
-          reportId: reportId?.substring(0, 24),
-          htmlLength: inlineHtml.length,
-        })
+        logger.info(
+          'HTML self-heal applying inline html from ensure-html response (success=false)',
+          {
+            reportId: reportId?.substring(0, 24),
+            htmlLength: inlineHtml.length,
+          }
+        )
         return buildSessionResponseWithInlineHtml(mergedSession, inlineHtml, reportId)
       }
       markEnsureHtmlFailure(dedupeKey)

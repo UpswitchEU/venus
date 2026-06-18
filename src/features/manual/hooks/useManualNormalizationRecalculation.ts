@@ -1,5 +1,5 @@
-import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
+import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { NormalizationItem, ValuationReportData } from '../../../components/calculator'
 import type { SynthesisWeightSelection } from '../../../lib/synthesis/synthesisWeights'

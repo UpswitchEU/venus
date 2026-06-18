@@ -1,7 +1,7 @@
-import type { ValuationResponse } from '../../../types/valuation'
 import { backendAPI } from '../../../services/backendApi'
 import { useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
+import type { ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { recoverManualReportHtmlIfNeeded } from './manualReportHtmlRecoveryUtil'
 

@@ -9,6 +9,7 @@ import {
 import { toast } from 'sonner'
 import type { ValuationReportData } from '../../../components/calculator'
 import { backendAPI } from '../../../services/backendApi'
+import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import {
   buildPersistedPreparerMultiplePayload,
   buildPreparerMultiplePayload,
@@ -18,7 +19,6 @@ import type { ValuationResponse } from '../../../types/valuation'
 import { getValuationMethodResultForKey } from '../../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../../utils/logger'
 import type { ManualStarterPaywallReason } from '../components/ManualStarterPaywallModal'
-import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { resolveSynthesisAwarePresentation } from '../components/manualReportPresentation'
 import {
   getManualHydratedValuationResults,

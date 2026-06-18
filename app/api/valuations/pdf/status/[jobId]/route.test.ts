@@ -60,13 +60,16 @@ describe('/api/valuations/pdf/status/[jobId]', () => {
       titanJsonResponse(200, { success: true, status: 'processing', progress: 50 })
     )
 
-    const req = new NextRequest('https://valuation.upswitch.app/api/valuations/pdf/status/pdf_report-1', {
-      headers: {
-        'X-Relationship-Id': 'rel-1',
-        'X-Accountant-User-Id': 'adv-1',
-        'X-Client-User-Id': 'client-1',
-      },
-    })
+    const req = new NextRequest(
+      'https://valuation.upswitch.app/api/valuations/pdf/status/pdf_report-1',
+      {
+        headers: {
+          'X-Relationship-Id': 'rel-1',
+          'X-Accountant-User-Id': 'adv-1',
+          'X-Client-User-Id': 'client-1',
+        },
+      }
+    )
 
     await GET(req, { params: Promise.resolve({ jobId: 'pdf_report-1' }) })
 

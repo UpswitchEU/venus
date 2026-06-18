@@ -78,7 +78,9 @@ export async function saveCompleteValuationSession(
         shares_for_sale: 100,
         business_type_id: data.formData.business_type_id,
         business_type_segments:
-          businessTypeSegments.length > 0 ? businessTypeSegments : data.formData.business_type_segments,
+          businessTypeSegments.length > 0
+            ? businessTypeSegments
+            : data.formData.business_type_segments,
         business_type_mix:
           businessTypeSegments.length > 0 ? businessTypeSegments : data.formData.business_type_mix,
         business_type_weights: businessTypeWeights,

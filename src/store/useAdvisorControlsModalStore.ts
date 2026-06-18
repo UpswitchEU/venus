@@ -26,10 +26,8 @@ interface AdvisorControlsModalState {
   toggle: () => void
 }
 
-export const useAdvisorControlsModalStore = create<AdvisorControlsModalState>(
-  (set) => ({
-    open: false,
-    setOpen: (open) => set({ open }),
-    toggle: () => set((state) => ({ open: !state.open })),
-  })
-)
+export const useAdvisorControlsModalStore = create<AdvisorControlsModalState>((set) => ({
+  open: false,
+  setOpen: (open) => set({ open }),
+  toggle: () => set((state) => ({ open: !state.open })),
+}))

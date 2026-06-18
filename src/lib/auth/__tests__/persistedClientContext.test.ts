@@ -15,12 +15,8 @@ describe('persistedClientContext', () => {
   })
 
   it('detects URL clientId mismatch against stored relationshipId', () => {
-    expect(
-      isPersistedContextStaleForUrl('client-a', 'client-b')
-    ).toBe(true)
-    expect(
-      isPersistedContextStaleForUrl('client-a', 'client-a')
-    ).toBe(false)
+    expect(isPersistedContextStaleForUrl('client-a', 'client-b')).toBe(true)
+    expect(isPersistedContextStaleForUrl('client-a', 'client-a')).toBe(false)
     expect(isPersistedContextStaleForUrl('client-a', null)).toBe(false)
     expect(isPersistedContextStaleForUrl(null, 'client-a')).toBe(false)
   })
@@ -94,7 +90,9 @@ describe('persistedClientContext', () => {
 
     const clearStore = vi.fn()
     vi.resetModules()
-    const { clearDelegatedClientContext: clearDelegated } = await import('../persistedClientContext')
+    const { clearDelegatedClientContext: clearDelegated } = await import(
+      '../persistedClientContext'
+    )
     clearDelegated(clearStore)
 
     expect(clearStore).toHaveBeenCalledTimes(1)

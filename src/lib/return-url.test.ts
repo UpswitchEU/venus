@@ -125,10 +125,7 @@ describe('applyMercuryNewClientNameQuery', () => {
 
   it('ignores empty company names', () => {
     expect(
-      applyMercuryNewClientNameQuery(
-        'https://upswitch.app/nl/advisor/clients/c1',
-        '   '
-      )
+      applyMercuryNewClientNameQuery('https://upswitch.app/nl/advisor/clients/c1', '   ')
     ).toBe('https://upswitch.app/nl/advisor/clients/c1')
   })
 })
@@ -143,9 +140,9 @@ describe('applyMercuryReportIdQuery', () => {
   })
 
   it('ignores empty report ids and non-client paths', () => {
-    expect(
-      applyMercuryReportIdQuery('https://upswitch.app/nl/advisor/clients/c1', '   ')
-    ).toBe('https://upswitch.app/nl/advisor/clients/c1')
+    expect(applyMercuryReportIdQuery('https://upswitch.app/nl/advisor/clients/c1', '   ')).toBe(
+      'https://upswitch.app/nl/advisor/clients/c1'
+    )
     expect(
       applyMercuryReportIdQuery('https://upswitch.app/nl/advisor/dashboard', 'report-abc')
     ).toBe('https://upswitch.app/nl/advisor/dashboard')

@@ -26,7 +26,10 @@ import { InceptionLensPicker } from '@/features/startup-studio/components/Incept
 import { PrefillBadge } from '@/features/startup-studio/components/PrefillBadge'
 import { XMultiplierInput } from '@/features/startup-studio/components/XMultiplierInput'
 import { formatEur } from '@/features/startup-studio/hooks/useLiveValuation'
-import { coerceStudioLocale, studioIntlLocale } from '@/features/startup-studio/i18n/useStudioLocale'
+import {
+  coerceStudioLocale,
+  studioIntlLocale,
+} from '@/features/startup-studio/i18n/useStudioLocale'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
 import {
   STARTUP_SECTOR_DEFAULT_Y5_REVENUE,

@@ -9,9 +9,7 @@ import {
 
 describe('formatLegalFormLabel', () => {
   it('maps truncated BV long form to BV', () => {
-    expect(
-      formatLegalFormLabel('Besloten vennootschap met beperkte aansprakelijkhe')
-    ).toEqual({
+    expect(formatLegalFormLabel('Besloten vennootschap met beperkte aansprakelijkhe')).toEqual({
       label: 'BV',
       title: 'Besloten vennootschap met beperkte aansprakelijkhe',
     })

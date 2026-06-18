@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useVisualViewportDrawerInsets } from './useVisualViewportDrawerInsets'
-import { renderHook, act } from '@testing-library/react'
 
 describe('useVisualViewportDrawerInsets', () => {
   const listeners = new Map<string, Set<EventListener>>()
@@ -34,7 +34,7 @@ describe('useVisualViewportDrawerInsets', () => {
       height: 720,
       addEventListener(type: string, listener: EventListener) {
         if (!listeners.has(type)) listeners.set(type, new Set())
-        listeners.get(type)!.add(listener)
+        listeners.get(type)?.add(listener)
       },
       removeEventListener(type: string, listener: EventListener) {
         listeners.get(type)?.delete(listener)
@@ -64,7 +64,9 @@ describe('useVisualViewportDrawerInsets', () => {
     const { result } = renderHook(() => useVisualViewportDrawerInsets(true))
 
     act(() => {
-      Object.assign(window.visualViewport!, { offsetTop: 40, height: 560 })
+      const visualViewport = window.visualViewport
+      expect(visualViewport).not.toBeNull()
+      Object.assign(visualViewport as VisualViewport, { offsetTop: 40, height: 560 })
       for (const listener of listeners.get('resize') ?? []) {
         listener(new Event('resize'))
       }
@@ -78,11 +80,13 @@ describe('useVisualViewportDrawerInsets', () => {
     const { result } = renderHook(() => useVisualViewportDrawerInsets(true))
 
     act(() => {
-      Object.assign(window.visualViewport!, { offsetTop: 20, height: 600 })
+      const visualViewport = window.visualViewport
+      expect(visualViewport).not.toBeNull()
+      Object.assign(visualViewport as VisualViewport, { offsetTop: 20, height: 600 })
       for (const listener of listeners.get('resize') ?? []) {
         listener(new Event('resize'))
       }
-      Object.assign(window.visualViewport!, { offsetTop: 44, height: 552 })
+      Object.assign(visualViewport as VisualViewport, { offsetTop: 44, height: 552 })
       for (const listener of listeners.get('scroll') ?? []) {
         listener(new Event('scroll'))
       }
@@ -97,7 +101,9 @@ describe('useVisualViewportDrawerInsets', () => {
       configurable: true,
       value: 640,
     })
-    Object.assign(window.visualViewport!, { offsetTop: 12, height: 0 })
+    const visualViewport = window.visualViewport
+    expect(visualViewport).not.toBeNull()
+    Object.assign(visualViewport as VisualViewport, { offsetTop: 12, height: 0 })
 
     const { result } = renderHook(() => useVisualViewportDrawerInsets(true))
 

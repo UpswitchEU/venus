@@ -19,8 +19,7 @@ const bakkerAldoFixture: KBOCompany = {
   postalCode: '2018',
   city: 'Antwerpen',
   naceCode: '47241',
-  naceDescription:
-    'Detailhandel in brood, banketbakkerswerk, suikerwerk en chocolade',
+  naceDescription: 'Detailhandel in brood, banketbakkerswerk, suikerwerk en chocolade',
   countryCode: 'BE',
 }
 
@@ -129,9 +128,7 @@ describe('Venus KBOSearchInput', () => {
     expect(screen.getByText('2018 Antwerpen')).toBeInTheDocument()
     expect(screen.queryByText(/2018 Antwerpen 2018/)).not.toBeInTheDocument()
     expect(
-      screen.getByText(
-        'Detailhandel in brood, banketbakkerswerk, suikerwerk en chocolade'
-      )
+      screen.getByText('Detailhandel in brood, banketbakkerswerk, suikerwerk en chocolade')
     ).toBeInTheDocument()
     expect(screen.queryByText(/beperkte aansprakelijkhe/)).not.toBeInTheDocument()
   })
