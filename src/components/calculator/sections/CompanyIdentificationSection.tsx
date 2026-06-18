@@ -1,9 +1,11 @@
 'use client'
 
+import type { BusinessTypeOption as SharedBusinessTypeOption } from '@upswitch/business-type-selector'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
+import { useMemo } from 'react'
 import {
   AuroraNumberInput,
   type KBOCompany,
@@ -27,6 +29,27 @@ const businessStructures = [
   { value: 'cvba', label: 'CVBA' },
   { value: 'vzw', label: 'VZW' },
 ]
+
+function finiteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+function multipleLabelForBasis(basis: unknown): string | undefined {
+  const token = String(basis ?? '')
+    .trim()
+    .toLowerCase()
+  if (!token) return undefined
+  if (token.includes('revenue')) return 'EV/Revenue'
+  if (token.includes('ebitda')) return 'EV/EBITDA'
+  if (token.includes('ebit')) return 'EV/EBIT'
+  if (token.includes('sde')) return 'SDE'
+  return undefined
+}
 
 interface CompanyIdentificationSectionProps {
   formData: ManualValuationFormData
@@ -97,6 +120,101 @@ export function CompanyIdentificationSection({
     .replace(/-code$/i, '')
     .trim()
   const selectedSegments = formData.business_type_segments ?? []
+  const kboCandidateById = useMemo(
+    () =>
+      new Map(
+        (selectedCompany?.businessTypeCandidates ?? []).map((candidate) => [
+          candidate.id,
+          candidate,
+        ])
+      ),
+    [selectedCompany?.businessTypeCandidates]
+  )
+  const selectedBusinessTypeFallbackOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const options: SharedBusinessTypeOption[] = []
+
+    const addOption = ({
+      id,
+      title,
+      naceCode,
+      basis,
+      multiple,
+    }: {
+      id?: string | null
+      title?: string | null
+      naceCode?: string | null
+      basis?: string | null
+      multiple?: unknown
+    }) => {
+      const cleanId = id?.trim()
+      if (!cleanId || seen.has(cleanId)) return
+      seen.add(cleanId)
+      const median = finiteNumber(multiple)
+      const cleanBasis = basis?.trim() || undefined
+
+      options.push({
+        id: cleanId,
+        title: title?.trim() || cleanId,
+        icon: '📊',
+        categoryId: 'kbo-nace',
+        categoryLabel: 'KBO/NACE',
+        naceCodes: naceCode?.trim() ? [naceCode.trim()] : undefined,
+        primaryMultiple:
+          median !== undefined
+            ? {
+                label: multipleLabelForBasis(cleanBasis) ?? cleanBasis ?? 'Multiple',
+                basis: cleanBasis,
+                median,
+              }
+            : undefined,
+      })
+    }
+
+    for (const segment of selectedSegments) {
+      addOption({
+        id: segment.business_type_id,
+        title: segment.business_type_title ?? kboCandidateById.get(segment.business_type_id)?.title,
+        naceCode: segment.nace_code ?? kboCandidateById.get(segment.business_type_id)?.naceCode,
+        basis: segment.basis ?? segment.earnings_basis,
+        multiple: segment.multiple ?? segment.applied_multiple,
+      })
+    }
+
+    const primaryId = formData.business_type_id
+    if (primaryId) {
+      addOption({
+        id: primaryId,
+        title:
+          formData.business_type_title ??
+          selectedCompany?.businessTypeTitle ??
+          kboCandidateById.get(primaryId)?.title,
+        naceCode: selectedCompany?.canonicalNaceCode ?? selectedCompany?.naceCode,
+        basis: selectedSegments[0]?.basis ?? selectedSegments[0]?.earnings_basis,
+        multiple: selectedSegments[0]?.multiple ?? selectedSegments[0]?.applied_multiple,
+      })
+    }
+
+    for (const id of selectedCompany?.businessTypeIds ?? []) {
+      const candidate = kboCandidateById.get(id)
+      addOption({
+        id,
+        title: candidate?.title,
+        naceCode: candidate?.naceCode,
+      })
+    }
+
+    return options
+  }, [
+    formData.business_type_id,
+    formData.business_type_title,
+    kboCandidateById,
+    selectedCompany?.businessTypeIds,
+    selectedCompany?.businessTypeTitle,
+    selectedCompany?.canonicalNaceCode,
+    selectedCompany?.naceCode,
+    selectedSegments,
+  ])
   const updateSegmentEarnings = (index: number, earnings: string) => {
     const nextSegments = selectedSegments.map((segment, segmentIndex) =>
       segmentIndex === index
@@ -228,6 +346,7 @@ export function CompanyIdentificationSection({
                     value={selectedBusinessTypeIds}
                     onChange={() => undefined}
                     onSelectionChange={handleBusinessTypeSelectionChange}
+                    fallbackOptions={selectedBusinessTypeFallbackOptions}
                     selectionMode="multiple"
                     showPreview={selectedBusinessTypeIds.length <= 1}
                     className={isCalculating ? 'pointer-events-none opacity-60' : ''}

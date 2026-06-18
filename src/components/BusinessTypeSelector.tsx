@@ -24,6 +24,7 @@ interface BusinessTypeSelectorProps {
   onChange: (businessTypeId: string | string[]) => void
   onSelectionChange?: (businessTypeIds: string[], businessTypes: BusinessType[]) => void
   onMetadataLoaded?: (metadata: BusinessTypeFull) => void
+  fallbackOptions?: SharedBusinessTypeOption[]
   selectionMode?: 'single' | 'multiple'
   showPreview?: boolean
   className?: string
@@ -130,12 +131,31 @@ function toSharedOption(businessType: BusinessType): SharedBusinessTypeOption {
   }
 }
 
+function fallbackOptionToBusinessType(option: SharedBusinessTypeOption): BusinessType {
+  return {
+    id: option.id,
+    title: option.title,
+    description: option.description ?? '',
+    icon: option.icon ?? '🏢',
+    category: option.categoryLabel ?? option.categoryId ?? '',
+    category_id: option.categoryId ?? option.categoryLabel ?? '',
+    industryMapping: option.categoryLabel ?? option.categoryId ?? option.id,
+    keywords: option.keywords ?? [],
+    popular: Boolean(option.popular),
+    primaryMultiple: option.primaryMultiple ?? undefined,
+    status: 'active',
+    createdAt: '',
+    updatedAt: '',
+  }
+}
+
 export function BusinessTypeSelector({
   label = 'Business Type',
   value,
   onChange,
   onSelectionChange,
   onMetadataLoaded,
+  fallbackOptions = [],
   selectionMode = 'multiple',
   showPreview = true,
   className = '',
@@ -155,11 +175,26 @@ export function BusinessTypeSelector({
   const { businessType: selectedMetadata, loading: loadingMetadata } =
     useBusinessTypeFull(selectedId)
 
-  const options = useMemo(() => businessTypes.map(toSharedOption), [businessTypes])
-  const businessTypeById = useMemo(
-    () => new Map(businessTypes.map((businessType) => [businessType.id, businessType])),
-    [businessTypes]
-  )
+  const options = useMemo(() => {
+    const byId = new Map<string, SharedBusinessTypeOption>()
+    for (const option of fallbackOptions) {
+      byId.set(option.id, option)
+    }
+    for (const businessType of businessTypes) {
+      byId.set(businessType.id, toSharedOption(businessType))
+    }
+    return Array.from(byId.values())
+  }, [businessTypes, fallbackOptions])
+  const businessTypeById = useMemo(() => {
+    const byId = new Map<string, BusinessType>()
+    for (const option of fallbackOptions) {
+      byId.set(option.id, fallbackOptionToBusinessType(option))
+    }
+    for (const businessType of businessTypes) {
+      byId.set(businessType.id, businessType)
+    }
+    return byId
+  }, [businessTypes, fallbackOptions])
 
   const keyMetricLabels = Array.from(
     new Set(

@@ -8,10 +8,40 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('@upswitch/business-type-selector', () => ({
-  BusinessTypeMultiSelect: ({ onChange }: { onChange: (ids: string[]) => void }) => (
-    <button type="button" data-testid="emit-selection" onClick={() => onChange(['bt-a', 'bt-b'])}>
-      emit
-    </button>
+  BusinessTypeMultiSelect: ({
+    onChange,
+    options,
+    value,
+  }: {
+    onChange: (ids: string[]) => void
+    options: Array<{
+      id: string
+      title: string
+      primaryMultiple?: { label?: string; median?: number } | null
+    }>
+    value?: string | string[] | null
+  }) => (
+    <div>
+      <div data-testid="selected-value">{Array.isArray(value) ? value.join(',') : value}</div>
+      {options.map((option) => (
+        <div key={option.id} data-testid={`option-${option.id}`}>
+          {option.title}
+          {option.primaryMultiple?.median
+            ? ` ${option.primaryMultiple.label} ${option.primaryMultiple.median.toFixed(1)}x`
+            : null}
+        </div>
+      ))}
+      <button type="button" data-testid="emit-selection" onClick={() => onChange(['bt-a', 'bt-b'])}>
+        emit
+      </button>
+      <button
+        type="button"
+        data-testid="emit-fallback-selection"
+        onClick={() => onChange(['kbo-accounting'])}
+      >
+        emit fallback
+      </button>
+    </div>
   ),
 }))
 
@@ -90,6 +120,50 @@ describe('BusinessTypeSelector selection modes', () => {
     expect(onSelectionChange).toHaveBeenCalledWith(
       ['bt-a', 'bt-b'],
       [expect.objectContaining({ id: 'bt-a' }), expect.objectContaining({ id: 'bt-b' })]
+    )
+  })
+
+  it('renders KBO fallback options with multiples when the catalog does not contain the selected id', () => {
+    const onChange = vi.fn()
+    const onSelectionChange = vi.fn()
+
+    render(
+      <BusinessTypeSelector
+        value={['kbo-accounting']}
+        selectionMode="multiple"
+        onChange={onChange}
+        onSelectionChange={onSelectionChange}
+        fallbackOptions={[
+          {
+            id: 'kbo-accounting',
+            title: 'Boekhoudkantoor',
+            categoryLabel: 'KBO/NACE',
+            primaryMultiple: {
+              label: 'EV/EBITDA',
+              basis: 'EBITDA',
+              median: 5.4,
+            },
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByTestId('selected-value')).toHaveTextContent('kbo-accounting')
+    expect(screen.getByTestId('option-kbo-accounting')).toHaveTextContent('Boekhoudkantoor')
+    expect(screen.getByTestId('option-kbo-accounting')).toHaveTextContent('EV/EBITDA 5.4x')
+
+    fireEvent.click(screen.getByTestId('emit-fallback-selection'))
+
+    expect(onChange).toHaveBeenCalledWith('kbo-accounting')
+    expect(onSelectionChange).toHaveBeenCalledWith(
+      ['kbo-accounting'],
+      [
+        expect.objectContaining({
+          id: 'kbo-accounting',
+          title: 'Boekhoudkantoor',
+          primaryMultiple: expect.objectContaining({ median: 5.4 }),
+        }),
+      ]
     )
   })
 })
