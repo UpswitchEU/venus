@@ -253,6 +253,24 @@ export function CompanyIdentificationSection({
     updateFormData({ business_type_segments: nextSegments })
   }
 
+  // Advisor override: set the EBITDA/EV multiple for a specific segment. Empty
+  // reverts to the benchmark default (shown as the input placeholder).
+  const updateSegmentMultiple = (index: number, multiple: string) => {
+    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
+      segmentIndex === index
+        ? {
+            ...segment,
+            multiple: multiple.trim() ? multiple : null,
+          }
+        : segment
+    )
+    updateField(
+      'business_type_segments',
+      nextSegments as ManualValuationFormData['business_type_segments']
+    )
+    updateFormData({ business_type_segments: nextSegments })
+  }
+
   return (
     // `id` is a jump target for the "Sector controleren" quality-warning CTA
     // (the business-type / sector picker lives in this section).
@@ -417,25 +435,33 @@ export function CompanyIdentificationSection({
                     return (
                       <div
                         key={`${segment.business_type_id}-${index}`}
-                        className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_120px_180px]"
+                        className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_110px_110px_160px]"
                       >
                         <div className="min-w-0 self-center">
                           <div className="truncate text-sm font-medium text-foreground">
                             {segment.business_type_title ?? segment.business_type_id}
                           </div>
-                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-foreground/60">
-                            {basis && (
+                          {basis && (
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-foreground/60">
                               <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
                                 {basis}
                               </span>
-                            )}
-                            {Number.isFinite(multipleNumber) && (
-                              <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
-                                {multipleNumber.toFixed(1)}x
-                              </span>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
+                        <AuroraNumberInput
+                          label="Multiple"
+                          placeholder={
+                            Number.isFinite(multipleNumber) ? multipleNumber.toFixed(1) : 'Auto'
+                          }
+                          name={`business_type_segments.${index}.multiple`}
+                          value={segment.multiple ?? ''}
+                          onChange={(event) => updateSegmentMultiple(index, event.target.value)}
+                          min={0}
+                          step={0.1}
+                          suffix="x"
+                          allowDecimals
+                        />
                         <AuroraNumberInput
                           label="Weight"
                           placeholder="Auto"

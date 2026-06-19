@@ -294,7 +294,7 @@ export function BusinessTypeMultiSelect({
 					aria-describedby={
 						describedBy.length > 0 ? describedBy.join(' ') : undefined
 					}
-					className={`flex min-h-[2.75rem] w-full items-center justify-between gap-2 rounded-md border bg-foreground/[0.04] px-3.5 py-2.5 text-left shadow-sm transition-colors ${triggerStateClass}`}
+					className={`flex h-14 w-full items-center justify-between gap-2 rounded-xl border bg-foreground/[0.04] px-4 text-left shadow-sm transition-all duration-200 ${triggerStateClass}`}
 				>
 					{selectedOptions.length > 0 ? (
 						<span className='truncate text-foreground'>
@@ -312,7 +312,7 @@ export function BusinessTypeMultiSelect({
 					<div
 						id={listboxId}
 						aria-labelledby={buttonId}
-						className='absolute z-50 mt-1.5 w-full overflow-hidden rounded-md border border-foreground/10 bg-popover shadow-lg'
+						className='absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-foreground/10 bg-popover shadow-lg'
 					>
 						{showSearch && (
 							<div className='border-b border-foreground/[0.06] p-2'>
@@ -333,7 +333,7 @@ export function BusinessTypeMultiSelect({
 										aria-autocomplete='list'
 										aria-controls={listboxId}
 										aria-label={copy.searchPlaceholder}
-										className='min-h-10 w-full rounded-md border border-foreground/10 bg-foreground/[0.04] py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20'
+										className='min-h-10 w-full rounded-lg border border-foreground/10 bg-foreground/[0.04] py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20'
 										disabled={disabled}
 									/>
 								</div>

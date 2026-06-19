@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { AuthGate } from '../../../../src/components/AuthGate'
 import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
+import { OwnerUpgradeCta } from '../../../../src/components/OwnerUpgradeCta'
 import { ValuationReport } from '../../../../src/components/ValuationReport'
 import { useTokenRefresh } from '../../../../src/hooks/useTokenRefresh'
 import {
@@ -378,6 +379,9 @@ export default function ValuationReportClient({
             initialVersion={initialVersion}
             urlParams={urlParams}
           />
+          {/* Proactive owner upgrade prompt (free valuation stays free; BET-340/341).
+              Renders null for advisors, top-tier owners, and signed-out users. */}
+          <OwnerUpgradeCta className="pb-8" />
         </BootstrapProvider>
       </AuthGate>
     </ErrorBoundary>
