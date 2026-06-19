@@ -247,21 +247,19 @@ export function BusinessTypeSelector({
 
   return (
     <div className={`business-type-selector ${className}`}>
-      <div>
-        <label className="mb-2 block text-sm font-medium text-foreground">
-          {label} <span className="text-rust-500">*</span>
-        </label>
-        <BusinessTypeMultiSelect
-          value={value}
-          options={options}
-          onChange={handleSelectionChange}
-          copy={selectorCopy(locale, t)}
-          loading={loadingTypes}
-          error={loadingError}
-          required
-          showCategories={false}
-        />
-      </div>
+      {/* Label lives INSIDE the trigger (entity-search style) so the resting
+          field is visually identical to the country / company-search fields. */}
+      <BusinessTypeMultiSelect
+        label={label}
+        value={value}
+        options={options}
+        onChange={handleSelectionChange}
+        copy={selectorCopy(locale, t)}
+        loading={loadingTypes}
+        error={loadingError}
+        required
+        showCategories={false}
+      />
 
       {showPreview && selectedId && (
         <div className="mt-4">

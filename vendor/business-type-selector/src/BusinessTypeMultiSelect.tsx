@@ -62,6 +62,13 @@ export interface BusinessTypeMultiSelectProps {
 	loading?: boolean;
 	error?: string | null;
 	required?: boolean;
+	/**
+	 * Label rendered INSIDE the trigger (entity-search style). When set, the
+	 * resting field shows a leading icon + small stacked label + value, so it
+	 * looks identical to sibling fields (country / company search) rather than a
+	 * plain box with an external label.
+	 */
+	label?: string;
 	className?: string;
 }
 
@@ -164,6 +171,38 @@ function CheckIcon() {
 	);
 }
 
+function BuildingGlyph() {
+	return (
+		<svg
+			aria-hidden='true'
+			viewBox='0 0 20 20'
+			fill='none'
+			className='h-5 w-5 text-foreground/50'
+		>
+			<rect
+				x='3'
+				y='2.5'
+				width='9'
+				height='15'
+				rx='1'
+				stroke='currentColor'
+				strokeWidth='1.5'
+			/>
+			<path
+				d='M12 7h4.5a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1H12'
+				stroke='currentColor'
+				strokeWidth='1.5'
+			/>
+			<path
+				d='M5.5 5.5h4M5.5 8.5h4M5.5 11.5h4'
+				stroke='currentColor'
+				strokeWidth='1.3'
+				strokeLinecap='round'
+			/>
+		</svg>
+	);
+}
+
 export function BusinessTypeMultiSelect({
 	value,
 	options,
@@ -179,6 +218,7 @@ export function BusinessTypeMultiSelect({
 	loading = false,
 	error,
 	required = false,
+	label,
 	className = '',
 }: BusinessTypeMultiSelectProps) {
 	const [searchQuery, setSearchQuery] = useState('');
@@ -291,20 +331,39 @@ export function BusinessTypeMultiSelect({
 					disabled={disabled}
 					aria-expanded={showDropdown}
 					aria-haspopup='listbox'
+					aria-label={label}
 					aria-describedby={
 						describedBy.length > 0 ? describedBy.join(' ') : undefined
 					}
-					className={`flex h-14 w-full items-center justify-between gap-2 rounded-xl border bg-foreground/[0.04] px-4 text-left shadow-sm transition-all duration-200 ${triggerStateClass}`}
+					className={`flex ${label ? 'h-16' : 'h-14'} w-full items-center gap-3 rounded-xl border bg-foreground/[0.04] px-4 text-left shadow-sm transition-all duration-200 ${triggerStateClass}`}
 				>
-					{selectedOptions.length > 0 ? (
-						<span className='truncate text-foreground'>
-							{selectedOptions.map((option) => option.title).join(', ')}
+					{label ? (
+						<span className='shrink-0 text-lg leading-none'>
+							{selectedOptions.length === 1 && selectedOptions[0].icon ? (
+								<span aria-hidden='true'>{selectedOptions[0].icon}</span>
+							) : (
+								<BuildingGlyph />
+							)}
 						</span>
-					) : (
-						<span className='truncate text-foreground/50'>
-							{placeholder ?? copy.selectPlaceholder}
+					) : null}
+					<span className='flex min-w-0 flex-1 flex-col justify-center'>
+						{label ? (
+							<span className='text-[11px] font-medium leading-tight text-foreground/60'>
+								{label}
+							</span>
+						) : null}
+						<span
+							className={`truncate ${label ? 'text-sm' : ''} ${
+								selectedOptions.length > 0
+									? 'text-foreground'
+									: 'text-foreground/50'
+							}`}
+						>
+							{selectedOptions.length > 0
+								? selectedOptions.map((option) => option.title).join(', ')
+								: (placeholder ?? copy.selectPlaceholder)}
 						</span>
-					)}
+					</span>
 					<ChevronIcon open={showDropdown} />
 				</button>
 

@@ -12,6 +12,7 @@ vi.mock('@upswitch/business-type-selector', () => ({
     onChange,
     options,
     value,
+    label,
   }: {
     onChange: (ids: string[]) => void
     options: Array<{
@@ -20,8 +21,10 @@ vi.mock('@upswitch/business-type-selector', () => ({
       primaryMultiple?: { label?: string; median?: number } | null
     }>
     value?: string | string[] | null
+    label?: string
   }) => (
     <div>
+      {label ? <span>{label}</span> : null}
       <div data-testid="selected-value">{Array.isArray(value) ? value.join(',') : value}</div>
       {options.map((option) => (
         <div key={option.id} data-testid={`option-${option.id}`}>
