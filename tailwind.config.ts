@@ -9,6 +9,10 @@ const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
     './src/**/*.{js,ts,jsx,tsx}',
+    // Vendored shared surfaces (e.g. @upswitch/business-type-selector) live
+    // outside ./src, so include them or their Aurora utility classes won't be
+    // generated.
+    './vendor/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {

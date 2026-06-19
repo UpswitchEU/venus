@@ -108,6 +108,62 @@ function optionMatches(option: BusinessTypeOption, query: string): boolean {
 	return haystack.includes(query.toLowerCase());
 }
 
+// ─── Inline icons (no external icon dependency in the shared package) ───
+
+function ChevronIcon({ open }: { open: boolean }) {
+	return (
+		<svg
+			aria-hidden='true'
+			viewBox='0 0 20 20'
+			fill='none'
+			className={`h-5 w-5 shrink-0 text-foreground/50 transition-transform duration-200 ${
+				open ? 'rotate-180' : ''
+			}`}
+		>
+			<path
+				d='m6 8 4 4 4-4'
+				stroke='currentColor'
+				strokeWidth='1.6'
+				strokeLinecap='round'
+				strokeLinejoin='round'
+			/>
+		</svg>
+	);
+}
+
+function SearchIcon() {
+	return (
+		<svg
+			aria-hidden='true'
+			viewBox='0 0 20 20'
+			fill='none'
+			className='h-4 w-4 text-foreground/40'
+		>
+			<circle cx='9' cy='9' r='6' stroke='currentColor' strokeWidth='1.6' />
+			<path
+				d='m17 17-3.5-3.5'
+				stroke='currentColor'
+				strokeWidth='1.6'
+				strokeLinecap='round'
+			/>
+		</svg>
+	);
+}
+
+function CheckIcon() {
+	return (
+		<svg aria-hidden='true' viewBox='0 0 16 16' fill='none' className='h-3 w-3'>
+			<path
+				d='m3.5 8.5 3 3 6-7'
+				stroke='currentColor'
+				strokeWidth='2'
+				strokeLinecap='round'
+				strokeLinejoin='round'
+			/>
+		</svg>
+	);
+}
+
 export function BusinessTypeMultiSelect({
 	value,
 	options,
@@ -129,6 +185,7 @@ export function BusinessTypeMultiSelect({
 	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 	const [showDropdown, setShowDropdown] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
+	const searchInputRef = useRef<HTMLInputElement>(null);
 	const buttonId = useId();
 	const searchId = useId();
 	const listboxId = useId();
@@ -170,6 +227,13 @@ export function BusinessTypeMultiSelect({
 		return () => document.removeEventListener('pointerdown', handlePointerDown);
 	}, [showDropdown]);
 
+	// Focus the in-dropdown search as soon as the field opens (native-select parity).
+	useEffect(() => {
+		if (showDropdown && showSearch) {
+			searchInputRef.current?.focus({ preventScroll: true });
+		}
+	}, [showDropdown, showSearch]);
+
 	const emitChange = (nextIds: string[]) => {
 		const dedupedIds = [...new Set(nextIds)];
 		const nextOptions = dedupedIds.flatMap(
@@ -202,73 +266,203 @@ export function BusinessTypeMultiSelect({
 		required ? requiredId : null,
 	].filter(Boolean);
 
+	const triggerStateClass = disabled
+		? 'cursor-not-allowed border-foreground/[0.06] opacity-60'
+		: error
+			? 'border-destructive'
+			: showDropdown
+				? 'border-primary ring-2 ring-primary/20'
+				: 'border-foreground/10 hover:border-foreground/20';
+
 	return (
 		<div
 			ref={rootRef}
 			className={`business-type-selector ${className}`}
 			onKeyDown={handleKeyDown}
 		>
-			{showSearch && (
-				<div className='mb-3'>
-					<input
-						id={searchId}
-						type='text'
-						placeholder={copy.searchPlaceholder}
-						value={searchQuery}
-						onChange={(event) => {
-							setSearchQuery(event.target.value);
-							if (event.target.value) setSelectedCategory(null);
-						}}
-						onFocus={() => setShowDropdown(true)}
-						aria-autocomplete='list'
-						aria-expanded={showDropdown}
-						aria-label={copy.searchPlaceholder}
-						className='min-h-11 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:min-h-0'
-						disabled={disabled}
-					/>
-				</div>
-			)}
+			<div className='relative'>
+				{/* The field — visually matches the surrounding Aurora form inputs:
+				    a subtle foreground tint (never stark white), a hairline border,
+				    and a brand focus ring. Clicking opens the searchable list. */}
+				<button
+					id={buttonId}
+					type='button'
+					onClick={() => !disabled && setShowDropdown(!showDropdown)}
+					disabled={disabled}
+					aria-expanded={showDropdown}
+					aria-haspopup='listbox'
+					aria-describedby={
+						describedBy.length > 0 ? describedBy.join(' ') : undefined
+					}
+					className={`flex min-h-[2.75rem] w-full items-center justify-between gap-2 rounded-md border bg-foreground/[0.04] px-3.5 py-2.5 text-left shadow-sm transition-colors ${triggerStateClass}`}
+				>
+					{selectedOptions.length > 0 ? (
+						<span className='truncate text-foreground'>
+							{selectedOptions.map((option) => option.title).join(', ')}
+						</span>
+					) : (
+						<span className='truncate text-foreground/50'>
+							{placeholder ?? copy.selectPlaceholder}
+						</span>
+					)}
+					<ChevronIcon open={showDropdown} />
+				</button>
 
-			{showCategories && categories.length > 0 && (
-				<div className='mb-3'>
-					<div className='-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0'>
-						<button
-							type='button'
-							onClick={() => setSelectedCategory(null)}
-							aria-pressed={selectedCategory === null}
-							className={`min-h-11 shrink-0 rounded-full px-3 py-1 text-sm sm:min-h-0 ${
-								selectedCategory === null
-									? 'bg-blue-500 text-white'
-									: 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-							}`}
-							disabled={disabled}
-						>
-							{copy.allCategories}
-						</button>
-						{categories.map((category) => (
-							<button
-								type='button'
-								key={category.id}
-								onClick={() => setSelectedCategory(category.id)}
-								aria-pressed={selectedCategory === category.id}
-								className={`min-h-11 shrink-0 rounded-full px-3 py-1 text-sm sm:min-h-0 ${
-									selectedCategory === category.id
-										? 'bg-blue-500 text-white'
-										: 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-								}`}
-								disabled={disabled}
-							>
-								{category.icon ? `${category.icon} ` : ''}
-								{category.label}
-							</button>
-						))}
+				{showDropdown && (
+					<div
+						id={listboxId}
+						aria-labelledby={buttonId}
+						className='absolute z-50 mt-1.5 w-full overflow-hidden rounded-md border border-foreground/10 bg-popover shadow-lg'
+					>
+						{showSearch && (
+							<div className='border-b border-foreground/[0.06] p-2'>
+								<div className='relative'>
+									<span className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2'>
+										<SearchIcon />
+									</span>
+									<input
+										id={searchId}
+										ref={searchInputRef}
+										type='text'
+										placeholder={copy.searchPlaceholder}
+										value={searchQuery}
+										onChange={(event) => {
+											setSearchQuery(event.target.value);
+											if (event.target.value) setSelectedCategory(null);
+										}}
+										aria-autocomplete='list'
+										aria-controls={listboxId}
+										aria-label={copy.searchPlaceholder}
+										className='min-h-10 w-full rounded-md border border-foreground/10 bg-foreground/[0.04] py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-foreground/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20'
+										disabled={disabled}
+									/>
+								</div>
+							</div>
+						)}
+
+						{showCategories && categories.length > 0 && (
+							<div className='border-b border-foreground/[0.06] p-2'>
+								<div className='-mx-1 flex flex-nowrap gap-2 overflow-x-auto px-1 [-webkit-overflow-scrolling:touch] sm:flex-wrap sm:overflow-visible'>
+									<button
+										type='button'
+										onClick={() => setSelectedCategory(null)}
+										aria-pressed={selectedCategory === null}
+										className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+											selectedCategory === null
+												? 'bg-primary text-primary-foreground'
+												: 'bg-foreground/[0.06] text-foreground/70 hover:bg-foreground/10'
+										}`}
+										disabled={disabled}
+									>
+										{copy.allCategories}
+									</button>
+									{categories.map((category) => (
+										<button
+											type='button'
+											key={category.id}
+											onClick={() => setSelectedCategory(category.id)}
+											aria-pressed={selectedCategory === category.id}
+											className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+												selectedCategory === category.id
+													? 'bg-primary text-primary-foreground'
+													: 'bg-foreground/[0.06] text-foreground/70 hover:bg-foreground/10'
+											}`}
+											disabled={disabled}
+										>
+											{category.icon ? `${category.icon} ` : ''}
+											{category.label}
+										</button>
+									))}
+								</div>
+							</div>
+						)}
+
+						<div className='max-h-72 overflow-y-auto py-1'>
+							{loading ? (
+								<output className='block px-3 py-6 text-center text-sm text-foreground/50'>
+									{copy.loading}
+								</output>
+							) : filteredOptions.length === 0 ? (
+								<div className='px-3 py-6 text-center text-sm text-foreground/50'>
+									{copy.empty}
+								</div>
+							) : (
+								filteredOptions.map((option) => {
+									const selected = selectedIdSet.has(option.id);
+									const multipleLabel = formatMultiple(option.primaryMultiple);
+									return (
+										<button
+											type='button'
+											key={option.id}
+											onClick={() => toggleOption(option)}
+											aria-pressed={selected}
+											className={`w-full px-3 py-2.5 text-left transition-colors focus:outline-none ${
+												selected
+													? 'bg-primary/10'
+													: 'hover:bg-foreground/[0.04] focus:bg-foreground/[0.04]'
+											}`}
+										>
+											<div className='flex items-start gap-3'>
+												<span
+													aria-hidden='true'
+													className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+														selected
+															? 'border-primary bg-primary text-primary-foreground'
+															: 'border-foreground/30 bg-transparent text-transparent'
+													}`}
+												>
+													{selected ? <CheckIcon /> : null}
+												</span>
+												{option.icon && (
+													<span className='mt-0.5 shrink-0' aria-hidden='true'>
+														{option.icon}
+													</span>
+												)}
+												<span className='min-w-0 flex-1'>
+													<span className='flex flex-wrap items-center gap-2'>
+														<span className='font-medium text-foreground'>
+															{option.title}
+														</span>
+														{option.categoryLabel && (
+															<span className='rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[10px] uppercase tracking-wide text-foreground/60'>
+																{option.categoryLabel}
+															</span>
+														)}
+														{showPopular && option.popular && (
+															<span className='rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary'>
+																{copy.popular}
+															</span>
+														)}
+													</span>
+													{option.description && (
+														<span className='mt-0.5 block text-sm text-foreground/50'>
+															{option.description}
+														</span>
+													)}
+													{showMultiples && (
+														<span className='mt-1 block text-xs font-medium text-foreground/70'>
+															{multipleLabel ??
+																(option.primaryMultiple?.lowSampleSuppressed
+																	? copy.lowSampleSuppressed
+																	: copy.multipleUnavailable)}
+														</span>
+													)}
+												</span>
+											</div>
+										</button>
+									);
+								})
+							)}
+						</div>
 					</div>
-				</div>
-			)}
+				)}
+			</div>
 
+			{/* Selected types render as removable chips below the field, each carrying
+			    its own inline multiple so the selection is legible without re-opening. */}
 			{selectedOptions.length > 0 && (
 				<div
-					className='mb-3 flex flex-wrap gap-2'
+					className='mt-2 flex flex-wrap gap-2'
 					aria-label={copy.selectedLabel}
 				>
 					{selectedOptions.map((option) => {
@@ -276,28 +470,40 @@ export function BusinessTypeMultiSelect({
 						return (
 							<span
 								key={option.id}
-								className='inline-flex max-w-full items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-sm text-blue-950'
+								className='inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-sm text-foreground'
 							>
-								<span aria-hidden='true'>{option.icon || ''}</span>
+								{option.icon && <span aria-hidden='true'>{option.icon}</span>}
 								<span className='truncate'>{option.title}</span>
 								{showMultiples && multipleLabel && (
-									<span className='rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-blue-900'>
+									<span className='rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-medium text-primary'>
 										{multipleLabel}
 									</span>
 								)}
 								{option.categoryLabel && (
-									<span className='rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] uppercase text-blue-800'>
+									<span className='rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-foreground/60'>
 										{option.categoryLabel}
 									</span>
 								)}
 								<button
 									type='button'
 									onClick={() => clearOption(option.id)}
-									className='ml-1 rounded-full px-1 text-blue-700 hover:bg-blue-100'
+									className='-mr-0.5 ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-foreground/50 transition-colors hover:bg-primary/15 hover:text-foreground'
 									aria-label={`${copy.clearSelection}: ${option.title}`}
 									disabled={disabled}
 								>
-									x
+									<svg
+										aria-hidden='true'
+										viewBox='0 0 14 14'
+										fill='none'
+										className='h-3 w-3'
+									>
+										<path
+											d='m3.5 3.5 7 7m0-7-7 7'
+											stroke='currentColor'
+											strokeWidth='1.6'
+											strokeLinecap='round'
+										/>
+									</svg>
 								</button>
 							</span>
 						);
@@ -305,116 +511,13 @@ export function BusinessTypeMultiSelect({
 				</div>
 			)}
 
-			<div className='relative'>
-				<button
-					id={buttonId}
-					type='button'
-					onClick={() => setShowDropdown(!showDropdown)}
-					disabled={disabled}
-					aria-expanded={showDropdown}
-					aria-describedby={
-						describedBy.length > 0 ? describedBy.join(' ') : undefined
-					}
-					className={`min-h-11 w-full rounded-md border px-3 py-2 text-left sm:min-h-0 ${
-						error ? 'border-red-500' : 'border-gray-300'
-					} ${disabled ? 'cursor-not-allowed bg-gray-100' : 'cursor-pointer bg-white'}`}
-				>
-					{selectedOptions.length > 0 ? (
-						<span className='text-gray-900'>
-							{selectedOptions.map((option) => option.title).join(', ')}
-						</span>
-					) : (
-						<span className='text-gray-500'>
-							{placeholder ?? copy.selectPlaceholder}
-						</span>
-					)}
-				</button>
-
-				{showDropdown && (
-					<div
-						id={listboxId}
-						aria-labelledby={buttonId}
-						className='absolute z-10 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg'
-					>
-						{loading ? (
-							<output className='px-3 py-2 text-center text-gray-500'>
-								{copy.loading}
-							</output>
-						) : filteredOptions.length === 0 ? (
-							<div className='px-3 py-2 text-center text-gray-500'>
-								{copy.empty}
-							</div>
-						) : (
-							filteredOptions.map((option) => {
-								const selected = selectedIdSet.has(option.id);
-								const multipleLabel = formatMultiple(option.primaryMultiple);
-								return (
-									<button
-										type='button'
-										key={option.id}
-										onClick={() => toggleOption(option)}
-										aria-pressed={selected}
-										className='min-h-11 w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none sm:min-h-0'
-									>
-										<div className='flex items-start gap-3'>
-											<span
-												aria-hidden='true'
-												className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-													selected
-														? 'border-blue-500 bg-blue-500 text-white'
-														: 'border-gray-300 bg-white text-transparent'
-												}`}
-											>
-												{selected ? 'x' : ''}
-											</span>
-											<span className='mt-0.5 shrink-0' aria-hidden='true'>
-												{option.icon || ''}
-											</span>
-											<span className='min-w-0 flex-1'>
-												<span className='flex flex-wrap items-center gap-2'>
-													<span className='font-medium text-gray-900'>
-														{option.title}
-													</span>
-													{option.categoryLabel && (
-														<span className='rounded-full bg-gray-100 px-2 py-0.5 text-[10px] uppercase text-gray-600'>
-															{option.categoryLabel}
-														</span>
-													)}
-													{showPopular && option.popular && (
-														<span className='rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800'>
-															{copy.popular}
-														</span>
-													)}
-												</span>
-												{option.description && (
-													<span className='mt-0.5 block text-sm text-gray-500'>
-														{option.description}
-													</span>
-												)}
-												{showMultiples && (
-													<span className='mt-1 block text-xs font-medium text-gray-700'>
-														{multipleLabel ??
-															(option.primaryMultiple?.lowSampleSuppressed
-																? copy.lowSampleSuppressed
-																: copy.multipleUnavailable)}
-													</span>
-												)}
-											</span>
-										</div>
-									</button>
-								);
-							})
-						)}
-					</div>
-				)}
-			</div>
 			{error && (
-				<div id={errorId} className='mt-1 text-sm text-red-600' role='alert'>
+				<div id={errorId} className='mt-1 text-sm text-destructive' role='alert'>
 					{error}
 				</div>
 			)}
 			{required && (
-				<div id={requiredId} className='mt-1 text-sm text-gray-500'>
+				<div id={requiredId} className='mt-1 text-sm text-foreground/50'>
 					{copy.required}
 				</div>
 			)}
