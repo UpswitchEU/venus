@@ -604,6 +604,12 @@ class SessionRestorationServiceImpl {
       if (data.userWeightJustification) {
         store.setUserWeightJustification(data.userWeightJustification)
       }
+      // BET-325 — hydrate the agent's per-method data-input plan (read-enriched by
+      // Titan only when ADAPTIVE_METHOD_AGENT_MODE is shadow/primary). Absent →
+      // store stays null → the adaptive panel renders nothing.
+      if (data.methodDataPlan) {
+        store.setMethodDataPlan(data.methodDataPlan)
+      }
     }
 
     // 2. Hydrate results store

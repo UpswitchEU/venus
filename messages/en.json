@@ -2170,7 +2170,19 @@
 			"cancel": "Cancel"
 		},
 		"csvComingSoon": "CSV import in next version",
-		"csvComingSoonDesc": "Direct import from CSV and accounting packages (Yuki, Exact Online, Octopus, Accountable, Odoo) will be supported in the next release."
+		"csvComingSoonDesc": "Direct import from CSV and accounting packages (Yuki, Exact Online, Octopus, Accountable, Odoo) will be supported in the next release.",
+		"methodDataPlan": {
+			"title": "Recommended data",
+			"subtitle": "What you can still provide to unlock or sharpen each selected method.",
+			"allUnlocked": "All selected methods have enough data.",
+			"doorsTitle": "Autofill",
+			"comingSoon": "Coming soon",
+			"doors": {
+				"connectAccounting": "Connect accounting",
+				"inviteAccountant": "Invite accountant",
+				"registryEstimate": "Estimate via registry"
+			}
+		}
 	},
 	"toast": {
 		"loginRequired": "Please log in before calculating.",

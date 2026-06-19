@@ -5,6 +5,7 @@ import {
   SESSION_USER_WEIGHT_JUSTIFICATION_KEY,
   SESSION_USER_WEIGHTS_KEY,
 } from '../../constants/sessionUiKeys'
+import type { MethodDataPlanEntry, MethodWeightsDataPlan } from '../../types/methodDataPlan'
 
 type SessionRecord = Record<string, unknown>
 
@@ -90,5 +91,53 @@ export function extractMethodSelectionHints(
     preSelectedMethods,
     userWeights,
     userWeightJustification,
+  }
+}
+
+function pickDataPlanStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0
+  )
+}
+
+function pickMethodDataPlanEntry(raw: unknown): MethodDataPlanEntry | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const record = raw as Record<string, unknown>
+  const method = typeof record.method === 'string' ? record.method.trim() : ''
+  if (!method) return null
+  const entry: MethodDataPlanEntry = {
+    method,
+    fieldsToCollect: pickDataPlanStringArray(record.fieldsToCollect),
+  }
+  const requiredInputSections = pickDataPlanStringArray(record.requiredInputSections)
+  if (requiredInputSections.length > 0) entry.requiredInputSections = requiredInputSections
+  return entry
+}
+
+/**
+ * BET-325 — lift the agent's per-method data-input plan from the session envelope.
+ * Titan's `getSession` read-time enrichment injects it under `_data_input_plan`
+ * (only when `ADAPTIVE_METHOD_AGENT_MODE` is shadow/primary and a proposal row
+ * exists); the flat `data_input_plan` is accepted as a defensive fallback. Returns
+ * `undefined` when absent or shapeless so the panel stays dormant rather than
+ * rendering an empty shell.
+ */
+export function extractMethodDataPlan(
+  sessionData: SessionRecord
+): MethodWeightsDataPlan | undefined {
+  const raw = sessionData._data_input_plan ?? sessionData.data_input_plan
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const record = raw as Record<string, unknown>
+  const perMethod = Array.isArray(record.perMethod)
+    ? record.perMethod
+        .map(pickMethodDataPlanEntry)
+        .filter((entry): entry is MethodDataPlanEntry => entry !== null)
+    : []
+  if (perMethod.length === 0) return undefined
+  return {
+    nextDataAction: typeof record.nextDataAction === 'string' ? record.nextDataAction : 'none',
+    perMethod,
+    unlockHint: typeof record.unlockHint === 'string' ? record.unlockHint : null,
   }
 }

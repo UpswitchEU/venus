@@ -22,8 +22,10 @@ import {
   extractStableSessionKeyFromMergedSession,
   mergeSessionDataEnvelopesFromRoot,
 } from '../../utils/sessionReportIdentity'
+import type { MethodWeightsDataPlan } from '../../types/methodDataPlan'
 import { extractFormData } from './SessionFormDataNormalizer'
 import {
+  extractMethodDataPlan,
   extractMethodSelectionHints,
   type SessionMethodSelectionHints,
 } from './SessionMethodSelectionNormalizer'
@@ -108,6 +110,13 @@ export interface NormalizedSessionData {
   userWeights: SessionMethodSelectionHints['userWeights']
   /** Accountant justification for chosen weighting. */
   userWeightJustification: SessionMethodSelectionHints['userWeightJustification']
+
+  /**
+   * BET-325 — the agent's per-method data-input plan (what to collect to unlock
+   * each weighted method), lifted from the `_data_input_plan` session key Titan
+   * read-enriches. `null` when absent (default) → the adaptive panel stays dormant.
+   */
+  methodDataPlan: MethodWeightsDataPlan | null
 
   /**
    * Raw session JSONB used at restore time — same blob passed to {@link extractFormData}.
@@ -299,6 +308,7 @@ export function normalizeSessionData(backendSession: unknown): NormalizedSession
     preSelectedMethods: methodSelection.preSelectedMethods,
     userWeights: methodSelection.userWeights,
     userWeightJustification: methodSelection.userWeightJustification,
+    methodDataPlan: extractMethodDataPlan(sessionData) ?? null,
 
     sessionDataEnvelope,
   }
@@ -341,6 +351,7 @@ export function createEmptyNormalizedData(reportId: string): NormalizedSessionDa
     preSelectedMethods: undefined,
     userWeights: undefined,
     userWeightJustification: undefined,
+    methodDataPlan: null,
     sessionDataEnvelope: {},
   }
 }

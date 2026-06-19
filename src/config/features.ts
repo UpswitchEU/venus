@@ -22,6 +22,15 @@ export const FEATURE_FLAGS = {
   /** "Sneller met grootboek upload?" CTA in valuation left panel. */
   SHOW_LEDGER_UPLOAD_HINT: process.env.NEXT_PUBLIC_SHOW_LEDGER_UPLOAD_HINT !== 'false',
 
+  /**
+   * BET-312 / BET-325 — the autofill "doors" (connect-accounting /
+   * invite-accountant / registry-estimate) in the adaptive method data-plan
+   * panel. Off by default: the doors render greyed "coming soon" until BET-312
+   * ships the real `fieldsToCollect` routing. Flip per env / Vercel flag UI once
+   * the doors exist.
+   */
+  BET312_AUTOFILL_DOORS: process.env.NEXT_PUBLIC_BET312_AUTOFILL_DOORS === 'true',
+
   // Session & Persistence Flags
   ENABLE_SESSION_RESTORATION: process.env.NEXT_PUBLIC_ENABLE_SESSION_RESTORATION !== 'false', // Default: enabled
 
@@ -60,6 +69,8 @@ export const shouldShowOnboardingTooltips = (): boolean => FEATURE_FLAGS.SHOW_ON
 export const shouldEnableAnimations = (): boolean => FEATURE_FLAGS.ENABLE_ANIMATIONS
 export const shouldShowCreditAnalytics = (): boolean => FEATURE_FLAGS.SHOW_CREDIT_ANALYTICS
 export const shouldShowLedgerUploadHint = (): boolean => FEATURE_FLAGS.SHOW_LEDGER_UPLOAD_HINT
+/** BET-312/BET-325 — are the adaptive panel's autofill doors live (vs greyed "coming soon")? */
+export const isBet312AutofillDoorsEnabled = (): boolean => FEATURE_FLAGS.BET312_AUTOFILL_DOORS
 export const shouldEnableSessionRestoration = (): boolean =>
   FEATURE_FLAGS.ENABLE_SESSION_RESTORATION
 export const isDebugCreditSystem = (): boolean => FEATURE_FLAGS.DEBUG_CREDIT_SYSTEM

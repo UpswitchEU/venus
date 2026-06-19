@@ -2172,7 +2172,19 @@
 			"cancel": "Annuleren"
 		},
 		"csvComingSoon": "CSV import in volgende versie",
-		"csvComingSoonDesc": "Directe import vanuit CSV en boekhoudpakketten (Yuki, Exact Online, Octopus, Accountable, Odoo) wordt in de volgende release ondersteund."
+		"csvComingSoonDesc": "Directe import vanuit CSV en boekhoudpakketten (Yuki, Exact Online, Octopus, Accountable, Odoo) wordt in de volgende release ondersteund.",
+		"methodDataPlan": {
+			"title": "Aanbevolen gegevens",
+			"subtitle": "Wat je nog kunt aanleveren om elke gekozen methode te ontgrendelen of te verscherpen.",
+			"allUnlocked": "Alle gekozen methodes hebben voldoende gegevens.",
+			"doorsTitle": "Automatisch aanvullen",
+			"comingSoon": "Binnenkort",
+			"doors": {
+				"connectAccounting": "Boekhouding koppelen",
+				"inviteAccountant": "Accountant uitnodigen",
+				"registryEstimate": "Schatting via KBO/KVK"
+			}
+		}
 	},
 	"toast": {
 		"loginRequired": "Meld u aan voordat u berekent.",

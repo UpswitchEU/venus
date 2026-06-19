@@ -392,6 +392,8 @@ export function ManualInputPanel({
   // Also handles initial mount (e.g. page reload with DCF pre-selected).
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
   const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
+  // BET-325 — agent's per-method data-input plan (null unless ADAPTIVE_METHOD_AGENT_MODE on + proposed).
+  const methodDataPlan = useManualResultsStore((s) => s.methodDataPlan)
   /** Combinable methods for synthesis weging — derived from store (nav/Titan). */
   const synthesisMethodsForPanel = useMemo(
     () => getSynthesisMethodKeysForUi(effectiveMethods),
@@ -702,6 +704,7 @@ export function ManualInputPanel({
               formData={formData}
               hasDcfForecastWorkspace={hasDcfForecastWorkspace}
               historicalCardRows={historicalCardRows}
+              methodDataPlan={methodDataPlan}
               normalizedData={normalizedData}
               onApplyDcfProjectionAutofill={handleApplyDcfProjectionAutofill}
               onSynthesisJustificationChange={onSynthesisJustificationChange}

@@ -9,6 +9,7 @@ import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLay
 import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { isYearRowForecast } from '@/utils/yearData'
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
+import type { MethodWeightsDataPlan } from '../../../types/methodDataPlan'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
 import type { ManualInputAdaptiveHeaderSteps } from '../utils/manualInputAdaptiveSteps'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
@@ -16,6 +17,7 @@ import { AdaptiveSections } from './AdaptiveSections'
 import { AdvisorControlsTrigger, type AdvisorDefaultAppliedField } from './AdvisorControlsTrigger'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import { RealEstateCarveOutSection, SynthesisWeightingSection } from './index'
+import { MethodDataPlanPanel } from './MethodDataPlanPanel'
 
 function hasPositiveRevenue(row: { revenue?: unknown }): boolean {
   const revenue = parseFlexibleNumber(row.revenue)
@@ -41,6 +43,8 @@ interface ManualInputMethodSectionsProps {
   formData: ManualValuationFormData
   hasDcfForecastWorkspace: boolean
   historicalCardRows: Array<{ year: string | number }>
+  /** BET-325 — agent's per-method data-input plan (read-only adaptive panel). Dormant when null. */
+  methodDataPlan?: MethodWeightsDataPlan | null
   normalizedData: ManualInputNormalizedData
   onApplyDcfProjectionAutofill: () => void
   onSynthesisJustificationChange?: (justification: string) => void
@@ -76,6 +80,7 @@ export function ManualInputMethodSections({
   formData,
   hasDcfForecastWorkspace,
   historicalCardRows,
+  methodDataPlan,
   normalizedData,
   onApplyDcfProjectionAutofill,
   onSynthesisJustificationChange,
@@ -242,6 +247,7 @@ export function ManualInputMethodSections({
       </div>
 
       <div className="mt-4 flex flex-col gap-6">
+        <MethodDataPlanPanel methodDataPlan={methodDataPlan ?? null} />
         <AdaptiveSections
           effectiveMethod={effectiveMethod}
           effectiveMethods={effectiveMethods}

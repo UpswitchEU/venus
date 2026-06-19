@@ -22,6 +22,7 @@ import {
   resolveSynthesisPercentWeightsForMethods,
   sanitizeMethodSelection,
 } from '../../constants/methodFieldConfig'
+import type { MethodWeightsDataPlan } from '../../types/methodDataPlan'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import {
   getValuationMethodResultForKey,
@@ -98,6 +99,11 @@ interface ManualResultsStore {
   userWeights: Record<string, number>
   userWeightJustification: string
 
+  // BET-325 — agent's per-method data-input plan (what to collect to unlock each
+  // method). Hydrated from the session at restore time; null when the adaptive
+  // method agent is off or has not proposed → the adaptive panel stays dormant.
+  methodDataPlan: MethodWeightsDataPlan | null
+
   // Calculation state
   isCalculating: boolean
   error: string | null
@@ -121,6 +127,7 @@ interface ManualResultsStore {
   togglePreSelectedMethod: (method: string) => void
   setUserWeights: (weights: Record<string, number>) => void
   setUserWeightJustification: (justification: string) => void
+  setMethodDataPlan: (plan: MethodWeightsDataPlan | null) => void
   setError: (error: string | null) => void
   clearError: () => void
   clearResults: () => void
@@ -142,6 +149,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   preSelectedMethods: ['upswitch_adaptive'],
   userWeights: {},
   userWeightJustification: '',
+  methodDataPlan: null,
   isCalculating: false,
   error: null,
   calculationProgress: 0,
@@ -242,6 +250,10 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
 
   setUserWeightJustification: (justification: string) => {
     set((state) => ({ ...state, userWeightJustification: justification }))
+  },
+
+  setMethodDataPlan: (plan: MethodWeightsDataPlan | null) => {
+    set((state) => ({ ...state, methodDataPlan: plan }))
   },
 
   // Set result (atomic)
@@ -391,6 +403,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           preSelectedMethods: ['upswitch_adaptive'],
           userWeights: {},
           userWeightJustification: '',
+          methodDataPlan: null,
         }
       }
     })
@@ -471,6 +484,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
       preSelectedMethods: ['upswitch_adaptive'],
       userWeights: {},
       userWeightJustification: '',
+      methodDataPlan: null,
       error: null,
       calculationProgress: 0,
       isCalculating: false,
