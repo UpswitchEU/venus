@@ -405,7 +405,7 @@ export function BusinessTypeMultiSelect({
 											<div className='flex items-start gap-3'>
 												<span
 													aria-hidden='true'
-													className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+													className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${
 														selected
 															? 'border-primary bg-primary text-primary-foreground'
 															: 'border-foreground/30 bg-transparent text-transparent'
