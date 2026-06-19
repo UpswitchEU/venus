@@ -150,6 +150,7 @@ export function AdvisorControlsTrigger({
         multipleCalibrationNote={formData.multiple_calibration_note}
         effectiveMultipleOverride={formData.effective_multiple_override}
         effectiveMultipleOverrideNote={formData.effective_multiple_override_note}
+        businessTypeSegments={formData.business_type_segments}
         multipleTypeWeights={formData.multiple_type_weights}
         riskAnalysisEnabled={formData.risk_analysis_enabled}
         advisorDiscountWeights={formData.advisor_discount_weights}

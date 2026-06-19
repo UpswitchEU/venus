@@ -2053,6 +2053,7 @@
 				"livePreviewDiscountWeights": "Discountweging",
 				"livePreviewDiscountFloor": "Discountvloer",
 				"livePreviewHistoricalWeights": "Historische weging",
+				"livePreviewSegmentWeights": "Segmentweging",
 				"multipleTypeBlendTitle": "Multiple-type blend",
 				"multipleTypeBlendSubtitle": "Weeg de EV/EBITDA-, EV/Revenue- en P/E-benen. Wegingen moeten optellen tot 100%.",
 				"multipleTypeWeight": "multiple-type weging",

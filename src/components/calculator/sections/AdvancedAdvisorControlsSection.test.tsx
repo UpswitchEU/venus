@@ -366,6 +366,66 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(screen.queryByText('title')).not.toBeInTheDocument()
   })
 
+  it('blends a true SOTP segment mix into the live before/after preview', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        businessTypeSegments={[
+          { business_type_id: 'a', applied_multiple: 8, weight: 70 },
+          { business_type_id: 'b', applied_multiple: 4, weight: 30 },
+        ]}
+      />
+    )
+
+    // Baseline = sector 5.5x × €100k = €550,000.
+    expect(screen.getByTestId('advisor-controls-live-preview-before').textContent).toContain(
+      '€550,000'
+    )
+    // SOTP blend = 8×0.7 + 4×0.3 = 6.8x × €100k = €680,000.
+    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
+      '€680,000'
+    )
+    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
+      '+€130,000'
+    )
+    expect(screen.getByTestId('advisor-controls-active-changes').textContent).toContain(
+      'livePreviewSegmentWeights'
+    )
+  })
+
+  it('does not surface a segment-weights change for a single-segment mix', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        businessTypeSegments={[{ business_type_id: 'a', applied_multiple: 8, weight: 100 }]}
+      />
+    )
+
+    expect(screen.queryByTestId('advisor-controls-active-changes')).not.toBeInTheDocument()
+  })
+
+  it('lets an explicit effective override win over the SOTP segment blend', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        businessTypeSegments={[
+          { business_type_id: 'a', applied_multiple: 8, weight: 70 },
+          { business_type_id: 'b', applied_multiple: 4, weight: 30 },
+        ]}
+        effectiveMultipleOverride={7}
+        effectiveMultipleOverrideNote="final defended multiple"
+      />
+    )
+
+    // Override 7x × €100k = €700,000 (not the 6.8x blend).
+    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
+      '€700,000'
+    )
+    const activeChanges = screen.getByTestId('advisor-controls-active-changes').textContent
+    expect(activeChanges).toContain('livePreviewEffectiveOverride')
+    expect(activeChanges).toContain('livePreviewSegmentWeights')
+  })
+
   it('rebalances edited year weights so the total stays at 100%', () => {
     render(
       <AdvancedAdvisorControlsSection

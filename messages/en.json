@@ -2051,6 +2051,7 @@
 				"livePreviewDiscountWeights": "Discount weights",
 				"livePreviewDiscountFloor": "Discount floor",
 				"livePreviewHistoricalWeights": "Historical weights",
+				"livePreviewSegmentWeights": "Segment weights",
 				"multipleTypeBlendTitle": "Multiple-type blend",
 				"multipleTypeBlendSubtitle": "Weight the EV/EBITDA, EV/Revenue and P/E legs. Weights must sum to 100%.",
 				"multipleTypeWeight": "multiple-type weight",

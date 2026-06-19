@@ -14,7 +14,9 @@ import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
 import { Switch } from '@/design-system/components/Switch'
+import type { BusinessTypeSegmentInput } from '../../../types/valuation/request'
 import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
+import { computeSegmentWeightedMultiple } from './segmentWeightedMultiple'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 type WeightingMode = 'standard' | 'weighted'
@@ -38,6 +40,13 @@ export interface AdvancedAdvisorControlsSectionProps {
   multipleCalibrationNote?: string
   effectiveMultipleOverride?: number
   effectiveMultipleOverrideNote?: string
+  /**
+   * Multi-segment (SOTP) inputs. When two or more segments carry a multiple,
+   * the live preview blends them into a segment-weighted effective multiple so
+   * that changing a per-segment weight produces an immediate before→after
+   * (BET-527). Read-only — purely a derivation off the form SSOT.
+   */
+  businessTypeSegments?: BusinessTypeSegmentInput[]
   multipleTypeWeights?: Record<string, number>
   riskAnalysisEnabled?: boolean
   advisorDiscountWeights?: Record<string, number>
@@ -146,6 +155,7 @@ export function AdvancedAdvisorControlsSection({
   multipleCalibrationNote,
   effectiveMultipleOverride,
   effectiveMultipleOverrideNote,
+  businessTypeSegments,
   multipleTypeWeights,
   riskAnalysisEnabled,
   advisorDiscountWeights,
@@ -215,9 +225,20 @@ export function AdvancedAdvisorControlsSection({
     sectorAverageMultiple > 0
       ? sectorAverageMultiple
       : null
+  const segmentWeightedMultiple = useMemo(
+    () => computeSegmentWeightedMultiple(businessTypeSegments),
+    [businessTypeSegments]
+  )
+  const hasSegmentBlend = segmentWeightedMultiple != null
   const previewEffectiveMultiple = (() => {
     const explicitOverride = toFiniteNumber(effectiveMultipleOverride)
     if (explicitOverride != null && explicitOverride > 0) return explicitOverride
+    // A true SOTP blend (≥2 weighted segments) is the effective multiple the
+    // engine will apply; surface it so per-segment weight changes move the
+    // before→after immediately. Calibration premium still rides on top.
+    if (segmentWeightedMultiple != null) {
+      return adjustment !== 0 ? segmentWeightedMultiple + adjustment : segmentWeightedMultiple
+    }
     if (calibratedMultiple != null && calibratedMultiple > 0) return calibratedMultiple
     return null
   })()
@@ -273,6 +294,7 @@ export function AdvancedAdvisorControlsSection({
     const changes: string[] = []
     if (adjustment !== 0) changes.push(t('livePreviewMultiplePremium'))
     if (effectiveMultipleOverride != null) changes.push(t('livePreviewEffectiveOverride'))
+    if (hasSegmentBlend) changes.push(t('livePreviewSegmentWeights'))
     if (MULTIPLE_TYPE_ROWS.some((row) => multipleBlendWeights[row.key] !== row.defaultWeight)) {
       changes.push(t('livePreviewMultipleBlend'))
     }
@@ -288,6 +310,7 @@ export function AdvancedAdvisorControlsSection({
     discountWeights,
     effectiveMultipleOverride,
     floorFactor,
+    hasSegmentBlend,
     mode,
     multipleBlendWeights,
     riskEnabled,

@@ -2053,6 +2053,7 @@
 				"livePreviewDiscountWeights": "Ponderation des decotes",
 				"livePreviewDiscountFloor": "Plancher de decote",
 				"livePreviewHistoricalWeights": "Ponderation historique",
+				"livePreviewSegmentWeights": "Ponderation des segments",
 				"multipleTypeBlendTitle": "Ponderation des types de multiples",
 				"multipleTypeBlendSubtitle": "Ponderez les jambes EV/EBITDA, EV/Revenue et P/E. Les poids doivent totaliser 100%.",
 				"multipleTypeWeight": "poids du type de multiple",
