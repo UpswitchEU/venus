@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { extractMethodSelectionHints } from '../SessionMethodSelectionNormalizer'
+import {
+  extractMethodDataPlan,
+  extractMethodSelectionHints,
+} from '../SessionMethodSelectionNormalizer'
 
 describe('extractMethodSelectionHints', () => {
   it('distinguishes an absent single-method hint from explicit adaptive null', () => {
@@ -55,5 +58,56 @@ describe('extractMethodSelectionHints', () => {
     })
 
     expect(hints.userWeights).toEqual({ dcf: 50, ebitda_multiple: 50 })
+  })
+})
+
+describe('extractMethodDataPlan', () => {
+  it('returns undefined when the plan is absent, mistyped, or empty', () => {
+    expect(extractMethodDataPlan({})).toBeUndefined()
+    expect(extractMethodDataPlan({ _data_input_plan: 'nope' })).toBeUndefined()
+    expect(extractMethodDataPlan({ _data_input_plan: { perMethod: [] } })).toBeUndefined()
+    expect(extractMethodDataPlan({ _data_input_plan: { perMethod: 'bad' } })).toBeUndefined()
+  })
+
+  it('lifts the plan from the _data_input_plan envelope, dropping entries with no method', () => {
+    const plan = extractMethodDataPlan({
+      _data_input_plan: {
+        nextDataAction: 'provide_method_inputs',
+        unlockHint: 'Add the inputs below.',
+        perMethod: [
+          {
+            method: 'dcf',
+            fieldsToCollect: ['discount_rate', 'terminal_growth'],
+            requiredInputSections: ['dcf_global'],
+          },
+          { method: '', fieldsToCollect: ['x'] },
+          { fieldsToCollect: ['y'] },
+        ],
+      },
+    })
+
+    expect(plan).toEqual({
+      nextDataAction: 'provide_method_inputs',
+      unlockHint: 'Add the inputs below.',
+      perMethod: [
+        {
+          method: 'dcf',
+          fieldsToCollect: ['discount_rate', 'terminal_growth'],
+          requiredInputSections: ['dcf_global'],
+        },
+      ],
+    })
+  })
+
+  it('accepts the flat data_input_plan fallback and defaults the soft fields', () => {
+    const plan = extractMethodDataPlan({
+      data_input_plan: { perMethod: [{ method: 'ebitda_multiple', fieldsToCollect: [] }] },
+    })
+
+    expect(plan).toEqual({
+      nextDataAction: 'none',
+      unlockHint: null,
+      perMethod: [{ method: 'ebitda_multiple', fieldsToCollect: [] }],
+    })
   })
 })
