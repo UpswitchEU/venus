@@ -21,7 +21,6 @@ import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import type { LedgerAccount } from '../../constants/grootboek'
 import { getNetTaxLatencyImpact, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
-import { generalLogger } from '../../utils/logger'
 import {
   findAcceptedAutoNormalizationCapBreaches,
   getNormalizationAmountForBase,
@@ -29,8 +28,15 @@ import {
   summarizeAcceptedNormalizations,
   summarizeNormalizationsForAnchorYear,
 } from '../../utils/normalizationMath'
+import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
 import { TaxLatencySection } from './TaxLatencySection'
 import { UnifiedNormalizationBulkActionsBar } from './UnifiedNormalizationBulkActionsBar'
+import {
+  calculateNormalizationAdjustment,
+  getNormalizationAdjustmentGuard,
+  parseNormalizationInputValue,
+  parseNormalizationPromptAmount,
+} from './UnifiedNormalizationEditorModel'
 import { UnifiedNormalizationEditorToggle } from './UnifiedNormalizationEditorToggle'
 import type { NormalizationViewMode } from './UnifiedNormalizationEditorToolbar'
 import {
@@ -246,37 +252,7 @@ export function UnifiedNormalizationModal({
     return Array.from(years).sort((a, b) => b - a)
   }, [normalizations])
 
-  // Fetch grootboek codes from Titan API, fall back to hardcoded defaults
-  const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
-  useEffect(() => {
-    const ac = new AbortController()
-    let cancelled = false
-    fetch('/api/reference/grootboek', { signal: ac.signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return
-        // Support both { codes } and { data: { codes } } response formats
-        const codes = data.codes ?? data.data?.codes
-        if (!Array.isArray(codes)) return
-        setFetchedLedgers(
-          codes.map((c: { code: string; name: string; category: string }) => ({
-            code: String(c.code ?? ''),
-            name: String(c.name ?? ''),
-            category: c.category ?? '',
-          }))
-        )
-      })
-      .catch((err) => {
-        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
-        generalLogger.debug('[UnifiedNormalizationModal] Grootboek fetch failed, using defaults', {
-          error: err instanceof Error ? err.message : String(err),
-        })
-      })
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [])
+  const fetchedLedgers = useFetchedLedgerAccounts('[UnifiedNormalizationModal]')
 
   const { availableLedgers, normalizationPresets, filteredLedgers, getLedgerDisplayName } =
     useUnifiedNormalizationLedgerOptions({
@@ -580,48 +556,34 @@ export function UnifiedNormalizationModal({
     const name = String(selectedLedger.name ?? '').trim()
     if (!code) return
 
-    const numericValue = parseFloat(newValue.replace(/[^0-9.-]/g, ''))
-    if (!Number.isFinite(numericValue)) return
+    const numericValue = parseNormalizationInputValue(newValue)
+    if (numericValue == null) return
 
     const safeEbitda = Number.isFinite(safeOriginalEBITDA) ? safeOriginalEBITDA : 0
+    const adjustment = calculateNormalizationAdjustment({
+      type: newType,
+      numericValue,
+      safeEbitda,
+    })
 
     // ── Validation: warn/block extreme adjustments ──
-    const absValue = Math.abs(numericValue)
-    if (safeEbitda > 0) {
-      const pctOfEbitda = (absValue / safeEbitda) * 100
-
-      // Block if adjustment exceeds 200% of EBITDA (likely a data entry error)
-      if (pctOfEbitda > 200) {
-        import('sonner').then(({ toast }) =>
-          toast.error(nh('blockedToast'), {
-            description: nh('blockedToastDesc', { pct: pctOfEbitda.toFixed(0) }),
-          })
-        )
-        return
-      }
-
-      // Warn if adjustment exceeds 30% of EBITDA
-      if (pctOfEbitda > 30) {
-        import('sonner').then(({ toast }) =>
-          toast.warning(nh('warnToastTitle'), {
-            description: nh('warnToastDesc', { pct: pctOfEbitda.toFixed(0) }),
-          })
-        )
-      }
+    const adjustmentGuard = getNormalizationAdjustmentGuard({ adjustment, safeEbitda })
+    if (adjustmentGuard?.kind === 'blocked') {
+      import('sonner').then(({ toast }) =>
+        toast.error(nh('blockedToast'), {
+          description: nh('blockedToastDesc', { pct: adjustmentGuard.pct }),
+        })
+      )
+      return
     }
 
-    // Calculate adjustment based on type
-    let adjustment = numericValue
-    if (newType === 'add_percent') {
-      adjustment = (safeEbitda * numericValue) / 100
-    } else if (newType === 'subtract_percent') {
-      adjustment = -((safeEbitda * numericValue) / 100)
-    } else if (newType === 'subtract') {
-      adjustment = -numericValue
-    } else if (newType === 'absolute') {
-      adjustment = numericValue - safeEbitda
+    if (adjustmentGuard?.kind === 'warning') {
+      import('sonner').then(({ toast }) =>
+        toast.warning(nh('warnToastTitle'), {
+          description: nh('warnToastDesc', { pct: adjustmentGuard.pct }),
+        })
+      )
     }
-    if (!Number.isFinite(adjustment)) adjustment = 0
 
     // If editing an existing item, update it instead of creating new
     if (editingId) {
@@ -772,8 +734,6 @@ export function UnifiedNormalizationModal({
       setEditingId(null)
       // Try to parse the input for ledger codes (3-digit numbers)
       const codeMatch = value.match(/\b(\d{3})\b/)
-      // Try to parse for amounts (€60.000 or 60000 or 60k)
-      const amountMatch = value.match(/€?\s*(\d{1,3}(?:[.,]\d{3})*|\d+)(?:k)?/i)
 
       if (codeMatch) {
         const code = codeMatch[1]
@@ -782,11 +742,8 @@ export function UnifiedNormalizationModal({
           setSelectedLedger(matchingLedger)
           setShowAddForm(true)
 
-          if (amountMatch) {
-            let amount = amountMatch[1].replace(/[.,]/g, '')
-            if (value.toLowerCase().includes('k')) {
-              amount = String(parseInt(amount) * 1000)
-            }
+          const amount = parseNormalizationPromptAmount(value, { ledgerCode: code })
+          if (amount) {
             setNewValue(amount)
           }
           return
@@ -817,7 +774,7 @@ export function UnifiedNormalizationModal({
       setSearchQuery(value)
       setShowLedgerDropdown(true)
     },
-    [availableLedgers, normalizationPresets.find]
+    [availableLedgers, normalizationPresets]
   )
 
   return (

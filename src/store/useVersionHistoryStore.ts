@@ -20,7 +20,6 @@ import type {
   VersionListResponse,
 } from '../types/ValuationVersion'
 import type { ValuationRequest } from '../types/valuation'
-import { dateLikeToUnixMs } from '../utils/date-like'
 import {
   getCurrentFilingYear,
   normalizeCurrentYearForFiling,
@@ -28,17 +27,21 @@ import {
 } from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
-import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
-import { createRandomId } from '../utils/secureRandom'
 import { getFinalValuation as getAccessibleFinalValuation } from '../utils/valuationResultAccess'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
-import { buildCurrentYearData } from '../utils/yearData'
 import { mapFrontendCategoryToBackend, useNormalizationStore } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
+import {
+  appendVersionIfMissing,
+  createLocalVersionSnapshot,
+  deduplicateVersionsByNumber,
+  markVersionsInactive,
+  mergeBackendVersionsByNumber,
+  partializeVersionHistoryState,
+} from './versionHistoryModel'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
-type PersistedVersionMetadata = ValuationVersion & { _hasHtmlReport?: boolean }
 
 /**
  * Storage adapter that catches QuotaExceededError and gracefully degrades.
@@ -126,13 +129,6 @@ export interface VersionHistoryStore {
   ) => VersionComparison | null
   clearVersions: (reportId: string) => void
   syncVersions: (reportId: string) => Promise<void> // ✅ NEW: Explicit sync method
-}
-
-/**
- * Generate version ID
- */
-function generateVersionId(): string {
-  return createRandomId('version', 16)
 }
 
 /**
@@ -245,16 +241,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
 
         const applyBackendResponse = (response: VersionListResponse) => {
           const existingLocalVersions = get().versions[reportId] || []
-          const versionMap = new Map<number, ValuationVersion>()
-          existingLocalVersions.forEach((version) => {
-            versionMap.set(version.versionNumber, version)
+          const deduplicatedVersions = mergeBackendVersionsByNumber({
+            localVersions: existingLocalVersions,
+            backendVersions: response.versions,
           })
-          response.versions.forEach((version: ValuationVersion) => {
-            versionMap.set(version.versionNumber, version)
-          })
-          const deduplicatedVersions = Array.from(versionMap.values()).sort(
-            (a, b) => a.versionNumber - b.versionNumber
-          )
 
           set((state) => ({
             versions: {
@@ -286,20 +276,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
 
         const fallbackToLocal = (error: unknown) => {
           const localVersions = get().versions[reportId] || []
-
-          const localVersionMap = new Map<number, ValuationVersion>()
-          localVersions.forEach((version) => {
-            const existing = localVersionMap.get(version.versionNumber)
-            if (
-              !existing ||
-              (version.createdAt && existing.createdAt && version.createdAt > existing.createdAt)
-            ) {
-              localVersionMap.set(version.versionNumber, version)
-            }
-          })
-          const deduplicatedLocalVersions = Array.from(localVersionMap.values()).sort(
-            (a, b) => a.versionNumber - b.versionNumber
-          )
+          const deduplicatedLocalVersions = deduplicateVersionsByNumber(localVersions)
 
           const errorMessage = error instanceof Error ? error.message : String(error)
           versionLogger.warn('Backend unavailable, using local versions', {
@@ -490,25 +467,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             // Also deduplicate existing versions in case of race conditions
             set((state) => {
               const reportVersions = state.versions[request.reportId] || []
-
-              // ✅ FIX: Deduplicate existing versions first (in case duplicates were already added)
-              const existingVersionMap = new Map<number, ValuationVersion>()
-              reportVersions.forEach((v) => {
-                const existing = existingVersionMap.get(v.versionNumber)
-                // Keep the version with the latest createdAt if duplicates exist
-                if (
-                  !existing ||
-                  (v.createdAt && existing.createdAt && v.createdAt > existing.createdAt)
-                ) {
-                  existingVersionMap.set(v.versionNumber, v)
-                }
+              const { versionExists, versions: updatedVersions } = appendVersionIfMissing({
+                versions: reportVersions,
+                version,
               })
-              const deduplicatedVersions = Array.from(existingVersionMap.values())
-
-              // Check if version with same versionNumber already exists
-              const versionExists = deduplicatedVersions.some(
-                (v) => v.versionNumber === version.versionNumber
-              )
 
               if (versionExists) {
                 versionLogger.warn('Version already exists in local state, skipping add', {
@@ -520,7 +482,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 return {
                   versions: {
                     ...state.versions,
-                    [request.reportId]: deduplicatedVersions,
+                    [request.reportId]: updatedVersions,
                   },
                   activeVersions: {
                     ...state.activeVersions,
@@ -528,11 +490,6 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                   },
                 }
               }
-
-              // Add new version and ensure no duplicates
-              const updatedVersions = [...deduplicatedVersions, version].sort(
-                (a, b) => a.versionNumber - b.versionNumber
-              )
 
               return {
                 versions: {
@@ -557,43 +514,19 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             })
 
             try {
-              const reportVersions = get().versions[request.reportId] || []
+              const reportVersions = deduplicateVersionsByNumber(
+                get().versions[request.reportId] || []
+              )
               const nextVersionNumber =
                 Math.max(0, ...reportVersions.map((v) => v.versionNumber)) + 1
 
-              // Generate auto-label
-              const autoLabel =
-                request.changesSummary && request.changesSummary.significantChanges.length > 0
-                  ? `v${nextVersionNumber} - Adjusted ${request.changesSummary.significantChanges.join(', ')}`
-                  : `Version ${nextVersionNumber}`
-
-              const localVersion: ValuationVersion = {
-                id: generateVersionId(),
-                reportId: request.reportId,
+              const localVersion = createLocalVersionSnapshot({
+                request: enrichedRequest,
                 versionNumber: nextVersionNumber,
-                versionLabel: enrichedRequest.versionLabel || autoLabel,
-                createdAt: new Date(),
-                createdBy: null,
-                formData: enrichedRequest.formData,
-                valuationResult: enrichedRequest.valuationResult || null,
-                htmlReport: getRenderableReportHtml(enrichedRequest.htmlReport) || null,
-                changesSummary: enrichedRequest.changesSummary || {
-                  totalChanges: 0,
-                  significantChanges: [],
-                },
-                isActive: true,
-                isPinned: false,
-                tags: enrichedRequest.tags || [],
-                notes: enrichedRequest.notes,
-                normalization_data: enrichedRequest.normalization_data,
-                tax_latency_data: enrichedRequest.tax_latency_data,
-              }
+              })
 
               // Mark previous versions as inactive
-              const updatedVersions = reportVersions.map((v) => ({
-                ...v,
-                isActive: false,
-              }))
+              const updatedVersions = markVersionsInactive(reportVersions)
 
               set((state) => ({
                 versions: {
@@ -881,71 +814,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
     {
       name: 'version-history-storage',
       storage: createJSONStorage(() => createQuotaSafeStorage()),
-      partialize: (state) => {
-        // ✅ QUOTA FIX: Persist only lightweight metadata - full formData, valuationResult,
-        // htmlReport are fetched from backend on demand. Prevents "exceeded the quota" errors.
-        const MAX_VERSIONS_PER_REPORT = 15
-        const MAX_REPORTS = 10
-        const lightweight: Record<string, ValuationVersion[]> = {}
-
-        const reportIds = Object.entries(state.versions)
-          .map(([id, vs]) => ({
-            id,
-            latest: Math.max(0, ...vs.map((v) => dateLikeToUnixMs(v.createdAt) ?? 0)),
-          }))
-          .sort((a, b) => b.latest - a.latest)
-          .slice(0, MAX_REPORTS)
-          .map((r) => r.id)
-
-        for (const reportId of reportIds) {
-          const versions = state.versions[reportId] || []
-          const trimmed = versions.slice(-MAX_VERSIONS_PER_REPORT).map((version) => {
-            const fd = version.formData
-            const lightweightFormData = {
-              country_code: fd?.country_code || '',
-              company_name: fd?.company_name,
-              current_year_data: fd?.current_year_data
-                ? buildCurrentYearData({
-                    year: normalizeCurrentYearForFiling(
-                      fd.current_year_data.year,
-                      fd?.filing_year_confirmed
-                    ),
-                    revenue: fd.current_year_data.revenue,
-                    ebitda: fd.current_year_data.ebitda,
-                    currentYearData: fd.current_year_data,
-                  })
-                : undefined,
-              number_of_employees: fd?.number_of_employees,
-              number_of_owners: fd?.number_of_owners,
-              industry: fd?.industry,
-              business_type: fd?.business_type,
-            } as unknown as ValuationVersion['formData']
-            const versionMetadata = version as PersistedVersionMetadata
-            return {
-              ...version,
-              formData: lightweightFormData,
-              valuationResult: null,
-              htmlReport: null,
-              normalization_data: undefined,
-              tax_latency_data: undefined,
-              _hasHtmlReport: !!versionMetadata._hasHtmlReport || !!version.htmlReport,
-            }
-          })
-          lightweight[reportId] = trimmed
-        }
-
-        const activeVersionsFiltered: Record<string, number> = {}
-        for (const reportId of reportIds) {
-          if (state.activeVersions[reportId] != null) {
-            activeVersionsFiltered[reportId] = state.activeVersions[reportId]
-          }
-        }
-
-        return {
-          versions: lightweight,
-          activeVersions: activeVersionsFiltered,
-        }
-      },
+      partialize: (state: VersionHistoryStore) => partializeVersionHistoryState(state),
     }
   )
 )

@@ -32,34 +32,16 @@
  * dashboard server components, anywhere.
  */
 
-export type StudioDeepLinkStage = 'pre_seed' | 'seed' | 'series_a'
-export type StudioDeepLinkSector =
-  | 'saas'
-  | 'marketplace'
-  | 'fintech'
-  | 'biotech_healthtech'
-  | 'deeptech_ai'
-  | 'vertical_ai'
-  | 'consumer'
-  | 'hardware'
-  | 'other'
+import {
+  isStudioDeepLinkSector,
+  isStudioDeepLinkStage,
+  normalizeStudioCountryCode,
+  type StudioDeepLinkParams,
+  type StudioDeepLinkSector,
+  type StudioDeepLinkStage,
+} from './studioDeepLinkContract'
 
-export interface StudioDeepLinkParams {
-  /** Pretty company name, will be trimmed + 120-char clamped. */
-  companyName?: string
-  stage?: StudioDeepLinkStage
-  sector?: StudioDeepLinkSector
-  /** 2-letter ISO; will be uppercased. */
-  country?: string
-  /** Current monthly recurring revenue (EUR). */
-  mrr?: number
-  /** Current annual recurring revenue (EUR). */
-  arr?: number
-  /** Round size to raise (EUR). */
-  raise?: number
-  /** Founder's one-line pitch (240-char clamp). */
-  pitch?: string
-}
+export type { StudioDeepLinkParams, StudioDeepLinkSector, StudioDeepLinkStage }
 
 /**
  * Build a deep-link URL into the Venus startup studio with optional
@@ -84,28 +66,14 @@ export function buildStudioDeepLink(basePath: string, params: StudioDeepLinkPara
     const clean = params.companyName.trim().slice(0, 120)
     if (clean) usp.set('companyName', clean)
   }
-  if (params.stage === 'pre_seed' || params.stage === 'seed' || params.stage === 'series_a') {
+  if (isStudioDeepLinkStage(params.stage)) {
     usp.set('stage', params.stage)
   }
-  // Validate sector against the canonical 9-value enum.
-  const validSectors: ReadonlyArray<StudioDeepLinkSector> = [
-    'saas',
-    'marketplace',
-    'fintech',
-    'biotech_healthtech',
-    'deeptech_ai',
-    'vertical_ai',
-    'consumer',
-    'hardware',
-    'other',
-  ]
-  if (params.sector && validSectors.includes(params.sector)) {
+  if (isStudioDeepLinkSector(params.sector)) {
     usp.set('sector', params.sector)
   }
-  if (params.country) {
-    const country = params.country.trim().toUpperCase()
-    if (country.length === 2) usp.set('country', country)
-  }
+  const country = normalizeStudioCountryCode(params.country)
+  if (country) usp.set('country', country)
   // Numeric prefills — strict positive-integer parsing so a NaN /
   // negative / over-flow value never lands on the URL.
   const isPositiveInt = (n: unknown): n is number =>

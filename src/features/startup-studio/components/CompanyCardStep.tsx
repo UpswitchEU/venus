@@ -48,6 +48,11 @@ import {
   coerceStudioLocale,
   studioIntlLocale,
 } from '@/features/startup-studio/i18n/useStudioLocale'
+import { deriveCompanyCardPrefillPlan } from '@/features/startup-studio/utils/companyCardPrefill'
+import {
+  STARTUP_STUDIO_SECTORS,
+  STARTUP_STUDIO_STAGES,
+} from '@/features/startup-studio/utils/studioDeepLinkContract'
 import { useBusinessTypes } from '@/hooks/useBusinessTypes'
 import type { BusinessType as ApiBusinessType } from '@/services/businessTypesApi'
 import { registryService } from '@/services/registry/registryService'
@@ -72,8 +77,6 @@ interface CompanyCardStepProps {
   /** Forwarded by `StartupValuationPanel`; unused on this step. */
   advisorMode?: boolean
 }
-
-const STAGE_VALUES: StartupStage[] = ['pre_seed', 'seed', 'series_a']
 
 /**
  * Country-scoped legal-form enum. The Belgian set was previously the
@@ -144,7 +147,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   )
   const stageControlOptions = useMemo(
     () =>
-      STAGE_VALUES.map((value) => ({
+      STARTUP_STUDIO_STAGES.map((value) => ({
         value,
         label: t(`stageLabels.${value}` as never),
       })),
@@ -277,66 +280,32 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     if (prefilledRef.current) return
     if (typeof window === 'undefined') return
     prefilledRef.current = true
-    const params = new URLSearchParams(window.location.search)
     const formStore = useManualFormStore.getState()
     const studioStore = useStartupValuationStore.getState()
 
-    // Company name — both the legacy alias and the new one.
-    const nameParam = params.get('companyName')?.trim() || params.get('prefilledQuery')?.trim()
-    if (nameParam && !(formStore.formData.company_name?.trim() ?? '')) {
-      updateFormData({ company_name: nameParam.slice(0, 120) })
+    const prefill = deriveCompanyCardPrefillPlan(window.location.search, {
+      companyName: formStore.formData.company_name,
+      countryCode: formStore.formData.country_code,
+      mrr: studioStore.mrr,
+      arr: studioStore.arr,
+      investmentAmountSought: studioStore.investment_amount_sought,
+      description: studioStore.description,
+    })
+
+    if (Object.keys(prefill.formPatch).length > 0) {
+      updateFormData(prefill.formPatch)
     }
 
-    // Stage — only flip when the param matches the enum exactly. We
-    // deliberately don't gate on a "user-set" flag because the URL
-    // is the single source-of-truth for first-mount intent.
-    const stageParam = params.get('stage')?.trim()
-    if (stageParam === 'pre_seed' || stageParam === 'seed' || stageParam === 'series_a') {
-      setField('stage', stageParam)
+    const { studioPatch } = prefill
+    if (studioPatch.stage) setField('stage', studioPatch.stage)
+    if (studioPatch.sector) setField('sector', studioPatch.sector)
+    if (studioPatch.country_code) setField('country_code', studioPatch.country_code)
+    if (studioPatch.mrr != null) setField('mrr', studioPatch.mrr)
+    if (studioPatch.arr != null) setField('arr', studioPatch.arr)
+    if (studioPatch.investment_amount_sought != null) {
+      setField('investment_amount_sought', studioPatch.investment_amount_sought)
     }
-
-    // Sector — the store has `_sectorWasUserSet` to keep the NACE
-    // seeder from clobbering an explicit pick later. The URL pre-fill
-    // counts as the same kind of explicit pick.
-    const sectorParam = params.get('sector')?.trim() as StartupSector | undefined
-    if (sectorParam && (SECTOR_OPTIONS as ReadonlyArray<string>).includes(sectorParam)) {
-      setField('sector', sectorParam)
-    }
-
-    // Country — pass through to both stores so the registry search
-    // and the engine envelope agree on the same code.
-    const countryParam = params.get('country')?.trim().toUpperCase()
-    if (countryParam && countryParam.length === 2) {
-      const currentCountry = (formStore.formData.country_code ?? '').toUpperCase()
-      if (!currentCountry) {
-        updateFormData({ country_code: countryParam })
-        setField('country_code', countryParam)
-      }
-    }
-
-    // Numeric prefills — defensive parsing rejects NaN / negative.
-    const parseIntParam = (key: string): number | null => {
-      const raw = params.get(key)
-      if (!raw) return null
-      const n = Math.round(Number(raw))
-      return Number.isFinite(n) && n > 0 ? n : null
-    }
-    const mrrParam = parseIntParam('mrr')
-    if (mrrParam != null && studioStore.mrr == null) setField('mrr', mrrParam)
-    const arrParam = parseIntParam('arr')
-    if (arrParam != null && studioStore.arr == null) setField('arr', arrParam)
-    const raiseParam = parseIntParam('raise')
-    if (raiseParam != null && studioStore.investment_amount_sought == null) {
-      setField('investment_amount_sought', raiseParam)
-    }
-
-    // Pitch — 240-char clamp matches the textarea's maxLength + the
-    // engine's schema cap. Only set when empty so a returning user's
-    // edits never get reset by a stale URL.
-    const pitchParam = params.get('pitch')?.trim()
-    if (pitchParam && !(studioStore.description ?? '').trim()) {
-      setField('description', pitchParam.slice(0, 240))
-    }
+    if (studioPatch.description) setField('description', studioPatch.description)
   }, [setField, updateFormData])
 
   // -------------------------------------------------------------------
@@ -799,18 +768,6 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
 // SectorChip — read-only-by-default, one-click override
 // ---------------------------------------------------------------------------
 
-const SECTOR_OPTIONS: ReadonlyArray<StartupSector> = [
-  'saas',
-  'marketplace',
-  'fintech',
-  'biotech_healthtech',
-  'deeptech_ai',
-  'vertical_ai',
-  'consumer',
-  'hardware',
-  'other',
-] as const
-
 /**
  * Render the canonical engine sector + the exit multiple it drives.
  * Founders never had a way to see what sector the NACE inference
@@ -877,7 +834,7 @@ function SectorChip({
         {t('sectorChipPickHeading')}
       </p>
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-        {SECTOR_OPTIONS.map((opt) => {
+        {STARTUP_STUDIO_SECTORS.map((opt) => {
           const isSelected = opt === sector
           return (
             <button

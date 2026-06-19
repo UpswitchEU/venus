@@ -86,7 +86,13 @@ describe('Omni prefill coverage contract', () => {
 
   it('keeps bootstrap mappings for KBO/taxonomy/enrichment parity', () => {
     const src = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'hooks', 'useBootstrapSync.ts'),
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        '..',
+        'hooks',
+        'bootstrapSyncPrefillMapping.ts'
+      ),
       'utf8'
     )
     for (const key of [

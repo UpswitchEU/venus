@@ -1,6 +1,6 @@
 'use client'
 import { useLocale, useTranslations } from 'next-intl'
-import React, { Suspense, useCallback, useMemo, useRef } from 'react'
+import React, { Suspense } from 'react'
 import { toast } from 'sonner'
 import { ChatAssistantDrawer } from '../../../components/calculator'
 import { venusAiDockShellClassName } from '../../../components/calculator/venus-ai-dock-layout'
@@ -14,10 +14,6 @@ import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMe
 import { useSessionDataPrefill } from '../../../hooks/useSessionDataPrefill'
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import {
-  isVenturePathMethodKey,
-  methodKeyAcceptsPreparerMultipleOverride,
-} from '../../../lib/methods'
 import { backendAPI } from '../../../services/backendApi'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import {
@@ -54,11 +50,9 @@ import {
   useManualVersionSyncTimeoutRef,
   useManualWorkspaceStores,
   usePdfStalenessLifecycle,
-  useRestorationGate,
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
-import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
 import { ManualLayoutBody } from './ManualLayoutBody'
 import { ManualLayoutContextBar } from './ManualLayoutContextBar'
 import { ManualLayoutModals } from './ManualLayoutModals'
@@ -66,12 +60,10 @@ import { ManualLayoutNav } from './ManualLayoutNav'
 import { ManualLayoutSessionGate } from './ManualLayoutSessionGate'
 import { ManualPdfStaleBanner } from './ManualPdfStaleBanner'
 import type { CollectedData } from './manualLayoutDataTypes'
-import {
-  shouldRestoreExistingManualReport,
-  shouldShowManualAssistantFab,
-} from './manualLayoutDerivedState'
+import { shouldShowManualAssistantFab } from './manualLayoutDerivedState'
 import { useManualLayoutViewport } from './manualLayoutShell'
 import type { ManualLayoutProps } from './manualLayoutTypes'
+import { useManualLayoutPreviewState } from './useManualLayoutPreviewState'
 import { useManualUrlActions } from './useManualUrlActions'
 export const ManualLayout: React.FC<ManualLayoutProps> = (props) => {
   return (
@@ -217,35 +209,20 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     selectedMethod,
     setReport,
   })
-  const liveMultipleReportPreview = useMemo(() => {
-    return buildManualLiveMultiplePreview({
-      result,
+  const { effectiveIsRestoringExistingReport, isStartupAssistantRoute, liveMultipleReportPreview } =
+    useManualLayoutPreviewState({
+      isGenerating,
+      preparerAppliedMedian,
+      preparerBenchmarkMedian,
+      preSelectedMethod,
       report,
-      methodAcceptsOverride: methodKeyAcceptsPreparerMultipleOverride(selectedMethod),
-      appliedMedian: preparerAppliedMedian,
-      benchmarkMedian: preparerBenchmarkMedian,
+      reportId,
+      resolvedReportId,
+      restorationComplete,
+      result,
+      selectedMethod,
+      session,
     })
-  }, [
-    preparerAppliedMedian,
-    preparerBenchmarkMedian,
-    report?.htmlReport,
-    report?.valuation,
-    result,
-    selectedMethod,
-    report,
-  ])
-  const isRestoringExistingReport = shouldRestoreExistingManualReport({
-    isGenerating,
-    report,
-    reportId,
-    resolvedReportId,
-    session,
-    sessionReportId: session?.reportId,
-  })
-  const { effectiveIsRestoringExistingReport } = useRestorationGate({
-    isRestoringExistingReport,
-    restorationComplete,
-  })
   const {
     isHydratingEditModalData,
     reportMethodHydrationError,
@@ -341,8 +318,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translateNewEstimation: t('newEstimation'),
     updateFormData,
   })
-  const effectiveAssistantMethod = preSelectedMethod ?? selectedMethod
-  const isStartupAssistantRoute = isVenturePathMethodKey(effectiveAssistantMethod)
   useManualLayoutResets({
     reportId,
     result,

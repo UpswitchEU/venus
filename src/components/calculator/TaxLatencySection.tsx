@@ -45,6 +45,7 @@ import {
   type TaxLatencyType,
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
+import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
 import { TaxLatencyEditorForm } from './TaxLatencyEditorForm'
 import {
   fuzzyMatch,
@@ -384,7 +385,7 @@ export function TaxLatencySection({
   const [draftCandidateIds, setDraftCandidateIds] = useState<string[]>([])
   const [ledgerQuery, setLedgerQuery] = useState('')
   const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
-  const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
+  const fetchedLedgers = useFetchedLedgerAccounts('[TaxLatencySection]')
   const amountInputRef = useRef<HTMLInputElement | null>(null)
   // One-shot intent flag so the candidate-driven editor-open flow focuses the
   // input AFTER React commits the editor (otherwise the focus runs while the
@@ -393,34 +394,6 @@ export function TaxLatencySection({
   // section header opens the editor without setting this flag, so it stays
   // ergonomic for that case.
   const focusAmountInputOnNextOpenRef = useRef(false)
-
-  useEffect(() => {
-    const ac = new AbortController()
-    let cancelled = false
-
-    fetch('/api/reference/grootboek', { signal: ac.signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return
-        const codes = data.codes ?? data.data?.codes
-        if (!Array.isArray(codes)) return
-        setFetchedLedgers(
-          codes.map((code: { code: string; name: string; category?: string }) => ({
-            code: String(code.code ?? ''),
-            name: String(code.name ?? ''),
-            category: code.category ?? '',
-          }))
-        )
-      })
-      .catch((error) => {
-        if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) return
-      })
-
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [])
 
   const availableLedgers = useMemo(() => {
     const base = fetchedLedgers.length > 0 ? fetchedLedgers : DEFAULT_LEDGER_ACCOUNTS

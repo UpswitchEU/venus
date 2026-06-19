@@ -36,17 +36,22 @@ describe('Venus attestation product boundary', () => {
   })
 
   it('consumes urlAction preview and download deep links', () => {
-    const source = readFileSync(
+    const hookSource = readFileSync(
+      join(process.cwd(), 'src/features/manual/components/useManualUrlActions.ts'),
+      'utf8'
+    )
+    const layoutSource = readFileSync(
       join(process.cwd(), 'src/features/manual/components/ManualLayout.tsx'),
       'utf8'
     )
 
-    expect(source).toMatch(/urlAction !== 'preview'/)
-    expect(source).toMatch(/urlAction !== 'download'/)
-    expect(source).toMatch(/handlePreview\(\)/)
-    expect(source).toMatch(/void handleExport\(\)/)
-    expect(source).toMatch(/urlActionDownloadHandledForRef\.current === attestReportId/)
-    expect(source).toMatch(/urlActionPreviewHandledForRef\.current === attestReportId/)
+    expect(layoutSource).toMatch(/useManualUrlActions\(\{/)
+    expect(hookSource).toMatch(/urlAction !== 'preview'/)
+    expect(hookSource).toMatch(/urlAction !== 'download'/)
+    expect(hookSource).toMatch(/handlePreview\(\)/)
+    expect(hookSource).toMatch(/void handleExport\(\)/)
+    expect(hookSource).toMatch(/downloadHandledForRef\.current === attestReportId/)
+    expect(hookSource).toMatch(/previewHandledForRef\.current === attestReportId/)
   })
 
   it('gates sign and approve overflow actions to advisor calculator mode', () => {

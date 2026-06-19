@@ -2172,7 +2172,19 @@
 			"cancel": "Annuler"
 		},
 		"csvComingSoon": "Importation CSV dans la prochaine version",
-		"csvComingSoonDesc": "L'importation directe à partir de CSV et de progiciels de comptabilité (Yuki, Exact Online, Octopus, Accountable, Odoo) sera prise en charge dans la prochaine version."
+		"csvComingSoonDesc": "L'importation directe à partir de CSV et de progiciels de comptabilité (Yuki, Exact Online, Octopus, Accountable, Odoo) sera prise en charge dans la prochaine version.",
+		"methodDataPlan": {
+			"title": "Données recommandées",
+			"subtitle": "Ce que vous pouvez encore fournir pour débloquer ou affiner chaque méthode sélectionnée.",
+			"allUnlocked": "Toutes les méthodes sélectionnées disposent de suffisamment de données.",
+			"doorsTitle": "Remplissage automatique",
+			"comingSoon": "Bientôt disponible",
+			"doors": {
+				"connectAccounting": "Connecter la comptabilité",
+				"inviteAccountant": "Inviter un comptable",
+				"registryEstimate": "Estimer via le registre"
+			}
+		}
 	},
 	"toast": {
 		"loginRequired": "Veuillez vous connecter avant de calculer.",

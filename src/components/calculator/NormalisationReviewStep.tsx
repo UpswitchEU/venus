@@ -27,7 +27,7 @@ import {
   X,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { Checkbox } from '@/design-system/components/Checkbox'
@@ -40,6 +40,7 @@ import {
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
 import type { LedgerAccount } from '../../constants/grootboek'
+import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
 import {
   categoryIcons,
   categoryLabelKeys,
@@ -55,6 +56,13 @@ import type {
   SuggestedNormalisation,
 } from './NormalisationReviewStep.types'
 import { NormalisationReviewStepHeader } from './NormalisationReviewStepHeader'
+import {
+  buildManualNormalisationFromLedger,
+  buildNormalisationReviewUpdate,
+  filterNormalisationReviewLedgers,
+  parseCustomLedgerFromQuery,
+  summarizeNormalisationReview,
+} from './NormalisationReviewStepModel'
 
 export type {
   NormalisationReviewStepProps,
@@ -118,53 +126,23 @@ export function NormalisationReviewStep({
   const [newApplyAllYears, setNewApplyAllYears] = useState(false)
   const [newReason, setNewReason] = useState('')
 
-  // Fetch grootboek codes from Titan API (DB-backed), fall back to hardcoded
-  const [fetchedLedgers, setFetchedLedgers] = useState<LedgerAccount[]>([])
-  useEffect(() => {
-    const ac = new AbortController()
-    let cancelled = false
-    fetch('/api/reference/grootboek', { signal: ac.signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return
-        const codes = data.codes ?? data.data?.codes
-        if (!Array.isArray(codes)) return
-        setFetchedLedgers(
-          codes.map((c: { code: string; name: string; category?: string }) => ({
-            code: String(c.code ?? ''),
-            name: String(c.name ?? ''),
-            category: c.category ?? '',
-          }))
-        )
-      })
-      .catch((err) => {
-        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
-      })
-    return () => {
-      cancelled = true
-      ac.abort()
-    }
-  }, [])
+  const fetchedLedgers = useFetchedLedgerAccounts('[NormalisationReviewStep]')
 
   const availableLedgers = useMemo(() => {
     if (fetchedLedgers.length > 0) return fetchedLedgers
     return defaultLedgerAccounts
   }, [fetchedLedgers])
 
-  // Calculations
-  const pendingCount = suggestions.filter((s) => s.status === 'pending').length
-  const acceptedCount = suggestions.filter((s) => s.status === 'accepted').length
-  const rejectedCount = suggestions.filter((s) => s.status === 'rejected').length
-
-  const totalAcceptedAdjustment = suggestions
-    .filter((s) => s.status === 'accepted')
-    .reduce((sum, s) => sum + s.amount, 0)
-
-  const normalizedEbitda = originalEbitda + totalAcceptedAdjustment
+  const { pendingCount, acceptedCount, rejectedCount, totalAcceptedAdjustment, normalizedEbitda } =
+    useMemo(
+      () => summarizeNormalisationReview(suggestions, originalEbitda),
+      [suggestions, originalEbitda]
+    )
 
   const integrationLabels: Record<string, string> = {
     yuki: nh('sources.yuki'),
     exact: nh('sources.exact'),
+    silverfin: nh('sources.silverfin'),
     odoo: nh('sources.odoo'),
     octopus: nh('sources.octopus'),
     expertm: nh('sources.expertm'),
@@ -174,29 +152,8 @@ export function NormalisationReviewStep({
 
   // Filter ledger accounts based on search
   const filteredLedgers = useMemo(() => {
-    if (!searchQuery) return availableLedgers.slice(0, 6)
-    const query = searchQuery.toLowerCase()
-    return availableLedgers
-      .filter(
-        (account) =>
-          (account.code && String(account.code).toLowerCase().includes(query)) ||
-          (account.name && String(account.name).toLowerCase().includes(query))
-      )
-      .slice(0, 8)
+    return filterNormalisationReviewLedgers(availableLedgers, searchQuery)
   }, [searchQuery, availableLedgers])
-
-  const parseCustomLedgerFromQuery = useCallback((q: string) => {
-    const trimmed = q.trim()
-    const sep = trimmed.indexOf(' · ')
-    if (sep >= 0) {
-      const code = trimmed.slice(0, sep).trim()
-      const name = trimmed.slice(sep + 3).trim()
-      return { code: code || trimmed, name: name || code || trimmed }
-    }
-    const digitMatch = trimmed.match(/^(\d[\d.]*)/)
-    const code = digitMatch ? digitMatch[1] : trimmed
-    return { code, name: trimmed }
-  }, [])
 
   // Start editing a normalisation
   const startEditing = useCallback((suggestion: SuggestedNormalisation) => {
@@ -211,23 +168,19 @@ export function NormalisationReviewStep({
   const saveEdit = useCallback(() => {
     if (!editingId || !editAmount || !onUpdate) return
 
-    const numericValue = parseFloat(editAmount.replace(/[^0-9.-]/g, ''))
-    if (isNaN(numericValue)) return
-
-    let calculatedAmount = numericValue
-    if (editType === 'subtract' || editType === 'subtract_percent') {
-      calculatedAmount = -numericValue
-    }
-
-    onUpdate(editingId, {
-      amount: calculatedAmount,
+    const update = buildNormalisationReviewUpdate({
+      amountInput: editAmount,
       type: editType,
       applyAllYears: editApplyAllYears,
-      reason: editReason || undefined,
+      reason: editReason,
+      originalEbitda,
     })
+    if (!update) return
+
+    onUpdate(editingId, update)
 
     setEditingId(null)
-  }, [editingId, editAmount, editType, editApplyAllYears, editReason, onUpdate])
+  }, [editingId, editAmount, editType, editApplyAllYears, editReason, originalEbitda, onUpdate])
 
   // Cancel edit
   const cancelEdit = useCallback(() => {
@@ -260,35 +213,18 @@ export function NormalisationReviewStep({
   const addFromLedger = useCallback(() => {
     if (!selectedLedger || !newAmount || !onAdd) return
 
-    const numericValue = parseFloat(newAmount.replace(/[^0-9.-]/g, ''))
-    if (isNaN(numericValue)) return
-
-    let calculatedAmount = numericValue
-    if (newType === 'subtract' || newType === 'subtract_percent') {
-      calculatedAmount = -numericValue
-    }
-
-    // Map ledger code to category
-    const getCategory = (code: string): SuggestedNormalisation['category'] => {
-      if (code.startsWith('62')) return 'salary'
-      if (code.startsWith('61'))
-        return code === '613' ? 'rent' : code === '615' ? 'vehicle' : 'other'
-      if (code.startsWith('64')) return 'one-time'
-      if (code.startsWith('65')) return 'personal'
-      if (code.startsWith('66')) return 'depreciation'
-      return 'other'
-    }
-
-    onAdd({
-      code: selectedLedger.code,
-      description: selectedLedger.name,
-      category: getCategory(selectedLedger.code),
-      amount: calculatedAmount,
-      reason: newReason || nh('manualCorrection', { name: selectedLedger.name }),
-      source: 'manual',
+    const normalisation = buildManualNormalisationFromLedger({
+      ledger: selectedLedger,
+      amountInput: newAmount,
       type: newType,
       applyAllYears: newApplyAllYears,
+      reason: newReason,
+      originalEbitda,
+      fallbackReason: nh('manualCorrection', { name: selectedLedger.name }),
     })
+    if (!normalisation) return
+
+    onAdd(normalisation)
 
     // Reset form
     setSelectedLedger(null)
@@ -296,7 +232,7 @@ export function NormalisationReviewStep({
     setNewReason('')
     setSearchQuery('')
     setShowAddForm(false)
-  }, [selectedLedger, newAmount, newType, newApplyAllYears, newReason, onAdd, nh])
+  }, [selectedLedger, newAmount, newType, newApplyAllYears, newReason, originalEbitda, onAdd, nh])
 
   const handleAcceptAll = () => {
     setIsProcessing(true)
