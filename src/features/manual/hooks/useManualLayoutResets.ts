@@ -60,23 +60,23 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
 
   // Effect 1384: quality-warning + synthesis-blend-skipped dedup trackers reset
   // when the route reportId changes (entering a different valuation).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    void reportId
     refs.lastQualityWarningResetKeyRef.current = null
     refs.lastSynthesisBlendSkippedRunKeyRef.current = null
   }, [reportId, refs.lastQualityWarningResetKeyRef, refs.lastSynthesisBlendSkippedRunKeyRef])
 
   // Effect 1389: acknowledged startup issues set reset on reportId change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    void reportId
     setAcknowledgedStartupIssues(new Set())
   }, [reportId, setAcknowledgedStartupIssues])
 
   // Effect 1980: form-dirty flag + last-submitted financial snapshot reset on
   // reportId change so a fresh valuation does not inherit prior edit-detection
   // state.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    void reportId
     refs.lastSubmittedFinancialSnapshotRef.current = null
     setIsDirty(false)
   }, [reportId, refs.lastSubmittedFinancialSnapshotRef, setIsDirty])

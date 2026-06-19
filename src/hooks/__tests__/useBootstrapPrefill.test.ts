@@ -38,6 +38,7 @@ describe('useBootstrapPrefill', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('hydrates NL client country into the manual form store', async () => {
@@ -148,7 +149,7 @@ describe('useBootstrapPrefill', () => {
     renderHook(() => useBootstrapPrefill())
 
     await waitFor(() => {
-      const formData = useManualFormStore.getState().formData as any
+      const formData = useManualFormStore.getState().formData
       expect(formData.official_financials).toMatchObject({
         source: 'staatsbladmonitor',
         filingYear: 2024,
@@ -163,6 +164,61 @@ describe('useBootstrapPrefill', () => {
         state: 'verified',
         label: 'Verified by NBB',
       })
+    })
+  })
+
+  it('polls async official enrichment jobs and merges completed filing data', async () => {
+    const updatePrefillData = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'completed',
+        result: {
+          status: 'ok',
+          official_financials: {
+            source: 'staatsbladmonitor',
+            filing_year: 2024,
+            revenue: 1_250_000,
+            ebitda: 210_000,
+          },
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockUseBootstrapSafe.mockReturnValue({
+      isBootstrapping: false,
+      bootstrapError: null,
+      hasPrefilledData: false,
+      updatePrefillData,
+      report: { mode: 'new', reportId: 'val_be_async_official', hasExistingData: false },
+      prefillData: {
+        sources: ['official_belgian_filing_pending'],
+        confidence: 0,
+        fieldsPopulated: [],
+        fieldsRemaining: [],
+        officialEnrichmentJobId: 'job_async_official_123',
+      },
+    })
+
+    renderHook(() => useBootstrapPrefill())
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/jobs/job_async_official_123', {
+        credentials: 'include',
+      })
+      expect(useManualFormStore.getState().formData.official_financials).toMatchObject({
+        source: 'staatsbladmonitor',
+        filingYear: 2024,
+        revenue: 1_250_000,
+        ebitda: 210_000,
+      })
+      expect(updatePrefillData).toHaveBeenCalledWith(
+        expect.objectContaining({
+          officialEnrichmentJobId: undefined,
+          sources: ['official_belgian_filing'],
+        })
+      )
     })
   })
 
@@ -204,7 +260,7 @@ describe('useBootstrapPrefill', () => {
     renderHook(() => useBootstrapPrefill())
 
     await waitFor(() => {
-      const formData = useManualFormStore.getState().formData as any
+      const formData = useManualFormStore.getState().formData
       expect(formData.saas_arr).toBe(720000)
       expect(formData.saas_mrr).toBe(60000)
       expect(formData.saas_gross_margin_pct).toBe(78)
@@ -370,7 +426,7 @@ describe('useBootstrapPrefill', () => {
     renderHook(() => useBootstrapPrefill())
 
     await waitFor(() => {
-      const formData = useManualFormStore.getState().formData as any
+      const formData = useManualFormStore.getState().formData
       expect(formData.company_name).toBe('Exact Sync BV')
       expect(formData.country_code).toBe('BE')
       expect(formData.revenue).toBe(1_500_000)
@@ -428,7 +484,7 @@ describe('useBootstrapPrefill', () => {
       await vi.runAllTimersAsync()
     })
 
-    const formData = useManualFormStore.getState().formData as any
+    const formData = useManualFormStore.getState().formData
     expect(formData.current_year_data).toMatchObject({
       year: 2024,
       revenue: 950000,
@@ -471,7 +527,7 @@ describe('useBootstrapPrefill', () => {
       await vi.runAllTimersAsync()
     })
 
-    const formData = useManualFormStore.getState().formData as any
+    const formData = useManualFormStore.getState().formData
     expect(formData.current_year_data).toMatchObject({
       year: 2024,
       revenue: 0,
@@ -524,7 +580,7 @@ describe('useBootstrapPrefill', () => {
       await vi.runAllTimersAsync()
     })
 
-    const formData = useManualFormStore.getState().formData as any
+    const formData = useManualFormStore.getState().formData
     expect(formData.current_year_data).toMatchObject({
       year: 2024,
       revenue: 500_000,
@@ -561,7 +617,7 @@ describe('useBootstrapPrefill', () => {
     renderHook(() => useBootstrapPrefill())
 
     await waitFor(() => {
-      const formData = useManualFormStore.getState().formData as any
+      const formData = useManualFormStore.getState().formData
       expect(formData.current_year_data).toMatchObject({
         year: 2024,
         revenue: 700_000,
@@ -598,7 +654,7 @@ describe('useBootstrapPrefill', () => {
             },
           ],
         },
-      } as any,
+      } as ValuationSession,
     })
 
     mockUseBootstrapSafe.mockReturnValue({

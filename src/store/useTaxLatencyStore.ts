@@ -179,7 +179,7 @@ interface TaxLatencyStore {
   removeItem: (id: string) => void
   updateItem: (id: string, partial: Partial<TaxLatencyItem>) => void
   setItems: (items: TaxLatencyItem[], options?: TaxLatencyMutationOptions) => void
-  setCandidates: (candidates: TaxLatencyCandidate[]) => void
+  setCandidates: (candidates: TaxLatencyCandidate[], options?: TaxLatencyMutationOptions) => void
   dismissCandidate: (id: string) => void
   clear: (options?: TaxLatencyMutationOptions) => void
 
@@ -306,7 +306,7 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
           'setItems'
         ),
 
-      setCandidates: (candidates) =>
+      setCandidates: (candidates, options) =>
         set(
           (state) => {
             // Zero-draft: auto-promote candidates that arrive fully specified
@@ -357,7 +357,7 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
             }
 
             const baseTag = {
-              _lastMutationSource: 'user' as TaxLatencyMutationSource,
+              _lastMutationSource: options?.source ?? ('user' as TaxLatencyMutationSource),
               _mutationSeq: state._mutationSeq + 1,
             }
             if (promoted.length === 0) {

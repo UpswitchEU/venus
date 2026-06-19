@@ -172,8 +172,8 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(manualSource).not.toMatch(/useBootstrapSync\(/)
   })
 
-  it('ValuationSessionManager defers loadSession until bootstrap sync writes session', () => {
-    const path = join(__dirname, '../ValuationSessionManager.tsx')
+  it('useValuationSessionLoader defers loadSession until bootstrap sync writes session', () => {
+    const path = join(__dirname, '../useValuationSessionLoader.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/Session load DEFERRED: waiting for bootstrap→store sync/)
     expect(source).toMatch(/bootstrapHasExistingSession/)
@@ -222,8 +222,8 @@ describe('sessionReadiness Mercury report URL contract', () => {
     )
   })
 
-  it('ValuationSessionManager exits idle when package hydration marked restored', () => {
-    const path = join(__dirname, '../ValuationSessionManager.tsx')
+  it('useValuationSessionLoader exits idle when package hydration marked restored', () => {
+    const path = join(__dirname, '../useValuationSessionLoader.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(
       /isRestored\(reportId\)[\s\S]*status !== 'loaded'[\s\S]*completeInitialization/
@@ -276,11 +276,14 @@ describe('sessionReadiness Mercury report URL contract', () => {
   })
 
   it('SessionBootstrapService skips cache when delegated gate is unresolved', () => {
-    const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/isDelegatedBootstrapCacheAllowed/)
-    expect(source).toMatch(/isDelegatedClientContextReadyForBootstrap/)
-    expect(source).toMatch(/inflight && \(await this\.isDelegatedBootstrapCacheAllowed/)
+    const servicePath = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
+    const readinessGatePath = join(__dirname, '../../lib/bootstrap/BootstrapReadinessGate.ts')
+    const serviceSource = readFileSync(servicePath, 'utf8')
+    const readinessGateSource = readFileSync(readinessGatePath, 'utf8')
+    expect(serviceSource).toMatch(/isDelegatedBootstrapCacheAllowed/)
+    expect(serviceSource).toMatch(/inflight && \(await isDelegatedBootstrapCacheAllowed/)
+    expect(readinessGateSource).toMatch(/isDelegatedClientContextReadyForBootstrap/)
+    expect(readinessGateSource).toMatch(/shouldWaitForMercuryClientContextBeforeBootstrap/)
   })
 
   it('BootstrapProvider runBootstrap uses URL-matched delegated context gate', () => {
@@ -476,20 +479,20 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).not.toMatch(/response\.status === 504\) && attempt/)
   })
 
-  it('ValuationSessionManager clears session store before bootstrap retry', () => {
-    const path = join(__dirname, '../ValuationSessionManager.tsx')
+  it('useValuationSessionLoader clears session store before bootstrap retry', () => {
+    const path = join(__dirname, '../useValuationSessionLoader.ts')
     const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/bootstrap\?\.bootstrapError && bootstrap\.refreshBootstrap/)
+    expect(source).toMatch(/bootstrapError && refreshBootstrap/)
     expect(source).toMatch(
-      /refreshBootstrap[\s\S]*useSessionStore\.setState\([\s\S]*status: 'idle'[\s\S]*errorMessage: null/
+      /bootstrapError && refreshBootstrap[\s\S]*useSessionStore\.setState\([\s\S]*status: 'idle'[\s\S]*errorMessage: null[\s\S]*await refreshBootstrap/
     )
     expect(source).toMatch(
       /} else {[\s\S]*useSessionStore\.setState\([\s\S]*status: 'idle'[\s\S]*loadSession\(reportId/
     )
   })
 
-  it('ValuationSessionManager skips loadSession when bootstrap failed', () => {
-    const path = join(__dirname, '../ValuationSessionManager.tsx')
+  it('useValuationSessionLoader skips loadSession when bootstrap failed', () => {
+    const path = join(__dirname, '../useValuationSessionLoader.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/Session load SKIPPED: bootstrap failed/)
     expect(source).toMatch(/bootstrap\?\.bootstrapError/)
@@ -524,8 +527,8 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/loadSession blocked — engine not initialized/)
   })
 
-  it('ValuationSessionManager session load timeout uses status and errorMessage', () => {
-    const path = join(__dirname, '../ValuationSessionManager.tsx')
+  it('useValuationSessionLoader session load timeout uses status and errorMessage', () => {
+    const path = join(__dirname, '../useValuationSessionLoader.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/Session load timeout \(30 seconds\)/)
     expect(source).toMatch(/cancelActiveLoad\(reportId\)/)
@@ -534,8 +537,8 @@ describe('sessionReadiness Mercury report URL contract', () => {
     )
   })
 
-  it('ValuationSessionManager direct bootstrap restoration is cancellation-aware', () => {
-    const path = join(__dirname, '../ValuationSessionManager.tsx')
+  it('useValuationSessionLoader direct bootstrap restoration is cancellation-aware', () => {
+    const path = join(__dirname, '../useValuationSessionLoader.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/restorationRunRef/)
     expect(source).toMatch(/shouldContinueRestore/)

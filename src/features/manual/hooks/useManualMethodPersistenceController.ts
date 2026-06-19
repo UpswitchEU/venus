@@ -225,6 +225,7 @@ export function useManualMethodPersistenceController({
   const setBaselineRef = useLatestRef(setBaseline)
 
   useEffect(() => {
+    void persistedReportLookupId
     lastEnqueuedSelectedMethodRef.current = null
     userInitiatedMethodChangeRef.current = false
     userInitiatedPreviousMethodRef.current = null

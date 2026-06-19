@@ -60,10 +60,12 @@ export function ChatInputPanel({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const latestMessageId = messages.at(-1)?.id ?? null
 
   useEffect(() => {
+    if (!latestMessageId && !isGenerating) return
     scrollContainerToBottom(messagesContainerRef.current)
-  }, [messages.length, isGenerating])
+  }, [latestMessageId, isGenerating])
 
   // Auto-resize textarea
   useEffect(() => {

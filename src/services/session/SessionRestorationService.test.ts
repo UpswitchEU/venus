@@ -296,6 +296,7 @@ describe('SessionRestorationService', () => {
         year: 2024,
       }),
     ])
+    expect(useTaxLatencyStore.getState()._lastMutationSource).toBe('system')
   })
 
   it('hydrateFromPackage restores import quality from import_quality alias', () => {
@@ -541,6 +542,7 @@ describe('SessionRestorationService', () => {
         year: 2023,
       }),
     ])
+    expect(useTaxLatencyStore.getState()._lastMutationSource).toBe('system')
   })
 
   it('restore seeds tax latency candidates from top-level _imported_ledger_analysis alias', async () => {

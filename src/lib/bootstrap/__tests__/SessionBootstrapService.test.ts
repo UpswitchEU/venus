@@ -10,6 +10,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BOOTSTRAP_TIMEOUT_USER_MESSAGE } from '../bootstrapUserMessages'
 import { SessionBootstrapService } from '../SessionBootstrapService'
+import {
+  fetchTitanBootstrapPayloadWithStructuredRetry,
+  makeBootstrapRequest,
+  readResponseBodyWithinClientBudget,
+} from '../TitanBootstrapClient'
 import type { BootstrapContext, SessionBootstrapState } from '../types'
 
 // Mock resolvers
@@ -30,6 +35,20 @@ function jsonResponse(payload: unknown, status = 200): Response {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+function getTransportContext(service: SessionBootstrapService) {
+  const internals = service as unknown as {
+    bootstrapAbortControllers: Set<AbortController>
+    bootstrapCancellationEpoch: number
+    responseAbortControllers: WeakMap<Response, AbortController>
+  }
+  return {
+    bootstrapAbortControllers: internals.bootstrapAbortControllers,
+    getCancellationEpoch: () => internals.bootstrapCancellationEpoch,
+    logger: console,
+    responseAbortControllers: internals.responseAbortControllers,
+  }
 }
 
 describe('SessionBootstrapService', () => {
@@ -436,15 +455,12 @@ describe('SessionBootstrapService', () => {
           })
       )
 
-      const requestPromise = (
-        service as unknown as {
-          makeBootstrapRequest: (
-            requestBody: Record<string, unknown>,
-            headers: Record<string, string>,
-            traceId: string
-          ) => Promise<Response>
-        }
-      ).makeBootstrapRequest({}, {}, 'trace-clear')
+      const requestPromise = makeBootstrapRequest({
+        ...getTransportContext(service),
+        requestBody: {},
+        headers: {},
+        traceId: 'trace-clear',
+      })
 
       await Promise.resolve()
       service.clearInflightCache()
@@ -459,15 +475,12 @@ describe('SessionBootstrapService', () => {
         .spyOn(globalThis, 'fetch')
         .mockResolvedValue(new Response('{}', { status: 500 }))
 
-      const requestPromise = (
-        service as unknown as {
-          makeBootstrapRequest: (
-            requestBody: Record<string, unknown>,
-            headers: Record<string, string>,
-            traceId: string
-          ) => Promise<Response>
-        }
-      ).makeBootstrapRequest({}, {}, 'trace-backoff-clear')
+      const requestPromise = makeBootstrapRequest({
+        ...getTransportContext(service),
+        requestBody: {},
+        headers: {},
+        traceId: 'trace-backoff-clear',
+      })
       const assertion = expect(requestPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
 
       await Promise.resolve()
@@ -483,25 +496,16 @@ describe('SessionBootstrapService', () => {
     it('bounds browser-side Titan response body reads', async () => {
       vi.useFakeTimers()
 
-      const readPromise = (
-        service as unknown as {
-          readResponseBodyWithinClientBudget: <T>(
-            operation: () => Promise<T>,
-            startTime: number,
-            traceId: string,
-            label: string,
-            response?: Response
-          ) => Promise<T>
-        }
-      ).readResponseBodyWithinClientBudget(
-        () =>
+      const readPromise = readResponseBodyWithinClientBudget({
+        ...getTransportContext(service),
+        operation: () =>
           new Promise(() => {
             // Intentionally never resolves; the browser-side body budget must win.
           }),
-        performance.now(),
-        'trace-body',
-        'JSON body'
-      )
+        startTime: performance.now(),
+        traceId: 'trace-body',
+        label: 'JSON body',
+      })
       const assertion = expect(readPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
 
       await vi.advanceTimersByTimeAsync(32_000)
@@ -524,28 +528,19 @@ describe('SessionBootstrapService', () => {
         }
       ).responseAbortControllers.set(response, controller)
 
-      const readPromise = (
-        service as unknown as {
-          readResponseBodyWithinClientBudget: <T>(
-            operation: () => Promise<T>,
-            startTime: number,
-            traceId: string,
-            label: string,
-            response?: Response
-          ) => Promise<T>
-        }
-      ).readResponseBodyWithinClientBudget(
-        () =>
+      const readPromise = readResponseBodyWithinClientBudget({
+        ...getTransportContext(service),
+        operation: () =>
           new Promise((_resolve, reject) => {
             controller.signal.addEventListener('abort', () => {
               reject(new DOMException('Aborted', 'AbortError'))
             })
           }),
-        performance.now(),
-        'trace-body-clear',
-        'JSON body',
-        response
-      )
+        startTime: performance.now(),
+        traceId: 'trace-body-clear',
+        label: 'JSON body',
+        response,
+      })
       const assertion = expect(readPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
 
       await Promise.resolve()
@@ -555,8 +550,9 @@ describe('SessionBootstrapService', () => {
     })
 
     it('retries retryable structured Titan bootstrap errors once', async () => {
-      const makeBootstrapRequest = vi
-        .fn()
+      vi.useFakeTimers()
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
         .mockResolvedValueOnce(
           jsonResponse({
             success: false,
@@ -589,43 +585,26 @@ describe('SessionBootstrapService', () => {
             },
           })
         )
-      const waitForStructuredBootstrapRetry = vi.fn().mockResolvedValue(undefined)
-      ;(
-        service as unknown as {
-          makeBootstrapRequest: typeof makeBootstrapRequest
-          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
-        }
-      ).makeBootstrapRequest = makeBootstrapRequest
-      ;(
-        service as unknown as {
-          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
-        }
-      ).waitForStructuredBootstrapRetry = waitForStructuredBootstrapRetry
+      const resultPromise = fetchTitanBootstrapPayloadWithStructuredRetry({
+        ...getTransportContext(service),
+        requestBody: {},
+        headers: {},
+        traceId: 'trace-structured-retry',
+        startTime: performance.now(),
+      })
 
-      const result = await (
-        service as unknown as {
-          fetchTitanBootstrapPayloadWithStructuredRetry: (
-            requestBody: Record<string, unknown>,
-            headers: Record<string, string>,
-            traceId: string,
-            startTime: number
-          ) => Promise<{ data: { success?: boolean }; responseStatus: number }>
-        }
-      ).fetchTitanBootstrapPayloadWithStructuredRetry(
-        {},
-        {},
-        'trace-structured-retry',
-        performance.now()
-      )
+      await Promise.resolve()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(400)
+      const result = await resultPromise
 
       expect(result.data.success).toBe(true)
       expect(result.responseStatus).toBe(200)
-      expect(makeBootstrapRequest).toHaveBeenCalledTimes(2)
-      expect(waitForStructuredBootstrapRetry).toHaveBeenCalledWith(0, 'trace-structured-retry', 400)
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
     })
 
     it('does not retry structured missing-report errors', async () => {
-      const makeBootstrapRequest = vi.fn().mockResolvedValue(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         jsonResponse({
           success: false,
           error: 'Report not found',
@@ -636,38 +615,21 @@ describe('SessionBootstrapService', () => {
           },
         })
       )
-      const waitForStructuredBootstrapRetry = vi.fn().mockResolvedValue(undefined)
-      ;(
-        service as unknown as {
-          makeBootstrapRequest: typeof makeBootstrapRequest
-          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
-        }
-      ).makeBootstrapRequest = makeBootstrapRequest
-      ;(
-        service as unknown as {
-          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
-        }
-      ).waitForStructuredBootstrapRetry = waitForStructuredBootstrapRetry
-
-      const result = await (
-        service as unknown as {
-          fetchTitanBootstrapPayloadWithStructuredRetry: (
-            requestBody: Record<string, unknown>,
-            headers: Record<string, string>,
-            traceId: string,
-            startTime: number
-          ) => Promise<{ data: { success?: boolean; errorInfo?: { code: string } } }>
-        }
-      ).fetchTitanBootstrapPayloadWithStructuredRetry({}, {}, 'trace-not-found', performance.now())
+      const result = await fetchTitanBootstrapPayloadWithStructuredRetry({
+        ...getTransportContext(service),
+        requestBody: {},
+        headers: {},
+        traceId: 'trace-not-found',
+        startTime: performance.now(),
+      })
 
       expect(result.data.success).toBe(false)
       expect(result.data.errorInfo?.code).toBe('REPORT_NOT_FOUND')
-      expect(makeBootstrapRequest).toHaveBeenCalledTimes(1)
-      expect(waitForStructuredBootstrapRetry).not.toHaveBeenCalled()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
     })
 
     it('does not retry credit-blocked bootstrap responses', async () => {
-      const makeBootstrapRequest = vi.fn().mockResolvedValue(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         jsonResponse({
           success: false,
           error: 'Credits exhausted',
@@ -683,36 +645,17 @@ describe('SessionBootstrapService', () => {
           },
         })
       )
-      const waitForStructuredBootstrapRetry = vi.fn().mockResolvedValue(undefined)
-      ;(
-        service as unknown as {
-          makeBootstrapRequest: typeof makeBootstrapRequest
-          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
-        }
-      ).makeBootstrapRequest = makeBootstrapRequest
-      ;(
-        service as unknown as {
-          waitForStructuredBootstrapRetry: typeof waitForStructuredBootstrapRetry
-        }
-      ).waitForStructuredBootstrapRetry = waitForStructuredBootstrapRetry
-
-      const result = await (
-        service as unknown as {
-          fetchTitanBootstrapPayloadWithStructuredRetry: (
-            requestBody: Record<string, unknown>,
-            headers: Record<string, string>,
-            traceId: string,
-            startTime: number
-          ) => Promise<{
-            data: { success?: boolean; data?: { creditStatus?: { allowed?: boolean } } }
-          }>
-        }
-      ).fetchTitanBootstrapPayloadWithStructuredRetry({}, {}, 'trace-credit', performance.now())
+      const result = await fetchTitanBootstrapPayloadWithStructuredRetry({
+        ...getTransportContext(service),
+        requestBody: {},
+        headers: {},
+        traceId: 'trace-credit',
+        startTime: performance.now(),
+      })
 
       expect(result.data.success).toBe(false)
       expect(result.data.data?.creditStatus?.allowed).toBe(false)
-      expect(makeBootstrapRequest).toHaveBeenCalledTimes(1)
-      expect(waitForStructuredBootstrapRetry).not.toHaveBeenCalled()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
     })
 
     it('scopes cached results to the requested report id', async () => {

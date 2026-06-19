@@ -13,7 +13,7 @@ import {
 const baseForm = {
   business_model: 'services',
   founding_year: 2010,
-} as any
+} satisfies Record<string, unknown>
 
 describe('stableOptionalPrefillSourceSignature', () => {
   it('ignores unrelated underscore keys for envelope hashing (optional content unchanged)', () => {
@@ -343,7 +343,7 @@ describe('mergeOptionalSessionPrefillFields', () => {
   it('does not overwrite existing user values', () => {
     const patch = mergeOptionalSessionPrefillFields(
       { dcf_wacc_pct: 9.5, nav_hidden_reserves: 999 },
-      { ...baseForm, dcf_wacc_pct: 8 } as any
+      { ...baseForm, dcf_wacc_pct: 8 }
     )
     expect(patch.dcf_wacc_pct).toBeUndefined()
     expect(patch.nav_hidden_reserves).toBe(999)
@@ -372,7 +372,7 @@ describe('mergeOptionalSessionPrefillFields', () => {
   it('fills method fields when form still has numeric zero placeholders', () => {
     const patch = mergeOptionalSessionPrefillFields(
       { dcf_wacc_pct: 10.2, nav_hidden_reserves: 42_000, saas_arr_growth_pct: 18 },
-      { ...baseForm, dcf_wacc_pct: 0, nav_hidden_reserves: 0, saas_arr_growth_pct: 0 } as any
+      { ...baseForm, dcf_wacc_pct: 0, nav_hidden_reserves: 0, saas_arr_growth_pct: 0 }
     )
     expect(patch.dcf_wacc_pct).toBe(10.2)
     expect(patch.nav_hidden_reserves).toBe(42_000)
@@ -466,14 +466,19 @@ describe('mergeOptionalSessionPrefillFields', () => {
         nav_per_asset_tax_rates: {},
         nav_equipment_revaluation: {},
         capital_safe_notes: [],
-      } as any
+      }
     )
-    expect((patch as any).nav_per_asset_tax_rates).toEqual({ real_estate: 20, inventory: 25 })
-    expect((patch as any).nav_equipment_revaluation).toEqual({
+    expect((patch as Record<string, unknown>).nav_per_asset_tax_rates).toEqual({
+      real_estate: 20,
+      inventory: 25,
+    })
+    expect((patch as Record<string, unknown>).nav_equipment_revaluation).toEqual({
       original_cost: 100000,
       tax_book_value: 40000,
     })
-    expect((patch as any).capital_safe_notes).toEqual([{ amount: 50000, discount_pct: 20 }])
+    expect((patch as Record<string, unknown>).capital_safe_notes).toEqual([
+      { amount: 50000, discount_pct: 20 },
+    ])
   })
 
   it('merges historical_years_data when form has no historical rows', () => {
@@ -489,7 +494,7 @@ describe('mergeOptionalSessionPrefillFields', () => {
   it('merges current_year_data when form current year has no revenue/ebitda', () => {
     const patch = mergeOptionalSessionPrefillFields(
       { current_year_data: { year: 2023, revenue: 1_000_000, ebitda: 100_000 } },
-      { ...baseForm, current_year_data: { year: 2023 } } as any
+      { ...baseForm, current_year_data: { year: 2023 } }
     )
     expect(patch.current_year_data?.revenue).toBe(1_000_000)
     expect(patch.current_year_data?.ebitda).toBe(100_000)
@@ -525,7 +530,7 @@ describe('mergeOptionalSessionPrefillFields', () => {
           { year: String(fy), revenue: 0, ebitda: 0 },
           { year: String(fy - 1), revenue: 0, ebitda: 0 },
         ],
-      } as any
+      }
     )
     expect(patch.yearlyFinancials?.some((r) => r.revenue === 500_000)).toBe(true)
   })
@@ -536,13 +541,16 @@ describe('mergeOptionalSessionPrefillFields', () => {
       { year: String(fy - 1), revenue: 900_000, ebitda: 90_000 },
       { year: String(fy), revenue: 0, ebitda: 0 },
     ]
-    const patch = mergeOptionalSessionPrefillFields({ yearlyFinancials: grid }, {
-      ...baseForm,
-      yearlyFinancials: [
-        { year: String(fy), revenue: 0, ebitda: 0 },
-        { year: String(fy - 1), revenue: 0, ebitda: 0 },
-      ],
-    } as any)
+    const patch = mergeOptionalSessionPrefillFields(
+      { yearlyFinancials: grid },
+      {
+        ...baseForm,
+        yearlyFinancials: [
+          { year: String(fy), revenue: 0, ebitda: 0 },
+          { year: String(fy - 1), revenue: 0, ebitda: 0 },
+        ],
+      }
+    )
     expect((patch as Record<string, unknown>).yearlyFinancials).toEqual(grid)
   })
 
@@ -577,7 +585,7 @@ describe('mergeOptionalSessionPrefillFields', () => {
           kbo_registration: '0403.123.456',
           company_id: '0403.123.456',
         },
-      } as any
+      }
     ) as Record<string, unknown>
     expect((patch.business_context as Record<string, unknown>)._imported_ledger_analysis).toEqual(
       analysis
@@ -658,7 +666,7 @@ describe('mergeOptionalSessionPrefillFields', () => {
       {
         ...baseForm,
         current_year_data: { year: fy, revenue: 900_000, ebitda: 120_000 },
-      } as any
+      }
     ) as Record<string, unknown>
     expect((patch.current_year_data as Record<string, unknown>)?.revenue).toBe(900_000)
     expect((patch.current_year_data as Record<string, unknown>)?.ebitda).toBe(120_000)
@@ -689,7 +697,7 @@ describe('mergeOptionalSessionPrefillFields', () => {
       {
         ...baseForm,
         official_financials: { filingYear: 2022, revenue: 1, ebitda: 1 },
-      } as any
+      }
     )
     expect(patch.official_financials).toBeUndefined()
   })
@@ -732,18 +740,21 @@ describe('mergeOptionalSessionPrefillFields', () => {
   })
 
   it('does not overwrite existing user_weights via _user_weights alias', () => {
-    const patch = mergeOptionalSessionPrefillFields({ _user_weights: { dcf: 1 } }, {
-      ...baseForm,
-      user_weights: { dcf: 0.5, ebitda_multiple: 0.5 },
-    } as any)
-    expect((patch as any).user_weights).toBeUndefined()
+    const patch = mergeOptionalSessionPrefillFields(
+      { _user_weights: { dcf: 1 } },
+      {
+        ...baseForm,
+        user_weights: { dcf: 0.5, ebitda_multiple: 0.5 },
+      }
+    )
+    expect((patch as Record<string, unknown>).user_weights).toBeUndefined()
   })
 
   it('does not overwrite existing historical_years_data', () => {
     const existing = [{ year: 2020, revenue: 1, ebitda: 1 }]
     const patch = mergeOptionalSessionPrefillFields(
       { historical_years_data: [{ year: 2019, revenue: 2, ebitda: 2 }] },
-      { ...baseForm, historical_years_data: existing } as any
+      { ...baseForm, historical_years_data: existing }
     )
     expect(patch.historical_years_data).toBeUndefined()
   })

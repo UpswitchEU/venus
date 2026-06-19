@@ -1,4 +1,3 @@
-import type { NormalizationItem } from '../../components/calculator/UnifiedNormalizationModal'
 import {
   SESSION_PRE_SELECTED_VALUATION_METHOD_ALT_KEY,
   SESSION_PRE_SELECTED_VALUATION_METHOD_KEY,
@@ -7,17 +6,7 @@ import {
 } from '../../constants/sessionUiKeys'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { type ImportQualityPerYear, useImportQualityStore } from '../../store/useImportQualityStore'
-import {
-  recoverPendingNormalizations,
-  useNormalizationStore,
-} from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import {
-  recoverPendingTaxLatencies,
-  type TaxLatencyItem,
-  useTaxLatencyStore,
-} from '../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import type { BuyerReadinessPackage } from '../../types/buyerReadiness'
 import type { ValuationFormData, ValuationResponse, ValuationSession } from '../../types/valuation'
@@ -30,16 +19,6 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
-import {
-  buildNormalizationItemsFromImportedLedgerAnalysis,
-  buildReportedEbitdaByYearFromFormRecords,
-  type ImportedLedgerAnalysisLike,
-  normalizeImportedLedgerReviewStatuses,
-} from '../../utils/importedLedgerNormalization'
-import {
-  buildTaxLatencyCandidatesFromImportedLedgerAnalysis,
-  type ImportedLedgerTaxLatencyAnalysisLike,
-} from '../../utils/importedLedgerTaxLatencies'
 import { generalLogger } from '../../utils/logger'
 import {
   buildOptionalSessionGapFillPatch,
@@ -47,6 +26,7 @@ import {
 } from '../../utils/mergeOptionalSessionPrefillFields'
 import { markMercurySessionPrefillSuppressed } from '../../utils/prefillRestorationGate'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import { hydrateSessionAuxiliaryArtifactsSync } from './SessionAuxiliaryArtifactHydrator'
 import { seedNbbPrefillFromFormData } from './SessionNbbPrefillHydrator'
 
 export interface SessionHydrationPackage {
@@ -169,145 +149,6 @@ function mapPackageFormData(raw: Record<string, unknown>): Record<string, unknow
   return mapped
 }
 
-function hydrateTaxLatenciesFromPackage(reportId: string, raw: Record<string, unknown>): void {
-  try {
-    const recoveredTL = recoverPendingTaxLatencies(reportId)
-    if (recoveredTL && recoveredTL.length > 0) {
-      useTaxLatencyStore.getState().setItems(recoveredTL, { source: 'system' })
-      return
-    }
-
-    const rawTaxLatencies =
-      (raw as { _taxLatencies?: unknown })._taxLatencies ??
-      (raw as { tax_latencies?: unknown }).tax_latencies ??
-      (raw as { taxLatencies?: unknown }).taxLatencies
-    if (Array.isArray(rawTaxLatencies)) {
-      useTaxLatencyStore.getState().setItems(rawTaxLatencies as TaxLatencyItem[], {
-        source: 'system',
-      })
-    }
-  } catch {
-    // Non-critical
-  }
-}
-
-function buildReportedEbitdaByYearFromPackageRaw(
-  raw: Record<string, unknown>,
-  fallbackYear?: number
-): Record<number, number> {
-  const currentYearData = (raw.current_year_data ?? raw.currentYearData) as
-    | { year?: number; ebitda?: number }
-    | undefined
-  const historicalYearsData = (raw.historical_years_data ?? raw.historicalYearsData) as
-    | Array<{ year?: number; ebitda?: number }>
-    | undefined
-  const yearlyFinancials = (raw.yearlyFinancials ?? raw.yearly_financials) as
-    | Array<{ year?: number | string; ebitda?: number; isForecast?: boolean }>
-    | undefined
-  const rawYearData = raw.year_data ?? raw.yearData
-  const yearData =
-    rawYearData && typeof rawYearData === 'object' && !Array.isArray(rawYearData)
-      ? (rawYearData as Record<string | number, { ebitda?: number }>)
-      : undefined
-
-  return buildReportedEbitdaByYearFromFormRecords({
-    currentYearData,
-    historicalYearsData: Array.isArray(historicalYearsData) ? historicalYearsData : undefined,
-    yearlyFinancials: Array.isArray(yearlyFinancials) ? yearlyFinancials : undefined,
-    yearData,
-    fallbackYear,
-    fallbackEbitda: Number(raw.ebitda),
-  })
-}
-
-function hydrateNormalizationsFromPackage(reportId: string, raw: Record<string, unknown>): void {
-  try {
-    const businessContext = (raw.business_context ?? raw.businessContext) as
-      | Record<string, unknown>
-      | undefined
-    const analysis = (businessContext?._imported_ledger_analysis ??
-      raw._imported_ledger_analysis) as ImportedLedgerAnalysisLike | undefined
-    const reportedEbitdaByYear = buildReportedEbitdaByYearFromPackageRaw(
-      raw,
-      analysis?.latest_fiscal_year
-    )
-    const recoveredNorm = recoverPendingNormalizations(reportId)
-    if (recoveredNorm && recoveredNorm.length > 0) {
-      useNormalizationStore
-        .getState()
-        .setItems(normalizeImportedLedgerReviewStatuses(recoveredNorm, reportedEbitdaByYear))
-      return
-    }
-
-    const rawNormalizations =
-      (raw as { _normalizations?: unknown })._normalizations ??
-      (raw as { normalizations?: unknown }).normalizations
-    if (Array.isArray(rawNormalizations) && rawNormalizations.length > 0) {
-      useNormalizationStore
-        .getState()
-        .setItems(
-          normalizeImportedLedgerReviewStatuses(
-            rawNormalizations as NormalizationItem[],
-            reportedEbitdaByYear
-          )
-        )
-    }
-  } catch {
-    // Non-critical
-  }
-}
-
-function hydrateImportQualityFromPackage(raw: Record<string, unknown>): void {
-  try {
-    const rawImportQuality =
-      (raw as { _import_quality?: unknown })._import_quality ??
-      (raw as { import_quality?: unknown }).import_quality ??
-      (raw as { importQuality?: unknown }).importQuality
-    if (rawImportQuality && typeof rawImportQuality === 'object') {
-      const bc = (raw.business_context ?? raw.businessContext) as
-        | Record<string, unknown>
-        | undefined
-      const prov = (bc?._imported_ledger_provenance as { provider?: unknown } | undefined)?.provider
-      useImportQualityStore
-        .getState()
-        .setImportQuality(rawImportQuality as Record<string, ImportQualityPerYear>, {
-          provider: typeof prov === 'string' ? prov : null,
-        })
-    }
-  } catch {
-    // Non-critical
-  }
-}
-
-function seedImportedLedgerAnalysisFromPackage(raw: Record<string, unknown>): void {
-  try {
-    const ns = useNormalizationStore.getState()
-    useTaxLatencyStore.getState().setCandidates([])
-    const bc = (raw.business_context ?? raw.businessContext) as Record<string, unknown> | undefined
-    const analysis = bc?._imported_ledger_analysis ?? raw._imported_ledger_analysis
-    if (analysis && typeof analysis === 'object') {
-      if (ns.items.length === 0) {
-        const items = buildNormalizationItemsFromImportedLedgerAnalysis({
-          ...(analysis as ImportedLedgerAnalysisLike),
-          reported_ebitda_by_year: buildReportedEbitdaByYearFromPackageRaw(
-            raw,
-            (analysis as ImportedLedgerAnalysisLike).latest_fiscal_year
-          ),
-        })
-        if (items.length > 0) {
-          ns.addItems(items)
-        }
-      }
-      const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
-        analysis as ImportedLedgerTaxLatencyAnalysisLike
-      )
-      useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
-    }
-  } catch {
-    // Non-critical
-  }
-}
-
 function hydrateFormStoresFromPackage(reportId: string, formData: Record<string, unknown>): void {
   const { updateFormData } = useManualFormStore.getState()
   const raw = mergeSessionSurfaceForOptionalPrefill(formData)
@@ -333,10 +174,11 @@ function hydrateFormStoresFromPackage(reportId: string, formData: Record<string,
   )
   markMercurySessionPrefillSuppressed(reportId)
 
-  hydrateTaxLatenciesFromPackage(reportId, raw)
-  hydrateNormalizationsFromPackage(reportId, raw)
-  hydrateImportQualityFromPackage(raw)
-  seedImportedLedgerAnalysisFromPackage(raw)
+  hydrateSessionAuxiliaryArtifactsSync({
+    reportId,
+    formData: raw,
+    source: 'package',
+  })
 
   generalLogger.info('[SessionRestoration] Form data hydrated from package', {
     reportId: reportId.substring(0, 30),

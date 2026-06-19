@@ -14,6 +14,7 @@
  * @module services/session/SessionNormalizer
  */
 
+import type { MethodWeightsDataPlan } from '../../types/methodDataPlan'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
 import { isSessionKey } from '../../utils/identifiers'
 import { generalLogger } from '../../utils/logger'
@@ -22,7 +23,6 @@ import {
   extractStableSessionKeyFromMergedSession,
   mergeSessionDataEnvelopesFromRoot,
 } from '../../utils/sessionReportIdentity'
-import type { MethodWeightsDataPlan } from '../../types/methodDataPlan'
 import { extractFormData } from './SessionFormDataNormalizer'
 import {
   extractMethodDataPlan,

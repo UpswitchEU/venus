@@ -20,21 +20,21 @@ import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { usePrefillRestorationCoordinator } from '../../hooks/usePrefillRestorationCoordinator'
 import { useBootstrapSafe } from '../../lib/bootstrap'
-import { coalesceFiniteNumber } from '../../lib/omniPreview'
-import { type BusinessType, businessTypesApiService } from '../../services/businessTypesApi'
+import { businessTypesApiService } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
 import type { ValuationFormData } from '../../types/valuation'
-import { getCurrentFilingYear, normalizeCurrentYearForFiling } from '../../utils/fiscalYear'
+import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { generalLogger } from '../../utils/logger'
 import {
   hasExistingValuationVersion,
   shouldOpenVersionConfirmation,
 } from '../../utils/versionConfirmation'
 import { RecalculateConfirmationPopup } from '../normalization/RecalculateConfirmationPopup'
+import { useHistoricalInputsSync } from './hooks/useHistoricalInputsSync'
 import { useValuationFormSubmission } from './hooks/useValuationFormSubmission'
 import { BasicInformationSection } from './sections/BasicInformationSection'
 import { FinancialDataSection } from './sections/FinancialDataSection'
@@ -42,15 +42,7 @@ import { FormSubmitSection } from './sections/FormSubmitSection'
 import { HistoricalDataSection } from './sections/HistoricalDataSection'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
 import { buildBusinessTypeFormData } from './utils/businessTypeFormData'
-import { patchCurrentYearDataFromTopLevelFinancials } from './utils/currentYearDataMirror'
-import {
-  areMergedYearRowsEqual,
-  collectForecastRowsForMerge,
-  computeNextHistoricalFromFormData,
-  mergeHistoricalAndForecastRows,
-  mirrorHistoricalToFormData,
-  pickForecastRowsToPreserve,
-} from './utils/filingYearSync'
+import { getHttpStatus, matchBusinessType } from './utils/businessTypeMatching'
 import {
   getNumberRecordValue,
   getPrefilledQuery,
@@ -63,16 +55,6 @@ export interface ValuationFormProps {
   initialVersion?: number
   /** Whether form is in regeneration mode (shows "Regenerate" instead of "Calculate") */
   isRegenerationMode?: boolean
-}
-
-function getHttpStatus(error: unknown): number | undefined {
-  if (!error || typeof error !== 'object') return undefined
-  const errorRecord = error as Record<string, unknown>
-  if (typeof errorRecord.status === 'number') return errorRecord.status
-  const response = errorRecord.response
-  if (!response || typeof response !== 'object') return undefined
-  const responseStatus = (response as Record<string, unknown>).status
-  return typeof responseStatus === 'number' ? responseStatus : undefined
 }
 
 /**
@@ -138,157 +120,13 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     }
   }, [initialVersion, reportId, getVersion, updateFormData])
 
-  // Local state for historical data inputs
-  const [historicalInputs, setHistoricalInputs] = useState<{ [key: string]: string }>({})
+  const { historicalInputs, setHistoricalInputs } = useHistoricalInputsSync({
+    formData,
+    updateFormData,
+    reportId,
+  })
   const [hasPrefilledOnce, setHasPrefilledOnce] = useState(false)
   const [employeeCountError, setEmployeeCountError] = useState<string | null>(null)
-  // Tracks whether historicalInputs has ever been populated (by user or restoration).
-  // Prevents the historicalInputs→formData sync effect from clearing restored
-  // historical_years_data on initial mount when historicalInputs is still {}.
-  const historicalInputsEverPopulatedRef = useRef(false)
-  // ✅ IMPROVED: Restore historical data whenever formData.historical_years_data changes
-  // This ensures all years with revenue or EBITDA data are preserved, even if outside display range
-  // Only restores missing data - preserves existing user edits
-  useEffect(() => {
-    const historicalYearsData = formData.historical_years_data
-    if (
-      historicalYearsData &&
-      Array.isArray(historicalYearsData) &&
-      historicalYearsData.length > 0
-    ) {
-      // Get current historicalInputs to check what's already there
-      // Use functional update to avoid stale closure issues
-      setHistoricalInputs((currentInputs) => {
-        const restoredInputs: { [key: string]: string } = { ...currentInputs }
-        let hasNewData = false
-
-        historicalYearsData.forEach(
-          (yearData: { year: number; revenue?: number; ebitda?: number }) => {
-            const revenueKey = `${yearData.year}_revenue`
-            const ebitdaKey = `${yearData.year}_ebitda`
-
-            // Restore revenue when it's a number (including 0 - break-even is valid)
-            if (typeof yearData.revenue === 'number') {
-              const currentRevenue = currentInputs[revenueKey]
-              if (!currentRevenue || currentRevenue.trim() === '') {
-                restoredInputs[revenueKey] = yearData.revenue.toString()
-                hasNewData = true
-              }
-            }
-
-            // Restore ebitda when it's a number (including 0 - break-even is valid)
-            if (typeof yearData.ebitda === 'number') {
-              const currentEbitda = currentInputs[ebitdaKey]
-              if (!currentEbitda || currentEbitda.trim() === '') {
-                restoredInputs[ebitdaKey] = yearData.ebitda.toString()
-                hasNewData = true
-              }
-            }
-          }
-        )
-
-        if (hasNewData) {
-          historicalInputsEverPopulatedRef.current = true
-          generalLogger.info('[ValuationForm] Restored historical data to inputs', {
-            reportId,
-            yearsRestored: historicalYearsData.length,
-            inputKeys: Object.keys(restoredInputs),
-            years: historicalYearsData.map((d) => d.year),
-          })
-          return restoredInputs
-        }
-
-        // No new data to restore, return current inputs unchanged
-        return currentInputs
-      })
-    }
-  }, [formData.historical_years_data, reportId])
-
-  // Match business type string to business_type_id
-  const matchBusinessType = useCallback(
-    (query: string, businessTypes: BusinessType[]): string | null => {
-      if (!query || !businessTypes || businessTypes.length === 0) return null
-
-      const queryLower = query.toLowerCase().trim()
-
-      // 1. Exact match on title (case-insensitive)
-      const exactMatch = businessTypes.find((bt) => bt.title.toLowerCase() === queryLower)
-      if (exactMatch) {
-        generalLogger.info('Matched business type (exact)', {
-          query,
-          matched: exactMatch.title,
-          id: exactMatch.id,
-        })
-        return exactMatch.id
-      }
-
-      // 2. Match on keywords
-      const keywordMatch = businessTypes.find(
-        (bt) =>
-          bt.keywords &&
-          bt.keywords.some(
-            (keyword: string) =>
-              keyword.toLowerCase() === queryLower ||
-              queryLower.includes(keyword.toLowerCase()) ||
-              keyword.toLowerCase().includes(queryLower)
-          )
-      )
-      if (keywordMatch) {
-        generalLogger.info('Matched business type (keyword)', {
-          query,
-          matched: keywordMatch.title,
-          id: keywordMatch.id,
-        })
-        return keywordMatch.id
-      }
-
-      // 3. Partial match on title (contains)
-      const partialMatch = businessTypes.find(
-        (bt) =>
-          bt.title.toLowerCase().includes(queryLower) || queryLower.includes(bt.title.toLowerCase())
-      )
-      if (partialMatch) {
-        generalLogger.info('Matched business type (partial)', {
-          query,
-          matched: partialMatch.title,
-          id: partialMatch.id,
-        })
-        return partialMatch.id
-      }
-
-      // 4. Common variations mapping
-      const variations: Record<string, string[]> = {
-        saas: ['saas', 'software as a service', 'software service'],
-        restaurant: ['restaurant', 'cafe', 'bistro', 'dining'],
-        'e-commerce': ['e-commerce', 'ecommerce', 'online store', 'online shop'],
-        manufacturing: ['manufacturing', 'manufacturer', 'production'],
-        consulting: ['consulting', 'consultant', 'advisory'],
-        'tech startup': ['tech startup', 'startup', 'tech company'],
-      }
-
-      for (const [key, variants] of Object.entries(variations)) {
-        if (variants.some((v) => queryLower.includes(v))) {
-          const variationMatch = businessTypes.find(
-            (bt) =>
-              bt.title.toLowerCase().includes(key) ||
-              bt.keywords?.some((k: string) => k.toLowerCase().includes(key))
-          )
-          if (variationMatch) {
-            generalLogger.info('Matched business type (variation)', {
-              query,
-              matched: variationMatch.title,
-              id: variationMatch.id,
-            })
-            return variationMatch.id
-          }
-        }
-      }
-
-      generalLogger.warn('No business type match found', { query })
-      return null
-    },
-    []
-  )
 
   // Use form session sync hook for syncing form changes to session
   // ROOT CAUSE FIX: Pass reportId instead of session object to prevent re-renders
@@ -306,175 +144,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // NOTE: Manual flow doesn't need DataResponse[] syncing
   // Form data is used directly in form submission
-
-  // Convert historicalInputs to formData.historical_years_data
-  // Backend requires chronological order (oldest first), but UI shows most recent first.
-  // The filing year is captured separately via formData.revenue / formData.ebitda
-  // (rendered by the "Last Full Year Financials" section AND the filing-year row in
-  // HistoricalDataInputs). To avoid a duplicate-year ValidationError in
-  // buildValuationRequest, the filing year is excluded from historical_years_data here
-  // and instead mirrored into the canonical revenue/ebitda fields below.
-  useEffect(() => {
-    const maxHistoricalYear = normalizeCurrentYearForFiling(
-      formData.current_year_data?.year,
-      formData.filing_year_confirmed
-    )
-    const historicalYears: { year: number; revenue: number; ebitda: number }[] = []
-
-    // Extract all years from historicalInputs (strictly older than the filing year)
-    const yearSet = new Set<number>()
-    Object.keys(historicalInputs).forEach((key) => {
-      const match = key.match(/^(\d{4})_(revenue|ebitda)$/)
-      if (match) {
-        const year = parseInt(match[1])
-        if (year >= 2000 && year < maxHistoricalYear) {
-          yearSet.add(year)
-        }
-      }
-    })
-
-    // Build historical_years_data array
-    yearSet.forEach((year) => {
-      const revenueKey = `${year}_revenue`
-      const ebitdaKey = `${year}_ebitda`
-      const revenue = historicalInputs[revenueKey]
-      const ebitda = historicalInputs[ebitdaKey]
-
-      // Only include if at least one field has a value
-      if (revenue || ebitda) {
-        historicalYears.push({
-          year,
-          revenue: revenue ? coalesceFiniteNumber(revenue.replace(/,/g, '')) : 0,
-          ebitda: ebitda ? coalesceFiniteNumber(ebitda.replace(/,/g, '')) : 0,
-        })
-      }
-    })
-
-    // Sort chronologically (oldest first) for backend compatibility
-    historicalYears.sort((a, b) => a.year - b.year)
-
-    // ✅ LOGGING: Verify all years are included in conversion
-    if (Object.keys(historicalInputs).length > 0) {
-      generalLogger.debug('[ValuationForm] Converting historicalInputs to historical_years_data', {
-        reportId,
-        inputKeys: Object.keys(historicalInputs),
-        extractedYears: Array.from(yearSet).sort((a, b) => a - b),
-        historicalYearsCount: historicalYears.length,
-        historicalYears: historicalYears.map((h) => ({
-          year: h.year,
-          hasRevenue: Number.isFinite(h.revenue),
-          hasEbitda: Number.isFinite(h.ebitda),
-        })),
-      })
-    }
-
-    // Preserve any forecast rows (`is_forecast: true`) already on formData —
-    // they are entered through `ManualInputPanel`, which writes to the same
-    // `useManualFormStore`, but are NOT represented in this form's
-    // `historicalInputs` state. Wholesale-overwriting `historical_years_data`
-    // without re-attaching them would silently drop user-entered forecasts
-    // whenever the user touched the ValuationForm. Merge logic + conflict
-    // policy live in `mergeHistoricalAndForecastRows` (unit-tested).
-    //
-    // `formData.historical_years_data` is included in the effect deps so a
-    // session restore / autosave merge that only touches forecasts still
-    // re-runs this effect. `areMergedYearRowsEqual` prevents redundant writes
-    // that would otherwise ping-pong renders.
-    const existingRows = formData.historical_years_data ?? []
-    const forecastPool = collectForecastRowsForMerge(
-      formData.historical_years_data,
-      formData.forecast_years_data
-    )
-    const formUpdates: Partial<typeof formData> = {}
-
-    if (historicalYears.length > 0) {
-      historicalInputsEverPopulatedRef.current = true
-      const merged = mergeHistoricalAndForecastRows(historicalYears, forecastPool)
-      if (!areMergedYearRowsEqual(merged, formData.historical_years_data)) {
-        formUpdates.historical_years_data = merged
-      }
-    } else if (historicalInputsEverPopulatedRef.current) {
-      // Only clear if user previously had historical data and then removed it.
-      // On initial mount historicalInputs is {} -- skip clearing to preserve
-      // historical_years_data that was set by bootstrap prefill / restoration.
-      // When the user has cleared all historical rows but forecast rows exist,
-      // keep the forecast rows so we don't drop them.
-      const remainingForecasts = pickForecastRowsToPreserve(existingRows)
-      const nextHistorical = remainingForecasts.length > 0 ? remainingForecasts : undefined
-      if (!areMergedYearRowsEqual(nextHistorical, formData.historical_years_data)) {
-        formUpdates.historical_years_data = nextHistorical
-      }
-    }
-
-    // Bidirectional sync between the filing-year row in `historicalInputs` and
-    // the canonical `formData.revenue` / `formData.ebitda` fields. We MUST run
-    // both directions inside the same effect so the reverse step uses the
-    // post-conversion value as its source of truth. Splitting them into two
-    // separate effects causes the reverse effect to read a stale `formData` from
-    // the same render and clobber a partial typing buffer (e.g. "1.") in the
-    // historical row before the conversion's `updateFormData` re-render lands.
-    const revenueKey = `${maxHistoricalYear}_revenue`
-    const ebitdaKey = `${maxHistoricalYear}_ebitda`
-
-    // Forward: historical row → formData (skips NaN partial inputs).
-    const revenueMirror = mirrorHistoricalToFormData(historicalInputs[revenueKey], formData.revenue)
-    const ebitdaMirror = mirrorHistoricalToFormData(historicalInputs[ebitdaKey], formData.ebitda)
-    if (revenueMirror.changed) formUpdates.revenue = revenueMirror.next
-    if (ebitdaMirror.changed) formUpdates.ebitda = ebitdaMirror.next
-
-    // Keep `current_year_data` aligned with the filing-year mirror so autosave /
-    // session packages and `buildValuationRequest` fallbacks cannot resurrect
-    // stale revenue or EBITDA after the user edits or clears the historical row.
-    if (formData.current_year_data && (revenueMirror.changed || ebitdaMirror.changed)) {
-      const cyd = formData.current_year_data
-      const cydFilingYear = normalizeCurrentYearForFiling(cyd.year, formData.filing_year_confirmed)
-      if (cydFilingYear === maxHistoricalYear) {
-        const keys: Partial<{ revenue: number | undefined; ebitda: number | undefined }> = {}
-        if (revenueMirror.changed) keys.revenue = revenueMirror.next
-        if (ebitdaMirror.changed) keys.ebitda = ebitdaMirror.next
-        const patched = patchCurrentYearDataFromTopLevelFinancials(cyd, keys)
-        if (patched) {
-          formUpdates.current_year_data = patched as NonNullable<typeof formData.current_year_data>
-        }
-      }
-    }
-
-    // Reverse: formData → historical row, using the AUTHORITATIVE values that
-    // the forward step just produced. This prevents the race where the reverse
-    // step sees stale formData and overwrites the user's keystrokes.
-    const effectiveRevenue = revenueMirror.changed ? revenueMirror.next : formData.revenue
-    const effectiveEbitda = ebitdaMirror.changed ? ebitdaMirror.next : formData.ebitda
-    const nextHistRevenue = computeNextHistoricalFromFormData(
-      effectiveRevenue,
-      historicalInputs[revenueKey] ?? ''
-    )
-    const nextHistEbitda = computeNextHistoricalFromFormData(
-      effectiveEbitda,
-      historicalInputs[ebitdaKey] ?? ''
-    )
-
-    if (Object.keys(formUpdates).length > 0) {
-      updateFormData(formUpdates)
-    }
-    if (nextHistRevenue !== null || nextHistEbitda !== null) {
-      setHistoricalInputs((prev) => ({
-        ...prev,
-        ...(nextHistRevenue !== null ? { [revenueKey]: nextHistRevenue } : {}),
-        ...(nextHistEbitda !== null ? { [ebitdaKey]: nextHistEbitda } : {}),
-      }))
-    }
-  }, [
-    formData.current_year_data?.year,
-    formData.filing_year_confirmed,
-    formData.forecast_years_data,
-    formData.historical_years_data,
-    formData.revenue,
-    formData.ebitda,
-    historicalInputs,
-    updateFormData,
-    formData.current_year_data,
-    reportId,
-  ])
 
   // Clear owner concentration fields when switching to sole-trader
   // Set defaults when switching to company
@@ -750,7 +419,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     businessTypes,
     formData.business_type_id,
     hasProcessedPrefilledQuery,
-    matchBusinessType,
     updateFormData,
   ])
 

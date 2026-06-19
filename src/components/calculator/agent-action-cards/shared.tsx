@@ -4,7 +4,7 @@ import { ProposalCardShell, type ProposalCardTone } from '@upswitch/ai-dock-shel
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
-import { useCallback, useState } from 'react'
+import { createContext, useCallback, useContext, useState } from 'react'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 
 interface InlineActionCardProps {
@@ -21,6 +21,24 @@ interface InlineActionCardProps {
   onAction?: () => Promise<void> | void
   onSendFollowUp?: (content: string) => void
   children?: ReactNode
+}
+
+const AgentActionCardContext = createContext<{
+  onSendFollowUp?: (content: string) => void
+}>({})
+
+export function AgentActionCardProvider({
+  children,
+  onSendFollowUp,
+}: {
+  children: ReactNode
+  onSendFollowUp?: (content: string) => void
+}) {
+  return (
+    <AgentActionCardContext.Provider value={{ onSendFollowUp }}>
+      {children}
+    </AgentActionCardContext.Provider>
+  )
 }
 
 const AGENT_TOOL_ACTION_NAME_HEADER = 'X-Upswitch-Agent-Tool-Name'
@@ -222,9 +240,11 @@ export function InlineActionCard({
   children,
 }: InlineActionCardProps) {
   const ca = useTranslations('chatAssistant')
+  const actionContext = useContext(AgentActionCardContext)
+  const followUpHandler = onSendFollowUp ?? actionContext.onSendFollowUp
   const [decision, setDecision] = useState<'idle' | 'sent' | 'dismissed' | 'submitting'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const canAct = Boolean(onAction) || (typeof onSendFollowUp === 'function' && actionPrompt)
+  const canAct = Boolean(onAction) || (typeof followUpHandler === 'function' && actionPrompt)
   const isSubmitting = decision === 'submitting'
   const shellTone: ProposalCardTone =
     decision === 'sent'
@@ -253,10 +273,10 @@ export function InlineActionCard({
       return
     }
     if (actionPrompt) {
-      onSendFollowUp?.(actionPrompt)
+      followUpHandler?.(actionPrompt)
       setDecision('sent')
     }
-  }, [actionPrompt, canAct, isSubmitting, onAction, onSendFollowUp])
+  }, [actionPrompt, canAct, followUpHandler, isSubmitting, onAction])
 
   return (
     <motion.div

@@ -59,8 +59,8 @@ export const useManualToolbar = ({ result }: UseManualToolbarOptions): UseManual
   const downloadAbortRef = useRef<AbortController | null>(null)
   const downloadRunIdRef = useRef(0)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionReportId intentionally cancels in-flight downloads on report navigation.
   useEffect(() => {
+    void sessionReportId
     downloadRunIdRef.current++
     downloadInFlightRef.current = false
     downloadAbortRef.current?.abort()

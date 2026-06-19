@@ -10,7 +10,6 @@
  * @module lib/bootstrap/resolvers/PrefillResolver
  */
 
-import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
@@ -30,6 +29,9 @@ import type {
 } from '../types'
 import { DEFAULT_PREFILL } from '../types'
 import { calculatePrefillConfidence, mergeWithPriority, truncateForLog } from '../utils'
+import { fetchRegistryPrefill, resolveCountryCode } from './PrefillRegistryClient'
+
+export { parsePrefilledQueryIdentifiers } from './PrefillRegistryClient'
 
 const API_URL = getApiUrl()
 
@@ -54,36 +56,6 @@ const ALL_PREFILL_FIELDS = [
   'taxonomy',
   'canonical_nace_code',
 ]
-
-/**
- * Raw KBO record shape returned by the Titan registry endpoints
- * (`/api/v2/registry/search` and `/api/v2/registry/kbo/lookup`).
- * Mirrors `KboCompanyEntity` in `apps/titan-api/src/integrations/registry/dto/kbo-lookup.dto.ts`.
- */
-interface RawKboRecord {
-  kbo_number: string
-  company_name: string
-  legal_form?: string
-  status?: string
-  vat_number?: string
-  address?: string
-  postal_code?: string
-  city?: string
-  country_code?: string
-  nace_code?: string
-  nace_description?: string
-  /** Full market activity code (NL: 5-digit SBI_2008; BE: NACE_REV2 with dot). */
-  activity_code?: string
-  /** Human-readable label for activity_code. */
-  activity_label?: string
-  foundation_date?: string
-  is_active?: boolean
-  /** Server-resolved business type ID from Titan's enrichRegistrySearchResults
-   * (BE: NACE → mapping; NL: SBI alias → canonical NACE → mapping). */
-  business_type_id?: string
-  /** Server-resolved sector title (e.g. "Logistics"). */
-  business_type_title?: string
-}
 
 interface UserProfile {
   id: string
@@ -130,22 +102,6 @@ interface SessionDataForPrefill {
   _businessInfo?: Record<string, unknown>
 }
 
-function normalizeCountryCode(countryCode?: string | null): string | undefined {
-  if (!countryCode) return undefined
-  const normalized = countryCode.trim().toUpperCase()
-  if (normalized === 'UK') return 'GB'
-  return normalized.length > 0 ? normalized : undefined
-}
-
-function resolveCountryCode(...candidates: Array<string | null | undefined>): string | undefined {
-  for (const candidate of candidates) {
-    const normalized = normalizeCountryCode(candidate)
-    if (normalized) return normalized
-  }
-
-  return undefined
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -154,86 +110,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function readString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
-}
-
-/**
- * Parsed identifiers extracted from a `prefilledQuery` URL parameter.
- *
- * Mercury builds prefilled queries as `"{businessName} {kbo} {nace}"` (see
- * `apps/mercury/shared/utils/buildSellerValuationPrefilledQuery.ts`), but
- * other sources may pass less-structured strings. We detect identifiers
- * defensively so the registry call can be a precise lookup instead of a
- * fuzzy name search with `limit: 1`.
- */
-export interface ParsedPrefilledQueryIdentifiers {
-  /** Belgian enterprise number, formatted with dots (e.g. `0861.786.602`). */
-  kboNumber?: string
-  /** Belgian VAT number prefixed with `BE` and no separators. */
-  vatNumber?: string
-  /** Dutch KVK number — exactly 8 digits (e.g. `12345678`). */
-  kvkNumber?: string
-  /** Activity / NACE code (4 or 5 digits). Best-effort. */
-  naceCode?: string
-  /** Original query with detected identifiers stripped — usable as a name search. */
-  cleanedName: string
-}
-
-/**
- * Extract Belgian KBO/VAT, Dutch KVK, and NACE identifiers from a free-form
- * prefilled query string. Defensive against missing/extra whitespace and `BE`
- * prefix variants. NACE extraction only runs after a KBO/KVK is found, since
- * a 4-digit sequence in an arbitrary company name (year, postal code) would
- * otherwise be a false positive.
- *
- * Detection order matters:
- *   1. Belgian KBO (10 digits, starts with 0) — checked first because it is
- *      a strict superset of the 8-digit check; a 10-digit all-digit string
- *      starting with 0 would otherwise falsely match the KVK branch.
- *   2. Dutch KVK (exactly 8 digits, no leading 0 required).
- *   3. NACE code — only after a registry number is isolated.
- */
-export function parsePrefilledQueryIdentifiers(query: string): ParsedPrefilledQueryIdentifiers {
-  const result: ParsedPrefilledQueryIdentifiers = { cleanedName: query.trim() }
-  if (!query) return result
-
-  // ── Belgian KBO (10 digits, starts with 0) ────────────────────────────
-  const kboPattern = /\b(?:BE\s*)?0\d{3}[.\s-]?\d{3}[.\s-]?\d{3}\b/i
-  const kboMatch = result.cleanedName.match(kboPattern)
-  if (kboMatch) {
-    const digits = kboMatch[0].replace(/[^0-9]/g, '')
-    if (digits.length === 10 && digits.startsWith('0')) {
-      result.kboNumber = `${digits.slice(0, 4)}.${digits.slice(4, 7)}.${digits.slice(7, 10)}`
-      result.vatNumber = `BE${digits}`
-      result.cleanedName = result.cleanedName.replace(kboMatch[0], ' ').trim()
-    }
-  }
-
-  // ── Dutch KVK (exactly 8 digits, not already matched as a KBO fragment) ─
-  // Only attempt when no KBO was found — a KBO contains 10 digits and the
-  // 8-digit KVK pattern could spuriously match a KBO substring.
-  if (!result.kboNumber) {
-    // Word-boundary match ensures we don't pick up an 8-digit run inside a
-    // longer digit string (e.g. a postal code run embedded in a company name).
-    const kvkPattern = /\b(\d{8})\b/
-    const kvkMatch = result.cleanedName.match(kvkPattern)
-    if (kvkMatch) {
-      result.kvkNumber = kvkMatch[1]
-      result.cleanedName = result.cleanedName.replace(kvkMatch[0], ' ').trim()
-    }
-  }
-
-  // ── NACE / SBI code — only after a registry number is isolated ─────────
-  const hasRegistryNumber = !!(result.kboNumber || result.kvkNumber)
-  if (hasRegistryNumber) {
-    const naceMatch = result.cleanedName.match(/\b\d{4,5}\b/)
-    if (naceMatch) {
-      result.naceCode = naceMatch[0]
-      result.cleanedName = result.cleanedName.replace(naceMatch[0], ' ').trim()
-    }
-  }
-
-  result.cleanedName = result.cleanedName.replace(/\s{2,}/g, ' ').trim()
-  return result
 }
 
 export class PrefillResolver implements BootstrapResolver<PrefillData> {
@@ -423,167 +299,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     companyInfo?: CompanyInfo
     kboData?: KBOCompanyEntity
   } | null> {
-    const identifiers = parsePrefilledQueryIdentifiers(query)
-    const hasExactIdentifier = !!(
-      identifiers.kboNumber ||
-      identifiers.vatNumber ||
-      identifiers.kvkNumber
-    )
-    const kbo = hasExactIdentifier
-      ? await this.lookupKBOByIdentifier(identifiers, countryCode)
-      : await this.searchKBOByName(identifiers.cleanedName || query, countryCode)
-
-    if (!kbo) return null
-
-    const resolvedKboCountry = resolveCountryCode(kbo.country_code, countryCode) || 'BE'
-    const businessTypeId = normalizeBusinessTypeId(kbo.business_type_id)
-
-    const kboData: KBOCompanyEntity = {
-      kboNumber: kbo.kbo_number,
-      companyName: kbo.company_name,
-      legalForm: kbo.legal_form,
-      status: kbo.status,
-      vatNumber: kbo.vat_number,
-      address: kbo.address,
-      postalCode: kbo.postal_code,
-      city: kbo.city,
-      countryCode: resolvedKboCountry,
-      naceCode: kbo.nace_code,
-      naceDescription: kbo.nace_description,
-      activityCode: kbo.activity_code,
-      activityLabel: kbo.activity_label,
-      foundationDate: kbo.foundation_date,
-      isActive: kbo.is_active,
-      businessTypeId,
-      businessTypeTitle: kbo.business_type_title,
-    }
-
-    const companyInfo: CompanyInfo = {
-      companyName: kbo.company_name,
-      kboNumber: kbo.kbo_number,
-      vatNumber: kbo.vat_number,
-      legalForm: kbo.legal_form,
-      address: kbo.address,
-      postalCode: kbo.postal_code,
-      city: kbo.city,
-      countryCode: resolvedKboCountry,
-      naceCode: kbo.nace_code,
-      naceDescription: kbo.nace_description,
-      activityCode: kbo.activity_code,
-      activityLabel: kbo.activity_label,
-      foundingYear: kbo.foundation_date ? new Date(kbo.foundation_date).getFullYear() : undefined,
-      isActive: kbo.is_active,
-      businessTypeId,
-      businessTypeTitle: kbo.business_type_title,
-    }
-
-    this.logger.info('[PrefillResolver] KBO data fetched', {
-      companyName: truncateForLog(kbo.company_name, 20),
-      kboNumber: kbo.kbo_number,
-    })
-
-    return { companyInfo, kboData }
-  }
-
-  /**
-   * Exact-match registry lookup using a parsed KBO/VAT or KVK identifier.
-   *
-   * **Belgian KBO/VAT**: routes to the `/kbo/lookup` endpoint which hits the
-   * Belgian KBO database directly — deterministic, cannot return the wrong
-   * company.
-   *
-   * **Dutch KVK**: the `/kbo/lookup` endpoint is Belgian-only; sending an
-   * 8-digit KVK number there will always 404. Instead we route KVK numbers
-   * through the registry search endpoint with `country_code: NL`. The KVK
-   * service on Titan detects the 8-digit pattern and performs an exact
-   * `filters[kvknummer]` lookup against Overheid.io — same precision,
-   * different path.
-   */
-  private async lookupKBOByIdentifier(
-    identifiers: ParsedPrefilledQueryIdentifiers,
-    countryCode: string
-  ): Promise<RawKboRecord | null> {
-    // Dutch KVK — must go through registry/search with country_code=NL.
-    // The KVK service detects the 8-digit query and does an exact lookup.
-    if (identifiers.kvkNumber) {
-      return this.searchKBOByName(identifiers.kvkNumber, 'NL')
-    }
-
-    // Belgian KBO/VAT — use the dedicated exact-match lookup endpoint.
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), REGISTRY_SEARCH_CLIENT_TIMEOUT_MS)
-      const body: Record<string, string> = {}
-      if (identifiers.kboNumber) body.kbo_number = identifiers.kboNumber
-      if (identifiers.vatNumber) body.vat_number = identifiers.vatNumber
-      if (identifiers.cleanedName) body.company_name = identifiers.cleanedName
-
-      const response = await fetch(`${API_URL}/api/v2/registry/kbo/lookup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        // 404 is expected when the identifier doesn't resolve in the registry
-        // — fall back to a name search so we still get a best-effort match.
-        if (response.status === 404 && identifiers.cleanedName) {
-          return this.searchKBOByName(identifiers.cleanedName, countryCode)
-        }
-        this.logger.warn('[PrefillResolver] KBO lookup failed', {
-          status: response.status,
-        })
-        return null
-      }
-
-      const data = await response.json()
-      const record = (data?.data || null) as RawKboRecord | null
-      return record
-    } catch (error) {
-      this.logger.error('[PrefillResolver] KBO lookup error:', error)
-      return null
-    }
-  }
-
-  /**
-   * Fuzzy registry search by company name. Used as a fallback when no
-   * structured identifier is present in the prefilled query.
-   */
-  private async searchKBOByName(name: string, countryCode: string): Promise<RawKboRecord | null> {
-    if (!name || name.trim().length < 2) return null
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), REGISTRY_SEARCH_CLIENT_TIMEOUT_MS)
-      const response = await fetch(`${API_URL}/api/v2/registry/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          company_name: name.trim(),
-          country_code: countryCode,
-          limit: 1,
-        }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        this.logger.warn('[PrefillResolver] KBO search failed', {
-          status: response.status,
-        })
-        return null
-      }
-
-      const data = await response.json()
-      const results = (data?.results || []) as RawKboRecord[]
-      return results[0] || null
-    } catch (error) {
-      this.logger.error('[PrefillResolver] KBO search error:', error)
-      return null
-    }
+    return fetchRegistryPrefill(query, countryCode, { logger: this.logger })
   }
 
   /**

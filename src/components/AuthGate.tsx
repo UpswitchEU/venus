@@ -454,8 +454,13 @@ export function AuthGate({
         return
       }
 
-      // Verify client context when accountant flow (client null when invitation not accepted)
+      // Verify client context when accountant flow (client null when invitation not accepted).
+      // The selector subscription is a real gate, not a cosmetic dependency: context exchange
+      // can resolve after auth settles, so wait unless the exchange has produced a terminal
+      // failure reason.
       if (needsClientContext) {
+        const exchangeFailure = getLastClientTokenExchangeFailure()
+        if (!clientContextReady && !exchangeFailure) return
         const ctx = useClientContext.getState()
         if (
           !ctx.contextGateResolved ||
@@ -463,7 +468,6 @@ export function AuthGate({
           !ctx.accountant ||
           !ctx.relationshipId
         ) {
-          const exchangeFailure = getLastClientTokenExchangeFailure()
           generalLogger.warn('[AuthGate] Client context check failed', {
             isActingAsClient: ctx.isActingAsClient,
             hasClient: !!ctx.client,

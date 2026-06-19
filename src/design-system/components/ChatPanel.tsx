@@ -298,11 +298,13 @@ export const AuroraChatPanel: React.FC<AuroraChatPanelProps> = ({
   showAuroraBackground = true,
 }) => {
   const messagesContainerRef = React.useRef<HTMLDivElement>(null)
+  const latestMessageId = messages.at(-1)?.id ?? null
 
   // Auto-scroll to bottom on new messages
   React.useEffect(() => {
+    if (!latestMessageId && !isLoading) return
     scrollContainerToBottom(messagesContainerRef.current)
-  }, [messages.length, isLoading])
+  }, [latestMessageId, isLoading])
 
   return (
     <div className={cn('aurora-theme relative flex flex-col h-full bg-background', className)}>

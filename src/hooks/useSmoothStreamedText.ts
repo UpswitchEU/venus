@@ -58,8 +58,8 @@ export function useSmoothStreamedText(fullText: string, isStreaming: boolean): S
   isStreamingRef.current = isStreaming
   revealedRef.current = revealed
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: shouldAnimate gates this effect and must re-run it if reduced-motion toggles mid-stream.
   useEffect(() => {
+    void isStreaming
     // Reduced motion / no rAF: reveal everything, stop any running loop.
     if (!shouldAnimate) {
       if (rafRef.current != null) {

@@ -57,7 +57,11 @@ export function MethodDataPlanPanel({ methodDataPlan }: MethodDataPlanPanelProps
   )
 
   const doors = [
-    { key: 'connectAccounting', icon: Building2, label: mi('methodDataPlan.doors.connectAccounting') },
+    {
+      key: 'connectAccounting',
+      icon: Building2,
+      label: mi('methodDataPlan.doors.connectAccounting'),
+    },
     { key: 'inviteAccountant', icon: UserPlus, label: mi('methodDataPlan.doors.inviteAccountant') },
     { key: 'registryEstimate', icon: FileText, label: mi('methodDataPlan.doors.registryEstimate') },
   ]

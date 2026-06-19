@@ -128,9 +128,11 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
 
   const generatePdfRef = useLatestRef(generatePdf)
   const isPdfGeneratingRef = useLatestRef(isPdfGenerating)
+  const isPdfGenerationInFlight = isPdfGeneratingRef.current
   const lastPdfTriggerFingerprintRef = useRef<string | null>(null)
 
   useEffect(() => {
+    void reportId
     lastPdfTriggerFingerprintRef.current = null
   }, [reportId])
 
@@ -190,7 +192,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
         reportId &&
         mappedReport.htmlReport &&
         canDownloadPdf &&
-        !isPdfGeneratingRef.current &&
+        !isPdfGenerationInFlight &&
         isPdfLikelyStaleVenus(mappedReport)
       ) {
         const pdfFingerprint = resultPdfTriggerFingerprint(result)
@@ -221,6 +223,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     result,
     sessionHtmlReport,
     standaloneHtmlReport,
+    clientBlendedValue,
     onComplete,
     reportId,
     generatePdfRef,
@@ -229,6 +232,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     durableSaveInFlightRef,
     selectedMethod,
     canDownloadPdf,
+    isPdfGenerationInFlight,
     setDraftStatus,
     setLastSaved,
     setReport,

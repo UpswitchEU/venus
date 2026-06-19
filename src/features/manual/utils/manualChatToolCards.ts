@@ -130,6 +130,47 @@ interface ManualChatToolCardsInput {
   buyerReadyCards?: readonly unknown[]
 }
 
+const MANUAL_CHAT_TOOL_CARD_KEYS = [
+  'fieldUpdates',
+  'normalisationSuggestions',
+  'valuationRunRequests',
+  'reportGenerationRequests',
+  'sellabilityRunRequests',
+  'ownerProfileAnswerRequests',
+  'integrationConnectRequests',
+  'integrationSyncRequests',
+  'syncStatusPreviews',
+  'ownerInviteAccountantRequests',
+  'ownerReminderRequests',
+  'listingVisibilityRequests',
+  'shareTokenRequests',
+  'shareTokenRevokeRequests',
+  'valuationMethodPreferenceRequests',
+  'bulkValuationRunRequests',
+  'listingFieldUpdateRequests',
+  'normalizationDismissRequests',
+  'workspaceClientsPreviews',
+  'valuationDefaultsRequests',
+  'valuationDefaultsPreviews',
+  'acknowledgeWarningRequests',
+  'secureCredentialRequests',
+  'csvUploadRequests',
+  'multiSelectRequests',
+  'singleSelectRequests',
+  'clientCreateRequests',
+  'belgianCompanyBootstraps',
+  'valuationSessionRequests',
+  'clientDataReadinessPreviews',
+  'importReviewRequests',
+  'methodReadinessPreviews',
+  'listingPreviews',
+  'listingCreateRequests',
+  'buyerProfilePreviews',
+  'registrySearchResults',
+  'businessTypeSearchResults',
+  'buyerReadyCards',
+] as const satisfies readonly (keyof ManualChatToolCards)[]
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
@@ -688,263 +729,24 @@ export function parseManualChatStreamToolResult(
 }
 
 export function manualChatToolCardsHasContent(cards: ManualChatToolCards | null | undefined) {
-  return Boolean(
-    cards &&
-      ((cards.fieldUpdates?.length ?? 0) > 0 ||
-        (cards.normalisationSuggestions?.length ?? 0) > 0 ||
-        (cards.valuationRunRequests?.length ?? 0) > 0 ||
-        (cards.reportGenerationRequests?.length ?? 0) > 0 ||
-        (cards.sellabilityRunRequests?.length ?? 0) > 0 ||
-        (cards.ownerProfileAnswerRequests?.length ?? 0) > 0 ||
-        (cards.integrationConnectRequests?.length ?? 0) > 0 ||
-        (cards.integrationSyncRequests?.length ?? 0) > 0 ||
-        (cards.syncStatusPreviews?.length ?? 0) > 0 ||
-        (cards.ownerInviteAccountantRequests?.length ?? 0) > 0 ||
-        (cards.ownerReminderRequests?.length ?? 0) > 0 ||
-        (cards.listingVisibilityRequests?.length ?? 0) > 0 ||
-        (cards.shareTokenRequests?.length ?? 0) > 0 ||
-        (cards.shareTokenRevokeRequests?.length ?? 0) > 0 ||
-        (cards.valuationMethodPreferenceRequests?.length ?? 0) > 0 ||
-        (cards.bulkValuationRunRequests?.length ?? 0) > 0 ||
-        (cards.listingFieldUpdateRequests?.length ?? 0) > 0 ||
-        (cards.normalizationDismissRequests?.length ?? 0) > 0 ||
-        (cards.workspaceClientsPreviews?.length ?? 0) > 0 ||
-        (cards.valuationDefaultsRequests?.length ?? 0) > 0 ||
-        (cards.valuationDefaultsPreviews?.length ?? 0) > 0 ||
-        (cards.acknowledgeWarningRequests?.length ?? 0) > 0 ||
-        (cards.secureCredentialRequests?.length ?? 0) > 0 ||
-        (cards.csvUploadRequests?.length ?? 0) > 0 ||
-        (cards.multiSelectRequests?.length ?? 0) > 0 ||
-        (cards.singleSelectRequests?.length ?? 0) > 0 ||
-        (cards.clientCreateRequests?.length ?? 0) > 0 ||
-        (cards.belgianCompanyBootstraps?.length ?? 0) > 0 ||
-        (cards.valuationSessionRequests?.length ?? 0) > 0 ||
-        (cards.clientDataReadinessPreviews?.length ?? 0) > 0 ||
-        (cards.importReviewRequests?.length ?? 0) > 0 ||
-        (cards.methodReadinessPreviews?.length ?? 0) > 0 ||
-        (cards.listingPreviews?.length ?? 0) > 0 ||
-        (cards.listingCreateRequests?.length ?? 0) > 0 ||
-        (cards.buyerProfilePreviews?.length ?? 0) > 0 ||
-        (cards.registrySearchResults?.length ?? 0) > 0 ||
-        (cards.businessTypeSearchResults?.length ?? 0) > 0 ||
-        (cards.buyerReadyCards?.length ?? 0) > 0)
-  )
+  return Boolean(cards && MANUAL_CHAT_TOOL_CARD_KEYS.some((key) => (cards[key]?.length ?? 0) > 0))
 }
 
 export function appendManualChatToolCardsToMessage(
   message: ChatMessage,
   cards: ManualChatToolCards
 ): ChatMessage {
-  return {
-    ...message,
-    ...(cards.fieldUpdates && {
-      fieldUpdates: [...(message.fieldUpdates ?? []), ...cards.fieldUpdates],
-    }),
-    ...(cards.normalisationSuggestions && {
-      normalisationSuggestions: [
-        ...(message.normalisationSuggestions ?? []),
-        ...cards.normalisationSuggestions,
-      ],
-    }),
-    ...(cards.valuationRunRequests && {
-      valuationRunRequests: [
-        ...(message.valuationRunRequests ?? []),
-        ...cards.valuationRunRequests,
-      ],
-    }),
-    ...(cards.reportGenerationRequests && {
-      reportGenerationRequests: [
-        ...(message.reportGenerationRequests ?? []),
-        ...cards.reportGenerationRequests,
-      ],
-    }),
-    ...(cards.sellabilityRunRequests && {
-      sellabilityRunRequests: [
-        ...(message.sellabilityRunRequests ?? []),
-        ...cards.sellabilityRunRequests,
-      ],
-    }),
-    ...(cards.ownerProfileAnswerRequests && {
-      ownerProfileAnswerRequests: [
-        ...(message.ownerProfileAnswerRequests ?? []),
-        ...cards.ownerProfileAnswerRequests,
-      ],
-    }),
-    ...(cards.integrationConnectRequests && {
-      integrationConnectRequests: [
-        ...(message.integrationConnectRequests ?? []),
-        ...cards.integrationConnectRequests,
-      ],
-    }),
-    ...(cards.integrationSyncRequests && {
-      integrationSyncRequests: [
-        ...(message.integrationSyncRequests ?? []),
-        ...cards.integrationSyncRequests,
-      ],
-    }),
-    ...(cards.syncStatusPreviews && {
-      syncStatusPreviews: [...(message.syncStatusPreviews ?? []), ...cards.syncStatusPreviews],
-    }),
-    ...(cards.ownerInviteAccountantRequests && {
-      ownerInviteAccountantRequests: [
-        ...(message.ownerInviteAccountantRequests ?? []),
-        ...cards.ownerInviteAccountantRequests,
-      ],
-    }),
-    ...(cards.ownerReminderRequests && {
-      ownerReminderRequests: [
-        ...(message.ownerReminderRequests ?? []),
-        ...cards.ownerReminderRequests,
-      ],
-    }),
-    ...(cards.listingVisibilityRequests && {
-      listingVisibilityRequests: [
-        ...(message.listingVisibilityRequests ?? []),
-        ...cards.listingVisibilityRequests,
-      ],
-    }),
-    ...(cards.shareTokenRequests && {
-      shareTokenRequests: [...(message.shareTokenRequests ?? []), ...cards.shareTokenRequests],
-    }),
-    ...(cards.shareTokenRevokeRequests && {
-      shareTokenRevokeRequests: [
-        ...(message.shareTokenRevokeRequests ?? []),
-        ...cards.shareTokenRevokeRequests,
-      ],
-    }),
-    ...(cards.bulkValuationRunRequests && {
-      bulkValuationRunRequests: [
-        ...(message.bulkValuationRunRequests ?? []),
-        ...cards.bulkValuationRunRequests,
-      ],
-    }),
-    ...(cards.listingFieldUpdateRequests && {
-      listingFieldUpdateRequests: [
-        ...(message.listingFieldUpdateRequests ?? []),
-        ...cards.listingFieldUpdateRequests,
-      ],
-    }),
-    ...(cards.normalizationDismissRequests && {
-      normalizationDismissRequests: [
-        ...(message.normalizationDismissRequests ?? []),
-        ...cards.normalizationDismissRequests,
-      ],
-    }),
-    ...(cards.workspaceClientsPreviews && {
-      workspaceClientsPreviews: [
-        ...(message.workspaceClientsPreviews ?? []),
-        ...cards.workspaceClientsPreviews,
-      ],
-    }),
-    ...(cards.valuationDefaultsRequests && {
-      valuationDefaultsRequests: [
-        ...(message.valuationDefaultsRequests ?? []),
-        ...cards.valuationDefaultsRequests,
-      ],
-    }),
-    ...(cards.valuationDefaultsPreviews && {
-      valuationDefaultsPreviews: [
-        ...(message.valuationDefaultsPreviews ?? []),
-        ...cards.valuationDefaultsPreviews,
-      ],
-    }),
-    ...(cards.valuationMethodPreferenceRequests && {
-      valuationMethodPreferenceRequests: [
-        ...(message.valuationMethodPreferenceRequests ?? []),
-        ...cards.valuationMethodPreferenceRequests,
-      ],
-    }),
-    ...(cards.acknowledgeWarningRequests && {
-      acknowledgeWarningRequests: [
-        ...(message.acknowledgeWarningRequests ?? []),
-        ...cards.acknowledgeWarningRequests,
-      ],
-    }),
-    ...(cards.secureCredentialRequests && {
-      secureCredentialRequests: [
-        ...(message.secureCredentialRequests ?? []),
-        ...cards.secureCredentialRequests,
-      ],
-    }),
-    ...(cards.csvUploadRequests && {
-      csvUploadRequests: [...(message.csvUploadRequests ?? []), ...cards.csvUploadRequests],
-    }),
-    ...(cards.multiSelectRequests && {
-      multiSelectRequests: [...(message.multiSelectRequests ?? []), ...cards.multiSelectRequests],
-    }),
-    ...(cards.singleSelectRequests && {
-      singleSelectRequests: [
-        ...(message.singleSelectRequests ?? []),
-        ...cards.singleSelectRequests,
-      ],
-    }),
-    ...(cards.clientCreateRequests && {
-      clientCreateRequests: [
-        ...(message.clientCreateRequests ?? []),
-        ...cards.clientCreateRequests,
-      ],
-    }),
-    ...(cards.belgianCompanyBootstraps && {
-      belgianCompanyBootstraps: [
-        ...(message.belgianCompanyBootstraps ?? []),
-        ...cards.belgianCompanyBootstraps,
-      ],
-    }),
-    ...(cards.valuationSessionRequests && {
-      valuationSessionRequests: [
-        ...(message.valuationSessionRequests ?? []),
-        ...cards.valuationSessionRequests,
-      ],
-    }),
-    ...(cards.clientDataReadinessPreviews && {
-      clientDataReadinessPreviews: [
-        ...(message.clientDataReadinessPreviews ?? []),
-        ...cards.clientDataReadinessPreviews,
-      ],
-    }),
-    ...(cards.importReviewRequests && {
-      importReviewRequests: [
-        ...(message.importReviewRequests ?? []),
-        ...cards.importReviewRequests,
-      ],
-    }),
-    ...(cards.methodReadinessPreviews && {
-      methodReadinessPreviews: [
-        ...(message.methodReadinessPreviews ?? []),
-        ...cards.methodReadinessPreviews,
-      ],
-    }),
-    ...(cards.listingPreviews && {
-      listingPreviews: [...(message.listingPreviews ?? []), ...cards.listingPreviews],
-    }),
-    ...(cards.listingCreateRequests && {
-      listingCreateRequests: [
-        ...(message.listingCreateRequests ?? []),
-        ...cards.listingCreateRequests,
-      ],
-    }),
-    ...(cards.buyerProfilePreviews && {
-      buyerProfilePreviews: [
-        ...(message.buyerProfilePreviews ?? []),
-        ...cards.buyerProfilePreviews,
-      ],
-    }),
-    ...(cards.registrySearchResults && {
-      registrySearchResults: [
-        ...(message.registrySearchResults ?? []),
-        ...cards.registrySearchResults,
-      ],
-    }),
-    ...(cards.businessTypeSearchResults && {
-      businessTypeSearchResults: [
-        ...(message.businessTypeSearchResults ?? []),
-        ...cards.businessTypeSearchResults,
-      ],
-    }),
-    ...(cards.buyerReadyCards && {
-      buyerReadyCards: [...(message.buyerReadyCards ?? []), ...cards.buyerReadyCards],
-    }),
+  const appended: Record<string, unknown> = {}
+  const sourceMessage = message as unknown as Record<string, unknown>
+
+  for (const key of MANUAL_CHAT_TOOL_CARD_KEYS) {
+    const incoming = cards[key]
+    if (!incoming) continue
+    const existing = sourceMessage[key]
+    appended[key] = [...(Array.isArray(existing) ? existing : []), ...incoming]
   }
+
+  return { ...message, ...appended }
 }
 
 export function appendManualChatToolCardsToMessages(

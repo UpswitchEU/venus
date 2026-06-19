@@ -181,6 +181,35 @@ describe('tax-latency mutation source contract', () => {
       expect(state.items.length).toBe(0)
     })
 
+    it('setCandidates with { source: "system" } stamps system even when auto-promoting', () => {
+      useTaxLatencyStore.getState().setCandidates(
+        [
+          {
+            id: 'auto-168',
+            type: 'passive',
+            accountCode: '168000',
+            accountName: 'Uitgestelde belastingen',
+            description: 'Auto-applied deferred tax liability',
+            suggestedQuestion: 'Apply deferred tax?',
+            taxRate: 25,
+            temporaryDifference: 10_000,
+            autoApply: true,
+          },
+        ],
+        { source: 'system' }
+      )
+
+      const state = useTaxLatencyStore.getState()
+      expect(state._lastMutationSource).toBe('system')
+      expect(state.items).toEqual([
+        expect.objectContaining({
+          id: 'auto_auto-168',
+          accountCode: '168000',
+        }),
+      ])
+      expect(state.candidates).toEqual([])
+    })
+
     it('loadFromSession stamps system', () => {
       useTaxLatencyStore.getState().loadFromSession({
         _taxLatencies: [

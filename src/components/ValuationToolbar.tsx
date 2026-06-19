@@ -210,8 +210,8 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const pdfDownloadAbortRef = React.useRef<AbortController | null>(null)
   const pdfDownloadRunIdRef = React.useRef(0)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reportId intentionally cancels in-flight downloads on report navigation.
   React.useEffect(() => {
+    void reportId
     pdfDownloadRunIdRef.current++
     pdfDownloadInFlightRef.current = false
     pdfDownloadAbortRef.current?.abort()

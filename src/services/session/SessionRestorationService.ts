@@ -18,26 +18,14 @@
 import { sanitizePreSelectedValuationMethod } from '../../constants/sessionUiKeys'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
-import { useImportQualityStore } from '../../store/useImportQualityStore'
-import {
-  recoverPendingNormalizations,
-  useNormalizationStore,
-} from '../../store/useNormalizationStore'
 // import { useConversationalResultsStore } from '../../store/conversational/useConversationalResultsStore'
 import { useSessionStore } from '../../store/useSessionStore'
-import { recoverPendingTaxLatencies, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
-import type { ValuationFormData, ValuationResponse } from '../../types/valuation'
+import type { ValuationResponse } from '../../types/valuation'
 import { parseCurrentYearRevenueForMethodNav } from '../../utils/currentYearRevenueForMethodNav'
 import {
   hydrateClientValuationResultsMap,
   resolveSelectedValuationMethodForExtraction,
 } from '../../utils/extractValuationResultsMap'
-import {
-  buildNormalizationItemsFromImportedLedgerAnalysis,
-  buildReportedEbitdaByYearFromFormRecords,
-  normalizeImportedLedgerReviewStatuses,
-} from '../../utils/importedLedgerNormalization'
-import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
 import { generalLogger } from '../../utils/logger'
 import { buildOptionalSessionGapFillPatch } from '../../utils/mergeOptionalSessionPrefillFields'
 import {
@@ -45,6 +33,7 @@ import {
   markMercurySessionPrefillSuppressed,
 } from '../../utils/prefillRestorationGate'
 import { extractRenderableHtmlFromSessionPayload } from '../../utils/reportHtmlRecovery'
+import { hydrateSessionAuxiliaryArtifacts } from './SessionAuxiliaryArtifactHydrator'
 import { seedNbbPrefillFromFormData } from './SessionNbbPrefillHydrator'
 import {
   type NormalizedSessionData,
@@ -55,12 +44,8 @@ import { hydrateSessionFromPackage, type SessionHydrationPackage } from './Sessi
 import {
   asFormPatch,
   asFormSnapshotForRevenueNav,
-  asImportedLedgerAnalysis,
-  asImportQuality,
-  asNormalizationItems,
   asRecord,
   asString,
-  asTaxLatencyItems,
   asValuationResultWithAssets,
 } from './SessionRestorationCoercion'
 import { verifySessionRestoration } from './SessionRestorationVerification'
@@ -702,199 +687,19 @@ class SessionRestorationServiceImpl {
     })
     restoredVersionHistory = false // Will be loaded on demand
 
-    // 4. Normalizations — hydrate unified store
-    // Priority: localStorage recovery > session JSONB > Titan API
-    try {
-      if (!this.shouldContinueRestoration(data.reportId, options, 'normalizations')) {
-        return currentResult()
-      }
-      const { useNormalizationStore, recoverPendingNormalizations } = await import(
-        '../../store/useNormalizationStore'
-      )
-      if (!this.shouldContinueRestoration(data.reportId, options, 'normalizations-imported')) {
-        return currentResult()
-      }
-      const normStore = useNormalizationStore.getState()
-      const formData = asRecord(data.formData)
-      const reportedEbitdaByYear = buildReportedEbitdaByYearFromFormRecords({
-        currentYearData: asRecord(formData?.current_year_data) as {
-          year?: number
-          ebitda?: number
-        },
-        historicalYearsData: Array.isArray(formData?.historical_years_data)
-          ? (formData.historical_years_data as Array<{ year?: number; ebitda?: number }>)
-          : undefined,
-        yearlyFinancials: Array.isArray(formData?.yearlyFinancials)
-          ? (formData.yearlyFinancials as Array<{
-              year?: number | string
-              ebitda?: number
-              isForecast?: boolean
-            }>)
-          : undefined,
-        yearData: asRecord(formData?.year_data) as
-          | Record<string | number, { ebitda?: number }>
-          | undefined,
-        fallbackEbitda: Number(formData?.ebitda),
-      })
-
-      // First: check for items buffered to localStorage during a previous beforeunload
-      const recovered = recoverPendingNormalizations(data.reportId)
-      if (recovered && recovered.length > 0) {
-        normStore.setItems(normalizeImportedLedgerReviewStatuses(recovered, reportedEbitdaByYear))
-        restoredEbitdaNormalizations = true
-        generalLogger.info('[SessionRestoration] Normalizations recovered from localStorage', {
-          count: recovered.length,
-        })
-      } else {
-        // Check if normalizations are embedded in form metadata (session JSONB _normalizations)
-        const rawMeta = asNormalizationItems(formData?._normalizations)
-        if (rawMeta.length > 0) {
-          normStore.setItems(normalizeImportedLedgerReviewStatuses(rawMeta, reportedEbitdaByYear))
-          restoredEbitdaNormalizations = true
-          generalLogger.info('[SessionRestoration] Normalizations hydrated from session metadata', {
-            count: rawMeta.length,
-          })
-        } else {
-          // Fallback: load from Titan API
-          await normStore.loadFromTitan(data.reportId)
-          if (!this.shouldContinueRestoration(data.reportId, options, 'normalizations-loaded')) {
-            return currentResult()
-          }
-          const titanItems = useNormalizationStore.getState().items
-          normStore.setItems(
-            normalizeImportedLedgerReviewStatuses(titanItems, reportedEbitdaByYear)
-          )
-          restoredEbitdaNormalizations = useNormalizationStore.getState().items.length > 0
-          generalLogger.info('[SessionRestoration] Normalizations loaded from Titan API', {
-            count: useNormalizationStore.getState().items.length,
-          })
-        }
-      }
-    } catch (error) {
-      generalLogger.warn('[SessionRestoration] Normalization hydration failed (non-blocking)', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      restoredEbitdaNormalizations = false
-    }
-
-    // 5. Tax Latencies — hydrate store from session JSONB or localStorage
-    try {
-      if (!this.shouldContinueRestoration(data.reportId, options, 'tax-latencies')) {
-        return currentResult()
-      }
-      const { useTaxLatencyStore, recoverPendingTaxLatencies } = await import(
-        '../../store/useTaxLatencyStore'
-      )
-      if (!this.shouldContinueRestoration(data.reportId, options, 'tax-latencies-imported')) {
-        return currentResult()
-      }
-      const taxLatStore = useTaxLatencyStore.getState()
-
-      const recoveredTL = recoverPendingTaxLatencies(data.reportId)
-      if (recoveredTL && recoveredTL.length > 0) {
-        taxLatStore.setItems(recoveredTL)
-        generalLogger.info('[SessionRestoration] Tax latencies recovered from localStorage', {
-          count: recoveredTL.length,
-        })
-      } else {
-        const fd = asRecord(data.formData) ?? {}
-        const rawTL = fd._taxLatencies ?? fd.tax_latencies ?? fd.taxLatencies
-        const taxLatencies = asTaxLatencyItems(rawTL)
-        if (taxLatencies.length > 0) {
-          taxLatStore.setItems(taxLatencies)
-          generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
-            count: taxLatencies.length,
-          })
-        }
-      }
-    } catch (error) {
-      generalLogger.warn('[SessionRestoration] Tax latency hydration failed (non-blocking)', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-
-    // 6. Import quality + provider (metadata for import UX; no separate spotlight mode)
-    try {
-      if (!this.shouldContinueRestoration(data.reportId, options, 'import-quality')) {
-        return currentResult()
-      }
-      const fd = asRecord(data.formData) ?? {}
-      const rawIQ = fd._import_quality ?? fd.import_quality ?? fd.importQuality
-      const importQuality = asImportQuality(rawIQ)
-      if (importQuality) {
-        const businessContext = asRecord(fd.business_context ?? fd.businessContext)
-        const importedLedgerProvenance = asRecord(businessContext?._imported_ledger_provenance)
-        const provenanceProvider = importedLedgerProvenance?.provider
-        useImportQualityStore.getState().setImportQuality(importQuality, {
-          provider: typeof provenanceProvider === 'string' ? provenanceProvider : null,
-        })
-        generalLogger.info('[SessionRestoration] Import quality hydrated', {
-          years: Object.keys(importQuality).length,
-        })
-      }
-    } catch (error) {
-      generalLogger.warn('[SessionRestoration] Import quality hydration failed (non-blocking)', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-
-    // 7. Imported ledger analysis — seed review prompts from persisted import analysis
-    try {
-      if (!this.shouldContinueRestoration(data.reportId, options, 'imported-ledger-analysis')) {
-        return currentResult()
-      }
-      const normStore = useNormalizationStore.getState()
-      useTaxLatencyStore.getState().setCandidates([])
-      const formData = asRecord(data.formData)
-      const businessContext = asRecord(formData?.business_context)
-      const analysis = asImportedLedgerAnalysis(
-        businessContext?._imported_ledger_analysis ?? formData?._imported_ledger_analysis
-      )
-      if (analysis) {
-        if (normStore.items.length === 0) {
-          const items = buildNormalizationItemsFromImportedLedgerAnalysis({
-            ...analysis,
-            reported_ebitda_by_year: buildReportedEbitdaByYearFromFormRecords({
-              currentYearData: asRecord(formData?.current_year_data) as {
-                year?: number
-                ebitda?: number
-              },
-              historicalYearsData: Array.isArray(formData?.historical_years_data)
-                ? (formData.historical_years_data as Array<{ year?: number; ebitda?: number }>)
-                : undefined,
-              yearlyFinancials: Array.isArray(formData?.yearlyFinancials)
-                ? (formData.yearlyFinancials as Array<{
-                    year?: number | string
-                    ebitda?: number
-                    isForecast?: boolean
-                  }>)
-                : undefined,
-              yearData: asRecord(formData?.year_data) as
-                | Record<string | number, { ebitda?: number }>
-                | undefined,
-              fallbackYear: analysis.latest_fiscal_year,
-              fallbackEbitda: Number(formData?.ebitda),
-            }),
-          })
-          if (items.length > 0) {
-            normStore.addItems(items)
-            restoredEbitdaNormalizations = true
-            generalLogger.info(
-              '[SessionRestoration] SDE drafts seeded from persisted imported ledger analysis',
-              { count: items.length }
-            )
-          }
-        }
-        const taxLatencyCandidates = buildTaxLatencyCandidatesFromImportedLedgerAnalysis(analysis)
-        useTaxLatencyStore.getState().setCandidates(taxLatencyCandidates)
-      }
-    } catch (error) {
-      generalLogger.warn(
-        '[SessionRestoration] Imported ledger normalization seed failed (non-blocking)',
-        {
-          error: error instanceof Error ? error.message : String(error),
-        }
-      )
+    // 4. Auxiliary artifacts: normalizations, tax latencies, import quality, and
+    // persisted imported-ledger prompts. Keep these side effects out of the
+    // orchestration singleton so restore/package hydration share one provenance-safe path.
+    const auxiliaryResult = await hydrateSessionAuxiliaryArtifacts({
+      reportId: data.reportId,
+      formData: asRecord(data.formData),
+      source: 'restore',
+      loadNormalizationsFromTitan: true,
+      shouldContinue: (phase) => this.shouldContinueRestoration(data.reportId, options, phase),
+    })
+    restoredEbitdaNormalizations = auxiliaryResult.restoredEbitdaNormalizations
+    if (auxiliaryResult.stopped) {
+      return currentResult()
     }
 
     return {

@@ -1,17 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { BusinessTypeInfo, CompanyInfo, KBOCompanyEntity, PartialFinancials } from '../types'
 import { PrefillResolver, parsePrefilledQueryIdentifiers } from './PrefillResolver'
 
 type PrefillResolverInternals = {
   extractSessionPrefill: (sessionData: Record<string, unknown>) => {
-    businessType?: { id?: string }
+    businessType?: Pick<BusinessTypeInfo, 'id'>
+    financials?: PartialFinancials
   }
   fetchKBO: (
     query: string,
     countryCode?: string
   ) => Promise<{
-    companyInfo: { businessTypeId?: string }
-    kboData: { businessTypeId?: string }
+    companyInfo: CompanyInfo
+    kboData: KBOCompanyEntity
   } | null>
+  mergeCompanyInfo: (
+    session?: Partial<CompanyInfo>,
+    profile?: Partial<CompanyInfo>,
+    kbo?: Partial<CompanyInfo>
+  ) => CompanyInfo | undefined
+}
+
+function asInternals(resolver: PrefillResolver): PrefillResolverInternals {
+  return resolver as unknown as PrefillResolverInternals
 }
 
 describe('PrefillResolver session fallback years', () => {
@@ -23,8 +34,8 @@ describe('PrefillResolver session fallback years', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
 
-    const resolver = new PrefillResolver()
-    const result = (resolver as any).extractSessionPrefill({
+    const resolver = asInternals(new PrefillResolver())
+    const result = resolver.extractSessionPrefill({
       company_name: 'Northwind BV',
       current_year_data: {
         revenue: 1_000_000,
@@ -38,7 +49,7 @@ describe('PrefillResolver session fallback years', () => {
   })
 
   it('canonicalizes session business_type_id aliases during prefill extraction', () => {
-    const resolver = new PrefillResolver() as unknown as PrefillResolverInternals
+    const resolver = asInternals(new PrefillResolver())
     const result = resolver.extractSessionPrefill({
       company_name: 'Upswitch',
       business_type_id: 'fintech-lending-credit',
@@ -138,9 +149,9 @@ describe('PrefillResolver KVK lookup routing', () => {
   })
 
   it('routes KVK numbers through registry/search with country_code=NL, never kbo/lookup', async () => {
-    const resolver = new PrefillResolver()
+    const resolver = asInternals(new PrefillResolver())
     // Call fetchKBO with a query containing an 8-digit KVK number
-    await (resolver as any).fetchKBO('ASML Holding NV 12345678', 'NL')
+    await resolver.fetchKBO('ASML Holding NV 12345678', 'NL')
 
     const calls = fetchSpy.mock.calls.map(([url]) => String(url))
     // Must NOT call the BE-only kbo/lookup endpoint
@@ -156,8 +167,8 @@ describe('PrefillResolver KVK lookup routing', () => {
 
   it('still routes Belgian KBO numbers through kbo/lookup', async () => {
     fetchSpy.mockResolvedValue(new Response(JSON.stringify({ data: null }), { status: 404 }))
-    const resolver = new PrefillResolver()
-    await (resolver as any).fetchKBO('RESTAURANT AB BE0861.786.602', 'BE')
+    const resolver = asInternals(new PrefillResolver())
+    await resolver.fetchKBO('RESTAURANT AB BE0861.786.602', 'BE')
 
     const calls = fetchSpy.mock.calls.map(([url]) => String(url))
     expect(calls.some((u) => u.includes('kbo/lookup'))).toBe(true)
@@ -193,8 +204,8 @@ describe('PrefillResolver KVK lookup routing', () => {
     }
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(kvkPayload), { status: 200 }))
 
-    const resolver = new PrefillResolver()
-    const result = await (resolver as any).fetchKBO('ASML Holding NV 12345678', 'NL')
+    const resolver = asInternals(new PrefillResolver())
+    const result = await resolver.fetchKBO('ASML Holding NV 12345678', 'NL')
 
     expect(result).not.toBeNull()
     expect(result.companyInfo.activityCode).toBe('62011')
@@ -220,18 +231,29 @@ describe('PrefillResolver KVK lookup routing', () => {
     }
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(kboPayload), { status: 200 }))
 
-    const resolver = new PrefillResolver() as unknown as PrefillResolverInternals
+    const resolver = asInternals(new PrefillResolver())
     const result = await resolver.fetchKBO('Upswitch BE 1033.441.760 63910', 'BE')
 
     expect(result).not.toBeNull()
     expect(result.companyInfo.businessTypeId).toBe('fintech-lending')
     expect(result.kboData.businessTypeId).toBe('fintech-lending')
   })
+
+  it('clears registry search timeout when fetch rejects', async () => {
+    fetchSpy.mockRejectedValueOnce(new Error('network down'))
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
+    const resolver = asInternals(new PrefillResolver())
+
+    const result = await resolver.fetchKBO('ASML Holding NV 12345678', 'NL')
+
+    expect(result).toBeNull()
+    expect(clearTimeoutSpy).toHaveBeenCalled()
+  })
 })
 
 describe('PrefillResolver.mergeCompanyInfo precedence', () => {
   const resolver = new PrefillResolver()
-  const merge = (resolver as any).mergeCompanyInfo.bind(resolver)
+  const merge = asInternals(resolver).mergeCompanyInfo.bind(resolver)
 
   it('lets KBO override the user business card for company identity (orphaned-seller bug)', () => {
     // Reproduces the production bug: a Bakkerij Van Damme owner valuing
@@ -264,10 +286,10 @@ describe('PrefillResolver.mergeCompanyInfo precedence', () => {
   })
 
   it('falls back to profile fields not provided by KBO', () => {
-    const profile = {
+    const profile: Partial<CompanyInfo> = {
       companyName: 'BAKKERIJ VAN DAMME',
       industry: 'food-and-beverage',
-    } as any
+    }
     const kbo = {
       companyName: 'RESTAURANT AB',
       kboNumber: '0861.786.602',

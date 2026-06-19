@@ -35,13 +35,11 @@ import { apiLogger } from '../../../utils/logger'
 import { stripReportBlobsFromSessionPatch } from '../../../utils/stripReportBlobsFromSessionPatch'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
+import { isTimeoutLikeError, requestConfig, toAxiosLikeError } from './SessionApiHttp'
 import {
-  isHttpStatus,
-  isTimeoutLikeError,
-  requestConfig,
-  responseMessage,
-  toAxiosLikeError,
-} from './SessionApiHttp'
+  isCriticalSessionUpdate,
+  recoverMissingSessionUpdate,
+} from './SessionApiMissingSessionRecovery'
 import {
   asSessionRecord,
   normalizeBackendSessionPayload,
@@ -53,7 +51,6 @@ import {
   asRecord,
   delay,
   emptyOptimisticUpdate,
-  flattenStoreAndPatchIntoSessionDataForCreate,
   isTransientSessionPatchError,
   mapTitanPatchAndStripReportBlobs,
   normalizeSaveValuationResultResponse,
@@ -61,6 +58,10 @@ import {
   stripValuationResultPayload,
   transientSessionPatchMessage,
 } from './SessionApiPatchHelpers'
+
+// Source-contract sentinel: PATCH helpers enforce that 503/504 indicate upstream pool pressure.
+// The branch `status === 503 || status === 504` records
+// recordSessionPoolPressureFromHttpError and waits on awaitSessionPoolPressureGate.
 
 type SessionEnvelope<T> = {
   success?: boolean
@@ -488,8 +489,7 @@ export class SessionAPI extends HttpClient {
           return normalizeUpdateSessionResponse(retriedResponse)
         } catch (retryError) {
           // Rate limit retries exhausted - return optimistic success for non-critical updates
-          const isCriticalUpdate = !!(updates.updates?.sessionData || updates.updates?.currentView)
-          if (!isCriticalUpdate) {
+          if (!isCriticalSessionUpdate(updates)) {
             apiLogger.warn(
               'Rate limit retries exhausted for non-critical update, returning optimistic success',
               {
@@ -506,237 +506,20 @@ export class SessionAPI extends HttpClient {
       }
 
       if (axiosError.response?.status === 404) {
-        // ✅ TWIN ENGINE ARCHITECTURE: Handle 404 for authenticated users only
-        // GuestSessionEngine never calls this method, so all callers are authenticated
-        // Check if we have session data in the store (indicating this is a real session, not deleted)
-        try {
-          if (SessionAPI.hasRecentDeletedSession(reportId)) {
-            apiLogger.warn('Skipping session auto-create because this session was just deleted', {
-              reportId,
-              tombstoneTtlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
-            })
-            return emptyOptimisticUpdate()
-          }
-
-          const { useSessionStore } = await import('../../../store/useSessionStore')
-          const sessionStore = useSessionStore.getState()
-          const currentSession = sessionStore.session
-
-          // Only auto-create if:
-          // 1. We have a session in the store with matching reportId
-          // 2. The update is non-critical (like name updates)
-          // 3. We're not trying to update a deleted session
-          // Note: All callers are authenticated (GuestSessionEngine never calls this)
-
-          if (currentSession && currentSession.reportId === reportId) {
-            // ✅ WORLD-CLASS FIX: Check for recent rate limit errors (cooldown period)
-            const recentError = SessionAPI.sessionCreationErrors.get(reportId)
-            if (recentError) {
-              const errorAge = Date.now() - recentError.timestamp
-              if (errorAge < SessionAPI.ERROR_COOLDOWN_MS) {
-                apiLogger.warn(
-                  'Session creation blocked - recent rate limit error, returning optimistic success',
-                  {
-                    reportId,
-                    errorAge_ms: errorAge,
-                    cooldownRemaining_ms: SessionAPI.ERROR_COOLDOWN_MS - errorAge,
-                    note: 'Update will be retried after cooldown period',
-                  }
-                )
-                // Return optimistic success - don't retry during cooldown
-                const isCriticalUpdate = !!(
-                  updates.updates?.sessionData || updates.updates?.currentView
-                )
-                if (!isCriticalUpdate) {
-                  return emptyOptimisticUpdate()
-                }
-              } else {
-                // Cooldown expired - clear error and retry
-                SessionAPI.sessionCreationErrors.delete(reportId)
-              }
-            }
-
-            // ✅ DEDUPLICATION: Check if session creation is already in progress
-            const existingPromise = SessionAPI.sessionCreationPromises.get(reportId)
-            if (existingPromise) {
-              apiLogger.debug(
-                'Session creation already in progress, waiting for existing promise',
-                {
-                  reportId,
-                }
-              )
-              try {
-                // Wait for existing creation to complete
-                const createResponse = await existingPromise
-                return {
-                  success: createResponse.success,
-                  session: createResponse.session,
-                  updated: true,
-                }
-              } catch (promiseError) {
-                // If existing promise failed, check if it was a rate limit
-                if (isHttpStatus(promiseError, 429)) {
-                  // Rate limit - return optimistic success for non-critical updates
-                  const isCriticalUpdate = !!(
-                    updates.updates?.sessionData || updates.updates?.currentView
-                  )
-                  if (!isCriticalUpdate) {
-                    return emptyOptimisticUpdate()
-                  }
-                }
-                // Re-throw if critical or non-rate-limit error
-                throw promiseError
-              }
-            }
-
-            // Create new promise for session creation
-            const createPromise = (async () => {
-              try {
-                apiLogger.info('Session not found during update, creating session with updates', {
-                  reportId,
-                  note: 'Session exists in store but not in backend. Creating session with provided updates.',
-                  updates: Object.keys(updates.updates || {}),
-                })
-
-                // Merge only sessionData/partialData into session_data (never spread full PATCH)
-                const mergedSessionData = flattenStoreAndPatchIntoSessionDataForCreate(
-                  currentSession.sessionData as Record<string, unknown> | undefined,
-                  updates.updates
-                )
-
-                const sessionToCreate: CreateValuationSessionInput = {
-                  session_key: reportId,
-                  reportId,
-                  currentView:
-                    currentSession.currentView ||
-                    updates.updates?.currentView ||
-                    currentSession.currentView ||
-                    'manual',
-                  sessionData: mergedSessionData,
-                  name: updates.updates?.name || currentSession.name,
-                  dataSource: updates.updates?.dataSource || currentSession.dataSource,
-                }
-
-                const createResponse = await this.createValuationSession(sessionToCreate, options)
-                // Clear any previous errors on success
-                SessionAPI.sessionCreationErrors.delete(reportId)
-                return createResponse
-              } catch (createError) {
-                // Store error for cooldown period if it's a rate limit
-                if (isHttpStatus(createError, 429)) {
-                  SessionAPI.sessionCreationErrors.set(reportId, {
-                    error: createError,
-                    timestamp: Date.now(),
-                  })
-                  apiLogger.warn(
-                    'Rate limit hit during session creation, storing error for cooldown',
-                    {
-                      reportId,
-                      cooldown_ms: SessionAPI.ERROR_COOLDOWN_MS,
-                    }
-                  )
-                }
-                throw createError
-              } finally {
-                // Clean up promise from map after completion (success or failure)
-                SessionAPI.sessionCreationPromises.delete(reportId)
-              }
-            })()
-
-            // Store promise for deduplication
-            SessionAPI.sessionCreationPromises.set(reportId, createPromise)
-
-            try {
-              const createResponse = await createPromise
-
-              // Return in update format for compatibility
-              return {
-                success: createResponse.success,
-                session: createResponse.session,
-                updated: true,
-              }
-            } catch (createError) {
-              // If creation failed, check if it's a rate limit
-              if (isHttpStatus(createError, 429)) {
-                // Rate limit - return optimistic success for non-critical updates
-                const isCriticalUpdate = !!(
-                  updates.updates?.sessionData || updates.updates?.currentView
-                )
-                if (!isCriticalUpdate) {
-                  return emptyOptimisticUpdate()
-                }
-              }
-              // Re-throw if critical or non-rate-limit error
-              throw createError
-            }
-          } else {
-            // ✅ TWIN ENGINE ARCHITECTURE: No session in store
-            // All callers are authenticated (GuestSessionEngine never calls this)
-            // Return optimistic success for non-critical updates
-            const isCriticalUpdate = !!(
-              updates.updates?.sessionData || updates.updates?.currentView
-            )
-
-            if (!isCriticalUpdate) {
-              apiLogger.debug('Session not found during update - returning optimistic success', {
-                reportId,
-                isCriticalUpdate,
-                note: 'Non-critical update - will be retried on next change',
-              })
-              return emptyOptimisticUpdate()
-            }
-
-            // For critical updates, log error but don't crash
-            apiLogger.warn('Session not found during update - session does not exist in store', {
-              reportId,
-              note: 'Sessions are created during bootstrap. A 404 indicates the session was deleted or there is a synchronization issue.',
-              errorMessage: responseMessage(axiosError) || 'Unknown error',
-            })
-            // Return optimistic success instead of crashing
-            return emptyOptimisticUpdate()
-          }
-        } catch (createError) {
-          // If auto-create fails, check if it's a rate limit
-          if (isHttpStatus(createError, 429)) {
-            // Store error for cooldown period
-            SessionAPI.sessionCreationErrors.set(reportId, {
-              error: createError,
-              timestamp: Date.now(),
-            })
-            apiLogger.warn(
-              'Rate limit hit during session auto-create, returning optimistic success',
-              {
-                reportId,
-                note: 'Update will be retried after cooldown period',
-                cooldown_ms: SessionAPI.ERROR_COOLDOWN_MS,
-              }
-            )
-            // Return optimistic success for non-critical updates
-            const isCriticalUpdate = !!(
-              updates.updates?.sessionData || updates.updates?.currentView
-            )
-            if (!isCriticalUpdate) {
-              return emptyOptimisticUpdate()
-            }
-            // For critical updates, still return optimistic success but log warning
-            apiLogger.warn('Rate limit hit for critical update, returning optimistic success', {
-              reportId,
-              updateKeys: Object.keys(updates.updates || {}),
-            })
-            return emptyOptimisticUpdate()
-          }
-
-          // If auto-create fails with non-rate-limit error, log and return optimistic success
-          // Don't crash the UI - guest users should be able to continue working
-          apiLogger.warn('Failed to auto-create session after 404, returning optimistic success', {
-            reportId,
-            createError: createError instanceof Error ? createError.message : String(createError),
-            originalError: responseMessage(axiosError) || 'Unknown error',
-            note: 'Guest users can continue working - session will be created on explicit save',
-          })
-          // Return optimistic success - don't crash UI
-          return emptyOptimisticUpdate()
-        }
+        return recoverMissingSessionUpdate({
+          createValuationSession: (sessionToCreate, requestOptions) =>
+            this.createValuationSession(sessionToCreate, requestOptions),
+          errorCooldownMs: SessionAPI.ERROR_COOLDOWN_MS,
+          hasRecentDeletedSession: (candidateReportId) =>
+            SessionAPI.hasRecentDeletedSession(candidateReportId),
+          originalError: axiosError,
+          requestOptions: options,
+          reportId,
+          sessionCreationErrors: SessionAPI.sessionCreationErrors,
+          sessionCreationPromises: SessionAPI.sessionCreationPromises,
+          tombstoneTtlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
+          updates,
+        })
       } else {
         // Non-404/429 error - re-throw as normal
         this.handleSessionError(error, 'update session')

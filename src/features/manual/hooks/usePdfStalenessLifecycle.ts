@@ -427,6 +427,7 @@ export function usePdfStalenessLifecycle(
 
   // ─── Defense — reset per-report poll backoff on lookup-id change ───────
   useEffect(() => {
+    void persistedReportLookupId
     bySessionBackoffUntilRef.current = 0
     bySession404StreakRef.current = 0
     unchangedStreakRef.current = 0
@@ -497,17 +498,7 @@ export function usePdfStalenessLifecycle(
       clearTimeout(max)
       pollInFlightRef.current = false
     }
-  }, [
-    pdfStale,
-    persistedReportLookupId,
-    pdfWaitTimedOut,
-    isPdfGenerating,
-    canDownloadPdf,
-    getReport,
-    setResult,
-    setReport,
-    runStalePollOnce,
-  ])
+  }, [pdfStale, persistedReportLookupId, pdfWaitTimedOut, isPdfGenerating, runStalePollOnce])
 
   // ─── Effect G — sync Titan row immediately after generation finishes ───
   const wasPdfGeneratingRef = useRef(false)
@@ -614,8 +605,6 @@ export function usePdfStalenessLifecycle(
     generatePdf,
     getReport,
     persistedReportLookupId,
-    setResult,
-    setReport,
     canDownloadPdf,
     openStarterPaywall,
     showRetryFailureToast,

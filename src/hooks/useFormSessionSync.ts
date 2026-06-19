@@ -505,8 +505,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     }
   }, [formData, debouncedSyncToSession, reportId])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: changing report ids must clear any pending retry timer from the previous session.
   useEffect(() => {
+    void reportId
     return () => {
       if (deferRetryTimerRef.current) {
         clearTimeout(deferRetryTimerRef.current)

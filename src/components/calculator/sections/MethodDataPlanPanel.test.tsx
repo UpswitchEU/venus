@@ -56,9 +56,7 @@ describe('MethodDataPlanPanel', () => {
     render(<MethodDataPlanPanel methodDataPlan={planNeedingInput} />)
     expect(screen.getByText('Ebitda')).toBeInTheDocument()
     expect(screen.getByText('Net Debt')).toBeInTheDocument()
-    expect(
-      screen.getByText('Provide the inputs below to firm up the blend.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('Provide the inputs below to firm up the blend.')).toBeInTheDocument()
   })
 
   it('shows the all-unlocked message when no method needs input', () => {

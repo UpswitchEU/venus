@@ -1,19 +1,9 @@
 'use client'
-
-/**
- * Manual valuation shell: composes session, report, chat, normalization,
- * navigation, and modal controllers around the calculator presentation.
- */
-
 import { useLocale, useTranslations } from 'next-intl'
-import React, { Suspense, useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { Suspense, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
-// Calculator Components (full Clarity parity)
 import { ChatAssistantDrawer } from '../../../components/calculator'
-import {
-  shouldShowVenusAiDockFab,
-  venusAiDockShellClassName,
-} from '../../../components/calculator/venus-ai-dock-layout'
+import { venusAiDockShellClassName } from '../../../components/calculator/venus-ai-dock-layout'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useCredits } from '../../../hooks/useCredits'
@@ -29,9 +19,7 @@ import {
   methodKeyAcceptsPreparerMultipleOverride,
 } from '../../../lib/methods'
 import { backendAPI } from '../../../services/backendApi'
-import { useSessionStore } from '../../../store/useSessionStore'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
-// Venus infrastructure (auth, session, stores, services)
 import {
   useManualAccountantContext,
   useManualAssistantAcknowledgementState,
@@ -71,45 +59,27 @@ import {
   useSynthesisReportHeadlineSync,
 } from '../hooks'
 import { buildManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
-import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
-import { hasManualRestorableReport } from '../utils/manualRestorableReport'
-import { manualSessionMatchesReport } from '../utils/manualSessionIdentifiers'
 import { ManualLayoutBody } from './ManualLayoutBody'
 import { ManualLayoutContextBar } from './ManualLayoutContextBar'
 import { ManualLayoutModals } from './ManualLayoutModals'
 import { ManualLayoutNav } from './ManualLayoutNav'
-import { CalculatorShellSkeleton, ManualLayoutSessionError } from './ManualLayoutStatus'
+import { ManualLayoutSessionGate } from './ManualLayoutSessionGate'
 import { ManualPdfStaleBanner } from './ManualPdfStaleBanner'
 import type { CollectedData } from './manualLayoutDataTypes'
+import {
+  shouldRestoreExistingManualReport,
+  shouldShowManualAssistantFab,
+} from './manualLayoutDerivedState'
 import { useManualLayoutViewport } from './manualLayoutShell'
 import type { ManualLayoutProps } from './manualLayoutTypes'
-
+import { useManualUrlActions } from './useManualUrlActions'
 export const ManualLayout: React.FC<ManualLayoutProps> = (props) => {
-  const tErrors = useTranslations('errors')
-  const status = useSessionStore((s) => s.status)
-  const session = useSessionStore((s) => s.session)
-  const sessionError = useSessionStore((s) => s.errorMessage)
-  const sessionMatchesReport = manualSessionMatchesReport(session, props.reportId)
-  const isLoading = status === 'loading'
-  const isInitializing = status === 'idle' || status === 'loading'
-
-  if (isLoading || isInitializing || !session || !sessionMatchesReport) {
-    return <CalculatorShellSkeleton />
-  }
-
-  if (sessionError) {
-    return (
-      <ManualLayoutSessionError
-        message={sessionError}
-        reloadLabel={tErrors('session.reloadPage')}
-        title={tErrors('session.title')}
-      />
-    )
-  }
-
-  return <ManualLayoutLoaded {...props} />
+  return (
+    <ManualLayoutSessionGate reportId={props.reportId}>
+      <ManualLayoutLoaded {...props} />
+    </ManualLayoutSessionGate>
+  )
 }
-
 const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   reportId,
   onComplete,
@@ -130,24 +100,14 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
   const tPreparer = useTranslations('preparerMultiple')
   const tMethodSelector = useTranslations('manualInput.methodSelector')
   const { isMobile } = useManualLayoutViewport()
-
   useManualPanelStorageReset()
   useManualToastMessageLifecycle(t)
-  // PDF-staleness lifecycle (4 refs + 3 useState + 3 effects + retry callback)
-  // is owned by `usePdfStalenessLifecycle`, instantiated below once
-  // `report` / `usePdfGeneration` outputs are available.
-
-  // Venus infrastructure
   const { user } = useAuth()
   const { allowedMethodKeys, planFeatures } = useCredits()
   const { identity, isAccountantFlow } = useBootstrap()
-  // Bootstrap→store sync runs once in ValuationReport.useBootstrapSync (parent tree).
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
-  /** Session blob may gain DCF/NAV/SaaS after bootstrap — gap-fill empty store slots. */
   useSessionOptionalMethodPrefill()
-  /** NACE resolution + identity paths when bootstrap is late or sparse — optional merge coalesced via {@link queueOptionalGapFillFlush}. */
   useSessionDataPrefill()
-
   const {
     isCalculating,
     result,
@@ -175,7 +135,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     preparerNote,
     preparerAcknowledgedExtreme,
   } = useManualWorkspaceStores()
-
   const {
     calculationRequestIdentifiers,
     linkedIdentifier,
@@ -190,7 +149,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     resultValuationId: result?.valuation_id,
     session,
   })
-
   const {
     state: pdfGenerationState,
     generatePdf,
@@ -198,9 +156,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     isReady: isPdfReady,
     isGenerating: isPdfGenerating,
   } = usePdfGeneration(resolvedReportId ?? reportId)
-
   const currentLocale = useLocale()
-
   const {
     accountantDisplayName,
     clientContextId,
@@ -208,7 +164,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     ctxRelationshipId,
     isAccountantMode,
   } = useManualAccountantContext()
-
   const {
     canDownloadPdf,
     currentYearRevenueForMethodNav,
@@ -229,7 +184,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     selectedMethod,
     userRole: user?.role,
   })
-
   const {
     draftStatus,
     durableSaveInFlightRef,
@@ -246,7 +200,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     setReport,
     setRightPanelView,
   } = useManualReportUiState({ initialTab: initialTab ?? 'preview' })
-
   const {
     preSelectedMethods,
     userWeights,
@@ -258,16 +211,12 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     valuationResults: synthesisValuationResults,
     navValuationSummary,
   } = useManualSynthesisController({ result, report, selectedMethod })
-
   useSynthesisReportHeadlineSync({
     result,
     report,
     selectedMethod,
     setReport,
   })
-
-  // `isMethodSwitchRendering` comes from `useManualMethodPersistenceController`
-  // (coordinator `isPersisting` — only true during user-initiated method/preparer persist).
   const liveMultipleReportPreview = useMemo(() => {
     return buildManualLiveMultiplePreview({
       result,
@@ -285,21 +234,14 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     selectedMethod,
     report,
   ])
-  // `pdfStale` and the PDF-lifecycle FSM are now owned by
-  // `usePdfStalenessLifecycle` — instantiated below after `openStarterPaywall`
-  // is declared (it's one of the hook's params).
-  // Detect if session has existing data but report hasn't been built yet (prevents placeholder flash)
-  const isRestoringExistingReport =
-    !isReportDeleteInProgress(reportId) &&
-    !isReportDeleteInProgress(resolvedReportId) &&
-    !isReportDeleteInProgress(session?.reportId) &&
-    !report &&
-    !isGenerating &&
-    !!session &&
-    hasManualRestorableReport(session)
-  // Unblock UI as soon as SessionRestorationService signals completion.
-  // `useRestorationGate` owns the 5s safety-timeout fallback used when the
-  // service never emits the completion signal (defense-in-depth).
+  const isRestoringExistingReport = shouldRestoreExistingManualReport({
+    isGenerating,
+    report,
+    reportId,
+    resolvedReportId,
+    session,
+    sessionReportId: session?.reportId,
+  })
   const { effectiveIsRestoringExistingReport } = useRestorationGate({
     isRestoringExistingReport,
     restorationComplete,
@@ -315,7 +257,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     restorationComplete,
     setResult,
   })
-
   const { isRecoveringReportHtml } = useManualReportHtmlRecovery({
     reportId,
     session,
@@ -325,9 +266,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     isCalculating,
     isGenerating,
   })
-
   const tCa = useTranslations('chatAssistant')
-
   const {
     acknowledgedQualityWarnings,
     acknowledgedStartupIssues,
@@ -336,9 +275,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     setAcknowledgedQualityWarnings,
     setAcknowledgedStartupIssues,
   } = useManualAssistantAcknowledgementState()
-
   const versionSyncTimeoutRef = useManualVersionSyncTimeoutRef()
-
   const {
     hasImportedNormalizationData,
     normalizationActions,
@@ -356,7 +293,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     originalEBITDAByYear,
     restoredYearlyFinancials,
   } = useManualFinancialContext({ formStoreData, report, result })
-
   const {
     methodPaywallOpen,
     methodPaywallReason,
@@ -367,9 +303,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     showFullscreenModal,
     showValuationEditModal,
   } = useManualModalState()
-
-  // PDF-staleness FSM — owns 4 refs + 3 useState + 3 effects + retry callback
-  // that previously lived inline across ~250 lines. See `usePdfStalenessLifecycle`.
   const {
     pdfStale,
     pdfWaitTimedOut,
@@ -392,7 +325,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     showRetryFailureToast: (title, options) => toast.error(title, options),
     translate: (key) => t(key),
   })
-
   const {
     collectedData,
     displayCompanyName,
@@ -409,19 +341,8 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translateNewEstimation: t('newEstimation'),
     updateFormData,
   })
-
-  // Effective "is this the venture (startup) route?" — hoisted from its
-  // original site (down with the startup-assistant integration) so the
-  // consolidated reset hook can read it. `useManualLayoutResets` clears the
-  // startup-issues ack Set when leaving the route.
   const effectiveAssistantMethod = preSelectedMethod ?? selectedMethod
   const isStartupAssistantRoute = isVenturePathMethodKey(effectiveAssistantMethod)
-
-  // Identity-change resets — one named hook replaces 6 inline effects that
-  // previously lived scattered across this file. See `useManualLayoutResets`
-  // for the per-trigger semantics; refs stay owned here so the other effects
-  // that read them (PDF stale poll, synthesis warn dedup, baseline-snapshot
-  // detection) can keep working unchanged.
   useManualLayoutResets({
     reportId,
     result,
@@ -435,7 +356,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       lastSubmittedFinancialSnapshotRef,
     },
   })
-
   const { handleFormDataChange } = useManualFormDataChangeSync<CollectedData>({
     lastSubmittedFinancialSnapshotRef,
     latestFormDataRef,
@@ -443,15 +363,11 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     setIsDirty,
     updateFormData,
   })
-
-  // Debounced form → session autosave (demo resilience, automation-ready)
   useFormSessionSync({
     reportId: resolvedReportId || reportId || undefined,
     formData: formStoreData,
   })
-
   usePrefillRestorationCoordinator(resolvedReportId || reportId || undefined)
-
   usePreSelectedMethodSessionSync({
     reportId,
     resolvedReportId,
@@ -461,26 +377,15 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     firmCountryCode: user?.firm_country_code,
     currentYearRevenue: currentYearRevenueForMethodNav,
     hasValuationResult: !!result,
-    /**
-     * Owner/founder URLs (`?selected_method=dcf` from a stale Mercury link or
-     * hand-edited address bar) used to bypass the nav restriction and leave
-     * the calculator with an "active but invisible" method — DCF would be the
-     * preselected method while the nav only rendered the 3 owner-founder
-     * methods. Pass the same intersected list the nav renders so the URL
-     * seed can never escape the nav contract for owners.
-     */
     allowedMethodsForNav: preSelectableMethodsForNav,
   })
-
   useManualRestoredFinancialSnapshotBaseline({
     result,
     formStoreData,
     lastSubmittedFinancialSnapshotRef,
     setIsDirty,
   })
-
   useManualSessionPersistenceLifecycles({ reportId, resolvedReportId })
-
   const { handleSelectVersion, selectedVersionId, versionHistoryForNav } =
     useManualVersionNavigation({
       currentValuationSummary: navValuationSummary,
@@ -494,24 +399,7 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       setResult,
       showVersionLoadedToast: (label) => toast.info(t('versionLoaded', { label })),
     })
-
-  // Cap-table simulator React mount removed: the canonical Jinja report
-  // (`startup_one_pager.html` + `startup_cap_table.html`) is now the
-  // single source of truth for the simulator card. Founders see one
-  // surface for the post-money/dilution rollup instead of three (React
-  // slider + one-pager + cap-table page). The selector + helper file
-  // (`selectCapTableSimulatorResult`) and the Python emitter remain in
-  // case we want to bring back the interactive slider later, gated by
-  // a feature flag, but they are not wired into the right rail.
-
   const synthesisUnlocked = planFeatures?.valuation_synthesis ?? false
-
-  // ─── Bridge: Result from Venus API → Report for Clarity components ───
-  // Owned by `useResultToReportBridge`. The 110-line effect that previously
-  // lived here is now a pure mapper (`mapValuationResultToReport`) plus a
-  // thin effect wrapper that fires the 7 documented side effects. Behaviour
-  // is preserved verbatim — including the panel-view override on every
-  // result-arrival and the auto-PDF-gen trigger.
   useResultToReportBridge({
     result,
     sessionHtmlReport: session?.htmlReport,
@@ -533,7 +421,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     generatePdf,
     isPdfGenerating,
   })
-
   const {
     handleSelectMethodWithOverride,
     handlePlanLockedMethodAction,
@@ -568,7 +455,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     togglePreSelectedMethod,
     translate: t,
   })
-
   const { warnIfSubmitSynthesisSkipped } = useManualSynthesisSkippedWarnings({
     lastSynthesisBlendSkippedRunKeyRef,
     result,
@@ -576,7 +462,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translate: t,
     translateMethodSelector: tMethodSelector,
   })
-
   const {
     handleManualSubmit,
     lastSubmittedDataRef,
@@ -617,7 +502,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     versionSyncTimeoutRef,
     warnIfSubmitSynthesisSkipped,
   })
-
   const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
   const {
     currentVersionNumber,
@@ -641,7 +525,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translateHistory: tHistory,
     updateFormData,
   })
-
   const {
     chatDrawerOpen,
     chatMessages,
@@ -679,14 +562,12 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translate: t,
     updateFormData,
   })
-
   useManualKeyboardShortcuts({
     chatDrawerOpen,
     setChatDrawerOpen,
     setShowFullscreenModal,
     showFullscreenModal,
   })
-
   const {
     deletingValuationId,
     downloadHistory,
@@ -742,7 +623,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translate: t,
     translateReport: tReport,
   })
-
   const attestReportId = resolvedReportId ?? reportId ?? null
   const { canSignAttest, handleSignAttest, isAttesting } = useManualReportAttestation({
     reportId: attestReportId,
@@ -753,7 +633,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     failedTitle: t('attestFailed'),
     notFinalizedDescription: t('attestReportNotFinalized'),
   })
-
   const { approveLabel, canApprove, handleApprove, isApproving } = useManualReportApproval({
     reportId: attestReportId,
     enabled: showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
@@ -762,35 +641,17 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     failedTitle: t('approveValuationFailed'),
     transientFailedDescription: t('approveValuationTransientFailed'),
   })
-
-  const urlActionDownloadHandledForRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (urlAction !== 'download') return
-    if (!report || pdfStale || isPdfGenerating || !canDownloadPdf || isExporting) return
-    if (!attestReportId || attestReportId === 'new') return
-    if (urlActionDownloadHandledForRef.current === attestReportId) return
-    urlActionDownloadHandledForRef.current = attestReportId
-    void handleExport()
-  }, [
+  useManualUrlActions({
     attestReportId,
     canDownloadPdf,
     handleExport,
+    handlePreview,
     isExporting,
     isPdfGenerating,
     pdfStale,
     report,
     urlAction,
-  ])
-
-  const urlActionPreviewHandledForRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (urlAction !== 'preview') return
-    if (!report || !attestReportId || attestReportId === 'new') return
-    if (urlActionPreviewHandledForRef.current === attestReportId) return
-    urlActionPreviewHandledForRef.current = attestReportId
-    handlePreview()
-  }, [attestReportId, handlePreview, report, urlAction])
-
+  })
   const {
     showUnifiedNormalizationModal,
     guidedNormalizationPrefill,
@@ -834,7 +695,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translatePreparer: tPreparer,
     updateFormData,
   })
-
   const { assistantOpenTasksCount, chatDrawerProps, manualInputProps } =
     useManualAssistantController({
       acknowledgedQualityWarnings,
@@ -904,34 +764,17 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       userWeights,
       wrappedOnSubmit,
     })
-
-  // Stable last full year for originalEBITDA fallback (avoids date-boundary inconsistencies)
   const lastFullYear = getCurrentFilingYear()
-
-  // ═══════════════════════════════════════
-  // UNIFIED LAYOUT (mobile + desktop)
-  // ═══════════════════════════════════════
-  // Single return for both viewports. The fork used to be two separate
-  // `if (isMobile)` branches that shared CalculatorNav + ContextBar + 5
-  // modals byte-for-byte but were drifting (mobile silently dropped
-  // ValuationEditModal + the plan-paywall modal, so mobile users hitting a
-  // feature gate clicked through to nothing). After PR2.5 the only diffs
-  // are: outer wrapper className and body layout. CalculatorNav prop
-  // divergence (desktop-only download-history / version-list /
-  // continue-to-listing affordances) is `isMobile`-gated inside
-  // `calculatorNavEl` above.
-  const showAssistantFab = shouldShowVenusAiDockFab({
+  const showAssistantFab = shouldShowManualAssistantFab({
     isStartupAssistantRoute,
-    isAssistantOpen: chatDrawerOpen,
-    isFullscreenModalOpen: showFullscreenModal,
-    isBlockingModalOpen:
-      showUnifiedNormalizationModal ||
-      showValuationEditModal ||
-      methodPaywallOpen ||
-      showNewValuationModal ||
-      showRecalculateConfirmation,
+    chatDrawerOpen,
+    methodPaywallOpen,
+    showFullscreenModal,
+    showNewValuationModal,
+    showRecalculateConfirmation,
+    showUnifiedNormalizationModal,
+    showValuationEditModal,
   })
-
   return (
     <>
       <div
@@ -1005,7 +848,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           versionControlLocked={versionControlLocked}
           versionHistoryForNav={versionHistoryForNav}
         />
-
         <ManualPdfStaleBanner
           canDownloadPdf={canDownloadPdf}
           isPdfRetrying={isPdfRetrying}
@@ -1019,7 +861,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           report={report}
           translate={t}
         />
-
         <ManualLayoutContextBar
           businessName={collectedData.companyName}
           clientContextId={clientContextId}
@@ -1032,7 +873,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           pendingNormalizationCount={pendingNormalizationCount}
           translate={t}
         />
-
         <ManualLayoutBody
           isMobile={isMobile}
           manualInputProps={manualInputProps}
@@ -1052,7 +892,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
             translateReport: tReport,
           }}
         />
-
         <ManualLayoutModals
           allowedMethodKeys={allowedMethodKeys}
           canDownloadPdf={canDownloadPdf}
@@ -1116,7 +955,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
           userFirmCountryCode={user?.firm_country_code}
         />
       </div>
-
       <Suspense fallback={null}>
         <ChatAssistantDrawer
           {...chatDrawerProps}
