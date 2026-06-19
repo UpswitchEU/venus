@@ -31,7 +31,6 @@ import {
 } from '../../utils/normalizationMath'
 import { TaxLatencySection } from './TaxLatencySection'
 import { UnifiedNormalizationBulkActionsBar } from './UnifiedNormalizationBulkActionsBar'
-import type { CrossYearPendingNormalizationGroup } from './UnifiedNormalizationCrossYearSuggestions'
 import { UnifiedNormalizationEditorToggle } from './UnifiedNormalizationEditorToggle'
 import type { NormalizationViewMode } from './UnifiedNormalizationEditorToolbar'
 import {
@@ -44,6 +43,13 @@ import {
   type NormalizationPrimaryTab,
   UnifiedNormalizationModalHeader,
 } from './UnifiedNormalizationModalHeader'
+import {
+  buildCrossYearPendingGroups,
+  countPersistedTaxLatencyCandidates,
+  groupNormalizationsByYear,
+  resolveAvailableYears,
+  resolveSafeOriginalEbitda,
+} from './UnifiedNormalizationModalModel'
 import { UnifiedNormalizationPromptEditor } from './UnifiedNormalizationPromptEditor'
 import {
   isImportedLedgerNormalizationItem,
@@ -74,12 +80,6 @@ export type {
   UnifiedNormalizationModalProps,
 } from './UnifiedNormalizationTypes'
 export { isImportedLedgerNormalizationItem } from './UnifiedNormalizationTypes'
-
-interface FallbackFormData {
-  yearlyFinancials?: Array<{ ebitda?: unknown }>
-  current_year_data?: { ebitda?: unknown }
-  ebitda?: unknown
-}
 
 // ─────────────────────────────────────────
 // COMPONENT
@@ -228,16 +228,10 @@ export function UnifiedNormalizationModal({
   }, [showAddForm])
 
   // Derive available years from user-entered financial data, falling back to 4-year range
-  const availableYears = useMemo(() => {
-    const base = Number.isFinite(currentYear) ? currentYear : getCurrentFilingYear()
-    if (financialYears && financialYears.length > 0) {
-      const valid = financialYears.filter((y) => Number.isFinite(y)) as number[]
-      return valid.length > 0
-        ? [...valid].sort((a, b) => b - a)
-        : [base, base - 1, base - 2, base - 3]
-    }
-    return [base, base - 1, base - 2, base - 3]
-  }, [currentYear, financialYears])
+  const availableYears = useMemo(
+    () => resolveAvailableYears(currentYear, financialYears),
+    [currentYear, financialYears]
+  )
 
   // Get unique years from normalizations for filter
   const _yearsInData = useMemo(() => {
@@ -292,20 +286,12 @@ export function UnifiedNormalizationModal({
     })
 
   // Keep explicit 0 EBITDA values instead of falling through to unrelated fallback sources.
-  const safeOriginalEBITDA = (() => {
-    const fallbackFormData = fallbackFormDataRef?.current as FallbackFormData | null | undefined
-
-    return getReportedEbitdaBaseline({
-      year: currentYear,
-      originalEBITDAByYear,
-      fallbackCandidates: [
-        originalEBITDA,
-        fallbackFormData?.yearlyFinancials?.[0]?.ebitda,
-        fallbackFormData?.current_year_data?.ebitda,
-        fallbackFormData?.ebitda,
-      ],
-    })
-  })()
+  const safeOriginalEBITDA = resolveSafeOriginalEbitda({
+    currentYear,
+    originalEBITDA,
+    originalEBITDAByYear,
+    fallbackFormData: fallbackFormDataRef?.current,
+  })
 
   // Filter normalizations by year and search
   const filteredNormalizations = useMemo(() => {
@@ -373,31 +359,9 @@ export function UnifiedNormalizationModal({
     [normalizations, availableYears, originalEBITDAByYear, currentYear, safeOriginalEBITDA]
   )
 
-  const persistedTaxLatencyCandidateCount = (() => {
-    const formData = fallbackFormDataRef?.current as Record<string, unknown> | null | undefined
-    if (!formData || typeof formData !== 'object') return 0
-    const businessContext =
-      formData.business_context && typeof formData.business_context === 'object'
-        ? (formData.business_context as Record<string, unknown>)
-        : null
-    const fromBusinessContext =
-      businessContext?._imported_ledger_analysis &&
-      typeof businessContext._imported_ledger_analysis === 'object'
-        ? ((businessContext._imported_ledger_analysis as Record<string, unknown>)
-            .tax_latency_candidates ?? null)
-        : null
-    const fromTopLevel =
-      formData._imported_ledger_analysis && typeof formData._imported_ledger_analysis === 'object'
-        ? ((formData._imported_ledger_analysis as Record<string, unknown>).tax_latency_candidates ??
-          null)
-        : null
-    const candidates = Array.isArray(fromBusinessContext)
-      ? fromBusinessContext
-      : Array.isArray(fromTopLevel)
-        ? fromTopLevel
-        : []
-    return candidates.length
-  })()
+  const persistedTaxLatencyCandidateCount = countPersistedTaxLatencyCandidates(
+    fallbackFormDataRef?.current
+  )
 
   const requiresTaxLatencyReview =
     taxLatencyCount === 0 && (taxLatencyCandidateCount > 0 || persistedTaxLatencyCandidateCount > 0)
@@ -409,32 +373,10 @@ export function UnifiedNormalizationModal({
   // them into a single consolidated card and exclude them from the per-year
   // grouping below. Accepted items keep year-specific rows because their
   // adjustments differ per year (different revenue / line totals).
-  const crossYearPendingGroups = useMemo(() => {
-    const buckets = new Map<string, CrossYearPendingNormalizationGroup>()
-    for (const n of filteredNormalizations) {
-      if (n.status !== 'pending') continue
-      if (Number.isFinite(n.adjustment) && Math.abs(n.adjustment) > 0) continue
-      const key = `${(n.ledgerCode || '').trim().toLowerCase()}|${(n.reason || '').trim().toLowerCase()}|${n.source}`
-      const existing = buckets.get(key)
-      const year = Number.isFinite(n.year) ? n.year : null
-      if (existing) {
-        existing.ids.push(n.id)
-        if (year != null && !existing.years.includes(year)) existing.years.push(year)
-      } else {
-        buckets.set(key, {
-          sample: n,
-          ids: [n.id],
-          years: year != null ? [year] : [],
-        })
-      }
-    }
-    return Array.from(buckets.values())
-      .filter((bucket) => bucket.years.length >= 2)
-      .map((bucket) => ({
-        ...bucket,
-        years: bucket.years.sort((a, b) => b - a),
-      }))
-  }, [filteredNormalizations])
+  const crossYearPendingGroups = useMemo(
+    () => buildCrossYearPendingGroups(filteredNormalizations),
+    [filteredNormalizations]
+  )
 
   const crossYearPendingIds = useMemo(
     () => new Set(crossYearPendingGroups.flatMap((bucket) => bucket.ids)),
@@ -443,31 +385,15 @@ export function UnifiedNormalizationModal({
 
   // Group normalizations by year for collapsible sections.
   // Cross-year pending duplicates are surfaced separately above the year cards.
-  const groupedByYear = useMemo(() => {
-    const groups = new Map<number, NormalizationItem[]>()
-
-    filteredNormalizations.forEach((n) => {
-      if (crossYearPendingIds.has(n.id)) return
-      const years = n.applyAllYears
-        ? availableYears
-        : n.applyYears && n.applyYears.length > 0
-          ? n.applyYears
-          : Number.isFinite(n.year)
-            ? [n.year]
-            : []
-
-      for (const y of years) {
-        if (!Number.isFinite(y)) continue
-        if (!groups.has(y)) groups.set(y, [])
-        groups.get(y)?.push(n)
-      }
-    })
-
-    // Sort years descending
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => b - a)
-      .map(([year, items]) => ({ year, items }))
-  }, [filteredNormalizations, availableYears, crossYearPendingIds])
+  const groupedByYear = useMemo(
+    () =>
+      groupNormalizationsByYear({
+        filteredNormalizations,
+        availableYears,
+        crossYearPendingIds,
+      }),
+    [filteredNormalizations, availableYears, crossYearPendingIds]
+  )
 
   // Toggle year collapse
   const toggleYearCollapse = useCallback((year: number) => {

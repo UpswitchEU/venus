@@ -29,7 +29,6 @@ import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import {
-  getCurrentFilingYear,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
@@ -51,11 +50,11 @@ import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefil
 import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
 import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
 import { resolveTrustComparisonUserFigures } from '../utils/resolveTrustComparisonUserFigures'
+import { buildBusinessCard } from './bootstrapPrefillBusinessCard'
 import {
   type BootstrapPrefillPatch,
   getRecordNumber,
   getRecordString,
-  type ManualBusinessCard,
   readNormalizationItems,
   readTaxLatencyItems,
   resolveCountryCode,
@@ -970,37 +969,6 @@ function applyPrefillToForm(
       companyInfoCompanyName: companyInfo?.companyName?.substring(0, 20),
       kboDataCompanyName: kboData?.companyName?.substring(0, 20),
     })
-  }
-}
-
-/**
- * Build business card from company info
- */
-function buildBusinessCard(
-  companyInfo: CompanyInfo,
-  financials?: PartialFinancials,
-  businessType?: BusinessTypeInfo,
-  fallbackCountryCode?: string
-): ManualBusinessCard {
-  const resolvedCountryCode = resolveCountryCode(companyInfo.countryCode, fallbackCountryCode)
-
-  return {
-    company_name: companyInfo.companyName ?? '',
-    industry: businessType?.industry || 'services',
-    business_model: businessType?.id || 'other',
-    founding_year: companyInfo.foundingYear || getCurrentFilingYear() - 5,
-    country_code: resolvedCountryCode || '',
-    employee_count: financials?.employeeCount,
-    // KBO registry fields
-    kbo_number: companyInfo.kboNumber,
-    vat_number: companyInfo.vatNumber,
-    city: companyInfo.city,
-    postal_code: companyInfo.postalCode,
-    legal_form: companyInfo.legalForm,
-    nace_code: companyInfo.naceCode,
-    nace_description: companyInfo.naceDescription,
-    activity_code: companyInfo.activityCode,
-    activity_label: companyInfo.activityLabel,
   }
 }
 

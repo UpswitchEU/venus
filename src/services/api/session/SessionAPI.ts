@@ -32,11 +32,7 @@ import {
   isValidationError,
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
-import {
-  stripReportBlobsFromSessionPatch,
-  stripReportBlobsFromValuationResult,
-  stripReportsFromValuationSessionPatchUpdates,
-} from '../../../utils/stripReportBlobsFromSessionPatch'
+import { stripReportBlobsFromSessionPatch } from '../../../utils/stripReportBlobsFromSessionPatch'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
 import {
@@ -53,6 +49,18 @@ import {
   parseGetSessionResponse,
   type SessionRecord,
 } from './SessionApiNormalization'
+import {
+  asRecord,
+  delay,
+  emptyOptimisticUpdate,
+  flattenStoreAndPatchIntoSessionDataForCreate,
+  isTransientSessionPatchError,
+  mapTitanPatchAndStripReportBlobs,
+  normalizeSaveValuationResultResponse,
+  normalizeUpdateSessionResponse,
+  stripValuationResultPayload,
+  transientSessionPatchMessage,
+} from './SessionApiPatchHelpers'
 
 type SessionEnvelope<T> = {
   success?: boolean
@@ -73,112 +81,6 @@ type SaveValuationResultPayload = {
   valuationResult?: Partial<ValuationResponse> | SessionRecord
   htmlReport?: string
   name?: string
-}
-
-function asRecord(value: unknown): SessionRecord | null {
-  return asSessionRecord(value)
-}
-
-function emptyOptimisticUpdate(): UpdateValuationSessionResponse {
-  return {
-    success: true,
-    session: null as unknown as ValuationSession,
-    updated: false,
-  }
-}
-
-function isBackendSessionPayload(value: SessionRecord | null): value is SessionRecord {
-  return !!(
-    value &&
-    ('id' in value ||
-      'reportId' in value ||
-      'session_key' in value ||
-      'session_data' in value ||
-      'sessionData' in value ||
-      'view_type' in value)
-  )
-}
-
-function normalizeUpdateSessionResponse(response: unknown): UpdateValuationSessionResponse {
-  const responseRecord = asRecord(response)
-  const nestedData = asRecord(responseRecord?.data)
-  const sessionPayload = isBackendSessionPayload(nestedData)
-    ? nestedData
-    : isBackendSessionPayload(responseRecord)
-      ? responseRecord
-      : null
-  const sessionData = sessionPayload ? normalizeBackendSessionPayload(sessionPayload) : null
-
-  return {
-    success: typeof responseRecord?.success === 'boolean' ? responseRecord.success : true,
-    session: sessionData as unknown as ValuationSession,
-    updated: true,
-  }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function transientSessionPatchMessage(error: unknown): string {
-  const axiosError = toAxiosLikeError(error)
-  const responseData = axiosError.response?.data
-  const responseRecord = asRecord(responseData)
-  return [
-    axiosError.message,
-    typeof responseData === 'string' ? responseData : undefined,
-    typeof responseRecord?.message === 'string' ? responseRecord.message : undefined,
-    typeof responseRecord?.error === 'string' ? responseRecord.error : undefined,
-  ]
-    .filter(Boolean)
-    .join(' ')
-}
-
-function isTransientSessionPatchError(error: unknown): boolean {
-  const axiosError = toAxiosLikeError(error)
-  const status = axiosError.response?.status
-  if (status === 429 || status === 404) {
-    return false
-  }
-  // 503/504 indicate upstream pool pressure or BFF timeout — retrying compounds load.
-  if (status === 503 || status === 504) {
-    return false
-  }
-  if (status === 408 || status === 499 || status === 500 || status === 502) {
-    return true
-  }
-  if (isNetworkError(error) || isTimeoutLikeError(error)) {
-    return true
-  }
-  const message = transientSessionPatchMessage(error).toLowerCase()
-  return (
-    message.includes('premature close') ||
-    message.includes('econnreset') ||
-    message.includes('etimedout') ||
-    message.includes('socket hang up') ||
-    message.includes('connection terminated') ||
-    message.includes('network error') ||
-    message.includes('client closed request') ||
-    message.includes('canceled') ||
-    message.includes('cancelled') ||
-    message.includes('aborted')
-  )
-}
-
-function normalizeSaveValuationResultResponse(
-  response: SaveValuationResultResponse | undefined
-): SaveValuationResultResponse {
-  if (!response) {
-    return {
-      success: true,
-      message: 'Valuation result saved',
-    }
-  }
-
-  return {
-    ...response,
-    session: response.session ? normalizeBackendSessionPayload(response.session) : response.session,
-  }
 }
 
 export class SessionAPI extends HttpClient {
@@ -259,132 +161,6 @@ export class SessionAPI extends HttpClient {
         await delay(retryDelay)
       }
     }
-  }
-
-  /**
-   * Titan's PATCH DTO is canonical snake_case. Keep Venus-only envelopes and metadata out of the
-   * top-level body so strict backend validation does not reject autosaves.
-   */
-  private static mapTitanPatchAndStripReportBlobs(
-    patch: Partial<ValuationSession> | undefined
-  ): Record<string, unknown> {
-    const p = patch as Record<string, unknown> | undefined
-    if (!p) {
-      return {}
-    }
-
-    const sessionData: Record<string, unknown> = {}
-    const mergeIntoSessionData = (value: unknown): void => {
-      const record = asRecord(value)
-      if (record) {
-        Object.assign(sessionData, record)
-      }
-    }
-
-    mergeIntoSessionData(p.session_data)
-    mergeIntoSessionData(p.sessionData)
-    mergeIntoSessionData(p.partial_data)
-    mergeIntoSessionData(p.partialData)
-
-    const mappedCurrentView = p.currentView === 'conversational' ? 'ai-guided' : p.currentView
-    const mappedDataSource = p.dataSource === 'conversational' ? 'ai-guided' : p.dataSource
-
-    if (mappedCurrentView !== undefined) {
-      sessionData.currentView = mappedCurrentView
-    }
-    if (mappedDataSource !== undefined) {
-      sessionData.dataSource = mappedDataSource
-    }
-    if (typeof p.name === 'string') {
-      sessionData.name = p.name
-    }
-
-    const knownTopLevelKeys = new Set([
-      'buyerReadiness',
-      'calculatedAt',
-      'completedAt',
-      'completeness',
-      'createdAt',
-      'current_step',
-      'currentStep',
-      'currentView',
-      'dataSource',
-      'guest_session_id',
-      'htmlReport',
-      'lastSyncedAt',
-      'name',
-      'partial_data',
-      'partialData',
-      'reportId',
-      'reportReady',
-      'session_data',
-      'sessionData',
-      'status',
-      'updatedAt',
-      'valuationResult',
-      'view_type',
-    ])
-
-    for (const [key, value] of Object.entries(p)) {
-      if (!knownTopLevelKeys.has(key)) {
-        sessionData[key] = value
-      }
-    }
-
-    const titanPatch: Record<string, unknown> = {}
-    const strippedSessionData = stripReportBlobsFromSessionPatch(sessionData)
-    if (
-      strippedSessionData &&
-      typeof strippedSessionData === 'object' &&
-      !Array.isArray(strippedSessionData) &&
-      Object.keys(strippedSessionData as Record<string, unknown>).length > 0
-    ) {
-      titanPatch.session_data = strippedSessionData
-    }
-
-    const rawViewType = p.view_type ?? mappedCurrentView
-    if (rawViewType === 'simple' || rawViewType === 'advanced') {
-      titanPatch.view_type = rawViewType
-    } else if (rawViewType === 'manual') {
-      titanPatch.view_type = 'simple'
-    } else if (rawViewType === 'conversational' || rawViewType === 'ai-guided') {
-      titanPatch.view_type = 'advanced'
-    }
-
-    const currentStep = p.current_step ?? p.currentStep
-    if (typeof currentStep === 'number' && Number.isInteger(currentStep) && currentStep >= 1) {
-      titanPatch.current_step = currentStep
-    }
-
-    if (p.status === 'active' || p.status === 'completed' || p.status === 'expired') {
-      titanPatch.status = p.status
-    }
-    if (typeof p.guest_session_id === 'string') {
-      titanPatch.guest_session_id = p.guest_session_id
-    }
-
-    return stripReportsFromValuationSessionPatchUpdates(titanPatch) as Record<string, unknown>
-  }
-
-  /**
-   * PATCH 404 → create: merge store `session_data` with `sessionData` / `partialData` only.
-   * Spreading the whole PATCH used to nest a `sessionData` property and hide unstripped HTML.
-   */
-  private static flattenStoreAndPatchIntoSessionDataForCreate(
-    storeSessionData: Record<string, unknown> | undefined,
-    patch: Partial<ValuationSession> | undefined
-  ): Record<string, unknown> {
-    const u = (patch || {}) as Record<string, unknown>
-    const base: Record<string, unknown> = { ...(storeSessionData || {}) }
-    const sd = u.sessionData
-    const pd = u.partialData
-    if (sd && typeof sd === 'object' && !Array.isArray(sd)) {
-      Object.assign(base, sd as Record<string, unknown>)
-    }
-    if (pd && typeof pd === 'object' && !Array.isArray(pd)) {
-      Object.assign(base, pd as Record<string, unknown>)
-    }
-    return stripReportBlobsFromSessionPatch(base) as Record<string, unknown>
   }
 
   /**
@@ -664,7 +440,7 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<UpdateValuationSessionResponse> {
     try {
-      const patchBody = SessionAPI.mapTitanPatchAndStripReportBlobs(updates.updates)
+      const patchBody = mapTitanPatchAndStripReportBlobs(updates.updates)
 
       // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
       const response = await this.patchValuationSessionWithTransientRetry(
@@ -687,7 +463,7 @@ export class SessionAPI extends HttpClient {
         // Use exponential backoff for rate limit retries
         const { retryWithBackoff } = await import('../../../utils/retryWithBackoff')
         try {
-          const retryPatchBody = SessionAPI.mapTitanPatchAndStripReportBlobs(updates.updates)
+          const retryPatchBody = mapTitanPatchAndStripReportBlobs(updates.updates)
 
           const retriedResponse = await retryWithBackoff(
             async () => {
@@ -823,7 +599,7 @@ export class SessionAPI extends HttpClient {
                 })
 
                 // Merge only sessionData/partialData into session_data (never spread full PATCH)
-                const mergedSessionData = SessionAPI.flattenStoreAndPatchIntoSessionDataForCreate(
+                const mergedSessionData = flattenStoreAndPatchIntoSessionDataForCreate(
                   currentSession.sessionData as Record<string, unknown> | undefined,
                   updates.updates
                 )
@@ -1160,10 +936,7 @@ export class SessionAPI extends HttpClient {
     const sessionDataPayload = stripReportBlobsFromSessionPatch(data.sessionData) as
       | SessionRecord
       | undefined
-    const valuationResultPayload = stripReportBlobsFromValuationResult(data.valuationResult) as
-      | Partial<ValuationResponse>
-      | SessionRecord
-      | undefined
+    const valuationResultPayload = stripValuationResultPayload(data.valuationResult)
 
     try {
       const response = await this.executeRequest<SaveValuationResultResponse>(

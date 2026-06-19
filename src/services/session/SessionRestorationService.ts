@@ -39,15 +39,11 @@ import {
 } from '../../utils/importedLedgerNormalization'
 import { buildTaxLatencyCandidatesFromImportedLedgerAnalysis } from '../../utils/importedLedgerTaxLatencies'
 import { generalLogger } from '../../utils/logger'
-import {
-  buildOptionalSessionGapFillPatch,
-  mergeSessionSurfaceForOptionalPrefill,
-} from '../../utils/mergeOptionalSessionPrefillFields'
+import { buildOptionalSessionGapFillPatch } from '../../utils/mergeOptionalSessionPrefillFields'
 import {
   clearMercurySessionPrefillSuppression,
   markMercurySessionPrefillSuppressed,
 } from '../../utils/prefillRestorationGate'
-import { getRegistryIdentityFromRecord } from '../../utils/registryIdentity'
 import { extractRenderableHtmlFromSessionPayload } from '../../utils/reportHtmlRecovery'
 import { seedNbbPrefillFromFormData } from './SessionNbbPrefillHydrator'
 import {
@@ -67,6 +63,7 @@ import {
   asTaxLatencyItems,
   asValuationResultWithAssets,
 } from './SessionRestorationCoercion'
+import { verifySessionRestoration } from './SessionRestorationVerification'
 
 /**
  * Restoration manifest - tracks what assets should be restored
@@ -418,7 +415,7 @@ class SessionRestorationServiceImpl {
       if (!this.shouldContinueRestoration(reportId, options, 'verify')) {
         return this.skippedRestorationResult(reportId)
       }
-      const verified = this.verifyRestoration(normalized)
+      const verified = verifySessionRestoration(normalized)
       if (!verified) {
         generalLogger.warn('[SessionRestoration] Verification found missing assets', {
           reportId,
@@ -909,139 +906,6 @@ class SessionRestorationServiceImpl {
       restoredVersionHistory,
       restoredEbitdaNormalizations,
     }
-  }
-
-  /**
-   * Verify that restoration completed successfully
-   *
-   * Bank-grade verification that checks all expected assets are present
-   * in their respective stores based on what was in the normalized data.
-   * Creates complete audit trail for debugging and compliance.
-   */
-  private verifyRestoration(data: NormalizedSessionData): boolean {
-    const isConversational = data.flowType === 'conversational'
-    const warnings: string[] = []
-    let allVerified = true
-
-    const mergedEnvelope = mergeSessionSurfaceForOptionalPrefill(data.sessionDataEnvelope)
-    const hasEnvelopeIdentity = !!(
-      (typeof mergedEnvelope.company_name === 'string' &&
-        mergedEnvelope.company_name.trim() !== '') ||
-      getRegistryIdentityFromRecord(mergedEnvelope) ||
-      mergedEnvelope.vat_number ||
-      mergedEnvelope.vatNumber
-    )
-
-    // Build manifest of what should be restored
-    // PERFORMANCE: Version history and EBITDA normalizations are now lazy-loaded
-    const manifest: RestorationManifest = {
-      formData:
-        !isConversational &&
-        ((!!data.formData && Object.keys(data.formData).length > 0) || hasEnvelopeIdentity),
-      valuationResult: !!data.valuationResult,
-      htmlReport: !!data.htmlReport,
-      pricingRange: !!data.pricingRange,
-      versionHistory: false, // Lazy loaded on tab open
-      ebitdaNormalizations: false, // Lazy loaded on demand
-    }
-
-    // Verify form data was actually applied (only for manual flow)
-    if (manifest.formData && !isConversational) {
-      const formStore = useManualFormStore.getState()
-      const expectedCompanyName =
-        (typeof data.formData.company_name === 'string' && data.formData.company_name.trim()) ||
-        (typeof mergedEnvelope.company_name === 'string' ? mergedEnvelope.company_name.trim() : '')
-      const actualCompanyName = formStore.formData.company_name
-      if (expectedCompanyName && (!actualCompanyName || actualCompanyName.trim() === '')) {
-        warnings.push('Form data company_name not restored to store')
-        allVerified = false
-      }
-      const expectedKbo =
-        (typeof data.formData.kbo_number === 'string' && data.formData.kbo_number.trim()) ||
-        getRegistryIdentityFromRecord(mergedEnvelope) ||
-        ''
-      const actualKbo = formStore.formData.kbo_number
-      if (expectedKbo && (!actualKbo || String(actualKbo).trim() === '')) {
-        warnings.push('Form data kbo_number not restored to store')
-        allVerified = false
-      }
-    }
-
-    // Verify valuation result and output assets
-    if (manifest.valuationResult || manifest.htmlReport) {
-      if (isConversational) {
-        generalLogger.debug(
-          '[SessionRestoration] Skipping conversational results verification - stores removed',
-          {
-            reportId: data.reportId,
-          }
-        )
-      } else {
-        const resultsStore = useManualResultsStore.getState()
-        const hasResult = !!resultsStore.result
-        const hasHtmlReport = !!extractRenderableHtmlFromSessionPayload({
-          htmlReport: resultsStore.htmlReport,
-          valuationResult: resultsStore.result,
-        })
-
-        if (manifest.valuationResult && !hasResult) {
-          warnings.push('Valuation result missing from store')
-          allVerified = false
-        }
-        if (manifest.htmlReport && !hasHtmlReport) {
-          warnings.push('HTML report missing from results store')
-          allVerified = false
-        }
-      }
-    }
-
-    // Verify pricing range
-    if (manifest.pricingRange) {
-      if (isConversational) {
-        // CONVERSATIONAL STORE REMOVED: Skip verification for conversational flow
-        // The conversational stores have been removed from the codebase
-        generalLogger.debug(
-          '[SessionRestoration] Skipping conversational pricing range verification - stores removed',
-          {
-            reportId: data.reportId,
-          }
-        )
-      } else {
-        const resultsStore = useManualResultsStore.getState()
-
-        const result = asRecord(resultsStore.result)
-        const hasPricingRangeInStore = !!(
-          result?.pricing_range ||
-          result?.priceRange ||
-          (result?.equity_value_low && result?.equity_value_mid && result?.equity_value_high)
-        )
-
-        if (!hasPricingRangeInStore) {
-          warnings.push('Pricing range missing from results store')
-          allVerified = false
-        }
-      }
-    }
-
-    // Version history and EBITDA normalizations are lazy-loaded
-    // No verification needed during initial restoration
-
-    // Log complete audit trail
-    if (warnings.length > 0) {
-      generalLogger.warn('[SessionRestoration] Verification warnings', {
-        reportId: data.reportId,
-        manifest,
-        warnings,
-        allVerified,
-      })
-    } else {
-      generalLogger.debug('[SessionRestoration] Verification passed', {
-        reportId: data.reportId,
-        manifest,
-      })
-    }
-
-    return allVerified
   }
 
   /**
