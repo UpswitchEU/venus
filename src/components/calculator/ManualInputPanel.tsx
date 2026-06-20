@@ -47,7 +47,6 @@ import type {
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
 import { realEstateCarveOutAppliesTo } from '../../utils/realEstateCarveOutDisplay'
-import {} from '../../utils/shareholding'
 import { isYearRowForecast } from '../../utils/yearData'
 import {
   getLatestCompleteYearlyFinancial,

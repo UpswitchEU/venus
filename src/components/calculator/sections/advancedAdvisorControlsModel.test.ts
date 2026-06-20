@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildAdvisorDiscountWeightUpdate,
+  buildEqualHistoricalWeights,
+  buildHistoricalWeightingModeUpdates,
+  buildHistoricalWeightUpdate,
+  buildMultipleTypeWeightUpdate,
+  buildResetDiscountControlUpdates,
   clampDiscountFloorFactor,
   clampDiscountWeight,
   deriveAdvancedAdvisorControlModel,
@@ -95,5 +101,75 @@ describe('advancedAdvisorControlsModel', () => {
     ])
     expect(model.years).toEqual([2020, 2021, 2022, 2023, 2024])
     expect(model.rawWeights).toEqual({ '2020': 20, '2021': 20, '2022': 20, '2023': 20, '2024': 20 })
+  })
+
+  it('builds exact historical weighting update payloads for the section dispatcher', () => {
+    expect(buildEqualHistoricalWeights(['2023', '2024', '2025'])).toEqual({
+      2023: 34,
+      2024: 33,
+      2025: 33,
+    })
+    expect(
+      buildHistoricalWeightingModeUpdates({
+        nextMode: 'weighted',
+        yearKeys: ['2023', '2024', '2025'],
+      })
+    ).toEqual([
+      { field: 'historical_ebitda_weighting_mode', value: 'weighted' },
+      { field: 'historical_ebitda_weights', value: { 2023: 34, 2024: 33, 2025: 33 } },
+    ])
+    expect(
+      buildHistoricalWeightingModeUpdates({
+        nextMode: 'standard',
+        yearKeys: ['2023', '2024', '2025'],
+      })
+    ).toEqual([
+      { field: 'historical_ebitda_weighting_mode', value: 'standard' },
+      { field: 'historical_ebitda_weights', value: undefined },
+    ])
+    expect(
+      Object.values(
+        buildHistoricalWeightUpdate({
+          rawWeights: { '2023': 34, '2024': 33, '2025': 33 },
+          year: 2024,
+          nextValue: 43,
+        })
+      ).reduce((sum, weight) => sum + weight, 0)
+    ).toBe(100)
+  })
+
+  it('builds exact advisor multiple and discount update payloads', () => {
+    expect(
+      buildMultipleTypeWeightUpdate({
+        multipleBlendWeights: { ev_ebitda: 60, ev_revenue: 30, pe: 10 },
+        key: 'ev_revenue',
+        nextValue: 31,
+      })
+    ).toEqual({ ev_ebitda: 59, ev_revenue: 31, pe: 10 })
+
+    expect(
+      buildAdvisorDiscountWeightUpdate({
+        discountWeights: {
+          size_discount: 0.5,
+          liquidity_discount: 1.25,
+          country_adjustment: 1,
+          growth_premium: 1,
+          owner_concentration: 1,
+        },
+        key: 'size_discount',
+        nextValue: 3,
+      })
+    ).toEqual({
+      size_discount: 2,
+      liquidity_discount: 1.25,
+      country_adjustment: 1,
+      growth_premium: 1,
+      owner_concentration: 1,
+    })
+
+    expect(buildResetDiscountControlUpdates()).toEqual([
+      { field: 'advisor_discount_weights', value: undefined },
+      { field: 'discount_floor_factor', value: undefined },
+    ])
   })
 })
