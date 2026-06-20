@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   LiquidationEssentialFieldKey,
   LiquidationNumericFieldKey,
 } from '@/lib/methods/liquidation_analysis/liquidationInputConfig'
-import { resolveLiquidationPositivePrefill } from '@/lib/methods/liquidation_analysis/liquidationInputModel'
+import { buildLiquidationPrefillPatches } from '@/lib/methods/liquidation_analysis/liquidationInputModel'
 
 type PrefillFlags = Record<LiquidationEssentialFieldKey, boolean>
 
@@ -26,10 +26,6 @@ const EMPTY_PREFILL_FLAGS: PrefillFlags = {
   liq_paid_up_capital: false,
 }
 
-function monthlyRentFromAnnualRent(annualRent: number): number {
-  return Math.round((annualRent / 12) * 100) / 100
-}
-
 export function useLiquidationAutoPrefill({
   liqHeadcount,
   liqMonthlyRent,
@@ -42,51 +38,37 @@ export function useLiquidationAutoPrefill({
   onFieldChange,
 }: UseLiquidationAutoPrefillInput) {
   const [prefilledFields, setPrefilledFields] = useState<PrefillFlags>(EMPTY_PREFILL_FLAGS)
+  const prefilledFieldsRef = useRef<PrefillFlags>(EMPTY_PREFILL_FLAGS)
 
   useEffect(() => {
-    const patches = [
-      resolveLiquidationPositivePrefill({
-        field: 'liq_headcount',
-        currentValue: liqHeadcount,
-        sourceValue: prefillSourceHeadcount,
-        transform: Math.floor,
-      }),
-      resolveLiquidationPositivePrefill({
-        field: 'liq_monthly_rent',
-        currentValue: liqMonthlyRent,
-        sourceValue: prefillSourceAnnualRent,
-        transform: monthlyRentFromAnnualRent,
-      }),
-      resolveLiquidationPositivePrefill({
-        field: 'liq_paid_up_capital',
-        currentValue: liqPaidUpCapital,
-        sourceValue: prefillSourcePaidUpCapital,
-      }),
-      resolveLiquidationPositivePrefill({
-        field: 'liq_deferred_tax',
-        currentValue: liqDeferredTax,
-        sourceValue: prefillSourceDeferredTax,
-      }),
-    ].filter((patch): patch is NonNullable<typeof patch> => {
-      return patch !== null && !prefilledFields[patch.field as LiquidationEssentialFieldKey]
+    const patches = buildLiquidationPrefillPatches({
+      currentValues: {
+        liqHeadcount,
+        liqMonthlyRent,
+        liqPaidUpCapital,
+        liqDeferredTax,
+      },
+      sourceValues: {
+        prefillSourceHeadcount,
+        prefillSourceAnnualRent,
+        prefillSourcePaidUpCapital,
+        prefillSourceDeferredTax,
+      },
+      appliedFields: prefilledFieldsRef.current,
     })
 
     if (patches.length === 0) return
 
+    const nextPrefilledFields = { ...prefilledFieldsRef.current }
+    for (const patch of patches) {
+      nextPrefilledFields[patch.field as LiquidationEssentialFieldKey] = true
+    }
+    prefilledFieldsRef.current = nextPrefilledFields
+    setPrefilledFields(nextPrefilledFields)
+
     for (const patch of patches) {
       onFieldChange(patch.field, patch.value)
     }
-
-    setPrefilledFields((current) => {
-      let next = current
-      for (const patch of patches) {
-        const field = patch.field as LiquidationEssentialFieldKey
-        if (next[field]) continue
-        next = next === current ? { ...current } : next
-        next[field] = true
-      }
-      return next
-    })
   }, [
     liqDeferredTax,
     liqHeadcount,
@@ -97,18 +79,19 @@ export function useLiquidationAutoPrefill({
     prefillSourceDeferredTax,
     prefillSourceHeadcount,
     prefillSourcePaidUpCapital,
-    prefilledFields,
   ])
 
   const markFieldEdited = useCallback((field: LiquidationNumericFieldKey) => {
     if (!(field in EMPTY_PREFILL_FLAGS)) return
     const essentialField = field as LiquidationEssentialFieldKey
-    setPrefilledFields((current) =>
-      current[essentialField] ? { ...current, [essentialField]: false } : current
-    )
+    if (!prefilledFieldsRef.current[essentialField]) return
+    const nextPrefilledFields = { ...prefilledFieldsRef.current, [essentialField]: false }
+    prefilledFieldsRef.current = nextPrefilledFields
+    setPrefilledFields(nextPrefilledFields)
   }, [])
 
   const clearPrefillFlags = useCallback(() => {
+    prefilledFieldsRef.current = EMPTY_PREFILL_FLAGS
     setPrefilledFields(EMPTY_PREFILL_FLAGS)
   }, [])
 

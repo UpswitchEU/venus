@@ -47,11 +47,9 @@
  */
 
 import { motion } from 'framer-motion'
-import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useId, useState } from 'react'
 
-import { AuroraInput } from '@/design-system'
 import { cn } from '@/design-system/utils'
 import {
   LIQUIDATION_ASSET_CLASS_CODES,
@@ -64,89 +62,18 @@ import {
   type LiquidationAssetClassCode,
   type LiquidationLiabilityBucketCode,
 } from '@/lib/methods/liquidation_analysis/liquidationInputConfig'
-import {
-  countPositiveLiquidationValues,
-  formatLiquidationPercentDisplay,
-  parseLiquidationPercentInput,
-} from '@/lib/methods/liquidation_analysis/liquidationInputModel'
+import { countPositiveLiquidationValues } from '@/lib/methods/liquidation_analysis/liquidationInputModel'
 import { CurrencyInput } from '../CurrencyInput'
 import { IntegerInput } from './IntegerInput'
+import {
+  LIQUIDATION_PANEL_GROUP,
+  LiquidationCollapsibleToggle,
+  LiquidationPanelEyebrow,
+  LiquidationPercentInput,
+} from './LiquidationInputsSectionControls'
 import { PrefilledBadge } from './PrefilledBadge'
 import { useLiquidationAutoPrefill } from './useLiquidationAutoPrefill'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
-
-/**
- * Decimal-percent input used for the advanced WACC / uplift fields.
- *
- * The engine stores these as decimals (0.15 = 15 %) but the advisor
- * thinks in whole percent. We round to a single decimal on display so
- * the float-multiply round-trip (0.155 → 15.500000000000002) doesn't
- * leak garbage digits on re-render.
- */
-function PercentInput({
-  name,
-  label,
-  description,
-  placeholder,
-  value,
-  onChange,
-  disabled,
-  min = 0,
-  max = 100,
-  step = 0.5,
-  testId,
-}: {
-  name: string
-  label: string
-  description?: string
-  placeholder?: string
-  value?: number
-  onChange: (next: number | undefined) => void
-  disabled?: boolean
-  min?: number
-  max?: number
-  step?: number
-  testId?: string
-}) {
-  const display = formatLiquidationPercentDisplay(value)
-  return (
-    <AuroraInput
-      id={name}
-      name={name}
-      label={label}
-      description={description}
-      type="number"
-      inputMode="decimal"
-      size="sm"
-      truncateLabel={false}
-      placeholder={placeholder}
-      min={min}
-      max={max}
-      step={step}
-      value={display}
-      disabled={disabled}
-      onChange={(e) => {
-        const raw = e.target.value
-        onChange(parseLiquidationPercentInput(raw))
-      }}
-      rightIcon={<span className="select-none text-xs font-medium text-foreground/40">%</span>}
-      data-testid={testId}
-      className="tabular-nums"
-    />
-  )
-}
-
-/** Visual divider between grouped panels inside the section card. */
-const PANEL_GROUP = 'space-y-3 border-b border-foreground/[0.06] px-4 py-3 last:border-b-0'
-
-/** Compact eyebrow heading for each panel group ("Afbouw", "Belastingbrug", …). */
-function PanelEyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
-      {children}
-    </h4>
-  )
-}
 
 export interface LiquidationInputsSectionProps {
   step: string | number
@@ -314,8 +241,8 @@ export function LiquidationInputsSection({
         </div>
 
         {/* Wind-down panel — bottom-up cost inputs. */}
-        <div className={PANEL_GROUP}>
-          <PanelEyebrow>{t('windDownTitle')}</PanelEyebrow>
+        <div className={LIQUIDATION_PANEL_GROUP}>
+          <LiquidationPanelEyebrow>{t('windDownTitle')}</LiquidationPanelEyebrow>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <IntegerInput
               label={t('headcountLabel')}
@@ -357,8 +284,8 @@ export function LiquidationInputsSection({
         </div>
 
         {/* Tax bridge panel. */}
-        <div className={PANEL_GROUP}>
-          <PanelEyebrow>{t('taxBridgeTitle')}</PanelEyebrow>
+        <div className={LIQUIDATION_PANEL_GROUP}>
+          <LiquidationPanelEyebrow>{t('taxBridgeTitle')}</LiquidationPanelEyebrow>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <CurrencyInput
               id="liq_paid_up_capital"
@@ -417,8 +344,8 @@ export function LiquidationInputsSection({
         </div>
 
         {/* Premise override. */}
-        <div className={PANEL_GROUP}>
-          <PanelEyebrow>{t('premiseTitle')}</PanelEyebrow>
+        <div className={LIQUIDATION_PANEL_GROUP}>
+          <LiquidationPanelEyebrow>{t('premiseTitle')}</LiquidationPanelEyebrow>
           <div className="space-y-1.5">
             <label
               htmlFor="liq_premise_override"
@@ -455,7 +382,7 @@ export function LiquidationInputsSection({
         </div>
 
         {/* Advanced toggle — collapses power-user inputs. */}
-        <CollapsibleToggle
+        <LiquidationCollapsibleToggle
           open={showAdvanced}
           onToggle={() => setShowAdvanced((prev) => !prev)}
           title={t('advancedToggle')}
@@ -469,7 +396,7 @@ export function LiquidationInputsSection({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.15 }}
-            className={PANEL_GROUP}
+            className={LIQUIDATION_PANEL_GROUP}
             data-testid="liq-advanced-section"
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -503,7 +430,7 @@ export function LiquidationInputsSection({
                 placeholder={t('runwayMonthsForcedPlaceholder')}
                 disabled={disabled}
               />
-              <PercentInput
+              <LiquidationPercentInput
                 name="liq_distress_wacc_orderly"
                 label={t('distressWaccLabel')}
                 description={t('distressWaccHint')}
@@ -513,7 +440,7 @@ export function LiquidationInputsSection({
                 disabled={disabled}
                 testId="liq-distress-wacc-input"
               />
-              <PercentInput
+              <LiquidationPercentInput
                 name="liq_distress_wacc_forced"
                 label={t('distressWaccForcedLabel')}
                 description={t('distressWaccForcedHint')}
@@ -523,7 +450,7 @@ export function LiquidationInputsSection({
                 disabled={disabled}
                 testId="liq-distress-wacc-forced-input"
               />
-              <PercentInput
+              <LiquidationPercentInput
                 name="liq_intangibles_uplift_pct"
                 label={t('intangiblesUpliftLabel')}
                 description={t('intangiblesUpliftHint')}
@@ -556,7 +483,7 @@ export function LiquidationInputsSection({
             toggle (not the generic "Show advanced") because the chip
             shows progress: "0 of 7 tiers" → "7 of 7 tiers" — the advisor
             knows exactly how much of the cascade is real. */}
-        <CollapsibleToggle
+        <LiquidationCollapsibleToggle
           open={showLiabilityBuckets}
           onToggle={() => setShowLiabilityBuckets((prev) => !prev)}
           title={t('liabilityBucketsTitle')}
@@ -574,7 +501,7 @@ export function LiquidationInputsSection({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.15 }}
-            className={PANEL_GROUP}
+            className={LIQUIDATION_PANEL_GROUP}
             data-testid="liq-liability-buckets-section"
           >
             <p className="text-[11px] leading-snug text-foreground/55">
@@ -608,7 +535,7 @@ export function LiquidationInputsSection({
             separate toggle from the liability buckets; the progress hint
             tells the advisor how many classes carry appraiser values.
             Engine falls back to balance-sheet derivation for blanks. */}
-        <CollapsibleToggle
+        <LiquidationCollapsibleToggle
           open={showAssetOverrides}
           onToggle={() => setShowAssetOverrides((prev) => !prev)}
           title={t('assetOverridesTitle')}
@@ -626,7 +553,7 @@ export function LiquidationInputsSection({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.15 }}
-            className={PANEL_GROUP}
+            className={LIQUIDATION_PANEL_GROUP}
             data-testid="liq-asset-overrides-section"
           >
             <p className="text-[11px] leading-snug text-foreground/55">
@@ -670,64 +597,5 @@ export function LiquidationInputsSection({
         </button>
       </div>
     </motion.section>
-  )
-}
-
-/**
- * Disclosure toggle for an inline panel inside the section card.
- *
- * Sits flush against the parent card edges (no own border) so the card
- * still reads as a single grouped surface. The chevron rotates 180° on
- * open so the open/closed state reads at a glance — matches the Aurora
- * disclosure idiom used elsewhere in the panel.
- *
- * Accessibility: pairs `aria-expanded` + `aria-controls` (pointing at
- * `panelId`) so assistive tech treats the toggle + panel as a single
- * disclosure widget. The keyboard `focus-visible` ring uses the Aurora
- * primary tint so it doesn't get lost against the card background.
- */
-function CollapsibleToggle({
-  open,
-  onToggle,
-  title,
-  subtitle,
-  panelId,
-  testId,
-}: {
-  open: boolean
-  onToggle: () => void
-  title: string
-  subtitle?: string
-  panelId: string
-  testId?: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={open}
-      aria-controls={panelId}
-      className={cn(
-        'flex w-full items-center justify-between gap-3 border-b border-foreground/[0.06] px-4 py-3 text-left',
-        'transition-colors hover:bg-foreground/[0.02]',
-        'focus-visible:relative focus-visible:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-inset',
-        'last:border-b-0'
-      )}
-      data-testid={testId}
-    >
-      <span className="flex min-w-0 flex-col items-start gap-0.5">
-        <span className="text-xs font-medium text-foreground/80">{title}</span>
-        {subtitle ? (
-          <span className="text-[10px] font-normal text-foreground/50">{subtitle}</span>
-        ) : null}
-      </span>
-      <ChevronDown
-        aria-hidden="true"
-        className={cn(
-          'h-4 w-4 shrink-0 text-foreground/45 transition-transform duration-200',
-          open && 'rotate-180'
-        )}
-      />
-    </button>
   )
 }

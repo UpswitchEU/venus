@@ -37,6 +37,13 @@ import {
   buildBusinessTypeFormData,
   buildBusinessTypeSegmentsFormData,
 } from '../utils/businessTypeFormData'
+import {
+  buildInitialSelectedCompany,
+  buildSelectedCompanyFormUpdates,
+  getStringValue,
+  removeRegistryContextFields,
+  selectedCompanySyncKey,
+} from './BasicInformationRegistryModel'
 
 interface BasicInformationSectionProps {
   formData: ValuationFormData
@@ -45,73 +52,6 @@ interface BasicInformationSectionProps {
   businessTypesLoading: boolean
   businessTypesError: string | null
   prefilledQuery?: string | null // Optional prefilled query from URL
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
-}
-
-function getStringValue(value: unknown, key: string): string | undefined {
-  const recordValue = asRecord(value)[key]
-  return typeof recordValue === 'string' && recordValue.trim() ? recordValue : undefined
-}
-
-function getFirstStringValue(value: unknown, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const recordValue = getStringValue(value, key)
-    if (recordValue) return recordValue
-  }
-  return undefined
-}
-
-function selectedCompanySyncKey(company: CompanySearchResult): string {
-  return (
-    company.company_id?.trim() ||
-    company.registration_number?.trim() ||
-    company.company_name?.trim() ||
-    'selected-company'
-  )
-}
-
-function removeRegistryContextFields(
-  value: ValuationFormData['business_context']
-): ValuationFormData['business_context'] | undefined {
-  const context = asRecord(value)
-  const next = { ...context }
-  for (const key of [
-    'kbo_registration',
-    'kbo_registration_number',
-    'kboNumber',
-    'kboRegistration',
-    'kboRegistrationNumber',
-    'kvk_registration',
-    'kvk_registration_number',
-    'kvkNumber',
-    'kvkRegistration',
-    'kvkRegistrationNumber',
-    'registration_number',
-    'registrationNumber',
-    'company_registration_number',
-    'companyRegistrationNumber',
-    'company_number',
-    'companyNumber',
-    'enterprise_number',
-    'enterpriseNumber',
-    'company_id',
-    'companyId',
-    'company_address',
-    'companyAddress',
-    'registeredAddress',
-    'company_status',
-    'companyStatus',
-    'legal_form',
-    'legalForm',
-  ]) {
-    delete next[key]
-  }
-  return Object.keys(next).length > 0 ? (next as ValuationFormData['business_context']) : undefined
 }
 
 /**
@@ -273,86 +213,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   // Construct initial selected company from stored KBO data if available
   // This allows the company summary card to show when restoring a previously verified company
   // ✅ FIX: Check both business_context AND top-level formData fields (from Mercury business card)
-  const initialSelectedCompany = useMemo<CompanySearchResult | null>(() => {
-    if (!formData.company_name) return null
-
-    // Check for KBO data in business_context first (preferred source - from previous verification)
-    const businessContext = formData.business_context
-    let kboRegistration =
-      getFirstStringValue(businessContext, [
-        'kbo_registration',
-        'kbo_registration_number',
-        'kboNumber',
-        'kboRegistration',
-        'kboRegistrationNumber',
-        'registration_number',
-        'registrationNumber',
-        'company_registration_number',
-        'companyRegistrationNumber',
-        'company_number',
-        'companyNumber',
-        'enterprise_number',
-        'enterpriseNumber',
-        'company_id',
-        'companyId',
-      ]) ?? formData.kbo_number
-    let legalForm =
-      getFirstStringValue(businessContext, ['legal_form', 'legalForm']) ?? formData.legal_form
-    const companyId = getFirstStringValue(businessContext, ['company_id', 'companyId'])
-    let companyAddress =
-      getFirstStringValue(businessContext, [
-        'company_address',
-        'companyAddress',
-        'registered_address',
-        'registeredAddress',
-      ]) ?? ''
-    const companyStatus =
-      getFirstStringValue(businessContext, ['company_status', 'companyStatus']) ?? 'Active'
-
-    // ✅ FIX: Also check top-level formData fields (from Mercury business card prefill)
-    // When data comes from Mercury, KBO fields are at top level, not in business_context
-    if (!kboRegistration) {
-      kboRegistration = getStringValue(formData, 'kbo_registration')
-    }
-    if (!legalForm) {
-      legalForm = formData.legal_form
-    }
-    if (!companyAddress) {
-      // Try to construct address from location/city/postal_code
-      const location = getStringValue(formData, 'location') || formData.city
-      const postalCode = formData.postal_code
-      if (location || postalCode) {
-        companyAddress = [postalCode, location].filter(Boolean).join(' ') || ''
-      }
-    }
-
-    // If we have KBO registration data (from either source), construct a CompanySearchResult
-    if (kboRegistration && formData.company_name) {
-      const countryCode = formData.country_code || 'BE'
-      return {
-        company_id: companyId || kboRegistration, // Use stored company_id or fallback to registration number
-        company_name: formData.company_name,
-        result_type: 'COMPANY',
-        registration_number: kboRegistration,
-        country_code: countryCode,
-        legal_form: legalForm || '',
-        address: companyAddress,
-        status: companyStatus,
-        confidence_score: 1.0,
-        registry_name: countryCode === 'NL' ? 'KVK' : 'KBO',
-        registry_url: '',
-      }
-    }
-
-    return null
-  }, [
-    formData.company_name,
-    formData.business_context,
-    formData.country_code,
-    // ✅ FIX: Include top-level KBO fields in dependencies
-    // Access via formData object to ensure reactivity
-    formData,
-  ])
+  const initialSelectedCompany = useMemo<CompanySearchResult | null>(
+    () => buildInitialSelectedCompany(formData),
+    [formData]
+  )
 
   // Background verification when restoring saved company
   // ✅ FIX: Also set selectedCompany immediately if KBO data exists in top-level formData
@@ -443,42 +307,11 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
       // Get current form data snapshot to avoid stale closures
       const currentFormData = formData
-      const currentBusinessContext = asRecord(currentFormData.business_context)
-      const updatedBusinessContext: ValuationFormData['business_context'] = {
-        ...currentBusinessContext,
-        kbo_registration: selectedCompany.registration_number,
-        kbo_registration_number: selectedCompany.registration_number,
-        legal_form: selectedCompany.legal_form,
-        company_id: selectedCompany.company_id,
-        company_address: selectedCompany.address,
-        company_status: selectedCompany.status,
-      }
-
-      const updates: Partial<ValuationFormData> = {
-        business_context: updatedBusinessContext,
-      }
-      const selectedRegistration = selectedCompany.registration_number?.trim()
-      const selectedCountryCode =
-        selectedCompany.country_code || currentFormData.country_code || effectiveCountryCode
-      if (selectedCompany.company_name) {
-        updates.company_name = selectedCompany.company_name
-      }
-      if (selectedCountryCode) {
-        updates.country_code = selectedCountryCode
-      }
-      if (selectedRegistration) {
-        updates.registration_number = selectedRegistration
-        if (selectedCountryCode === 'NL') {
-          updates.kvk_number = selectedRegistration
-          updates.kbo_number = undefined
-        } else {
-          updates.kbo_number = selectedRegistration
-          updates.kvk_number = undefined
-        }
-      }
-      if (selectedCompany.legal_form) {
-        updates.legal_form = selectedCompany.legal_form
-      }
+      const updates = buildSelectedCompanyFormUpdates({
+        selectedCompany,
+        formData: currentFormData,
+        effectiveCountryCode,
+      })
 
       // Pre-populate business type from Titan enrichment (NACE/SBI). When a new
       // registry company is selected, replace an older type from the previous

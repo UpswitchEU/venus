@@ -18,20 +18,23 @@ import { devtools } from 'zustand/middleware'
 import { getCategoryDefinition } from '../config/normalizationCategories'
 import { NormalizationAPIError, normalizationService } from '../services/ebitdaNormalizationService'
 import {
-  CustomAdjustment,
   EbitdaNormalization,
   MarketRateSuggestion,
-  NormalizationAdjustment,
   NormalizationCategory,
 } from '../types/ebitdaNormalization'
 import { dateLikeToUnixMs } from '../utils/date-like'
 import { generalLogger } from '../utils/logger'
 import { createRandomId } from '../utils/secureRandom'
 import { isValidSessionId } from '../utils/sessionIdValidation'
-
-function safeNum(n: number | undefined | null): number {
-  return Number.isFinite(n) ? (n as number) : 0
-}
+import {
+  addCustomAdjustmentToNormalization,
+  createEbitdaNormalizationTemplate,
+  normalizeEbitdaNormalizationResponse,
+  removeCustomAdjustmentFromNormalization,
+  safeNormalizationNumber as safeNum,
+  updateCustomAdjustmentInNormalization,
+  upsertStandardAdjustment,
+} from './ebitdaNormalizationStoreModel'
 
 // Serialize load operations per session to prevent last-write-wins
 const loadQueue = new Map<string, Promise<void>>()
@@ -105,20 +108,14 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
       // RACE FIX: loadNormalization only overwrites if template is still virgin (no user edits)
       openNormalizationModal: async (year, reportedEbitda, sessionId) => {
         const { normalizations, loadNormalization } = get()
-        const safeReported = safeNum(reportedEbitda)
 
         // OPTIMISTIC: Create template immediately if doesn't exist
         if (!normalizations[year]) {
-          const template: EbitdaNormalization = {
-            session_id: sessionId,
+          const template = createEbitdaNormalizationTemplate({
+            sessionId,
             year,
-            reported_ebitda: safeReported,
-            adjustments: [],
-            custom_adjustments: [],
-            total_adjustments: 0,
-            normalized_ebitda: safeReported,
-            confidence_score: 'medium',
-          }
+            reportedEbitda,
+          })
 
           set({
             normalizations: {
@@ -158,51 +155,13 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           return
         }
 
-        // Update or add adjustment
-        const existingAdjustmentIndex = normalization.adjustments.findIndex(
-          (adj) => adj.category === category
-        )
-
-        let updatedAdjustments: NormalizationAdjustment[]
-
-        const safeAmount = safeNum(amount)
-        if (existingAdjustmentIndex >= 0) {
-          updatedAdjustments = [...normalization.adjustments]
-          updatedAdjustments[existingAdjustmentIndex] = {
-            category,
-            amount: safeAmount,
-            note,
-          }
-        } else {
-          updatedAdjustments = [
-            ...normalization.adjustments,
-            { category, amount: safeAmount, note },
-          ]
-        }
-        updatedAdjustments = updatedAdjustments.filter((adj) => adj.amount !== 0 || adj.note)
-
-        const standardAdjustmentsSum = updatedAdjustments.reduce(
-          (sum, adj) => sum + safeNum(adj.amount),
-          0
-        )
-        const customAdjustmentsSum = (normalization.custom_adjustments || []).reduce(
-          (sum, adj) => sum + safeNum(adj.amount),
-          0
-        )
-        const totalAdjustments = standardAdjustmentsSum + customAdjustmentsSum
-        const reported = safeNum(normalization.reported_ebitda)
-        const normalizedEbitda = reported + totalAdjustments
+        const updatedNormalization = upsertStandardAdjustment(normalization, category, amount, note)
 
         // Update state
         set({
           normalizations: {
             ...normalizations,
-            [year]: {
-              ...normalization,
-              adjustments: updatedAdjustments,
-              total_adjustments: totalAdjustments,
-              normalized_ebitda: normalizedEbitda,
-            },
+            [year]: updatedNormalization,
           },
         })
       },
@@ -217,32 +176,17 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           return
         }
 
-        const safeAmt = safeNum(amount)
-        const newCustom: CustomAdjustment = {
+        const updatedNormalization = addCustomAdjustmentToNormalization(normalization, {
           id: createRandomId('custom', 12),
           description,
-          amount: safeAmt,
+          amount,
           note,
-        }
-
-        const updatedCustom = [...(normalization.custom_adjustments || []), newCustom]
-
-        const standardSum = normalization.adjustments.reduce(
-          (sum, adj) => sum + safeNum(adj.amount),
-          0
-        )
-        const customSum = updatedCustom.reduce((sum, adj) => sum + safeNum(adj.amount), 0)
-        const totalAdjustments = standardSum + customSum
+        })
 
         set({
           normalizations: {
             ...normalizations,
-            [year]: {
-              ...normalization,
-              custom_adjustments: updatedCustom,
-              total_adjustments: totalAdjustments,
-              normalized_ebitda: normalization.reported_ebitda + totalAdjustments,
-            },
+            [year]: updatedNormalization,
           },
         })
       },
@@ -257,27 +201,16 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           return
         }
 
-        const safeAmt = safeNum(amount)
-        const updatedCustom = (normalization.custom_adjustments || []).map((custom) =>
-          custom.id === customId ? { ...custom, description, amount: safeAmt, note } : custom
+        const updatedNormalization = updateCustomAdjustmentInNormalization(
+          normalization,
+          customId,
+          { description, amount, note }
         )
-
-        const standardSum = normalization.adjustments.reduce(
-          (sum, adj) => sum + safeNum(adj.amount),
-          0
-        )
-        const customSum = updatedCustom.reduce((sum, adj) => sum + safeNum(adj.amount), 0)
-        const totalAdjustments = standardSum + customSum
 
         set({
           normalizations: {
             ...normalizations,
-            [year]: {
-              ...normalization,
-              custom_adjustments: updatedCustom,
-              total_adjustments: totalAdjustments,
-              normalized_ebitda: normalization.reported_ebitda + totalAdjustments,
-            },
+            [year]: updatedNormalization,
           },
         })
       },
@@ -292,26 +225,15 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           return
         }
 
-        const updatedCustom = (normalization.custom_adjustments || []).filter(
-          (custom) => custom.id !== customId
+        const updatedNormalization = removeCustomAdjustmentFromNormalization(
+          normalization,
+          customId
         )
-
-        const standardSum = normalization.adjustments.reduce(
-          (sum, adj) => sum + safeNum(adj.amount),
-          0
-        )
-        const customSum = updatedCustom.reduce((sum, adj) => sum + safeNum(adj.amount), 0)
-        const totalAdjustments = standardSum + customSum
 
         set({
           normalizations: {
             ...normalizations,
-            [year]: {
-              ...normalization,
-              custom_adjustments: updatedCustom,
-              total_adjustments: totalAdjustments,
-              normalized_ebitda: normalization.reported_ebitda + totalAdjustments,
-            },
+            [year]: updatedNormalization,
           },
         })
       },
@@ -451,21 +373,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           try {
             const response = await normalizationService.getNormalization(sessionId, year)
 
-            const normalization: EbitdaNormalization = {
-              id: response.id,
-              session_id: sessionId,
-              version_id: response.version_id,
-              year: response.year,
-              reported_ebitda: safeNum(response.reported_ebitda),
-              adjustments: response.adjustments || [],
-              custom_adjustments: response.custom_adjustments || [],
-              total_adjustments: safeNum(response.total_adjustments),
-              normalized_ebitda: safeNum(response.normalized_ebitda),
-              confidence_score: response.confidence_score,
-              market_rate_source: response.market_rate_source || undefined,
-              created_at: response.created_at,
-              updated_at: response.updated_at,
-            }
+            const normalization = normalizeEbitdaNormalizationResponse(response, sessionId)
 
             set((s) => {
               const current = s.normalizations[year]
@@ -539,21 +447,10 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             const normalizationsMap: Record<number, EbitdaNormalization> = {}
 
             for (const response of responses) {
-              normalizationsMap[response.year] = {
-                id: response.id,
-                session_id: sessionId,
-                version_id: response.version_id,
-                year: response.year,
-                reported_ebitda: safeNum(response.reported_ebitda),
-                adjustments: response.adjustments || [],
-                custom_adjustments: response.custom_adjustments || [],
-                total_adjustments: safeNum(response.total_adjustments),
-                normalized_ebitda: safeNum(response.normalized_ebitda),
-                confidence_score: response.confidence_score,
-                market_rate_source: response.market_rate_source || undefined,
-                created_at: response.created_at,
-                updated_at: response.updated_at,
-              }
+              normalizationsMap[response.year] = normalizeEbitdaNormalizationResponse(
+                response,
+                sessionId
+              )
             }
 
             set({

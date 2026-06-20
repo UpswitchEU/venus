@@ -9,6 +9,11 @@ import { inferStartupSectorFromNace } from '@/store/manual/inferStartupSectorFro
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { formatPreviewMetricValue, PreviewMetricCard } from './previewMetricCards'
+import {
+  buildSaasBenchmarkPrefillPlan,
+  buildSaasMrrPrefillPatch,
+  buildSaasProgressModel,
+} from './SaasMetricsSectionModel'
 import { FieldWithSourceChip, type PrefillSource, SaasPanel } from './SaasMetricsSectionParts'
 import { SAAS_SECTOR_DEFAULTS } from './saasBenchmarks'
 import { getSaasMetricHealthStatus } from './saasMetricsHealth'
@@ -103,65 +108,37 @@ export function SaasMetricsSection({
 
   useEffect(() => {
     if (prefilledRanRef.current) return
-    // We can prefill the growth field from history alone (no NACE / sector
-    // required).  Only bail when neither source nor a benchmark exists.
-    if (!benchmark && yoyGrowthPct == null) return
-    if (importedSaasProvenance) return
+    const { patches, shouldMarkRan } = buildSaasBenchmarkPrefillPlan({
+      benchmark,
+      yoyGrowthPct,
+      importedSaasProvenance,
+      currentValues: {
+        saasArrGrowthPct,
+        saasChurnPct,
+        saasCustomerChurnPct,
+        saasNrrPct,
+        saasGrossMarginPct,
+        saasExpansionRevenuePct,
+      },
+    })
+    if (!shouldMarkRan) return
     prefilledRanRef.current = true
-    const filled: string[] = []
-    const sources = new Map<string, PrefillSource>()
-    if (benchmark && saasGrossMarginPct == null) {
-      onFieldChange('saas_gross_margin_pct', benchmark.gross_margin_pct)
-      filled.push('saas_gross_margin_pct')
-      sources.set('saas_gross_margin_pct', 'benchmark')
-    }
-    if (benchmark && saasChurnPct == null) {
-      onFieldChange('saas_churn_pct', benchmark.monthly_churn_pct)
-      filled.push('saas_churn_pct')
-      sources.set('saas_churn_pct', 'benchmark')
-    }
-    if (benchmark && saasNrrPct == null) {
-      onFieldChange('saas_nrr_pct', benchmark.nrr_pct)
-      filled.push('saas_nrr_pct')
-      sources.set('saas_nrr_pct', 'benchmark')
-    }
-    if (benchmark && saasCustomerChurnPct == null) {
-      onFieldChange('saas_customer_churn_pct', benchmark.customer_churn_pct)
-      filled.push('saas_customer_churn_pct')
-      sources.set('saas_customer_churn_pct', 'benchmark')
-    }
-    if (benchmark && saasExpansionRevenuePct == null) {
-      onFieldChange('saas_expansion_revenue_pct', benchmark.expansion_revenue_pct)
-      filled.push('saas_expansion_revenue_pct')
-      sources.set('saas_expansion_revenue_pct', 'benchmark')
-    }
     // NOTE: MRR is intentionally NOT seeded here.  ARR / 12 is a live
     // identity that has to react to founder input mid-session, so it
     // lives in a dedicated effect below.  Keeping it out of this one-
     // shot effect avoids a double-dispatch race when ARR happens to be
     // present at mount.
-    if (saasArrGrowthPct == null) {
-      // saas_arr_growth_pct is an ANNUAL fraction end-to-end:
-      // - Engine: Rule of 40 = arr_growth + gross_margin (both annual)
-      // - Engine: high_growth gate = arr_growth_pct >= 30 (annual %)
-      // - Investors: every M&A multiple framework reads YoY growth.
-      // YoY from the founder's own historical revenue grid is the most
-      // accurate signal we have — falls back to the sector median when
-      // we can't compute it.
-      if (yoyGrowthPct != null) {
-        onFieldChange('saas_arr_growth_pct', yoyGrowthPct)
-        filled.push('saas_arr_growth_pct')
-        sources.set('saas_arr_growth_pct', 'history')
-      } else if (benchmark) {
-        onFieldChange('saas_arr_growth_pct', benchmark.annual_growth_pct)
-        filled.push('saas_arr_growth_pct')
-        sources.set('saas_arr_growth_pct', 'benchmark')
-      }
-    }
-    if (filled.length === 0) return
+    if (patches.length === 0) return
+    const filled = patches.map((patch) => patch.field)
+    const sources = new Map<string, PrefillSource>(
+      patches.map((patch) => [patch.field, patch.source])
+    )
     prefilledKeysRef.current = new Set(filled)
     prefilledSourceRef.current = sources
     setPrefilledKeys(filled)
+    for (const patch of patches) {
+      onFieldChange(patch.field, patch.value)
+    }
   }, [
     benchmark,
     yoyGrowthPct,
@@ -208,15 +185,17 @@ export function SaasMetricsSection({
   // present and MRR is empty (and the founder hasn't cleared it since
   // a prior prefill), seed MRR and tag it so the chip surfaces.
   useEffect(() => {
-    if (saasArr == null || !Number.isFinite(saasArr)) return
-    if (saasMrr != null) return
-    if (importedSaasProvenance) return
-    if (editedSinceFillRef.current.has('saas_mrr')) return
-    const derivedMrr = Math.round(saasArr / 12)
-    onFieldChange('saas_mrr', derivedMrr)
-    prefilledKeysRef.current.add('saas_mrr')
-    prefilledSourceRef.current.set('saas_mrr', 'derived')
+    const patch = buildSaasMrrPrefillPatch({
+      saasArr,
+      saasMrr,
+      importedSaasProvenance,
+      editedSinceFill: editedSinceFillRef.current.has('saas_mrr'),
+    })
+    if (!patch) return
+    prefilledKeysRef.current.add(patch.field)
+    prefilledSourceRef.current.set(patch.field, patch.source)
     setPrefilledKeys((prev) => (prev.includes('saas_mrr') ? prev : [...prev, 'saas_mrr']))
+    onFieldChange(patch.field, patch.value)
   }, [saasArr, saasMrr, importedSaasProvenance, onFieldChange])
 
   const importedProviderLabel = importedSaasProvenance?.source
@@ -249,8 +228,22 @@ export function SaasMetricsSection({
     ]
   )
 
-  const filledCount = useMemo(() => {
-    const fields = [
+  const progressModel = useMemo(
+    () =>
+      buildSaasProgressModel({
+        saasArr,
+        saasMrr,
+        saasArrGrowthPct,
+        saasChurnPct,
+        saasCustomerChurnPct,
+        saasNrrPct,
+        saasGrossMarginPct,
+        saasCac,
+        saasSmSpend,
+        saasCustomerConcentrationPct,
+        saasExpansionRevenuePct,
+      }),
+    [
       saasArr,
       saasMrr,
       saasArrGrowthPct,
@@ -263,34 +256,8 @@ export function SaasMetricsSection({
       saasCustomerConcentrationPct,
       saasExpansionRevenuePct,
     ]
-    return fields.filter((v) => v != null && Number.isFinite(v)).length
-  }, [
-    saasArr,
-    saasMrr,
-    saasArrGrowthPct,
-    saasChurnPct,
-    saasCustomerChurnPct,
-    saasNrrPct,
-    saasGrossMarginPct,
-    saasCac,
-    saasSmSpend,
-    saasCustomerConcentrationPct,
-    saasExpansionRevenuePct,
-  ])
-
-  const coreFilledCount = useMemo(() => {
-    const coreFields = [saasArr, saasMrr, saasArrGrowthPct, saasNrrPct]
-    return coreFields.filter((v) => v != null && Number.isFinite(v)).length
-  }, [saasArr, saasMrr, saasArrGrowthPct, saasNrrPct])
-
-  const advancedFilledCount = useMemo(() => {
-    const advancedFields = [saasCac, saasSmSpend, saasCustomerConcentrationPct]
-    return advancedFields.filter((v) => v != null && Number.isFinite(v)).length
-  }, [saasCac, saasSmSpend, saasCustomerConcentrationPct])
-
-  const totalFields = 11
-  const isReady = saasArr != null && Number.isFinite(saasArr) && coreFilledCount >= 3
-  const progressPct = (filledCount / totalFields) * 100
+  )
+  const { advancedFilledCount, filledCount, isReady, progressPct, totalFields } = progressModel
   // True accordion: open it automatically the first time it makes
   // sense (founder past the core 4 OR has already filled an advanced
   // field), but always let them collapse it again.  The

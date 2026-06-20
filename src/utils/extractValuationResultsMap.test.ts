@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { ValuationMethodResult } from '@/types/valuation'
 
 import {
   extractValuationResultsMap,
@@ -12,6 +13,15 @@ import {
   resolveSelectedValuationMethodForExtraction,
   revenueMethodologySiblingKey,
 } from './extractValuationResultsMap'
+
+function method(overrides: Partial<ValuationMethodResult> = {}): ValuationMethodResult {
+  return {
+    available: true,
+    label: 'Method',
+    value: 1,
+    ...overrides,
+  }
+}
 
 describe('resolveSelectedValuationMethodForExtraction', () => {
   it('reads from report_context when top-level is missing', () => {
@@ -50,8 +60,8 @@ describe('getValuationMethodResultForKey', () => {
 
   it('resolves omzet_multiple from revenue_multiple alias on the map', () => {
     const map = {
-      revenue_multiple: { available: true, value: 99_000 },
-    } as any
+      revenue_multiple: method({ value: 99_000 }),
+    }
     expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(99_000)
   })
 
@@ -66,9 +76,9 @@ describe('getValuationMethodResultForKey', () => {
 
   it('prefers the direct key when both aliases exist', () => {
     const map = {
-      omzet_multiple: { available: true, value: 1 },
-      revenue_multiple: { available: true, value: 2 },
-    } as any
+      omzet_multiple: method({ value: 1 }),
+      revenue_multiple: method({ value: 2 }),
+    }
     expect(getValuationMethodResultForKey(map, 'omzet_multiple')?.value).toBe(1)
   })
 
@@ -96,14 +106,14 @@ describe('revenue methodology alias helpers', () => {
   })
 
   it('isDuplicateHydratedRevenueAliasEntry detects same-ref EN key', () => {
-    const shared = { available: true, value: 1 } as any
-    const base = { omzet_multiple: shared, revenue_multiple: shared } as any
+    const shared = method({ value: 1 })
+    const base = { omzet_multiple: shared, revenue_multiple: shared }
     expect(isDuplicateHydratedRevenueAliasEntry(base, 'revenue_multiple', shared)).toBe(true)
     expect(isDuplicateHydratedRevenueAliasEntry(base, 'omzet_multiple', shared)).toBe(false)
   })
 
   it('hydratedRevenueMethodKeysAreSameRef', () => {
-    const shared = { value: 1 } as any
+    const shared = method({ value: 1 })
     expect(
       hydratedRevenueMethodKeysAreSameRef({
         omzet_multiple: shared,

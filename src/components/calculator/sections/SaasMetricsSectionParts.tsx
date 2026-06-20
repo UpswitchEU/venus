@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/design-system/utils'
+import type { PrefillSource } from './SaasMetricsSectionModel'
 
-export type PrefillSource = 'benchmark' | 'history' | 'derived'
+export type { PrefillSource } from './SaasMetricsSectionModel'
 
 export function SaasPanel({
   title,

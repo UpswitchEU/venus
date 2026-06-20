@@ -7,7 +7,6 @@
  * WORLD-CLASS: Supports pagination for reports with 100+ versions
  * - Shows first 10 versions by default
  * - "Load More" button for additional versions
- * - Smooth scroll to newly loaded versions
  *
  * @module components/VersionTimeline
  */
@@ -28,25 +27,13 @@ import { useTranslations } from 'next-intl'
 import { useCallback, useState } from 'react'
 import { formatCurrency } from '../config/countries'
 import type { ValuationVersion } from '../types/ValuationVersion'
-import { dateLikeToUnixMs } from '../utils/date-like'
-import {
-  getAdjustmentsTotal,
-  getBaseValuation,
-  getEquityValueHigh,
-  getEquityValueLow,
-  getEquityValueMid,
-  getFinalValuation,
-  getRecommendedAskingPrice,
-} from '../utils/valuationResultAccess'
 import { formatChangesSummary } from '../utils/versionDiffDetection'
-
-/** Number of versions to show initially and per "Load More" click */
-const VERSIONS_PER_PAGE = 10
-
-function positiveFiniteNumber(value: unknown): number | null {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
-}
+import {
+  buildSortedTimelineVersions,
+  buildVersionTimelineItemModel,
+  buildVersionTimelineListModel,
+  VERSION_TIMELINE_PAGE_SIZE,
+} from './VersionTimelineModel'
 
 export interface VersionTimelineProps {
   versions: ValuationVersion[]
@@ -85,7 +72,6 @@ export function VersionTimeline({
   versions,
   activeVersion,
   onVersionSelect,
-  onVersionPin,
   compact = false,
   totalVersions,
   onLoadMore,
@@ -93,7 +79,7 @@ export function VersionTimeline({
 }: VersionTimelineProps) {
   const t = useTranslations('historyPanel')
   // WORLD-CLASS: Pagination state for large version lists
-  const [displayCount, setDisplayCount] = useState(VERSIONS_PER_PAGE)
+  const [displayCount, setDisplayCount] = useState(VERSION_TIMELINE_PAGE_SIZE)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   if (versions.length === 0) {
@@ -105,49 +91,18 @@ export function VersionTimeline({
     )
   }
 
-  // ✅ FIX: Deduplicate versions by versionNumber to prevent duplicates
-  // First deduplicate by id (exact duplicates), then by versionNumber
-  const idMap = new Map<string, ValuationVersion>()
-  versions.forEach((version) => {
-    if (!idMap.has(version.id)) {
-      idMap.set(version.id, version)
-    }
-  })
-  const uniqueByIdVersions = Array.from(idMap.values())
-
-  // Then deduplicate by versionNumber (keep latest createdAt)
-  const versionMap = new Map<number, ValuationVersion>()
-  uniqueByIdVersions.forEach((version) => {
-    const existing = versionMap.get(version.versionNumber)
-    if (!existing) {
-      versionMap.set(version.versionNumber, version)
-    } else {
-      const versionCreatedAt = version.createdAt ? (dateLikeToUnixMs(version.createdAt) ?? 0) : 0
-      const existingCreatedAt = existing.createdAt ? (dateLikeToUnixMs(existing.createdAt) ?? 0) : 0
-
-      if (versionCreatedAt > existingCreatedAt) {
-        versionMap.set(version.versionNumber, version)
-      }
-      // If timestamps are equal or both missing, keep the existing one (first encountered)
-    }
-  })
-
-  // Sort versions by number (newest first for display)
-  const sortedVersions = Array.from(versionMap.values()).sort(
-    (a, b) => b.versionNumber - a.versionNumber
-  )
-
-  // WORLD-CLASS: Paginate displayed versions
-  const displayedVersions = sortedVersions.slice(0, displayCount)
-  const hasMoreToShow = sortedVersions.length > displayCount
-  const totalCount = totalVersions ?? sortedVersions.length
-  const hasMoreToFetch = totalCount > sortedVersions.length
+  const { displayedVersions, hasMoreToFetch, hasMoreToShow, sortedVersions, totalCount } =
+    buildVersionTimelineListModel({
+      versions,
+      displayCount,
+      totalVersions,
+    })
 
   // Handle "Load More" click
   const handleLoadMore = useCallback(async () => {
     // If we have more versions in memory, just show them
     if (hasMoreToShow) {
-      setDisplayCount((prev) => Math.min(prev + VERSIONS_PER_PAGE, sortedVersions.length))
+      setDisplayCount((prev) => Math.min(prev + VERSION_TIMELINE_PAGE_SIZE, sortedVersions.length))
       return
     }
 
@@ -156,7 +111,7 @@ export function VersionTimeline({
       setIsLoadingMore(true)
       try {
         await onLoadMore()
-        setDisplayCount((prev) => prev + VERSIONS_PER_PAGE)
+        setDisplayCount((prev) => prev + VERSION_TIMELINE_PAGE_SIZE)
       } finally {
         setIsLoadingMore(false)
       }
@@ -175,9 +130,7 @@ export function VersionTimeline({
                 index < displayedVersions.length - 1 ? displayedVersions[index + 1] : null
               }
               isActive={version.versionNumber === activeVersion}
-              isLatest={index === 0}
               onClick={() => onVersionSelect(version.versionNumber)}
-              onPin={onVersionPin ? () => onVersionPin(version.versionNumber) : undefined}
               compact={compact}
             />
           </div>
@@ -219,9 +172,7 @@ interface VersionTimelineItemProps {
   version: ValuationVersion
   previousVersion: ValuationVersion | null
   isActive: boolean
-  isLatest: boolean
   onClick: () => void
-  onPin?: () => void
   compact?: boolean
   formatAuthor?: (createdBy: string | null) => string
 }
@@ -229,10 +180,8 @@ interface VersionTimelineItemProps {
 function VersionTimelineItem({
   version,
   previousVersion,
-  isActive: _isActive, // Kept for backward compatibility but not used in rendering
-  isLatest: _isLatest, // Kept for backward compatibility but not used in rendering
+  isActive,
   onClick,
-  onPin: _onPin, // Kept for backward compatibility but not used in rendering
   compact,
   formatAuthor,
 }: VersionTimelineItemProps) {
@@ -252,40 +201,29 @@ function VersionTimelineItem({
     }
   }
 
-  // Get valuation amounts. Zero-only snapshots are usually lightweight persisted metadata,
-  // not a real valuation result, so avoid rendering a misleading €0 card/delta.
-  const currentValuation = positiveFiniteNumber(getFinalValuation(version.valuationResult))
-  const previousValuation = previousVersion
-    ? positiveFiniteNumber(getFinalValuation(previousVersion.valuationResult))
-    : null
-
-  // Calculate price difference
-  let priceChange = 0
-  let priceChangePercent = 0
-  if (currentValuation !== null && previousValuation !== null) {
-    priceChange = currentValuation - previousValuation
-    priceChangePercent = ((currentValuation - previousValuation) / previousValuation) * 100
-  }
+  const itemModel = buildVersionTimelineItemModel({ version, previousVersion })
+  const {
+    hasChanges,
+    hasNormalizedEbitda,
+    normalizedYearsCount,
+    previousValuation,
+    priceChange,
+    priceChangePercent,
+    valuationCard,
+  } = itemModel
 
   const countryCode = version.formData.country_code || 'BE'
-
-  const hasChanges = version.changesSummary && version.changesSummary.totalChanges > 0
   const changeSummaries = hasChanges
     ? formatChangesSummary(version.changesSummary, countryCode)
     : []
 
-  // Check if version has normalized EBITDA
-  const hasNormalizedEbitda =
-    version.changeMetadata?.normalized_years &&
-    Array.isArray(version.changeMetadata.normalized_years) &&
-    version.changeMetadata.normalized_years.length > 0
-  const normalizedYearsCount =
-    hasNormalizedEbitda && version.changeMetadata?.normalized_years
-      ? version.changeMetadata.normalized_years.length
-      : 0
-
   return (
-    <div className="relative transition-all duration-200 rounded-lg bg-muted">
+    <div
+      aria-current={isActive ? 'step' : undefined}
+      className={`relative transition-all duration-200 rounded-lg bg-muted ${
+        isActive ? 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background' : ''
+      }`}
+    >
       <div className="p-6 cursor-pointer" onClick={onClick}>
         {/* Content */}
         <div className="w-full">
@@ -319,150 +257,133 @@ function VersionTimelineItem({
           </div>
 
           {/* Valuation Card - Full Width Navy Theme */}
-          {version.valuationResult &&
-            currentValuation !== null &&
-            (() => {
-              const equityValueLow =
-                positiveFiniteNumber(getEquityValueLow(version.valuationResult)) ?? 0
-              const equityValueMid =
-                positiveFiniteNumber(getEquityValueMid(version.valuationResult)) ?? currentValuation
-              const equityValueHigh =
-                positiveFiniteNumber(getEquityValueHigh(version.valuationResult)) ?? 0
-              const recommendedAskingPrice =
-                positiveFiniteNumber(getRecommendedAskingPrice(version.valuationResult)) ?? 0
-
-              // Calculate premium percentage if we have both mid and asking price
-              const premiumPercent =
-                recommendedAskingPrice && equityValueMid
-                  ? Math.round(((recommendedAskingPrice - equityValueMid) / equityValueMid) * 100)
-                  : 0
-
-              return (
+          {valuationCard && (
+            <div
+              className="w-full mb-4 rounded-xl overflow-hidden"
+              style={{
+                backgroundColor: '#0F172A',
+                backgroundImage: 'linear-gradient(to bottom right, #0F172A, #1E293B)',
+                boxShadow:
+                  '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              }}
+            >
+              <div className="relative p-8">
+                {/* Decorative circle */}
                 <div
-                  className="w-full mb-4 rounded-xl overflow-hidden"
-                  style={{
-                    backgroundColor: '#0F172A',
-                    backgroundImage: 'linear-gradient(to bottom right, #0F172A, #1E293B)',
-                    boxShadow:
-                      '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                  }}
-                >
-                  <div className="relative p-8">
-                    {/* Decorative circle */}
-                    <div
-                      className="absolute -top-36 -right-8 w-72 h-72 rounded-full opacity-50"
-                      style={{ backgroundColor: '#1E293B' }}
-                    />
+                  className="absolute -top-36 -right-8 w-72 h-72 rounded-full opacity-50"
+                  style={{ backgroundColor: '#1E293B' }}
+                />
 
-                    <div className="relative z-10">
-                      {/* Header */}
-                      <p
-                        className="text-xs font-semibold uppercase tracking-wider mb-3"
-                        style={{ color: '#94A3B8', opacity: 0.9 }}
-                      >
-                        {t('valuationCardHeroLabel')}
-                      </p>
+                <div className="relative z-10">
+                  {/* Header */}
+                  <p
+                    className="text-xs font-semibold uppercase tracking-wider mb-3"
+                    style={{ color: '#94A3B8', opacity: 0.9 }}
+                  >
+                    {t('valuationCardHeroLabel')}
+                  </p>
 
-                      {/* Main Valuation Amount */}
-                      <div className="flex items-baseline gap-4 mb-6">
-                        <span
-                          className="text-5xl font-extrabold leading-none tracking-tight"
-                          style={{ color: '#FFFFFF', letterSpacing: '-0.02em' }}
-                        >
-                          {formatCurrency(equityValueMid, countryCode)}
-                        </span>
-                      </div>
-
-                      {/* Range and Suggested Price Table */}
-                      <table className="w-full border-collapse border-t border-white/10 pt-6 mt-6">
-                        <tbody>
-                          <tr>
-                            {/* Valuation Range */}
-                            <td className="w-1/2 align-top pr-4">
-                              <p
-                                className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
-                                style={{ color: '#94A3B8', opacity: 0.6 }}
-                              >
-                                {t('valuationRangeLabel')}
-                              </p>
-                              <div className="inline-block">
-                                <p
-                                  className="text-base font-semibold mb-1"
-                                  style={{ color: '#FFFFFF' }}
-                                >
-                                  {formatCurrency(equityValueLow, countryCode)}
-                                </p>
-                                <p
-                                  className="text-xs mb-1"
-                                  style={{ color: 'rgba(255,255,255,0.4)' }}
-                                >
-                                  {t('rangeTo')}
-                                </p>
-                                <p className="text-base font-semibold" style={{ color: '#FFFFFF' }}>
-                                  {formatCurrency(equityValueHigh, countryCode)}
-                                </p>
-                              </div>
-                            </td>
-
-                            {/* Suggested Listing Price */}
-                            {recommendedAskingPrice > 0 && (
-                              <td className="w-1/2 align-top pl-4">
-                                <p
-                                  className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
-                                  style={{ color: '#94A3B8', opacity: 0.6 }}
-                                >
-                                  {t('suggestedListingPrice')}
-                                </p>
-                                <div className="mb-1">
-                                  <span
-                                    className="text-lg font-semibold mr-2"
-                                    style={{ color: '#FFFFFF' }}
-                                  >
-                                    {formatCurrency(recommendedAskingPrice, countryCode)}
-                                  </span>
-                                  {premiumPercent > 0 && (
-                                    <span
-                                      className="inline-block align-middle text-xs font-bold px-2 py-1 rounded border"
-                                      style={{
-                                        backgroundColor: 'rgba(52, 211, 153, 0.2)',
-                                        color: '#6EE7B7',
-                                        borderColor: 'rgba(52, 211, 153, 0.3)',
-                                      }}
-                                    >
-                                      {t('premiumLabel', { percent: premiumPercent })}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-xs" style={{ color: '#94A3B8' }}>
-                                  {t('strategicBuffer')}
-                                </p>
-                              </td>
-                            )}
-                          </tr>
-                        </tbody>
-                      </table>
-
-                      {/* Opinion of Value Badge */}
-                      {equityValueLow > 0 && equityValueHigh > 0 && (
-                        <div
-                          className="inline-block mt-4 px-4 py-2 rounded-md border"
-                          style={{
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            borderColor: 'rgba(255,255,255,0.1)',
-                          }}
-                        >
-                          <p className="text-sm m-0" style={{ color: '#E2E8F0' }}>
-                            {t('opinionOfValue')}:{' '}
-                            <strong>{formatCurrency(equityValueLow, countryCode)}</strong> —{' '}
-                            <strong>{formatCurrency(equityValueHigh, countryCode)}</strong>
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                  {/* Main Valuation Amount */}
+                  <div className="flex items-baseline gap-4 mb-6">
+                    <span
+                      className="text-5xl font-extrabold leading-none tracking-tight"
+                      style={{ color: '#FFFFFF', letterSpacing: '-0.02em' }}
+                    >
+                      {formatCurrency(valuationCard.equityValueMid, countryCode)}
+                    </span>
                   </div>
+
+                  {/* Range and Suggested Price Table */}
+                  <table className="w-full border-collapse border-t border-white/10 pt-6 mt-6">
+                    <tbody>
+                      <tr>
+                        {/* Valuation Range */}
+                        <td className="w-1/2 align-top pr-4">
+                          <p
+                            className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
+                            style={{ color: '#94A3B8', opacity: 0.6 }}
+                          >
+                            {t('valuationRangeLabel')}
+                          </p>
+                          <div className="inline-block">
+                            <p
+                              className="text-base font-semibold mb-1"
+                              style={{ color: '#FFFFFF' }}
+                            >
+                              {formatCurrency(valuationCard.equityValueLow, countryCode)}
+                            </p>
+                            <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                              {t('rangeTo')}
+                            </p>
+                            <p className="text-base font-semibold" style={{ color: '#FFFFFF' }}>
+                              {formatCurrency(valuationCard.equityValueHigh, countryCode)}
+                            </p>
+                          </div>
+                        </td>
+
+                        {/* Suggested Listing Price */}
+                        {valuationCard.recommendedAskingPrice > 0 && (
+                          <td className="w-1/2 align-top pl-4">
+                            <p
+                              className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
+                              style={{ color: '#94A3B8', opacity: 0.6 }}
+                            >
+                              {t('suggestedListingPrice')}
+                            </p>
+                            <div className="mb-1">
+                              <span
+                                className="text-lg font-semibold mr-2"
+                                style={{ color: '#FFFFFF' }}
+                              >
+                                {formatCurrency(valuationCard.recommendedAskingPrice, countryCode)}
+                              </span>
+                              {valuationCard.premiumPercent > 0 && (
+                                <span
+                                  className="inline-block align-middle text-xs font-bold px-2 py-1 rounded border"
+                                  style={{
+                                    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+                                    color: '#6EE7B7',
+                                    borderColor: 'rgba(52, 211, 153, 0.3)',
+                                  }}
+                                >
+                                  {t('premiumLabel', {
+                                    percent: valuationCard.premiumPercent,
+                                  })}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs" style={{ color: '#94A3B8' }}>
+                              {t('strategicBuffer')}
+                            </p>
+                          </td>
+                        )}
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Opinion of Value Badge */}
+                  {valuationCard.equityValueLow > 0 && valuationCard.equityValueHigh > 0 && (
+                    <div
+                      className="inline-block mt-4 px-4 py-2 rounded-md border"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                      }}
+                    >
+                      <p className="text-sm m-0" style={{ color: '#E2E8F0' }}>
+                        {t('opinionOfValue')}:{' '}
+                        <strong>{formatCurrency(valuationCard.equityValueLow, countryCode)}</strong>{' '}
+                        —{' '}
+                        <strong>
+                          {formatCurrency(valuationCard.equityValueHigh, countryCode)}
+                        </strong>
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )
-            })()}
+              </div>
+            </div>
+          )}
 
           {/* Price change indicator (below the card) */}
           {previousValuation !== null && priceChange !== 0 && (
@@ -532,156 +453,6 @@ function VersionTimelineItem({
           )}
         </div>
       </div>
-
-      {/* Collapsible Details Section - Removed expand button but keeping section for potential future use */}
-      {false && (
-        <div className="px-6 pb-6 pt-0 space-y-4 border-t border-foreground/10 mt-4">
-          {/* Valuation Breakdown */}
-          {version.valuationResult && (
-            <div className="mt-4">
-              <h4 className="text-sm font-semibold text-foreground mb-3">Valuation Details</h4>
-              <div className="grid grid-cols-2 gap-3">
-                {(() => {
-                  const baseValuation = getBaseValuation(version.valuationResult)
-                  const adjustmentsTotal = getAdjustmentsTotal(version.valuationResult)
-                  const baseValuationDisplay =
-                    baseValuation === null
-                      ? null
-                      : formatCurrency(Number(baseValuation), countryCode)
-                  const adjustmentsTotalDisplay =
-                    adjustmentsTotal === null
-                      ? null
-                      : formatCurrency(Number(adjustmentsTotal), countryCode)
-                  const adjustmentsTotalIsPositive =
-                    adjustmentsTotal === null ? false : Number(adjustmentsTotal) >= 0
-                  return (
-                    <>
-                      {baseValuationDisplay && (
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-1">Base Valuation</p>
-                          <p className="text-sm font-semibold text-foreground">
-                            {baseValuationDisplay}
-                          </p>
-                        </div>
-                      )}
-                      {adjustmentsTotalDisplay && (
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-xs text-muted-foreground mb-1">Total Adjustments</p>
-                          <p
-                            className={`text-sm font-semibold ${
-                              adjustmentsTotalIsPositive ? 'text-success' : 'text-destructive'
-                            }`}
-                          >
-                            {adjustmentsTotalIsPositive ? '+' : ''}
-                            {adjustmentsTotalDisplay}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* Key Metrics */}
-          <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3">Key Metrics</h4>
-            <div className="grid grid-cols-2 gap-3">
-              {version.formData.current_year_data?.revenue && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Revenue</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {formatCurrency(version.formData.current_year_data.revenue, countryCode)}
-                  </p>
-                </div>
-              )}
-              {version.formData.current_year_data?.ebitda !== undefined && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">EBITDA</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {formatCurrency(version.formData.current_year_data.ebitda, countryCode)}
-                  </p>
-                </div>
-              )}
-              {version.formData.number_of_employees && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Employees</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {version.formData.number_of_employees}
-                  </p>
-                </div>
-              )}
-              {version.formData.number_of_owners && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Owners</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {version.formData.number_of_owners}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Business Info */}
-          <div>
-            <h4 className="text-sm font-semibold text-foreground mb-3">Business Information</h4>
-            <div className="space-y-2 text-sm">
-              {version.formData.company_name && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Company:</span>
-                  <span className="font-medium text-foreground">
-                    {version.formData.company_name}
-                  </span>
-                </div>
-              )}
-              {version.formData.industry && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Industry:</span>
-                  <span className="font-medium text-foreground">{version.formData.industry}</span>
-                </div>
-              )}
-              {version.formData.business_type && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Business Type:</span>
-                  <span className="font-medium text-foreground">
-                    {version.formData.business_type}
-                  </span>
-                </div>
-              )}
-              {version.formData.country_code && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Country:</span>
-                  <span className="font-medium text-foreground">
-                    {version.formData.country_code}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Calculation Info */}
-          {version.calculationDuration_ms && (
-            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground">Calculation Time:</span>
-                <span className="font-semibold text-primary">
-                  {((version.calculationDuration_ms ?? 0) / 1000).toFixed(2)}s
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Initial Version Message */}
-          {!previousVersion && (
-            <div className="p-4 bg-muted border border-foreground/10 rounded-lg text-center">
-              <p className="text-sm text-muted-foreground">
-                This is the initial version. No previous version to compare against.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -705,8 +476,7 @@ export function CompactVersionSelector({
 }: CompactVersionSelectorProps) {
   if (versions.length === 0) return null
 
-  const sortedVersions = [...versions].sort((a, b) => b.versionNumber - a.versionNumber)
-  const _activeVersionData = versions.find((v) => v.versionNumber === activeVersion)
+  const sortedVersions = buildSortedTimelineVersions(versions)
 
   return (
     <div className="relative">
@@ -720,7 +490,7 @@ export function CompactVersionSelector({
           cursor-pointer hover:bg-foreground/10 transition-colors
           appearance-none
         "
-        title={`Select version (${versions.length} total)`}
+        title={`Select version (${sortedVersions.length} total)`}
       >
         {sortedVersions.map((version) => (
           <option

@@ -1,4 +1,8 @@
-import { equalWeightsFor, normalizeRemainderWeights } from '@/constants/methodFieldConfig'
+import {
+  equalWeightsFor,
+  normalizeRemainderWeights,
+  rebalanceMethodWeights,
+} from '@/constants/methodFieldConfig'
 import type { BusinessTypeSegmentInput } from '../../../types/valuation/request'
 import { computeSegmentWeightedMultiple } from './segmentWeightedMultiple'
 
@@ -101,6 +105,28 @@ export interface AdvancedAdvisorControlModel {
   years: number[]
 }
 
+export type AdvancedAdvisorFieldUpdate =
+  | {
+      field: 'historical_ebitda_weighting_mode'
+      value: WeightingMode
+    }
+  | {
+      field: 'historical_ebitda_weights'
+      value: Record<number, number> | undefined
+    }
+  | {
+      field: 'multiple_type_weights'
+      value: Record<MultipleTypeKey, number> | undefined
+    }
+  | {
+      field: 'advisor_discount_weights'
+      value: Record<AdvisorDiscountKey, number> | undefined
+    }
+  | {
+      field: 'discount_floor_factor'
+      value: number | undefined
+    }
+
 export function toFiniteNumber(value: unknown): number | null {
   if (value == null || value === '') return null
   const numeric = Number(value)
@@ -150,6 +176,80 @@ export function normalizeMultipleTypeWeights(
 
 export function sortedDistinctYears(years: number[]): number[] {
   return Array.from(new Set(years.filter((year) => Number.isFinite(year)))).sort((a, b) => a - b)
+}
+
+function numericKeyedRecord(weights: Record<string, number>): Record<number, number> {
+  return Object.fromEntries(Object.entries(weights).map(([key, value]) => [Number(key), value]))
+}
+
+export function buildHistoricalWeightUpdate({
+  rawWeights,
+  year,
+  nextValue,
+}: {
+  rawWeights: Record<string, number>
+  year: number
+  nextValue: number
+}): Record<number, number> {
+  const next = rebalanceMethodWeights(rawWeights, String(year), Math.round(nextValue))
+  return numericKeyedRecord(next)
+}
+
+export function buildEqualHistoricalWeights(yearKeys: string[]): Record<number, number> {
+  return numericKeyedRecord(equalWeightsFor(yearKeys))
+}
+
+export function buildHistoricalWeightingModeUpdates({
+  nextMode,
+  yearKeys,
+}: {
+  nextMode: WeightingMode
+  yearKeys: string[]
+}): AdvancedAdvisorFieldUpdate[] {
+  return [
+    { field: 'historical_ebitda_weighting_mode', value: nextMode },
+    {
+      field: 'historical_ebitda_weights',
+      value: nextMode === 'weighted' ? buildEqualHistoricalWeights(yearKeys) : undefined,
+    },
+  ]
+}
+
+export function buildMultipleTypeWeightUpdate({
+  multipleBlendWeights,
+  key,
+  nextValue,
+}: {
+  multipleBlendWeights: Record<MultipleTypeKey, number>
+  key: MultipleTypeKey
+  nextValue: number
+}): Record<MultipleTypeKey, number> {
+  return rebalanceMethodWeights(multipleBlendWeights, key, Math.round(nextValue)) as Record<
+    MultipleTypeKey,
+    number
+  >
+}
+
+export function buildAdvisorDiscountWeightUpdate({
+  discountWeights,
+  key,
+  nextValue,
+}: {
+  discountWeights: Record<AdvisorDiscountKey, number>
+  key: AdvisorDiscountKey
+  nextValue: number
+}): Record<AdvisorDiscountKey, number> {
+  return {
+    ...discountWeights,
+    [key]: clampDiscountWeight(nextValue),
+  }
+}
+
+export function buildResetDiscountControlUpdates(): AdvancedAdvisorFieldUpdate[] {
+  return [
+    { field: 'advisor_discount_weights', value: undefined },
+    { field: 'discount_floor_factor', value: undefined },
+  ]
 }
 
 function deriveDiscountWeights(

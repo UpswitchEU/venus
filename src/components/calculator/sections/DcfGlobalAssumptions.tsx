@@ -10,6 +10,13 @@ import { cn } from '@/design-system/utils'
 import { AcademicValidationNotice } from './AcademicValidationNotice'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import {
+  buildDcfGlobalAssumptionsSeedPatch,
+  type DcfDiscountingConvention,
+  type DcfGlobalAssumptionsVariant,
+  type DcfSeedSmartDefaults,
+  type TerminalValueMethod,
+} from './DcfGlobalAssumptionsModel'
+import {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
   DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
@@ -21,11 +28,11 @@ import {
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
-export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
-export type DcfDiscountingConvention = 'mid_year' | 'year_end'
-
-/** `full` = single block (AdaptiveSections). Embedded DCF uses `forecastDefaultsOnly` then `discountTerminalOnly` after the forecast table. */
-export type DcfGlobalAssumptionsVariant = 'full' | 'forecastDefaultsOnly' | 'discountTerminalOnly'
+export type {
+  DcfDiscountingConvention,
+  DcfGlobalAssumptionsVariant,
+  TerminalValueMethod,
+} from './DcfGlobalAssumptionsModel'
 
 interface DcfGlobalAssumptionsProps {
   step: number
@@ -71,17 +78,7 @@ interface DcfGlobalAssumptionsProps {
    * When supplied, the seed effect prefers these over the static engine fallbacks
    * so blank inputs ship the actually-defensible value to the engine, not "3%".
    */
-  smartDefaults?: {
-    revenueGrowthPct?: number
-    ebitdaMarginPct?: number
-    capexPct?: number
-    daPct?: number
-    nwcPct?: number
-    taxRatePct?: number
-    waccPct?: number
-    terminalGrowthPct?: number
-    exitMultiple?: number
-  } | null
+  smartDefaults?: DcfSeedSmartDefaults | null
   /** Integration-derived overrides (Titan/accounting pipeline). Highest priority for CapEx/D&A. */
   integrationCapexPct?: number | null
   integrationDaPct?: number | null
@@ -162,72 +159,28 @@ export function DcfGlobalAssumptions({
   // Gated by `variant` / `dcfInputMode` so we don't seed irrelevant fields.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- stable defaults; we want a one-shot seed per missing field
   useEffect(() => {
-    if (disabled) return
-    const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
-    const pick = (...sources: Array<number | null | undefined>): number | undefined => {
-      for (const s of sources) {
-        if (finite(s)) return s
-      }
-      return undefined
-    }
-    const seedIfMissing = (
-      current: number | undefined,
-      field: string,
-      value: number | undefined
-    ) => {
-      if (finite(current)) return
-      if (value === undefined) return
-      onFieldChange(field, value)
-    }
-    const inForecastBlock = variant === 'full' || variant === 'forecastDefaultsOnly'
-    const inDiscountBlock = variant === 'full' || variant === 'discountTerminalOnly'
-
-    // Forecast defaults — only seeded in EBITDA mode (FCFF-only mode reads FCFF directly).
-    if (inForecastBlock && dcfInputMode === 'ebitda') {
-      seedIfMissing(
+    const seedPatch = buildDcfGlobalAssumptionsSeedPatch({
+      disabled,
+      variant,
+      dcfInputMode,
+      terminalValueMethod,
+      currentValues: {
         dcfRevenueGrowthPct,
-        'dcf_revenue_growth_pct',
-        pick(smartDefaults?.revenueGrowthPct, DCF_DEFAULT_REVENUE_GROWTH_PCT)
-      )
-      seedIfMissing(
         dcfEbitdaMarginPct,
-        'dcf_ebitda_margin_pct',
-        pick(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT)
-      )
-      seedIfMissing(
         dcfCapexPct,
-        'dcf_capex_pct',
-        pick(integrationCapexPct, smartDefaults?.capexPct, DCF_DEFAULT_CAPEX_PCT)
-      )
-      seedIfMissing(
         dcfDaPct,
-        'dcf_da_pct',
-        pick(integrationDaPct, smartDefaults?.daPct, DCF_DEFAULT_DA_PCT)
-      )
-      seedIfMissing(dcfNwcPct, 'dcf_nwc_pct', pick(smartDefaults?.nwcPct, DCF_DEFAULT_NWC_PCT))
-      seedIfMissing(
+        dcfNwcPct,
         dcfTaxRatePct,
-        'dcf_tax_rate_pct',
-        pick(smartDefaults?.taxRatePct, DCF_DEFAULT_TAX_RATE_PCT)
-      )
-    }
-
-    // Discount + terminal — seed for both modes (FCFF-only still needs WACC + g).
-    if (inDiscountBlock) {
-      // WACC: prefer history-derived (sector-classified) over static 10%.
-      // The build-up panel computes its own value when expanded; that path
-      // takes over via WaccBreakdownPanel.useEffect (see WaccBreakdownPanel.tsx).
-      seedIfMissing(dcfWaccPct, 'dcf_wacc_pct', pick(smartDefaults?.waccPct, 10))
-      const onPerpetual = dcfInputMode === 'fcff_only' || terminalValueMethod === 'perpetual_growth'
-      if (onPerpetual) {
-        seedIfMissing(
-          dcfTerminalGrowthPct,
-          'dcf_terminal_growth_pct',
-          pick(smartDefaults?.terminalGrowthPct, DCF_DEFAULT_TERMINAL_GROWTH_PCT)
-        )
-      } else {
-        seedIfMissing(dcfExitMultiple, 'dcf_exit_multiple', pick(smartDefaults?.exitMultiple, 6))
-      }
+        dcfWaccPct,
+        dcfTerminalGrowthPct,
+        dcfExitMultiple,
+      },
+      smartDefaults,
+      integrationCapexPct,
+      integrationDaPct,
+    })
+    for (const [field, value] of Object.entries(seedPatch)) {
+      onFieldChange(field, value)
     }
   }, [
     variant,

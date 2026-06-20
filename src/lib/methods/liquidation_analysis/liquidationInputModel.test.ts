@@ -11,8 +11,10 @@ import {
 import {
   buildLiquidationAssetOverrides,
   buildLiquidationLiabilityBuckets,
+  buildLiquidationPrefillPatches,
   countPositiveLiquidationValues,
   formatLiquidationPercentDisplay,
+  monthlyRentFromAnnualRent,
   parseLiquidationPercentInput,
   readLiquidationAssetOverrideFormValues,
   readLiquidationLiabilityBucketFormValues,
@@ -68,6 +70,32 @@ describe('liquidation input model', () => {
         sourceValue: 0,
       })
     ).toBeNull()
+  })
+
+  it('builds liquidation prefill patches once from source signals', () => {
+    expect(monthlyRentFromAnnualRent(18_000)).toBe(1500)
+
+    expect(
+      buildLiquidationPrefillPatches({
+        currentValues: {
+          liqHeadcount: undefined,
+          liqMonthlyRent: undefined,
+          liqPaidUpCapital: 100_000,
+        },
+        sourceValues: {
+          prefillSourceHeadcount: 7.8,
+          prefillSourceAnnualRent: 18_000,
+          prefillSourcePaidUpCapital: 250_000,
+          prefillSourceDeferredTax: 35_000,
+        },
+        appliedFields: {
+          liq_deferred_tax: true,
+        },
+      })
+    ).toEqual([
+      { field: 'liq_headcount', value: 7 },
+      { field: 'liq_monthly_rent', value: 1500 },
+    ])
   })
 
   it('round-trips decimal percent fields through advisor-facing whole-percent text', () => {

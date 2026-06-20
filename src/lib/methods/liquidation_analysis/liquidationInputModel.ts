@@ -1,5 +1,6 @@
 import type {
   LiquidationAssetClassCode,
+  LiquidationEssentialFieldKey,
   LiquidationLiabilityBucketCode,
   LiquidationNumericFieldKey,
 } from './liquidationInputConfig'
@@ -8,6 +9,8 @@ export type LiquidationPrefillPatch = {
   field: LiquidationNumericFieldKey
   value: number
 }
+
+type LiquidationPrefillFlags = Partial<Record<LiquidationEssentialFieldKey, boolean>>
 
 export function countPositiveLiquidationValues<T extends string>(
   values: Partial<Record<T, number | undefined>> | undefined,
@@ -36,6 +39,57 @@ export function resolveLiquidationPositivePrefill({
 
   const value = transform(sourceValue)
   return Number.isFinite(value) ? { field, value } : null
+}
+
+export function monthlyRentFromAnnualRent(annualRent: number): number {
+  return Math.round((annualRent / 12) * 100) / 100
+}
+
+export function buildLiquidationPrefillPatches({
+  currentValues,
+  sourceValues,
+  appliedFields = {},
+}: {
+  currentValues: {
+    liqHeadcount?: number
+    liqMonthlyRent?: number
+    liqPaidUpCapital?: number
+    liqDeferredTax?: number
+  }
+  sourceValues: {
+    prefillSourceHeadcount?: number
+    prefillSourceAnnualRent?: number
+    prefillSourcePaidUpCapital?: number
+    prefillSourceDeferredTax?: number
+  }
+  appliedFields?: LiquidationPrefillFlags
+}): LiquidationPrefillPatch[] {
+  return [
+    resolveLiquidationPositivePrefill({
+      field: 'liq_headcount',
+      currentValue: currentValues.liqHeadcount,
+      sourceValue: sourceValues.prefillSourceHeadcount,
+      transform: Math.floor,
+    }),
+    resolveLiquidationPositivePrefill({
+      field: 'liq_monthly_rent',
+      currentValue: currentValues.liqMonthlyRent,
+      sourceValue: sourceValues.prefillSourceAnnualRent,
+      transform: monthlyRentFromAnnualRent,
+    }),
+    resolveLiquidationPositivePrefill({
+      field: 'liq_paid_up_capital',
+      currentValue: currentValues.liqPaidUpCapital,
+      sourceValue: sourceValues.prefillSourcePaidUpCapital,
+    }),
+    resolveLiquidationPositivePrefill({
+      field: 'liq_deferred_tax',
+      currentValue: currentValues.liqDeferredTax,
+      sourceValue: sourceValues.prefillSourceDeferredTax,
+    }),
+  ].filter((patch): patch is LiquidationPrefillPatch => {
+    return patch !== null && !appliedFields[patch.field as LiquidationEssentialFieldKey]
+  })
 }
 
 export function formatLiquidationPercentDisplay(value: number | undefined | null): string {

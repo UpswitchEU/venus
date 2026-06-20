@@ -40,6 +40,22 @@ function version(overrides: Partial<ValuationVersion>): ValuationVersion {
 }
 
 describe('VersionTimeline', () => {
+  it('marks the active version item', () => {
+    render(
+      <VersionTimeline
+        activeVersion={2}
+        onVersionSelect={vi.fn()}
+        versions={[
+          version({ id: 'version-2', versionLabel: 'Version 2', versionNumber: 2 }),
+          version({ id: 'version-1', versionLabel: 'Version 1', versionNumber: 1 }),
+        ]}
+      />
+    )
+
+    expect(screen.getByText('Version 2').closest('[aria-current="step"]')).toBeInTheDocument()
+    expect(screen.getByText('Version 1').closest('[aria-current="step"]')).not.toBeInTheDocument()
+  })
+
   it('does not render a fake zero valuation card for zero-only snapshots', () => {
     render(
       <VersionTimeline

@@ -3,11 +3,6 @@
 import { Info, RotateCcw, Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMemo } from 'react'
-import {
-  equalWeightsFor,
-  normalizeRemainderWeights,
-  rebalanceMethodWeights,
-} from '@/constants/methodFieldConfig'
 import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraFormAlert } from '@/design-system/components/FormSection'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
@@ -20,8 +15,13 @@ import {
   ADVISOR_DISCOUNT_ROWS,
   type AdvisorDefaultAppliedField,
   type AdvisorDiscountKey,
+  buildAdvisorDiscountWeightUpdate,
+  buildEqualHistoricalWeights,
+  buildHistoricalWeightingModeUpdates,
+  buildHistoricalWeightUpdate,
+  buildMultipleTypeWeightUpdate,
+  buildResetDiscountControlUpdates,
   clampDiscountFloorFactor,
-  clampDiscountWeight,
   deriveAdvancedAdvisorControlModel,
   MULTIPLE_TYPE_ROWS,
   type MultipleTypeKey,
@@ -185,34 +185,23 @@ export function AdvancedAdvisorControlsSection({
   }
 
   const updateWeight = (year: number, nextValue: number) => {
-    const next = rebalanceMethodWeights(rawWeights, String(year), Math.round(nextValue))
-    onFieldChange(
-      'historical_ebitda_weights',
-      Object.fromEntries(Object.entries(next).map(([key, value]) => [Number(key), value]))
-    )
+    onFieldChange('historical_ebitda_weights', buildHistoricalWeightUpdate({ rawWeights, year, nextValue }))
   }
 
   const resetWeights = () => {
-    const next = equalWeightsFor(yearKeys)
-    onFieldChange(
-      'historical_ebitda_weights',
-      Object.fromEntries(Object.entries(next).map(([key, value]) => [Number(key), value]))
-    )
+    onFieldChange('historical_ebitda_weights', buildEqualHistoricalWeights(yearKeys))
   }
 
   const switchWeightingMode = (nextMode: WeightingMode) => {
-    onFieldChange('historical_ebitda_weighting_mode', nextMode)
-    if (nextMode === 'weighted') {
-      resetWeights()
-    } else {
-      onFieldChange('historical_ebitda_weights', undefined)
+    for (const update of buildHistoricalWeightingModeUpdates({ nextMode, yearKeys })) {
+      onFieldChange(update.field, update.value)
     }
   }
 
   const updateMultipleTypeWeight = (key: MultipleTypeKey, nextValue: number) => {
     onFieldChange(
       'multiple_type_weights',
-      rebalanceMethodWeights(multipleBlendWeights, key, Math.round(nextValue))
+      buildMultipleTypeWeightUpdate({ multipleBlendWeights, key, nextValue })
     )
   }
 
@@ -221,15 +210,16 @@ export function AdvancedAdvisorControlsSection({
   }
 
   const updateDiscountWeight = (key: AdvisorDiscountKey, nextValue: number) => {
-    onFieldChange('advisor_discount_weights', {
-      ...discountWeights,
-      [key]: clampDiscountWeight(nextValue),
-    })
+    onFieldChange(
+      'advisor_discount_weights',
+      buildAdvisorDiscountWeightUpdate({ discountWeights, key, nextValue })
+    )
   }
 
   const resetDiscountControls = () => {
-    onFieldChange('advisor_discount_weights', undefined)
-    onFieldChange('discount_floor_factor', undefined)
+    for (const update of buildResetDiscountControlUpdates()) {
+      onFieldChange(update.field, update.value)
+    }
   }
 
   // AuroraFormAlert type='info' is the DS-canonical place for this kind
