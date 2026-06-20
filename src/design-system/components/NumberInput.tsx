@@ -12,10 +12,11 @@
  */
 
 import { cva } from 'class-variance-authority'
-import { motion } from 'framer-motion'
 import { ChevronDown, ChevronUp, Info } from 'lucide-react'
 import * as React from 'react'
 import { cn } from '../../lib/utils'
+import { deriveFieldVisualState, getFieldErrorId, hasVisibleFieldError } from './Input.fieldState'
+import { InputFeedback } from './InputFeedback'
 
 // ─────────────────────────────────────────
 // STYLE VARIANTS
@@ -29,6 +30,7 @@ const inputGroupVariants = cva(
         default: 'border-foreground/[0.10] hover:border-foreground/[0.20]',
         focus: 'border-primary ring-2 ring-primary/20 ring-offset-0',
         error: 'border-destructive',
+        success: 'border-primary',
         disabled: 'border-foreground/[0.05] opacity-60 cursor-not-allowed',
       },
     },
@@ -110,10 +112,11 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
 
     React.useImperativeHandle(ref, () => actualRef.current as HTMLInputElement)
 
-    const hasError = error && touched
+    const hasError = hasVisibleFieldError(error, touched)
     const hasValue = value !== '' && value !== undefined && value !== null
 
-    const state = disabled ? 'disabled' : hasError ? 'error' : isFocused ? 'focus' : 'default'
+    const state = deriveFieldVisualState({ disabled, hasError, isFocused })
+    const errorId = getFieldErrorId(name)
 
     const isFloated = isFocused || hasValue
 
@@ -251,6 +254,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
             )}
             aria-invalid={Boolean(hasError)}
             aria-required={required}
+            aria-describedby={hasError ? errorId : undefined}
           />
 
           {/* Floating Label */}
@@ -320,18 +324,13 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
           </div>
         </div>
 
-        {/* Help Text (below) */}
-        {helpText && helpTextPlacement === 'below' && !hasError && (
-          <p className="text-xs text-foreground/50 mt-2 leading-relaxed">{helpText}</p>
-        )}
-
-        {/* Error Message */}
-        {hasError && (
-          <p className="mt-1 text-sm text-destructive flex items-start gap-1.5" role="alert">
-            <span className="w-1 h-1 rounded-full bg-destructive inline-block mt-1.5 flex-shrink-0" />
-            <span>{error}</span>
-          </p>
-        )}
+        <InputFeedback
+          error={error}
+          errorId={errorId}
+          hasError={hasError}
+          helpText={helpText}
+          helpTextPlacement={helpTextPlacement}
+        />
       </div>
     )
   }

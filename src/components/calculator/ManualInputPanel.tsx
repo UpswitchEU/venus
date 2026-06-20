@@ -47,10 +47,7 @@ import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
 import { realEstateCarveOutAppliesTo } from '../../utils/realEstateCarveOutDisplay'
 import { isYearRowForecast } from '../../utils/yearData'
-import {
-  getLatestCompleteYearlyFinancial,
-  hasExplicitNumericValue as hasExplicitFinancialValue,
-} from '../../utils/yearlyFinancials'
+import { getLatestCompleteYearlyFinancial } from '../../utils/yearlyFinancials'
 import type { FieldHelpContext } from './FieldHelpTrigger'
 import { useApplyAdvisorValuationDefaults } from './hooks/useApplyAdvisorValuationDefaults'
 import { useManualAccountingImportController } from './hooks/useManualAccountingImportController'
@@ -83,6 +80,7 @@ import {
 import { buildManualInputFieldValidation } from './utils/manualInputFieldValidation'
 import { buildManualInputInitialFormData } from './utils/manualInputInitialFormData'
 import { buildManualInputNormalizedData } from './utils/manualInputNormalizedData'
+import { deriveManualInputReadiness } from './utils/manualInputReadiness'
 import { buildManualInputSubmitPayload } from './utils/manualInputSubmitPayload'
 
 // Types — `ManualValuationFormData` = `Partial<` canonical `ValuationFormData` + `ManualValuationFormUiBase` (`src/types/valuation.ts`)
@@ -176,10 +174,6 @@ export function ManualInputPanel({
   const { currency: panelCurrencyFormatter } = useManualPreviewFormatters()
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const hasExplicitNumericValue = useCallback(
-    (value: unknown) => hasExplicitFinancialValue(value),
-    []
-  )
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
 
   const formatCurrency = useCallback(
@@ -543,23 +537,22 @@ export function ManualInputPanel({
     [onCSVImportComplete]
   )
 
-  // Check if core fields are filled
-  const hasCompanyInfo = !!selectedCompany || formData.companyName.length > 0
-  const hasBusinessTypeSegment = (formData.business_type_segments ?? []).some((segment) =>
-    Boolean(segment.business_type_id?.trim())
-  )
-  const hasBusinessType =
-    !!selectedBusinessType ||
-    formData.businessType.length > 0 ||
-    !!resolvedBusinessTypeIdForBonusSections ||
-    hasBusinessTypeSegment
-  const hasFinancials = !!latestCompleteYearlyFinancial
-  const hasEbitdaValue = formData.yearlyFinancials.some((yf) => hasExplicitNumericValue(yf.ebitda))
-  const totalYearsWithEbitda = formData.yearlyFinancials.filter((yf) =>
-    hasExplicitNumericValue(yf.ebitda)
-  ).length
   const { canSave, reason: canSaveReason } = useCanSave()
-  const canSubmit = hasCompanyInfo && hasBusinessType && hasFinancials && canSave
+  const {
+    canSubmit,
+    hasBusinessType,
+    hasCompanyInfo,
+    hasEbitdaValue,
+    hasFinancials,
+    totalYearsWithEbitda,
+  } = deriveManualInputReadiness({
+    canSave,
+    formData,
+    hasSelectedBusinessType: Boolean(selectedBusinessType),
+    hasSelectedCompany: Boolean(selectedCompany),
+    latestCompleteYearlyFinancial,
+    resolvedBusinessTypeId: resolvedBusinessTypeIdForBonusSections,
+  })
 
   // Round-4 audit: `selectedBelgianAuditEntries` was used to drive the
   // BelgianSmeAuditPanel mount in this component. That panel was

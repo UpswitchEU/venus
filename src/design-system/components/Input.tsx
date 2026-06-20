@@ -12,6 +12,14 @@ import { motion } from 'framer-motion'
 import { CircleCheck, CircleX, Eye, EyeOff, Search, X } from 'lucide-react'
 import * as React from 'react'
 import { cn } from '../../lib/utils'
+import {
+  deriveFieldVisualState,
+  deriveHasFieldValue,
+  getFieldErrorId,
+  hasVisibleFieldError,
+  useFieldErrorShake,
+} from './Input.fieldState'
+import { InputFeedback } from './InputFeedback'
 
 // ─────────────────────────────────────────
 // ANIMATION VARIANTS
@@ -267,7 +275,6 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
   ) => {
     const [isFocused, setIsFocused] = React.useState(false)
     const [hasValue, setHasValue] = React.useState(false)
-    const [shouldShake, setShouldShake] = React.useState(false)
     const internalRef = React.useRef<HTMLInputElement>(null)
 
     // Use inputRef or internal ref
@@ -278,24 +285,14 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
 
     // Sync hasValue with actual input value on mount and when value/defaultValue changes
     React.useEffect(() => {
-      // Check controlled value first, then fall back to DOM value
-      if (value !== undefined) {
-        setHasValue(Boolean(value))
-      } else if (actualRef.current) {
-        setHasValue(Boolean(actualRef.current.value))
-      } else if (defaultValue !== undefined) {
-        setHasValue(Boolean(defaultValue))
-      }
+      setHasValue(
+        deriveHasFieldValue({
+          value,
+          defaultValue,
+          elementValue: actualRef.current?.value,
+        })
+      )
     }, [value, defaultValue, actualRef])
-
-    // Trigger shake on error
-    React.useEffect(() => {
-      if (error && touched) {
-        setShouldShake(true)
-        const timer = setTimeout(() => setShouldShake(false), 500)
-        return () => clearTimeout(timer)
-      }
-    }, [error, touched])
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true)
@@ -317,17 +314,11 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
       }
     }
 
-    const hasError = error && touched
-
-    const state = disabled
-      ? 'disabled'
-      : hasError
-        ? 'error'
-        : success
-          ? 'success'
-          : isFocused
-            ? 'focus'
-            : 'default'
+    const hasError = hasVisibleFieldError(error, touched)
+    const state = deriveFieldVisualState({ disabled, hasError, isFocused, success })
+    const shouldShake = useFieldErrorShake(hasError)
+    const fieldId = props.id || props.name
+    const errorId = getFieldErrorId(fieldId)
 
     const shouldTruncateLabel = truncateLabel
     /**
@@ -419,7 +410,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
             onBlur={handleBlur}
             aria-invalid={Boolean(hasError)}
             aria-required={required}
-            aria-describedby={hasError ? `${props.id || props.name}-error` : undefined}
+            aria-describedby={hasError ? errorId : undefined}
             placeholder={
               // Floating-label mode relies on the placeholder being a single
               // whitespace so the label can float when empty. Stacked mode
@@ -478,23 +469,13 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
         {/* Description */}
         {description && <p className="mt-1.5 text-xs text-foreground/50">{description}</p>}
 
-        {/* Help Text (below) */}
-        {helpText && helpTextPlacement === 'below' && !hasError && (
-          <p className="text-xs text-foreground/50 mt-2 leading-relaxed">{helpText}</p>
-        )}
-
-        {/* Error Message */}
-        {hasError && (
-          <p
-            className="mt-1 text-sm text-destructive flex items-start gap-1.5"
-            id={`${props.id || props.name}-error`}
-            role="alert"
-            aria-live="polite"
-          >
-            <span className="w-1 h-1 rounded-full bg-destructive inline-block mt-1.5 flex-shrink-0" />
-            <span>{error}</span>
-          </p>
-        )}
+        <InputFeedback
+          error={error}
+          errorId={errorId}
+          hasError={hasError}
+          helpText={helpText}
+          helpTextPlacement={helpTextPlacement}
+        />
       </div>
     )
   }
@@ -588,29 +569,20 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ) => {
     const [isFocused, setIsFocused] = React.useState(false)
     const [hasValue, setHasValue] = React.useState(false)
-    const [shouldShake, setShouldShake] = React.useState(false)
     const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
     React.useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement)
 
     // Sync hasValue with actual textarea value on mount and when value/defaultValue changes
     React.useEffect(() => {
-      if (value !== undefined) {
-        setHasValue(Boolean(value))
-      } else if (textareaRef.current) {
-        setHasValue(Boolean(textareaRef.current.value))
-      } else if (defaultValue !== undefined) {
-        setHasValue(Boolean(defaultValue))
-      }
+      setHasValue(
+        deriveHasFieldValue({
+          value,
+          defaultValue,
+          elementValue: textareaRef.current?.value,
+        })
+      )
     }, [value, defaultValue])
-
-    React.useEffect(() => {
-      if (error && touched) {
-        setShouldShake(true)
-        const timer = setTimeout(() => setShouldShake(false), 500)
-        return () => clearTimeout(timer)
-      }
-    }, [error, touched])
 
     const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
       setIsFocused(true)
@@ -632,17 +604,11 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       onChange?.(e)
     }
 
-    const hasError = error && touched
-
-    const state = disabled
-      ? 'disabled'
-      : hasError
-        ? 'error'
-        : success
-          ? 'success'
-          : isFocused
-            ? 'focus'
-            : 'default'
+    const hasError = hasVisibleFieldError(error, touched)
+    const state = deriveFieldVisualState({ disabled, hasError, isFocused, success })
+    const shouldShake = useFieldErrorShake(hasError)
+    const fieldId = props.id || props.name
+    const errorId = getFieldErrorId(fieldId)
 
     const isFloated = isFocused || hasValue
 
@@ -679,7 +645,7 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             onChange={handleChange}
             aria-invalid={Boolean(hasError)}
             aria-required={required}
-            aria-describedby={hasError ? `${props.id || props.name}-error` : undefined}
+            aria-describedby={hasError ? errorId : undefined}
             placeholder=" "
             {...props}
           />
@@ -711,23 +677,13 @@ const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           )}
         </motion.div>
 
-        {/* Help Text */}
-        {helpText && helpTextPlacement === 'below' && !hasError && (
-          <p className="text-xs text-foreground/50 mt-2 leading-relaxed">{helpText}</p>
-        )}
-
-        {/* Error Message */}
-        {hasError && (
-          <p
-            className="mt-1 text-sm text-destructive flex items-start gap-1.5"
-            id={`${props.id || props.name}-error`}
-            role="alert"
-            aria-live="polite"
-          >
-            <span className="w-1 h-1 rounded-full bg-destructive inline-block mt-1.5 flex-shrink-0" />
-            <span>{error}</span>
-          </p>
-        )}
+        <InputFeedback
+          error={error}
+          errorId={errorId}
+          hasError={hasError}
+          helpText={helpText}
+          helpTextPlacement={helpTextPlacement}
+        />
       </div>
     )
   }

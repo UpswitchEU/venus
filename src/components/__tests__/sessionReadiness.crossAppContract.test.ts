@@ -465,11 +465,14 @@ describe('sessionReadiness Mercury report URL contract', () => {
   })
 
   it('SessionBootstrapService sends partial delegated headers (accountant + relationship)', () => {
-    const path = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/hasPartialDelegatedHeaderSet/)
-    expect(source).toMatch(/hasFullDelegatedHeaderSet \|\| hasPartialDelegatedHeaderSet/)
-    expect(source).not.toMatch(
+    const policyPath = join(__dirname, '../../lib/bootstrap/TitanBootstrapRequestPolicy.ts')
+    const servicePath = join(__dirname, '../../lib/bootstrap/SessionBootstrapService.ts')
+    const policySource = readFileSync(policyPath, 'utf8')
+    const serviceSource = readFileSync(servicePath, 'utf8')
+    expect(policySource).toMatch(/partialDelegated/)
+    expect(policySource).toMatch(/hasFullDelegatedHeaderSet \|\| partialDelegated/)
+    expect(serviceSource).toMatch(/partialDelegated: titanRequest\.partialDelegated/)
+    expect(serviceSource).not.toMatch(
       /Partial client context in store - skipping delegated headers for bootstrap/
     )
   })

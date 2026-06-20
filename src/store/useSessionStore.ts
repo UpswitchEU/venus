@@ -24,6 +24,7 @@ import type { ISessionEngine, SessionDataRecord } from '../services/session/Sess
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
+import { deriveMarkSavedState, deriveMarkUnsavedState } from './useSessionStore.dirtyState'
 import {
   asSessionDataRecord,
   buildNoEngineHydratedSession,
@@ -576,14 +577,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       // ✅ FIX: Update state AFTER callback is invoked
       // This ensures the ref still has the "before save" value when callback reads it
-      const latestState = get()
-      const hasNewLocalChanges = latestState.dirtyVersion !== saveStartDirtyVersion
-      set({
-        isSaving: false,
-        hasUnsavedChanges: hasNewLocalChanges ? latestState.hasUnsavedChanges : false,
-        lastSaved: new Date(),
-        errorMessage: null,
-      })
+      set((current) => deriveMarkSavedState(current, saveStartDirtyVersion))
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save session'
 
@@ -720,16 +714,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    */
   markSaved: (expectedDirtyVersion?: number) => {
     set((current) => {
-      const hasNewerChanges =
-        expectedDirtyVersion !== undefined && current.dirtyVersion !== expectedDirtyVersion
-
-      return {
-        hasUnsavedChanges: hasNewerChanges ? current.hasUnsavedChanges : false,
-        lastSaved: new Date(),
-        isSaving: false,
-        errorMessage: null,
-        dirtyVersion: current.dirtyVersion,
-      }
+      return deriveMarkSavedState(current, expectedDirtyVersion)
     })
 
     storeLogger.debug('[Session] Marked as saved')
@@ -739,9 +724,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    * Mark session as having unsaved changes
    */
   markUnsaved: () => {
-    set({
-      hasUnsavedChanges: true,
-      dirtyVersion: get().dirtyVersion + 1,
-    })
+    set(deriveMarkUnsavedState(get()))
   },
 }))
