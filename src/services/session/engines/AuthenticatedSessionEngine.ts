@@ -497,15 +497,12 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   /**
    * Update session (backend + local state)
    *
-   * BOOTSTRAP FIX: Handles the case where session is being set for the first time
-   * during bootstrap flow (when no loadSession was called because it's a new report).
-   *
-   * BANK-GRADE: Queues updates during async loadSession to prevent race conditions.
+   * Handles bootstrap initialization when no loadSession call was needed, and
+   * queues local updates while an active load is still resolving.
    */
   updateSession(updates: Partial<ValuationSession>): void {
     // Handle case where session is being set for the first time (bootstrap flow)
     if (!this.currentSession) {
-      // BANK-GRADE: If we're currently loading, queue the update
       if (this.loadingPromise && this.loadingReportId) {
         generalLogger.debug('[AuthenticatedSessionEngine] Queueing update during load', {
           loadingReportId: this.loadingReportId.substring(0, 30),
@@ -548,7 +545,6 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         return
       }
 
-      // BANK-GRADE: Downgrade from error to debug - this is often non-critical
       // (e.g., prefill trying to update before session is ready)
       generalLogger.debug(
         '[AuthenticatedSessionEngine] Skipping update - no current session and no reportId in updates',
@@ -589,7 +585,6 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
 
     if (!this.currentSession) {
-      // BANK-GRADE: Downgrade from warn to debug for non-critical cases
       generalLogger.debug('[AuthenticatedSessionEngine] Skipping save - no current session', {
         reason,
       })

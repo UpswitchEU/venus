@@ -6,7 +6,7 @@
  * @module utils/__tests__/idempotencyKeys.test
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   generateIdempotencyKey,
   IdempotencyKeyManager,
@@ -15,6 +15,10 @@ import {
 } from '../idempotencyKeys'
 
 describe('idempotencyKeys', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   describe('generateIdempotencyKey', () => {
     it('should generate key with correct format', () => {
       const key = generateIdempotencyKey('val_123', 'create')
@@ -62,6 +66,16 @@ describe('idempotencyKeys', () => {
       expect(parseIdempotencyKey('too-short')).toBeNull()
       expect(parseIdempotencyKey('val_123-create-notanumber')).toBeNull()
     })
+
+    it('should parse new keys even when the nonce is all digits', () => {
+      const parsed = parseIdempotencyKey('val_123-create-1765751234567-1234567890')
+
+      expect(parsed).toEqual({
+        reportId: 'val_123',
+        operation: 'create',
+        timestamp: 1765751234567,
+      })
+    })
   })
 
   describe('isIdempotencyKeyExpired', () => {
@@ -86,7 +100,6 @@ describe('idempotencyKeys', () => {
       expect(isIdempotencyKeyExpired(key, 1)).toBe(false)
       vi.setSystemTime(base + 100)
       expect(isIdempotencyKeyExpired(key, 0.00001)).toBe(true) // Very short expiry
-      vi.useRealTimers()
     })
 
     it('should return true for invalid key', () => {

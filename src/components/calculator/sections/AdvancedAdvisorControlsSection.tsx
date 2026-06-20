@@ -16,22 +16,19 @@ import { Slider } from '@/design-system/components/Slider'
 import { Switch } from '@/design-system/components/Switch'
 import type { BusinessTypeSegmentInput } from '../../../types/valuation/request'
 import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
-import { computeSegmentWeightedMultiple } from './segmentWeightedMultiple'
+import {
+  ADVISOR_DISCOUNT_ROWS,
+  type AdvisorDefaultAppliedField,
+  type AdvisorDiscountKey,
+  clampDiscountFloorFactor,
+  clampDiscountWeight,
+  deriveAdvancedAdvisorControlModel,
+  MULTIPLE_TYPE_ROWS,
+  type MultipleTypeKey,
+  toFiniteNumber,
+  type WeightingMode,
+} from './advancedAdvisorControlsModel'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
-
-type WeightingMode = 'standard' | 'weighted'
-type MultipleTypeKey = 'ev_ebitda' | 'ev_revenue' | 'pe'
-type AdvisorDiscountKey =
-  | 'size_discount'
-  | 'liquidity_discount'
-  | 'country_adjustment'
-  | 'growth_premium'
-  | 'owner_concentration'
-
-type AdvisorDefaultAppliedField =
-  | 'multiple_calibration_adjustment'
-  | 'historical_ebitda_weighting_mode'
-  | 'show_enterprise_to_equity_bridge'
 
 export interface AdvancedAdvisorControlsSectionProps {
   step: string | number
@@ -76,78 +73,6 @@ export interface AdvancedAdvisorControlsSectionProps {
   disabled?: boolean
 }
 
-const ADVISOR_DISCOUNT_ROWS: Array<{
-  key: AdvisorDiscountKey
-  labelKey: string
-}> = [
-  { key: 'size_discount', labelKey: 'sizeDiscount' },
-  { key: 'liquidity_discount', labelKey: 'liquidityDiscount' },
-  { key: 'country_adjustment', labelKey: 'countryAdjustment' },
-  { key: 'growth_premium', labelKey: 'growthPremium' },
-  { key: 'owner_concentration', labelKey: 'ownerConcentration' },
-]
-
-const MULTIPLE_TYPE_ROWS: Array<{
-  key: MultipleTypeKey
-  labelKey: string
-  defaultWeight: number
-}> = [
-  { key: 'ev_ebitda', labelKey: 'evEbitdaBlend', defaultWeight: 60 },
-  { key: 'ev_revenue', labelKey: 'evRevenueBlend', defaultWeight: 30 },
-  { key: 'pe', labelKey: 'peBlend', defaultWeight: 10 },
-]
-
-function clampDiscountWeight(value: unknown): number {
-  const numeric = toFiniteNumber(value)
-  if (numeric == null) return 1
-  return Math.min(2, Math.max(0, Math.round(numeric * 100) / 100))
-}
-
-function clampDiscountFloorFactor(value: unknown): number {
-  const numeric = toFiniteNumber(value)
-  if (numeric == null) return 0.45
-  return Math.min(1, Math.max(0, Math.round(numeric * 100) / 100))
-}
-
-function normalizeMultipleTypeWeight(value: unknown, fallback: number): number {
-  const numeric = toFiniteNumber(value)
-  if (numeric == null) return fallback
-  const percent = Math.abs(numeric) <= 1.5 ? numeric * 100 : numeric
-  return Math.min(100, Math.max(0, Math.round(percent)))
-}
-
-function normalizeMultipleTypeWeights(
-  weights: Record<string, number> | undefined
-): Record<MultipleTypeKey, number> {
-  const hasAdvisorWeights = !!weights && Object.keys(weights).length > 0
-  const raw: Record<MultipleTypeKey, number> = {
-    ev_ebitda: normalizeMultipleTypeWeight(weights?.ev_ebitda, hasAdvisorWeights ? 0 : 60),
-    ev_revenue: normalizeMultipleTypeWeight(weights?.ev_revenue, hasAdvisorWeights ? 0 : 30),
-    pe: normalizeMultipleTypeWeight(weights?.pe, hasAdvisorWeights ? 0 : 10),
-  }
-  const total = raw.ev_ebitda + raw.ev_revenue + raw.pe
-  if (total === 100) return raw
-  if (total <= 0) return { ev_ebitda: 60, ev_revenue: 30, pe: 10 }
-
-  const evEbitda = Math.round((raw.ev_ebitda / total) * 100)
-  const evRevenue = Math.round((raw.ev_revenue / total) * 100)
-  return {
-    ev_ebitda: evEbitda,
-    ev_revenue: evRevenue,
-    pe: Math.max(0, 100 - evEbitda - evRevenue),
-  }
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (value == null || value === '') return null
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : null
-}
-
-function sortedDistinctYears(years: number[]): number[] {
-  return Array.from(new Set(years.filter((year) => Number.isFinite(year)))).sort((a, b) => a - b)
-}
-
 export function AdvancedAdvisorControlsSection({
   step,
   sectorAverageMultiple,
@@ -179,73 +104,62 @@ export function AdvancedAdvisorControlsSection({
     ? `${mercuryAppOrigin}/${locale}/advisor/settings?tab=valuation`
     : null
 
-  const years = useMemo(() => sortedDistinctYears(historicalYears).slice(-5), [historicalYears])
-  const yearKeys = useMemo(() => years.map(String), [years])
-  const mode = historicalEbitdaWeightingMode ?? 'standard'
-  const canWeight = years.length >= 3
-  const multipleBlendWeights = useMemo(
-    () => normalizeMultipleTypeWeights(multipleTypeWeights),
-    [multipleTypeWeights]
+  const advisorControlModel = useMemo(
+    () =>
+      deriveAdvancedAdvisorControlModel({
+        advisorDiscountWeights,
+        businessTypeSegments,
+        discountFloorFactor,
+        effectiveMultipleOverride,
+        effectiveMultipleOverrideNote,
+        historicalEbitdaWeights,
+        historicalEbitdaWeightingMode,
+        historicalYears,
+        multipleCalibrationAdjustment,
+        multipleCalibrationNote,
+        multipleTypeWeights,
+        previewEbitda,
+        riskAnalysisEnabled,
+        sectorAverageMultiple,
+      }),
+    [
+      advisorDiscountWeights,
+      businessTypeSegments,
+      discountFloorFactor,
+      effectiveMultipleOverride,
+      effectiveMultipleOverrideNote,
+      historicalEbitdaWeights,
+      historicalEbitdaWeightingMode,
+      historicalYears,
+      multipleCalibrationAdjustment,
+      multipleCalibrationNote,
+      multipleTypeWeights,
+      previewEbitda,
+      riskAnalysisEnabled,
+      sectorAverageMultiple,
+    ]
   )
-  const riskEnabled = riskAnalysisEnabled ?? true
-  const floorFactor = clampDiscountFloorFactor(discountFloorFactor)
-  const discountWeights = useMemo(() => {
-    const out: Record<AdvisorDiscountKey, number> = {
-      size_discount: 1,
-      liquidity_discount: 1,
-      country_adjustment: 1,
-      growth_premium: 1,
-      owner_concentration: 1,
-    }
-    for (const row of ADVISOR_DISCOUNT_ROWS) {
-      out[row.key] = clampDiscountWeight(advisorDiscountWeights?.[row.key])
-    }
-    return out
-  }, [advisorDiscountWeights])
-  const rawWeights = useMemo(() => {
-    const out: Record<string, number> = {}
-    const fallback = equalWeightsFor(yearKeys)
-    for (const year of years) {
-      const existing = historicalEbitdaWeights?.[year]
-      out[String(year)] = Number.isFinite(Number(existing))
-        ? Number(existing)
-        : fallback[String(year)]
-    }
-    return normalizeRemainderWeights(yearKeys, out)
-  }, [yearKeys, years, historicalEbitdaWeights])
-
-  const adjustment = multipleCalibrationAdjustment ?? 0
-  const calibratedMultiple =
-    sectorAverageMultiple != null && Number.isFinite(sectorAverageMultiple)
-      ? sectorAverageMultiple + adjustment
-      : null
-  const previewBaselineMultiple =
-    sectorAverageMultiple != null &&
-    Number.isFinite(sectorAverageMultiple) &&
-    sectorAverageMultiple > 0
-      ? sectorAverageMultiple
-      : null
-  const segmentWeightedMultiple = useMemo(
-    () => computeSegmentWeightedMultiple(businessTypeSegments),
-    [businessTypeSegments]
-  )
-  const hasSegmentBlend = segmentWeightedMultiple != null
-  const previewEffectiveMultiple = (() => {
-    const explicitOverride = toFiniteNumber(effectiveMultipleOverride)
-    if (explicitOverride != null && explicitOverride > 0) return explicitOverride
-    // A true SOTP blend (≥2 weighted segments) is the effective multiple the
-    // engine will apply; surface it so per-segment weight changes move the
-    // before→after immediately. Calibration premium still rides on top.
-    if (segmentWeightedMultiple != null) {
-      return adjustment !== 0 ? segmentWeightedMultiple + adjustment : segmentWeightedMultiple
-    }
-    if (calibratedMultiple != null && calibratedMultiple > 0) return calibratedMultiple
-    return null
-  })()
-  const previewEbitdaBasis = (() => {
-    const numeric = toFiniteNumber(previewEbitda)
-    return numeric != null && numeric > 0 ? numeric : null
-  })()
+  const {
+    activePreviewChangeKeys,
+    adjustment,
+    calibratedMultiple,
+    canWeight,
+    complete,
+    discountWeights,
+    floorFactor,
+    livePreview,
+    mode,
+    multipleBlendWeights,
+    noteComplete,
+    previewEbitdaBasis,
+    rawWeights,
+    requiresCalibrationNote,
+    requiresEffectiveOverrideNote,
+    effectiveOverrideNoteComplete,
+    riskEnabled,
+    yearKeys,
+    years,
+  } = advisorControlModel
   const previewCurrency = previewCurrencyFormatter?.resolvedOptions().currency ?? 'EUR'
   const fallbackCurrencyFormatter = useMemo(
     () =>
@@ -265,70 +179,10 @@ export function AdvancedAdvisorControlsSection({
       }),
     [locale]
   )
-  const livePreview = (() => {
-    if (
-      previewBaselineMultiple == null ||
-      previewEffectiveMultiple == null ||
-      previewEbitdaBasis == null
-    ) {
-      return null
-    }
-    const beforeValue = previewBaselineMultiple * previewEbitdaBasis
-    const afterValue = previewEffectiveMultiple * previewEbitdaBasis
-    const deltaValue = afterValue - beforeValue
-    const deltaPercent = beforeValue === 0 ? null : (deltaValue / beforeValue) * 100
-    const maxValue = Math.max(Math.abs(beforeValue), Math.abs(afterValue), 1)
-
-    return {
-      afterMultiple: previewEffectiveMultiple,
-      afterValue,
-      afterWidth: `${Math.max(8, Math.min(100, (Math.abs(afterValue) / maxValue) * 100))}%`,
-      beforeMultiple: previewBaselineMultiple,
-      beforeValue,
-      beforeWidth: `${Math.max(8, Math.min(100, (Math.abs(beforeValue) / maxValue) * 100))}%`,
-      deltaPercent,
-      deltaValue,
-    }
-  })()
-  const activePreviewChanges = useMemo(() => {
-    const changes: string[] = []
-    if (adjustment !== 0) changes.push(t('livePreviewMultiplePremium'))
-    if (effectiveMultipleOverride != null) changes.push(t('livePreviewEffectiveOverride'))
-    if (hasSegmentBlend) changes.push(t('livePreviewSegmentWeights'))
-    if (MULTIPLE_TYPE_ROWS.some((row) => multipleBlendWeights[row.key] !== row.defaultWeight)) {
-      changes.push(t('livePreviewMultipleBlend'))
-    }
-    if (!riskEnabled) changes.push(t('livePreviewRiskOff'))
-    if (ADVISOR_DISCOUNT_ROWS.some((row) => discountWeights[row.key] !== 1)) {
-      changes.push(t('livePreviewDiscountWeights'))
-    }
-    if (floorFactor !== 0.45) changes.push(t('livePreviewDiscountFloor'))
-    if (mode === 'weighted') changes.push(t('livePreviewHistoricalWeights'))
-    return changes
-  }, [
-    adjustment,
-    discountWeights,
-    effectiveMultipleOverride,
-    floorFactor,
-    hasSegmentBlend,
-    mode,
-    multipleBlendWeights,
-    riskEnabled,
-    t,
-  ])
   const formatSignedCurrency = (value: number) => {
     if (value > 0) return `+${currencyFormatter.format(value)}`
     return currencyFormatter.format(value)
   }
-  const requiresCalibrationNote = adjustment !== 0
-  const noteComplete = !requiresCalibrationNote || Boolean(multipleCalibrationNote?.trim())
-  const requiresEffectiveOverrideNote = effectiveMultipleOverride != null
-  const effectiveOverrideNoteComplete =
-    !requiresEffectiveOverrideNote || Boolean(effectiveMultipleOverrideNote?.trim())
-  const complete =
-    noteComplete &&
-    effectiveOverrideNoteComplete &&
-    (mode !== 'weighted' || !canWeight || years.length >= 3)
 
   const updateWeight = (year: number, nextValue: number) => {
     const next = rebalanceMethodWeights(rawWeights, String(year), Math.round(nextValue))
@@ -488,14 +342,14 @@ export function AdvancedAdvisorControlsSection({
               </div>
             </div>
 
-            {activePreviewChanges.length > 0 && (
+            {activePreviewChangeKeys.length > 0 && (
               <div className="flex flex-wrap gap-1.5" data-testid="advisor-controls-active-changes">
-                {activePreviewChanges.map((change) => (
+                {activePreviewChangeKeys.map((changeKey) => (
                   <span
-                    key={change}
+                    key={changeKey}
                     className="rounded-md border border-primary/15 bg-background/60 px-2 py-1 text-[10px] font-medium text-foreground/65"
                   >
-                    {change}
+                    {t(changeKey)}
                   </span>
                 ))}
               </div>

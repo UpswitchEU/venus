@@ -10,10 +10,12 @@
 import { storeLogger } from './logger'
 import { createRandomToken } from './secureRandom'
 
+const NONCE_PREFIX = 'n'
+
 /**
  * Generate idempotency key for operation
  *
- * Format: {reportId}-{operation}-{timestamp}
+ * Format: {reportId}-{operation}-{timestamp}-{nonce}
  *
  * Idempotency keys allow:
  * - Safe retries after network failures
@@ -32,7 +34,7 @@ import { createRandomToken } from './secureRandom'
  * @example
  * ```typescript
  * const key = generateIdempotencyKey('val_123', 'create')
- * // Returns: "val_123-create-1765751234567"
+ * // Returns: "val_123-create-1765751234567-nabc123def0"
  *
  * await fetch('/api/sessions', {
  *   method: 'POST',
@@ -54,7 +56,7 @@ import { createRandomToken } from './secureRandom'
  */
 export function generateIdempotencyKey(reportId: string, operation: string): string {
   const timestamp = Date.now()
-  const nonce = createRandomToken(10)
+  const nonce = `${NONCE_PREFIX}${createRandomToken(10)}`
   return `${reportId}-${operation}-${timestamp}-${nonce}`
 }
 
@@ -81,16 +83,14 @@ export function parseIdempotencyKey(key: string): {
     return null
   }
 
-  const last = parts[parts.length - 1] ?? ''
-  const secondLast = parts[parts.length - 2] ?? ''
+  const last = parts.at(-1) ?? ''
+  const secondLast = parts.at(-2) ?? ''
 
-  // New format: {reportId}-{operation}-{timestamp}-{nonce} — last segment is a non-numeric nonce
-  if (parts.length >= 4 && !/^\d+$/.test(last)) {
+  // New format: {reportId}-{operation}-{timestamp}-{nonce}. Prefer the
+  // timestamp position over nonce shape so an all-digit nonce cannot look old.
+  if (parts.length >= 4 && /^\d+$/.test(secondLast)) {
     const timestamp = parseInt(secondLast, 10)
-    if (isNaN(timestamp)) {
-      return null
-    }
-    const operation = parts[parts.length - 3] ?? ''
+    const operation = parts.at(-3) ?? ''
     const reportId = parts.slice(0, -3).join('-')
     return {
       reportId,
@@ -105,7 +105,7 @@ export function parseIdempotencyKey(key: string): {
     return null
   }
 
-  const operation = parts[parts.length - 2] ?? ''
+  const operation = parts.at(-2) ?? ''
   const reportId = parts.slice(0, -2).join('-')
 
   return {
