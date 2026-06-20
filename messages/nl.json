@@ -2941,6 +2941,7 @@
 		"primaryTabEbitda": "EBITDA Normalisaties",
 		"primaryTabTaxLatencies": "Balans & Latenties",
 		"addNormalization": "Normalisatie toevoegen",
+		"quickChoices": "Snelkeuzes",
 		"searchLedgerPlaceholder": "Zoek grootboekrekening (bijv. 613, huur...)",
 		"searchCodeOrDescription": "Zoek op code of omschrijving...",
 		"ledgerMapping": "Grootboek Mapping",

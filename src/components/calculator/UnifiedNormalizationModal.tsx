@@ -14,16 +14,13 @@
 
 import { CalendarRange, CheckCircle2, ChevronRight, Clock, XCircle } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Modal, ModalContent } from '@/design-system/components/Modal'
-import { trackNormalizationAdd, trackNormalizationEdit } from '@/lib/analytics'
-import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import type { LedgerAccount } from '../../constants/grootboek'
 import { getNetTaxLatencyImpact, useTaxLatencyStore } from '../../store/useTaxLatencyStore'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import {
   findAcceptedAutoNormalizationCapBreaches,
-  getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
   summarizeAcceptedNormalizations,
   summarizeNormalizationsForAnchorYear,
@@ -31,19 +28,9 @@ import {
 import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
 import { TaxLatencySection } from './TaxLatencySection'
 import { UnifiedNormalizationBulkActionsBar } from './UnifiedNormalizationBulkActionsBar'
-import {
-  calculateNormalizationAdjustment,
-  getNormalizationAdjustmentGuard,
-  parseNormalizationInputValue,
-  parseNormalizationPromptAmount,
-} from './UnifiedNormalizationEditorModel'
 import { UnifiedNormalizationEditorToggle } from './UnifiedNormalizationEditorToggle'
 import type { NormalizationViewMode } from './UnifiedNormalizationEditorToolbar'
-import {
-  generateId,
-  inferCategoryFromCode,
-  parseCustomLedgerFromQuery,
-} from './UnifiedNormalizationHelpers'
+import { inferCategoryFromCode } from './UnifiedNormalizationHelpers'
 import {
   bulkUpdateNormalizationStatus,
   removeSelectedNormalizations,
@@ -65,12 +52,10 @@ import { UnifiedNormalizationPromptEditor } from './UnifiedNormalizationPromptEd
 import {
   isImportedLedgerNormalizationItem,
   type NormalizationItem,
-  type NormalizationPresetOption,
   type NormalizationSource,
   type NormalizationStatus,
   type NormalizationType,
   requiresIndividualImportedNormalizationReview,
-  type SearchableLedgerAccount,
   type UnifiedNormalizationModalProps,
 } from './UnifiedNormalizationTypes'
 import { UnifiedNormalizationViewContent } from './UnifiedNormalizationViewContent'
@@ -79,7 +64,7 @@ import {
   AutoNormalizationCapWarning,
   TaxLatencyReviewWarning,
 } from './UnifiedNormalizationWarnings'
-import { useUnifiedNormalizationLedgerOptions } from './useUnifiedNormalizationLedgerOptions'
+import { useUnifiedNormalizationDraftEditor } from './useUnifiedNormalizationDraftEditor'
 
 export type { LedgerAccount } from '../../constants/grootboek'
 export { inferCategoryFromCode } from './UnifiedNormalizationHelpers'
@@ -137,106 +122,24 @@ export function UnifiedNormalizationModal({
   // View mode: bento (cards), compact (table rows), or financial (multi-year table)
   const [viewMode, setViewMode] = useState<NormalizationViewMode>('compact')
 
-  // Year filter: null = all years
-  const [yearFilter, setYearFilter] = useState<number | null>(null)
-
   // Note: We use searchQuery for both adding new normalizations AND filtering existing ones
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [isEditorExpanded, setIsEditorExpanded] = useState(
-    () => initialSearchQuery.trim().length > 0
-  )
 
   // Full state reset when modal opens/closes to prevent stale UI between sessions
   useEffect(() => {
     if (open) {
       setPrimaryTab('ebitda')
       setSelectedIds(new Set())
-      setShowLedgerDropdown(false)
-      setSearchQuery(initialSearchQuery)
-      setYearFilter(initialYearFilter)
-      setIsEditorExpanded(initialSearchQuery.trim().length > 0)
-    } else {
-      setShowAddForm(false)
-      setSearchQuery(initialSearchQuery)
-      setSelectedLedger(null)
-      setShowLedgerDropdown(false)
-      setDropdownAnchorRect(null)
-      setEditingId(null)
-      setYearFilter(null)
-      setCollapsedYears(new Set())
-      setNewSelectedYears([currentYear])
-      setNewValue('')
-      setNewType('add')
-      setNewReason('')
-      setIsEditorExpanded(false)
     }
-  }, [open, currentYear, initialSearchQuery, initialYearFilter])
-
-  const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [selectedLedger, setSelectedLedger] = useState<LedgerAccount | null>(null)
-  const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
-  /** 'search' = dropdown anchored to search input; 'ledger' = anchored to ledger pill (Wijzig) */
-  const [dropdownSource, setDropdownSource] = useState<'search' | 'ledger'>('search')
-
-  // New normalization form state
-  const [newType, setNewType] = useState<NormalizationType>('add')
-  const [newValue, setNewValue] = useState('')
-  const [newSelectedYears, setNewSelectedYears] = useState<number[]>([currentYear])
-  const [newReason, setNewReason] = useState('')
-
-  // Ref for add form to scroll into view
-  const addFormRef = useRef<HTMLDivElement>(null)
-
-  // Ref for input container to position dropdown via portal
-  const inputContainerRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const ledgerButtonRef = useRef<HTMLButtonElement>(null)
-  const [dropdownAnchorRect, setDropdownAnchorRect] = useState<DOMRect | null>(null)
-
-  // Update dropdown anchor rect when dropdown should show
-  useEffect(() => {
-    if (!showLedgerDropdown) {
-      setDropdownAnchorRect(null)
-      return
-    }
-    if (dropdownSource === 'ledger' && ledgerButtonRef.current) {
-      setDropdownAnchorRect(ledgerButtonRef.current.getBoundingClientRect())
-    } else if (inputContainerRef.current) {
-      setDropdownAnchorRect(inputContainerRef.current.getBoundingClientRect())
-    }
-  }, [showLedgerDropdown, dropdownSource])
-
-  // Escape key closes dropdown without clearing selection
-  useEffect(() => {
-    if (!showLedgerDropdown) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setShowLedgerDropdown(false)
-        setDropdownSource('search')
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [showLedgerDropdown])
+  }, [open])
 
   // Year grouping: collapsed state for each year
   const [collapsedYears, setCollapsedYears] = useState<Set<number>>(new Set())
-
-  // Scroll add form into view when it appears (inside modal scroll container).
   useEffect(() => {
-    if (!showAddForm || !addFormRef.current) return
-    const timer = setTimeout(() => {
-      const form = addFormRef.current
-      const container = listContainerRef.current
-      if (!form || !container) return
-      scrollElementIntoContainer(form, container, { behavior: 'smooth', block: 'start' })
-    }, 50)
-    return () => clearTimeout(timer)
-  }, [showAddForm])
+    if (!open) setCollapsedYears(new Set())
+  }, [open])
 
   // Derive available years from user-entered financial data, falling back to 4-year range
   const availableYears = useMemo(
@@ -259,19 +162,67 @@ export function UnifiedNormalizationModal({
 
   const fetchedLedgers = useFetchedLedgerAccounts('[UnifiedNormalizationModal]')
 
-  const { availableLedgers, normalizationPresets, filteredLedgers, getLedgerDisplayName } =
-    useUnifiedNormalizationLedgerOptions({
-      ledgerAccounts: ledgerAccounts.length > 0 ? ledgerAccounts : fetchedLedgers,
-      countryCode,
-      searchQuery,
-    })
-
   // Keep explicit 0 EBITDA values instead of falling through to unrelated fallback sources.
   const safeOriginalEBITDA = resolveSafeOriginalEbitda({
     currentYear,
     originalEBITDA,
     originalEBITDAByYear,
     fallbackFormData: fallbackFormDataRef?.current,
+  })
+
+  const {
+    addFormRef,
+    inputContainerRef,
+    searchInputRef,
+    ledgerButtonRef,
+    listContainerRef,
+    fileInputRef,
+    normalizationPresets,
+    filteredLedgers,
+    getLedgerDisplayName,
+    dropdownAnchorRect,
+    searchQuery,
+    showAddForm,
+    selectedLedger,
+    showLedgerDropdown,
+    newType,
+    newValue,
+    newSelectedYears,
+    newReason,
+    editingId,
+    isEditorExpanded,
+    yearFilter,
+    setIsEditorExpanded,
+    setYearFilter,
+    setNewType,
+    setNewValue,
+    setNewSelectedYears,
+    setNewReason,
+    startEditing,
+    cancelEditing,
+    addNormalization,
+    handleFileUpload,
+    openSelectedLedgerPicker,
+    handleSearchQueryChange,
+    closeLedgerDropdown,
+    selectLedgerAccount,
+    selectCustomLedger,
+    selectPreset,
+    openFilePicker,
+    handlePromptSubmit,
+  } = useUnifiedNormalizationDraftEditor({
+    open,
+    currentYear,
+    initialSearchQuery,
+    initialYearFilter,
+    availableYears,
+    ledgerAccounts: ledgerAccounts.length > 0 ? ledgerAccounts : fetchedLedgers,
+    countryCode,
+    normalizations,
+    onNormalizationsChange,
+    onUploadClick,
+    safeOriginalEBITDA,
+    translate: nh,
   })
 
   // Filter normalizations by year and search
@@ -389,18 +340,6 @@ export function UnifiedNormalizationModal({
     })
   }, [])
 
-  // Edit state
-  const [editingId, setEditingId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (showAddForm || editingId || initialSearchQuery.trim().length > 0) {
-      setIsEditorExpanded(true)
-    }
-  }, [editingId, initialSearchQuery, showAddForm])
-
-  // Virtualization ref
-  const listContainerRef = useRef<HTMLDivElement>(null)
-
   // Bulk selection handlers
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -477,46 +416,6 @@ export function UnifiedNormalizationModal({
     setSelectedIds(new Set())
   }, [normalizations, onNormalizationsChange, selectedIds, nh])
 
-  const startEditing = useCallback(
-    (item: NormalizationItem) => {
-      // Set editing ID to track which item we're editing
-      setEditingId(item.id)
-
-      // Populate the top form with the item's data
-      setSelectedLedger({
-        code: item.ledgerCode,
-        name: getLedgerDisplayName(item.ledgerCode, item.ledgerName),
-      })
-      setSearchQuery(
-        `${item.ledgerCode} · ${getLedgerDisplayName(item.ledgerCode, item.ledgerName)}`
-      )
-      setNewType(item.type)
-      setNewValue(Math.abs(item.value).toString())
-      setNewReason(item.reason || '')
-      setNewSelectedYears(
-        item.applyYears || (item.applyAllYears ? [...availableYears] : [item.year])
-      )
-
-      // Show the form
-      setIsEditorExpanded(true)
-      setShowAddForm(true)
-      setShowLedgerDropdown(false)
-    },
-    [availableYears, getLedgerDisplayName]
-  )
-
-  const cancelEditing = useCallback(() => {
-    setEditingId(null)
-    // Also reset the form
-    setShowAddForm(false)
-    setSelectedLedger(null)
-    setSearchQuery('')
-    setNewValue('')
-    setNewType('add')
-    setNewReason('')
-    setNewSelectedYears([currentYear])
-  }, [currentYear])
-
   const removeNormalization = useCallback(
     (id: string) => {
       onNormalizationsChange(normalizations.filter((n) => n.id !== id))
@@ -530,233 +429,6 @@ export function UnifiedNormalizationModal({
       removeNormalization(id)
     },
     [removeNormalization, nh]
-  )
-
-  const addNormalization = useCallback(() => {
-    if (!selectedLedger || !newValue) return
-    const code = String(selectedLedger.code ?? '').trim()
-    const name = String(selectedLedger.name ?? '').trim()
-    if (!code) return
-
-    const numericValue = parseNormalizationInputValue(newValue)
-    if (numericValue == null) return
-
-    const safeEbitda = Number.isFinite(safeOriginalEBITDA) ? safeOriginalEBITDA : 0
-    const adjustment = calculateNormalizationAdjustment({
-      type: newType,
-      numericValue,
-      safeEbitda,
-    })
-
-    // ── Validation: warn/block extreme adjustments ──
-    const adjustmentGuard = getNormalizationAdjustmentGuard({ adjustment, safeEbitda })
-    if (adjustmentGuard?.kind === 'blocked') {
-      import('sonner').then(({ toast }) =>
-        toast.error(nh('blockedToast'), {
-          description: nh('blockedToastDesc', { pct: adjustmentGuard.pct }),
-        })
-      )
-      return
-    }
-
-    if (adjustmentGuard?.kind === 'warning') {
-      import('sonner').then(({ toast }) =>
-        toast.warning(nh('warnToastTitle'), {
-          description: nh('warnToastDesc', { pct: adjustmentGuard.pct }),
-        })
-      )
-    }
-
-    // If editing an existing item, update it instead of creating new
-    if (editingId) {
-      onNormalizationsChange(
-        normalizations.map((n) =>
-          n.id === editingId
-            ? {
-                ...n,
-                ledgerCode: code,
-                ledgerName: name || code,
-                category: inferCategoryFromCode(code),
-                type: newType,
-                value: numericValue,
-                adjustment,
-                reason: newReason || undefined,
-                applyAllYears: newSelectedYears.length === availableYears.length,
-                applyYears: newSelectedYears,
-              }
-            : n
-        )
-      )
-      setEditingId(null)
-    } else {
-      // Create new normalization
-      const newItem: NormalizationItem = {
-        id: generateId(),
-        ledgerCode: code,
-        ledgerName: name || code,
-        category: inferCategoryFromCode(code),
-        type: newType,
-        value: numericValue,
-        adjustment,
-        reason: newReason || undefined,
-        source: 'manual',
-        status: 'accepted',
-        applyAllYears: newSelectedYears.length === availableYears.length,
-        applyYears: newSelectedYears,
-        year: currentYear,
-      }
-
-      trackNormalizationAdd('manual')
-      onNormalizationsChange([newItem, ...normalizations])
-    }
-
-    // Reset form
-    setSelectedLedger(null)
-    setNewValue('')
-    setNewReason('')
-    setSearchQuery('')
-    setNewSelectedYears([currentYear])
-    setShowAddForm(false)
-  }, [
-    selectedLedger,
-    newValue,
-    newType,
-    newReason,
-    newSelectedYears,
-    availableYears.length,
-    currentYear,
-    normalizations,
-    onNormalizationsChange,
-    editingId,
-    safeOriginalEBITDA,
-    nh,
-  ])
-
-  // File input ref for CSV upload
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && onUploadClick) {
-      onUploadClick()
-    }
-  }
-
-  const openSelectedLedgerPicker = useCallback(() => {
-    if (!selectedLedger) return
-    setSearchQuery(`${selectedLedger.code} · ${selectedLedger.name}`)
-    setDropdownSource('ledger')
-    setShowLedgerDropdown(true)
-    requestAnimationFrame(() => {
-      searchInputRef.current?.focus({ preventScroll: true })
-    })
-  }, [selectedLedger])
-
-  const handleSearchQueryChange = useCallback(
-    (newQuery: string) => {
-      setSearchQuery(newQuery)
-      setDropdownSource('search')
-      setShowLedgerDropdown(Boolean(newQuery.trim()))
-
-      if (selectedLedger && newQuery !== `${selectedLedger.code} · ${selectedLedger.name}`) {
-        setSelectedLedger(null)
-        if (!editingId) {
-          setNewValue('')
-          setNewReason('')
-        }
-      }
-    },
-    [editingId, selectedLedger]
-  )
-
-  const closeLedgerDropdown = useCallback(() => {
-    setShowLedgerDropdown(false)
-    setDropdownSource('search')
-  }, [])
-
-  const selectLedgerAccount = useCallback((account: SearchableLedgerAccount) => {
-    setSelectedLedger(account)
-    setSearchQuery(`${account.code} · ${account.name}`)
-    setNewValue('')
-    setShowLedgerDropdown(false)
-    setShowAddForm(true)
-  }, [])
-
-  const selectCustomLedger = useCallback((query: string) => {
-    const { code, name } = parseCustomLedgerFromQuery(query)
-    setSelectedLedger({ code, name })
-    setSearchQuery(`${code} · ${name}`)
-    setNewValue('')
-    setShowLedgerDropdown(false)
-    setShowAddForm(true)
-  }, [])
-
-  const selectPreset = useCallback((preset: NormalizationPresetOption) => {
-    setIsEditorExpanded(true)
-    setEditingId(null)
-    setSelectedLedger({
-      code: preset.ledgerCode,
-      name: preset.ledgerName,
-    })
-    setSearchQuery(`${preset.ledgerCode} · ${preset.ledgerName}`)
-    setNewType(preset.defaultType)
-    setNewValue('')
-    setNewReason(preset.description)
-    setShowAddForm(true)
-  }, [])
-
-  const openFilePicker = useCallback(() => {
-    fileInputRef.current?.click()
-  }, [])
-
-  // Handle AI prompt submission - parse for ledger code/name and values
-  const handlePromptSubmit = useCallback(
-    (value: string) => {
-      setIsEditorExpanded(true)
-      setEditingId(null)
-      // Try to parse the input for ledger codes (3-digit numbers)
-      const codeMatch = value.match(/\b(\d{3})\b/)
-
-      if (codeMatch) {
-        const code = codeMatch[1]
-        const matchingLedger = availableLedgers.find((l) => l.code === code)
-        if (matchingLedger) {
-          setSelectedLedger(matchingLedger)
-          setShowAddForm(true)
-
-          const amount = parseNormalizationPromptAmount(value, { ledgerCode: code })
-          if (amount) {
-            setNewValue(amount)
-          }
-          return
-        }
-      }
-
-      // Fallback: try to match preset by name
-      const lowerValue = value.toLowerCase()
-      const matchingPreset = normalizationPresets.find(
-        (p) =>
-          lowerValue.includes(p.label.toLowerCase()) ||
-          lowerValue.includes(p.ledgerName.toLowerCase())
-      )
-
-      if (matchingPreset) {
-        setSelectedLedger({
-          code: matchingPreset.ledgerCode,
-          name: matchingPreset.ledgerName,
-        })
-        setNewType(matchingPreset.defaultType)
-        setNewValue('')
-        setNewReason(matchingPreset.description)
-        setShowAddForm(true)
-        return
-      }
-
-      // If no match, show dropdown with search
-      setSearchQuery(value)
-      setShowLedgerDropdown(true)
-    },
-    [availableLedgers, normalizationPresets]
   )
 
   return (

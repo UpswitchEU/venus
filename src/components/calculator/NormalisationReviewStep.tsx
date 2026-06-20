@@ -14,41 +14,17 @@
  * - 60/30/10 color compliant
  */
 
-import { AnimatePresence, motion } from 'framer-motion'
-import {
-  AlertCircle,
-  CalendarRange,
-  Check,
-  ChevronRight,
-  Edit3,
-  Plus,
-  Search,
-  Undo2,
-  X,
-} from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { AlertCircle, ChevronRight, Plus } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
-import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { AuroraButton as Button } from '@/design-system/components/Button'
-import { Checkbox } from '@/design-system/components/Checkbox'
-import { AuroraInput as Input } from '@/design-system/components/Input'
-import {
-  TooltipContent,
-  TooltipProvider,
-  TooltipRoot,
-  TooltipTrigger,
-} from '@/design-system/components/Tooltip'
-import { cn } from '@/design-system/utils'
 import type { LedgerAccount } from '../../constants/grootboek'
 import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
+import { NormalisationAddForm } from './NormalisationAddForm'
 import {
-  categoryIcons,
-  categoryLabelKeys,
   defaultLedgerAccounts,
   type NormalizationPreset,
-  normalizationPresets,
-  sourceLabels,
-  typeOptions,
 } from './NormalisationReviewStep.constants'
 import type {
   NormalisationReviewStepProps,
@@ -60,9 +36,9 @@ import {
   buildManualNormalisationFromLedger,
   buildNormalisationReviewUpdate,
   filterNormalisationReviewLedgers,
-  parseCustomLedgerFromQuery,
   summarizeNormalisationReview,
 } from './NormalisationReviewStepModel'
+import { NormalisationSuggestionCard } from './NormalisationSuggestionCard'
 
 export type {
   NormalisationReviewStepProps,
@@ -88,7 +64,6 @@ export function NormalisationReviewStep({
   onBack,
   onUpdate,
   onAdd,
-  onRemove,
 }: NormalisationReviewStepProps) {
   const nh = useTranslations('normalizationHub')
   const ca = useTranslations('chatAssistant')
@@ -279,257 +254,31 @@ export function NormalisationReviewStep({
           <AnimatePresence mode="popLayout">
             {suggestions.map((suggestion, index) => {
               const isEditing = editingId === suggestion.id
-              const source = suggestion.source || 'manual'
 
               return (
-                <motion.div
+                <NormalisationSuggestionCard
                   key={suggestion.id}
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ delay: index * 0.02 }}
-                  className={cn(
-                    'rounded-xl border transition-all overflow-hidden',
-                    suggestion.status === 'pending'
-                      ? 'bg-foreground/[0.02] border-foreground/[0.08]'
-                      : suggestion.status === 'accepted'
-                        ? 'bg-success/5 border-success/20'
-                        : 'bg-foreground/[0.01] border-foreground/[0.04] opacity-50'
-                  )}
-                >
-                  {isEditing ? (
-                    // ─────────────────────────────────────────
-                    // EDIT MODE
-                    // ─────────────────────────────────────────
-                    <div className="p-4 space-y-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{categoryIcons[suggestion.category]}</span>
-                          <span className="text-sm font-medium text-foreground">
-                            {suggestion.description}
-                          </span>
-                        </div>
-                        <button
-                          onClick={cancelEdit}
-                          className="p-1.5 rounded-lg hover:bg-foreground/10"
-                        >
-                          <X className="w-4 h-4 text-foreground/40" />
-                        </button>
-                      </div>
-
-                      {/* Type & Amount */}
-                      <div className="flex gap-2">
-                        <div className="flex gap-0.5">
-                          {typeOptions.map((option) => (
-                            <TooltipProvider key={option.value}>
-                              <TooltipRoot>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => setEditType(option.value)}
-                                    className={cn(
-                                      'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
-                                      editType === option.value
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
-                                    )}
-                                  >
-                                    {option.label}
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-[200px] text-xs">
-                                  {nh(option.tooltipKey)}
-                                </TooltipContent>
-                              </TooltipRoot>
-                            </TooltipProvider>
-                          ))}
-                        </div>
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/40 text-sm">
-                            {editType.includes('percent') ? '%' : '€'}
-                          </span>
-                          <Input
-                            type="text"
-                            placeholder={nh('amountPlaceholder')}
-                            value={editAmount}
-                            onChange={(e) => setEditAmount(e.target.value)}
-                            className="pl-8 font-mono text-base"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Year Toggle */}
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={editApplyAllYears}
-                          onChange={(checked) => setEditApplyAllYears(checked)}
-                        />
-                        <span className="text-xs text-foreground/60 flex items-center gap-1">
-                          <CalendarRange className="w-3 h-3" />
-                          {nh('applyToAllYears')}
-                        </span>
-                      </label>
-
-                      {/* Reason */}
-                      <Input
-                        placeholder={nh('explanationOptionalPlaceholder')}
-                        value={editReason}
-                        onChange={(e) => setEditReason(e.target.value)}
-                        className="text-sm"
-                      />
-
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={cancelEdit}
-                          className="flex-1"
-                        >
-                          {nh('actions.cancel')}
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={saveEdit}
-                          className="flex-1 gap-1"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          {nh('actions.save')}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    // ─────────────────────────────────────────
-                    // VIEW MODE
-                    // ─────────────────────────────────────────
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 md:p-4">
-                      {/* Left: Icon + Details */}
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-foreground/[0.04] flex items-center justify-center text-base md:text-lg shrink-0">
-                          {categoryIcons[suggestion.category]}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span
-                              className={cn(
-                                'text-sm font-medium text-foreground min-w-0',
-                                LEDGER_LABEL_TEXT_CLASSES
-                              )}
-                              title={suggestion.description}
-                            >
-                              {suggestion.description}
-                            </span>
-                            <span
-                              className={cn(
-                                'shrink-0 text-[8px] md:text-[9px] px-1.5 py-0.5 rounded font-medium',
-                                sourceLabels[source].color
-                              )}
-                            >
-                              {nh(sourceLabels[source].labelKey)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-xs text-foreground/50 flex-wrap">
-                            <span className="font-mono text-foreground/40">{suggestion.code}</span>
-                            <span className="hidden sm:inline">·</span>
-                            <span>{nh(categoryLabelKeys[suggestion.category])}</span>
-                            {suggestion.applyAllYears && (
-                              <>
-                                <span className="hidden sm:inline">·</span>
-                                <span className="flex items-center gap-0.5 text-primary">
-                                  <CalendarRange className="w-2.5 h-2.5" />
-                                  {nh('allYears')}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Amount + Actions */}
-                      <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
-                        <div className="shrink-0 text-right">
-                          <p
-                            className={cn(
-                              'text-sm md:text-base font-mono font-semibold',
-                              suggestion.amount > 0 ? 'text-success' : 'text-secondary'
-                            )}
-                          >
-                            {suggestion.amount > 0 ? '+' : ''}
-                            {formatCurrency(suggestion.amount)}
-                          </p>
-                          {suggestion.marketBenchmark && (
-                            <p className="text-[9px] text-foreground/40">
-                              {nh('marketPrefix')} {suggestion.marketBenchmark}
-                            </p>
-                          )}
-                        </div>
-
-                        {suggestion.status === 'pending' ? (
-                          <div className="flex items-center gap-1 shrink-0">
-                            {/* Edit button */}
-                            {onUpdate && (
-                              <button
-                                onClick={() => startEditing(suggestion)}
-                                className="w-9 h-9 md:w-8 md:h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                                aria-label={nh('actions.edit')}
-                              >
-                                <Edit3 className="w-3.5 h-3.5 text-foreground/40" />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => onReject(suggestion.id)}
-                              className="w-10 h-10 md:w-9 md:h-9 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                              aria-label={ca('reject')}
-                            >
-                              <X className="w-4 h-4 text-foreground/40" />
-                            </button>
-                            <button
-                              onClick={() => onAccept(suggestion.id)}
-                              className="w-10 h-10 md:w-9 md:h-9 rounded-lg flex items-center justify-center bg-primary/10 hover:bg-primary/20 transition-colors"
-                              aria-label={ca('accept')}
-                            >
-                              <Check className="w-4 h-4 text-primary" />
-                            </button>
-                          </div>
-                        ) : suggestion.status === 'accepted' ? (
-                          <div className="shrink-0 flex items-center gap-1">
-                            {onUpdate && (
-                              <button
-                                onClick={() => startEditing(suggestion)}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                                aria-label={nh('actions.edit')}
-                              >
-                                <Edit3 className="w-3.5 h-3.5 text-foreground/40" />
-                              </button>
-                            )}
-                            <div className="flex items-center gap-1 text-[10px] md:text-xs text-success font-medium px-2 py-1 rounded-full bg-success/10">
-                              <Check className="w-3 h-3" />
-                              <span className="hidden sm:inline">{ca('accepted')}</span>
-                              <span className="sm:hidden">OK</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="shrink-0 flex items-center gap-1">
-                            <button
-                              onClick={() => onAccept(suggestion.id)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-foreground/[0.06] transition-colors"
-                              aria-label={nh('actions.undo')}
-                            >
-                              <Undo2 className="w-3.5 h-3.5 text-foreground/40" />
-                            </button>
-                            <div className="flex items-center gap-1 text-[10px] md:text-xs text-foreground/40 font-medium px-2 py-1 rounded-full bg-foreground/[0.04]">
-                              <X className="w-3 h-3" />
-                              <span className="hidden sm:inline">{ca('rejected')}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
+                  suggestion={suggestion}
+                  index={index}
+                  isEditing={isEditing}
+                  canEdit={Boolean(onUpdate)}
+                  editAmount={editAmount}
+                  editType={editType}
+                  editApplyAllYears={editApplyAllYears}
+                  editReason={editReason}
+                  formatCurrency={formatCurrency}
+                  nh={nh}
+                  ca={ca}
+                  onAccept={onAccept}
+                  onReject={onReject}
+                  onStartEditing={startEditing}
+                  onCancelEdit={cancelEdit}
+                  onSaveEdit={saveEdit}
+                  onEditAmountChange={setEditAmount}
+                  onEditTypeChange={setEditType}
+                  onEditApplyAllYearsChange={setEditApplyAllYears}
+                  onEditReasonChange={setEditReason}
+                />
               )
             })}
           </AnimatePresence>
@@ -563,291 +312,29 @@ export function NormalisationReviewStep({
 
         {/* Add Normalization Form */}
         {onAdd && (
-          <div className="mt-4 pt-4 border-t border-foreground/[0.06]">
-            {!showAddForm ? (
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="w-full p-3 rounded-xl border border-dashed border-foreground/10 hover:border-primary/30 hover:bg-primary/[0.02] transition-all flex items-center justify-center gap-2 text-sm text-foreground/50 hover:text-primary"
-              >
-                <Plus className="w-4 h-4" />
-                {nh('addNormalization')}
-              </button>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-4 p-4 rounded-xl bg-foreground/[0.02] border border-foreground/[0.08]"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-foreground/60">
-                    {nh('addNormalization')}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setShowAddForm(false)
-                      setSelectedLedger(null)
-                      setSearchQuery('')
-                    }}
-                    className="p-1 rounded hover:bg-foreground/10"
-                  >
-                    <X className="w-3.5 h-3.5 text-foreground/40" />
-                  </button>
-                </div>
-
-                {/* Quick Presets */}
-                {!selectedLedger && (
-                  <>
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-medium text-foreground/40 uppercase tracking-wider">
-                        Snelkeuzes
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {normalizationPresets.slice(0, 4).map((preset) => (
-                          <button
-                            key={preset.id}
-                            onClick={() => addFromPreset(preset)}
-                            className="p-2.5 rounded-xl bg-foreground/[0.02] border border-foreground/[0.06] hover:border-primary/30 hover:bg-primary/[0.02] transition-all text-left group"
-                          >
-                            <div className="flex items-start gap-2">
-                              <span className="text-sm">{preset.icon}</span>
-                              <div className="flex-1 min-w-0">
-                                <p
-                                  className={cn(
-                                    'text-xs font-medium text-foreground/80 group-hover:text-foreground leading-snug',
-                                    LEDGER_LABEL_TEXT_CLASSES
-                                  )}
-                                >
-                                  {nh(preset.labelKey)}
-                                </p>
-                                <p className="text-[10px] text-foreground/40">
-                                  +{formatCurrency(preset.defaultAmount)}
-                                </p>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-px bg-foreground/[0.06]" />
-                      <span className="text-[10px] text-foreground/30 uppercase">
-                        {nh('orSearch')}
-                      </span>
-                      <div className="flex-1 h-px bg-foreground/[0.06]" />
-                    </div>
-                  </>
-                )}
-
-                {/* Ledger Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/40" />
-                  <Input
-                    placeholder={nh('searchLedgerPlaceholder')}
-                    value={searchQuery}
-                    title={searchQuery.trim().length > 0 ? searchQuery : undefined}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value)
-                      setShowLedgerDropdown(true)
-                      setSelectedLedger(null)
-                    }}
-                    onFocus={() => setShowLedgerDropdown(true)}
-                    className="pl-10 text-base"
-                  />
-
-                  {/* Dropdown */}
-                  <AnimatePresence>
-                    {showLedgerDropdown && !selectedLedger && searchQuery && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="absolute z-50 w-full mt-1 py-1 bg-background border border-foreground/10 rounded-lg shadow-lg max-h-[min(18rem,45vh)] overflow-y-auto"
-                      >
-                        {filteredLedgers.map((account) => (
-                          <button
-                            key={account.code}
-                            onClick={() => {
-                              setSelectedLedger(account)
-                              setSearchQuery(`${account.code} · ${account.name}`)
-                              setShowLedgerDropdown(false)
-                            }}
-                            className="w-full px-3 py-2 text-left hover:bg-foreground/[0.04] flex items-start gap-3 transition-colors"
-                          >
-                            <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-foreground/[0.06] text-foreground/60 shrink-0 mt-0.5">
-                              {account.code}
-                            </span>
-                            <span
-                              className={cn(
-                                'text-sm text-foreground/80 min-w-0 text-left',
-                                LEDGER_LABEL_TEXT_CLASSES
-                              )}
-                              title={account.name}
-                            >
-                              {account.name}
-                            </span>
-                          </button>
-                        ))}
-                        {searchQuery.trim() && (
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              const { code, name } = parseCustomLedgerFromQuery(searchQuery)
-                              setSelectedLedger({ code, name })
-                              setSearchQuery(`${code} · ${name}`)
-                              setShowLedgerDropdown(false)
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                const { code, name } = parseCustomLedgerFromQuery(searchQuery)
-                                setSelectedLedger({ code, name })
-                                setSearchQuery(`${code} · ${name}`)
-                                setShowLedgerDropdown(false)
-                              }
-                            }}
-                            className={cn(
-                              'w-full px-3 py-2 text-left hover:bg-primary/5 flex items-start justify-between gap-3 transition-colors cursor-pointer',
-                              filteredLedgers.length > 0 && 'border-t border-foreground/[0.06]'
-                            )}
-                          >
-                            <div className="flex items-start gap-3 min-w-0 flex-1">
-                              <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0 mt-0.5">
-                                +
-                              </span>
-                              <span
-                                className={cn(
-                                  'text-sm text-foreground/80 min-w-0 text-left',
-                                  LEDGER_LABEL_TEXT_CLASSES
-                                )}
-                              >
-                                {nh('useCustomCode', { query: searchQuery.trim() })}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                const { code, name } = parseCustomLedgerFromQuery(searchQuery)
-                                setSelectedLedger({ code, name })
-                                setSearchQuery(`${code} · ${name}`)
-                                setShowLedgerDropdown(false)
-                              }}
-                              className="flex-shrink-0 self-start mt-0.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-                            >
-                              {nh('actions.add')}
-                            </button>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Selected Ledger Form */}
-                {selectedLedger && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="space-y-4"
-                  >
-                    {/* Selected Pill */}
-                    <div className="flex items-start gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
-                      <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
-                        {selectedLedger.code}
-                      </span>
-                      <span
-                        className={cn(
-                          'text-sm text-foreground/80 flex-1 min-w-0',
-                          LEDGER_LABEL_TEXT_CLASSES
-                        )}
-                      >
-                        {selectedLedger.name}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setSelectedLedger(null)
-                          setSearchQuery('')
-                        }}
-                        className="p-1 rounded hover:bg-foreground/10"
-                      >
-                        <X className="w-3 h-3 text-foreground/40" />
-                      </button>
-                    </div>
-
-                    {/* Type & Amount */}
-                    <div className="flex gap-2">
-                      <div className="flex gap-0.5">
-                        {typeOptions.map((option) => (
-                          <TooltipProvider key={option.value}>
-                            <TooltipRoot>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => setNewType(option.value)}
-                                  className={cn(
-                                    'px-2.5 py-2 rounded-lg text-xs font-medium transition-all',
-                                    newType === option.value
-                                      ? 'bg-primary text-primary-foreground'
-                                      : 'bg-foreground/[0.04] text-foreground/60 hover:bg-foreground/[0.08]'
-                                  )}
-                                >
-                                  {option.label}
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-[200px] text-xs">
-                                {nh(option.tooltipKey)}
-                              </TooltipContent>
-                            </TooltipRoot>
-                          </TooltipProvider>
-                        ))}
-                      </div>
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/40 text-sm">
-                          {newType.includes('percent') ? '%' : '€'}
-                        </span>
-                        <Input
-                          type="text"
-                          placeholder={nh('amountPlaceholder')}
-                          value={newAmount}
-                          onChange={(e) => setNewAmount(e.target.value)}
-                          className="pl-8 font-mono text-base"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Year Toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={newApplyAllYears}
-                        onChange={(checked) => setNewApplyAllYears(checked)}
-                      />
-                      <span className="text-xs text-foreground/60 flex items-center gap-1">
-                        <CalendarRange className="w-3 h-3" />
-                        {nh('applyToAllYears')}
-                      </span>
-                    </label>
-
-                    {/* Reason */}
-                    <Input
-                      placeholder={nh('explanationOptionalPlaceholder')}
-                      value={newReason}
-                      onChange={(e) => setNewReason(e.target.value)}
-                      className="text-sm"
-                    />
-
-                    {/* Add Button */}
-                    <Button onClick={addFromLedger} disabled={!newAmount} className="w-full gap-2">
-                      <Plus className="w-4 h-4" />
-                      {nh('actions.add')}
-                    </Button>
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
-          </div>
+          <NormalisationAddForm
+            showAddForm={showAddForm}
+            selectedLedger={selectedLedger}
+            searchQuery={searchQuery}
+            showLedgerDropdown={showLedgerDropdown}
+            filteredLedgers={filteredLedgers}
+            newType={newType}
+            newAmount={newAmount}
+            newApplyAllYears={newApplyAllYears}
+            newReason={newReason}
+            formatCurrency={formatCurrency}
+            nh={nh}
+            onShowAddFormChange={setShowAddForm}
+            onSelectedLedgerChange={setSelectedLedger}
+            onSearchQueryChange={setSearchQuery}
+            onShowLedgerDropdownChange={setShowLedgerDropdown}
+            onNewTypeChange={setNewType}
+            onNewAmountChange={setNewAmount}
+            onNewApplyAllYearsChange={setNewApplyAllYears}
+            onNewReasonChange={setNewReason}
+            onAddFromPreset={addFromPreset}
+            onAddFromLedger={addFromLedger}
+          />
         )}
       </div>
 

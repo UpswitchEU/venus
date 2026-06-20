@@ -2941,6 +2941,7 @@
 		"primaryTabEbitda": "Normalisations de l'EBITDA",
 		"primaryTabTaxLatencies": "Équilibre et latences",
 		"addNormalization": "Ajouter une normalisation",
+		"quickChoices": "Choix rapides",
 		"searchLedgerPlaceholder": "Rechercher un compte général (par exemple 613, loyer...)",
 		"searchCodeOrDescription": "Recherche par code ou description...",
 		"ledgerMapping": "Cartographie du grand livre",
