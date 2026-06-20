@@ -6,7 +6,7 @@
  * races when bootstrap, SessionService, and Mercury prefill all hydrate in the same tick).
  */
 
-import { useManualFormStore } from '../store/manual'
+import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { buildOptionalSessionGapFillPatch } from '../utils/mergeOptionalSessionPrefillFields'
 

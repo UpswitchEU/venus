@@ -50,6 +50,17 @@ import {
 } from '@/features/startup-studio/i18n/useStudioLocale'
 import { deriveCompanyCardPrefillPlan } from '@/features/startup-studio/utils/companyCardPrefill'
 import {
+  buildBusinessStructurePatch,
+  buildCompanyCardClearPatch,
+  buildCompanyCardCountryResetPatch,
+  formatMaterialRevenueNudgeMrr,
+  getLegalFormOptions,
+  hasMaterialRecurringRevenue,
+  resolveStageDefaultRaiseSeed,
+  updateSegmentEarningsValue,
+  updateSegmentWeightValue,
+} from '@/features/startup-studio/utils/companyCardStepModel'
+import {
   STARTUP_STUDIO_SECTORS,
   STARTUP_STUDIO_STAGES,
 } from '@/features/startup-studio/utils/studioDeepLinkContract'
@@ -66,7 +77,6 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
-import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 import { mapRegistrySearchResultToKboCompany } from '@/utils/mapRegistrySearchResultToKboCompany'
 import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
@@ -76,58 +86,6 @@ interface CompanyCardStepProps {
   locale?: 'en' | 'nl' | 'fr'
   /** Forwarded by `StartupValuationPanel`; unused on this step. */
   advisorMode?: boolean
-}
-
-/**
- * Country-scoped legal-form enum. The Belgian set was previously the
- * only one shipped, so a Dutch / French / German founder selecting a
- * non-BE country still saw the BE labels (BV/NV/Eenmanszaak/VOF/
- * CVBA/VZW). NL has its own canonical entities (CV, Stichting, etc.);
- * shipping the wrong list silently drove dirty data into Titan and
- * confused Mercury's downstream form. Falls back to BE for any
- * unknown country code so existing payloads keep rendering.
- */
-const LEGAL_FORM_OPTIONS_BY_COUNTRY: Record<
-  string,
-  ReadonlyArray<{ value: string; label: string }>
-> = {
-  BE: [
-    { value: 'bv', label: 'BV' },
-    { value: 'nv', label: 'NV' },
-    { value: 'eenmanszaak', label: 'Eenmanszaak' },
-    { value: 'vof', label: 'VOF' },
-    { value: 'cvba', label: 'CVBA' },
-    { value: 'vzw', label: 'VZW' },
-  ],
-  NL: [
-    { value: 'bv', label: 'BV' },
-    { value: 'nv', label: 'NV' },
-    { value: 'eenmanszaak', label: 'Eenmanszaak' },
-    { value: 'vof', label: 'VOF' },
-    { value: 'cv', label: 'CV (Coöperatie)' },
-    { value: 'stichting', label: 'Stichting' },
-  ],
-  FR: [
-    { value: 'sas', label: 'SAS' },
-    { value: 'sasu', label: 'SASU' },
-    { value: 'sarl', label: 'SARL' },
-    { value: 'eurl', label: 'EURL' },
-    { value: 'sa', label: 'SA' },
-    { value: 'micro_entreprise', label: 'Micro-entreprise' },
-  ],
-  DE: [
-    { value: 'gmbh', label: 'GmbH' },
-    { value: 'ug', label: 'UG (haftungsbeschränkt)' },
-    { value: 'ag', label: 'AG' },
-    { value: 'gbr', label: 'GbR' },
-    { value: 'kg', label: 'KG' },
-    { value: 'einzelunternehmen', label: 'Einzelunternehmen' },
-  ],
-} as const
-
-function getLegalFormOptions(countryCode: string): Array<{ value: string; label: string }> {
-  return (LEGAL_FORM_OPTIONS_BY_COUNTRY[countryCode.toUpperCase()] ??
-    LEGAL_FORM_OPTIONS_BY_COUNTRY.BE) as Array<{ value: string; label: string }>
 }
 
 export function CompanyCardStep(_props: CompanyCardStepProps) {
@@ -188,13 +146,9 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   // manually clear and re-type.  Stage defaults are Atomico/Dealroom
   // 2024 cohort medians.
   useEffect(() => {
-    const stageDefaults = Object.values(STARTUP_STAGE_DEFAULT_RAISE)
-    const onSomeDefault = typeof raise === 'number' && stageDefaults.includes(raise)
-    if (raise == null || onSomeDefault) {
-      const next = STARTUP_STAGE_DEFAULT_RAISE[stage]
-      if (raise !== next) {
-        setField('investment_amount_sought', next)
-      }
+    const next = resolveStageDefaultRaiseSeed({ stage, raise })
+    if (next != null) {
+      setField('investment_amount_sought', next)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, raise, setField])
@@ -210,12 +164,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   //     (rare but real) should see the same suggestion; a Series-A
   //     founder is already covered by the dedicated `seriesANudge`
   //     above so we suppress the duplicate here.
-  const SEED_NUDGE_MRR_THRESHOLD = 10_000
-  const SEED_NUDGE_ARR_THRESHOLD = 120_000
-  const seedHasMaterialRevenue =
-    stage !== 'series_a' &&
-    ((typeof mrr === 'number' && mrr >= SEED_NUDGE_MRR_THRESHOLD) ||
-      (typeof arr === 'number' && arr >= SEED_NUDGE_ARR_THRESHOLD))
+  const seedHasMaterialRevenue = hasMaterialRecurringRevenue({ stage, mrr, arr })
 
   // Identity bridge — every field here writes to the Manual store so
   // `buildStartupValuationRequest` (called server-side by the report
@@ -227,6 +176,9 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   const businessTypeSegments = useManualFormStore((s) => s.formData.business_type_segments ?? [])
   const legalForm = useManualFormStore(
     (s) => (s.formData as { legal_form?: string }).legal_form ?? ''
+  )
+  const businessStructure = useManualFormStore(
+    (s) => (s.formData as { business_structure?: string }).business_structure
   )
   const naceCode = useManualFormStore(
     (s) => (s.formData as { nace_code?: string }).nace_code ?? null
@@ -254,6 +206,13 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   useEffect(() => {
     seedSectorFromNaceIfDefault(naceCode)
   }, [naceCode, seedSectorFromNaceIfDefault])
+
+  useEffect(() => {
+    const patch = buildBusinessStructurePatch(legalForm)
+    if (patch.business_structure !== businessStructure) {
+      updateFormData(patch)
+    }
+  }, [businessStructure, legalForm, updateFormData])
 
   // Mercury → Venus deep-link prefill. Mercury can supply a rich
   // context envelope through URL params so the studio is already
@@ -323,22 +282,13 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   const handleCountryChange = useCallback(
     (next: string) => {
       const code = String(next).toUpperCase()
-      updateFormData({ country_code: code })
+      updateFormData(buildCompanyCardCountryResetPatch(code))
       setField('country_code', code)
       // Clear the company selection — KBO/KVK results from the previous
       // country are no longer trustworthy.  The KBO field clears too so
       // the founder doesn't keep a dangling stale name.
       setSelectedCompany(null)
       setCompanySearchValue('')
-      updateFormData({
-        company_name: '',
-        kbo_number: undefined,
-        legal_form: undefined,
-        nace_code: undefined,
-        nace_description: undefined,
-        business_type_id: undefined,
-        industry: undefined,
-      } as Record<string, unknown>)
     },
     [setField, updateFormData]
   )
@@ -417,6 +367,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
         company_name: company.name,
         kbo_number: company.kboNumber ?? '',
         legal_form: company.legalForm ?? '',
+        ...buildBusinessStructurePatch(company.legalForm),
         country_code: (company.countryCode || country).toUpperCase(),
         nace_code: canonical || undefined,
         nace_description: company.naceDescription || undefined,
@@ -437,9 +388,6 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           updates.founding_year = company.foundingYear
         }
       }
-      // Bridge `legal_form` → SME `business_structure` mapping for any
-      // downstream consumer that branches on it.  No-op if mapping fails.
-      mapLegalFormToBusinessStructure(company.legalForm ?? '')
       if (seededBusinessTypes.length > 0) {
         applyBusinessTypeSelection(seededBusinessTypes, updates)
       } else {
@@ -481,18 +429,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   const handleClearCompany = useCallback(() => {
     setSelectedCompany(null)
     setCompanySearchValue('')
-    updateFormData({
-      company_name: '',
-      kbo_number: undefined,
-      legal_form: undefined,
-      nace_code: undefined,
-      nace_description: undefined,
-      business_type_id: undefined,
-      business_type_title: undefined,
-      business_type_segments: [],
-      business_model: undefined,
-      industry: undefined,
-    } as Record<string, unknown>)
+    updateFormData(buildCompanyCardClearPatch())
   }, [updateFormData])
 
   const handleBusinessTypeSelectionChange = useCallback(
@@ -504,14 +441,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
 
   const updateSegmentEarnings = useCallback(
     (index: number, earnings: string) => {
-      const nextSegments = businessTypeSegments.map((segment, segmentIndex) =>
-        segmentIndex === index
-          ? {
-              ...segment,
-              earnings: earnings.trim() ? earnings : null,
-            }
-          : segment
-      )
+      const nextSegments = updateSegmentEarningsValue(businessTypeSegments, index, earnings)
       updateFormData({ business_type_segments: nextSegments })
     },
     [businessTypeSegments, updateFormData]
@@ -519,14 +449,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
 
   const updateSegmentWeight = useCallback(
     (index: number, weight: string) => {
-      const nextSegments = businessTypeSegments.map((segment, segmentIndex) =>
-        segmentIndex === index
-          ? {
-              ...segment,
-              weight: weight.trim() ? weight : null,
-            }
-          : segment
-      )
+      const nextSegments = updateSegmentWeightValue(businessTypeSegments, index, weight)
       updateFormData({ business_type_segments: nextSegments })
     },
     [businessTypeSegments, updateFormData]
@@ -678,7 +601,13 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           label={t('legalForm')}
           options={getLegalFormOptions(country)}
           value={legalForm}
-          onChange={(val) => updateFormData({ legal_form: String(val) } as Record<string, unknown>)}
+          onChange={(val) => {
+            const nextLegalForm = String(val)
+            updateFormData({
+              legal_form: nextLegalForm,
+              ...buildBusinessStructurePatch(nextLegalForm),
+            })
+          }}
           size="sm"
         />
       </div>
@@ -708,7 +637,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
             <SwitchToArrNudge
               tone="sky"
               text={t('seedRevenueNudge', {
-                mrr: String(Math.round((mrr ?? (arr ?? 0) / 12) / 100) / 10),
+                mrr: formatMaterialRevenueNudgeMrr({ mrr, arr }),
               })}
             />
           )}

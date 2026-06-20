@@ -28,38 +28,26 @@ import {
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
-import { AuroraButton as Button, Checkbox } from '@/design-system'
+import { AuroraButton as Button } from '@/design-system'
 import { springDefault, springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { trackVersionCompare, trackVersionRestore } from '@/lib/analytics'
-import { dateLikeToUnixMs, formatDateLikeToLocaleString } from '@/utils/date-like'
 import { useAuth } from '../../hooks/useAuth'
 import { useVersionHistoryStore } from '../../store/useVersionHistoryStore'
-import type { ValuationVersion, VersionChanges } from '../../types/ValuationVersion'
-import { formatVersionAuthor } from '../../utils/formatters'
+import type { ValuationVersion } from '../../types/ValuationVersion'
 import {
-  getEquityValueHigh,
-  getEquityValueLow,
-  getFinalValuation,
-  getNormalizedEbitda,
-  getValuationMultiple,
-} from '../../utils/valuationResultAccess'
+  buildHistoryVersions,
+  formatHistoryCurrency,
+  formatHistoryDate,
+  formatHistoryTime,
+  type HistoryLocale,
+  type ReportLike,
+} from './HistoryPanelModel'
 import { type HistoryVersion, VersionCompareModal } from './VersionCompareModal'
 
 // Re-export types
 export type { HistoryVersion }
-
-// Generic report type - works with both ValuationReportPanel and ValuationChat reports
-export interface ReportLike {
-  id?: string
-  companyName?: string
-  valuation?: number
-  valuationLow?: number
-  valuationHigh?: number
-  ebitda?: number
-  multiple?: number
-}
+export type { ReportLike }
 
 export interface HistoryPanelProps {
   report: ReportLike | null
@@ -69,37 +57,6 @@ export interface HistoryPanelProps {
   onVersionRestore?: (version: ValuationVersion | HistoryVersion) => void
 }
 
-// ── Helper: derive version type from store data ──
-function deriveVersionType(v: ValuationVersion): HistoryVersion['type'] {
-  const label = (v.versionLabel || '').toLowerCase()
-  if (label.includes('normalis')) return 'normalization'
-  if (label.includes('methodo') || label.includes('multiple')) return 'methodology'
-  if (label.includes('data') || label.includes('financ') || label.includes('jaarrekening'))
-    return 'data_update'
-  if (v.versionNumber === 1) return 'initial'
-  return 'revision'
-}
-
-function isFieldChange(value: unknown): value is { from: unknown; to: unknown } {
-  return !!value && typeof value === 'object' && 'from' in value && 'to' in value
-}
-
-// ── Helper: derive changes from store version ──
-function deriveChanges(v: ValuationVersion, changedLabel: string): HistoryVersion['changes'] {
-  if (v.changesSummary) {
-    const cs: VersionChanges = v.changesSummary
-    const changes: HistoryVersion['changes'] = []
-    for (const [field, change] of Object.entries(cs)) {
-      if (field === 'totalChanges' || field === 'significantChanges') continue
-      if (!isFieldChange(change)) continue
-      changes.push({ field, newValue: changedLabel })
-      if (changes.length >= 5) break
-    }
-    return changes
-  }
-  return []
-}
-
 // Unified neutral styling for all version types (60/30/10 rule - reserve color for actions)
 const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; labelKey: string }> = {
   initial: { icon: FileText, labelKey: 'typeInitial' },
@@ -107,76 +64,6 @@ const typeConfig: Record<HistoryVersion['type'], { icon: typeof Clock; labelKey:
   data_update: { icon: Calculator, labelKey: 'typeDataUpdate' },
   methodology: { icon: TrendingUp, labelKey: 'typeMethodology' },
   revision: { icon: User, labelKey: 'typeRevision' },
-}
-
-type HistoryLocale = 'nl' | 'en' | 'fr'
-
-const currencyLocaleFor = (locale: HistoryLocale) =>
-  locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE'
-
-const formatCurrency = (amount: number, locale: HistoryLocale) => {
-  if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
-  return new Intl.NumberFormat(currencyLocaleFor(locale), {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-const formatTime = (
-  date: Date | string | number,
-  hp: (key: string, values?: Record<string, number>) => string,
-  locale: HistoryLocale
-) => {
-  const nowMs = Date.now()
-  const pastMs = dateLikeToUnixMs(date)
-  const diff = pastMs === null ? 0 : nowMs - pastMs
-  const loc = currencyLocaleFor(locale)
-  if (diff < 1000 * 60) return hp('timeJustNow')
-  if (diff < 1000 * 60 * 60) return hp('timeMinutesAgo', { count: Math.floor(diff / (1000 * 60)) })
-  if (diff < 1000 * 60 * 60 * 24)
-    return hp('timeHoursAgo', { count: Math.floor(diff / (1000 * 60 * 60)) })
-  if (diff < 1000 * 60 * 60 * 24 * 7)
-    return hp('timeDaysAgo', { count: Math.floor(diff / (1000 * 60 * 60 * 24)) })
-  if (pastMs === null) return hp('timeJustNow')
-  return formatDateLikeToLocaleString(date, loc, {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-const formatDate = (date: Date | string | number, locale: HistoryLocale) => {
-  return formatDateLikeToLocaleString(date, currencyLocaleFor(locale), {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function finiteReportNumber(value: unknown): number | undefined {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : undefined
-}
-
-function positiveFiniteNumber(value: unknown): number | undefined {
-  const numeric = finiteReportNumber(value)
-  return numeric != null && numeric > 0 ? numeric : undefined
-}
-
-function positiveSnapshotOrCurrent(
-  snapshotValue: number | null,
-  reportValue: unknown,
-  isCurrent: boolean
-): number | undefined {
-  return (
-    positiveFiniteNumber(snapshotValue) ??
-    (isCurrent ? positiveFiniteNumber(reportValue) : undefined)
-  )
 }
 
 // ─────────────────────────────────────────
@@ -215,7 +102,7 @@ function VisualTimeline({
             <TrendingUp className={cn('w-3.5 h-3.5', totalChange < 0 && 'rotate-180')} />
             <span className="font-mono">
               {totalChange > 0 ? '+' : ''}
-              {formatCurrency(totalChange, locale)}
+              {formatHistoryCurrency(totalChange, locale)}
             </span>
             <span className="text-foreground/40">
               ({percentChange > 0 ? '+' : ''}
@@ -308,7 +195,7 @@ function ValuationSummaryCard({
         {/* Main Value */}
         <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-mono text-2xl font-bold leading-none tracking-normal text-foreground tabular-nums">
-            {formatCurrency(version.valuation, locale)}
+            {formatHistoryCurrency(version.valuation, locale)}
           </span>
           {version.isCurrent && (
             <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-primary/20 bg-primary/10 px-1.5 text-[9px] font-semibold leading-none text-primary">
@@ -327,8 +214,8 @@ function ValuationSummaryCard({
                   {hp('bandwidth')}
                 </p>
                 <p className="font-mono text-xs font-semibold leading-5 tracking-normal text-foreground/80 tabular-nums">
-                  {formatCurrency(version.valuationLow, locale)} —{' '}
-                  {formatCurrency(version.valuationHigh, locale)}
+                  {formatHistoryCurrency(version.valuationLow, locale)} —{' '}
+                  {formatHistoryCurrency(version.valuationHigh, locale)}
                 </p>
               </div>
             )}
@@ -338,7 +225,7 @@ function ValuationSummaryCard({
                 {hp('normalizedEbitda')}
               </p>
               <p className="font-mono text-xs font-semibold leading-5 tracking-normal text-foreground/80 tabular-nums">
-                {formatCurrency(version.ebitda, locale)}
+                {formatHistoryCurrency(version.ebitda, locale)}
               </p>
             </div>
           )}
@@ -387,73 +274,17 @@ export function HistoryPanel({
     if (reportId) fetchVersions(reportId)
   }, [reportId, fetchVersions])
 
-  // Map store versions to HistoryVersion format for display
-  // When no backend versions exist but a report is available, synthesize a "Current" entry
-  const historyVersions: HistoryVersion[] = useMemo(() => {
-    if (storeVersions.length === 0) {
-      if (!report) return []
-      return [
-        {
-          id: 'current',
-          version: 1,
-          timestamp: new Date(),
-          author: hp('user'),
-          authorInitials: 'V1',
-          type: 'initial' as const,
-          summary: hp('versionN', { number: 1 }),
-          changes: [],
-          valuation: report.valuation,
-          ebitda: report.ebitda,
-          multiple: report.multiple,
-          isCurrent: true,
-        },
-      ]
-    }
-
-    return storeVersions
-      .sort((a, b) => (b.versionNumber || 0) - (a.versionNumber || 0))
-      .map((v, index, sortedVersions) => {
-        const vr = v.valuationResult
-        const createdBy = v.createdBy
-        const authorDisplay = formatVersionAuthor(createdBy, user, {
-          user: hp('user'),
-          guest: hp('guest'),
-        })
-        const authorInitials =
-          authorDisplay.substring(0, 2).toUpperCase().replace(/\s/g, '') || '??'
-        const isCurrent =
-          activeVersionNumber != null
-            ? v.versionNumber === activeVersionNumber
-            : v.isActive || (sortedVersions.length === 1 && index === 0)
-        return {
-          id: v.id || String(v.versionNumber),
-          version: v.versionNumber || 1,
-          timestamp: v.createdAt ? new Date(v.createdAt) : new Date(),
-          author: authorDisplay,
-          authorInitials,
-          type: deriveVersionType(v),
-          summary: v.versionLabel || hp('versionN', { number: v.versionNumber ?? 1 }),
-          changes: deriveChanges(v, hp('changed')),
-          valuation: positiveSnapshotOrCurrent(getFinalValuation(vr), report?.valuation, isCurrent),
-          valuationLow: positiveSnapshotOrCurrent(
-            getEquityValueLow(vr),
-            report?.valuationLow,
-            isCurrent
-          ),
-          valuationHigh: positiveSnapshotOrCurrent(
-            getEquityValueHigh(vr),
-            report?.valuationHigh,
-            isCurrent
-          ),
-          ebitda:
-            getNormalizedEbitda(vr) ?? (isCurrent ? finiteReportNumber(report?.ebitda) : undefined),
-          multiple:
-            positiveFiniteNumber(getValuationMultiple(vr)) ??
-            (isCurrent ? positiveFiniteNumber(report?.multiple) : undefined),
-          isCurrent,
-        }
-      })
-  }, [storeVersions, activeVersionNumber, hp, report, user])
+  const historyVersions: HistoryVersion[] = useMemo(
+    () =>
+      buildHistoryVersions({
+        activeVersionNumber,
+        report,
+        storeVersions,
+        translate: hp,
+        user,
+      }),
+    [storeVersions, activeVersionNumber, hp, report, user]
+  )
 
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set())
   const [restoringVersion, setRestoringVersion] = useState<string | null>(null)
@@ -734,7 +565,7 @@ export function HistoryPanel({
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {formatTime(version.timestamp, hp, locale)}
+                        {formatHistoryTime(version.timestamp, hp, locale)}
                       </span>
                     </div>
                   </div>
@@ -744,7 +575,7 @@ export function HistoryPanel({
                     {version.valuation && (
                       <div className="text-right">
                         <p className="text-sm font-semibold text-foreground/90 font-mono tabular-nums">
-                          {formatCurrency(version.valuation, locale)}
+                          {formatHistoryCurrency(version.valuation, locale)}
                         </p>
                         {/* Deltas: Success (green) for positive, Secondary (clay) for negative */}
                         {valuationDiff !== 0 && (
@@ -755,7 +586,7 @@ export function HistoryPanel({
                             )}
                           >
                             {valuationDiff > 0 ? '+' : ''}
-                            {formatCurrency(valuationDiff, locale)}
+                            {formatHistoryCurrency(valuationDiff, locale)}
                           </p>
                         )}
                       </div>
@@ -829,7 +660,7 @@ export function HistoryPanel({
                                       )}
                                     >
                                       {change.impact > 0 ? '+' : ''}
-                                      {formatCurrency(change.impact, locale)}
+                                      {formatHistoryCurrency(change.impact, locale)}
                                     </span>
                                   )}
                                 </div>
@@ -842,7 +673,7 @@ export function HistoryPanel({
                         <div className="mt-4 pt-3 border-t border-foreground/[0.04]">
                           <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] text-foreground/40">
-                              {formatDate(version.timestamp, locale)}
+                              {formatHistoryDate(version.timestamp, locale)}
                             </span>
                           </div>
 

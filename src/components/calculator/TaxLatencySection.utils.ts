@@ -1,4 +1,4 @@
-import type { TaxLatencyCandidate } from '../../store/useTaxLatencyStore'
+import type { TaxLatencyCandidate, TaxLatencyItem } from '../../store/useTaxLatencyStore'
 import { createRandomId } from '../../utils/secureRandom'
 
 export function generateTaxLatencyId(): string {
@@ -97,4 +97,49 @@ export const fuzzyMatch = (text: string, query: string): { matches: boolean; sco
     matches: queryIndex === normalizedQuery.length,
     score,
   }
+}
+
+export interface NavTaxLatencyAssets {
+  nav_real_estate_adjustment?: number | null
+  nav_inventory_adjustment?: number | null
+  nav_hidden_reserves?: number | null
+  nav_other_revaluations?: number | null
+}
+
+export function findNavTaxLatencyConflicts({
+  countryCode,
+  items,
+  navTaxLatencyPct,
+  navAssets,
+}: {
+  countryCode?: string | null
+  items: TaxLatencyItem[]
+  navTaxLatencyPct?: number | null
+  navAssets: NavTaxLatencyAssets
+}): TaxLatencyItem[] {
+  // BE-only for now. Dutch RGS uses different prefixes; applying Belgian
+  // MAR rules to NL data would create false positives during review.
+  if (countryCode !== 'BE') return []
+
+  const navPctActive =
+    typeof navTaxLatencyPct === 'number' &&
+    Number.isFinite(navTaxLatencyPct) &&
+    navTaxLatencyPct > 0
+  if (!navPctActive) return []
+
+  const grossPositiveNav =
+    Math.max(0, Number(navAssets.nav_real_estate_adjustment) || 0) +
+    Math.max(0, Number(navAssets.nav_inventory_adjustment) || 0) +
+    Math.max(0, Number(navAssets.nav_hidden_reserves) || 0) +
+    Math.max(0, Number(navAssets.nav_other_revaluations) || 0)
+  if (grossPositiveNav <= 0) return []
+
+  return items.filter((item) => {
+    if (item.type !== 'passive') return false
+    const code = (item.accountCode || '').trim()
+    const realEstateOverlap =
+      code.startsWith('22') && Number(navAssets.nav_real_estate_adjustment) > 0
+    const inventoryOverlap = code.startsWith('3') && Number(navAssets.nav_inventory_adjustment) > 0
+    return realEstateOverlap || inventoryOverlap
+  })
 }

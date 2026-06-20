@@ -1,3 +1,11 @@
+import {
+  LIQUIDATION_ASSET_CLASS_CODES,
+  LIQUIDATION_LIABILITY_BUCKET_CODES,
+} from '@/lib/methods/liquidation_analysis/liquidationInputConfig'
+import {
+  buildLiquidationAssetOverrides,
+  buildLiquidationLiabilityBuckets,
+} from '@/lib/methods/liquidation_analysis/liquidationInputModel'
 import { calculateLatencyAmount, useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { SafeNoteInput, ValuationFormData, ValuationRequest } from '../types/valuation'
 
@@ -175,47 +183,12 @@ export function applyLiquidationInputs(request: ValuationRequest, fd: FormDataRe
     liquidationInputs.multiples_value_override = Number(fd.liq_multiples_value_override)
   }
 
-  const liabilityBuckets: Record<string, number> = {}
-  const liabilityBucketKeys = [
-    'estate_costs',
-    'secured',
-    'super_preferent_employees',
-    'preferent_tax',
-    'preferent_other',
-    'unsecured',
-    'subordinated',
-  ] as const
-  for (const tier of liabilityBucketKeys) {
-    const raw = fd[`liq_lb_${tier}`]
-    if (raw != null && Number.isFinite(Number(raw)) && Number(raw) > 0) {
-      liabilityBuckets[tier] = Number(raw)
-    }
-  }
+  const liabilityBuckets = buildLiquidationLiabilityBuckets(fd, LIQUIDATION_LIABILITY_BUCKET_CODES)
   if (Object.keys(liabilityBuckets).length > 0) {
     liquidationInputs.liability_buckets = liabilityBuckets
   }
 
-  const assetOverrides: Record<string, { adjusted_value: number }> = {}
-  const assetClassCodes = [
-    'cash',
-    'trade_receivables',
-    'other_receivables',
-    'inventory_finished',
-    'inventory_wip',
-    'inventory_raw',
-    'land',
-    'buildings',
-    'machinery_equipment',
-    'vehicles',
-    'it_equipment',
-    'intangibles',
-  ] as const
-  for (const cls of assetClassCodes) {
-    const raw = fd[`liq_ao_${cls}`]
-    if (raw != null && Number.isFinite(Number(raw)) && Number(raw) > 0) {
-      assetOverrides[cls] = { adjusted_value: Number(raw) }
-    }
-  }
+  const assetOverrides = buildLiquidationAssetOverrides(fd, LIQUIDATION_ASSET_CLASS_CODES)
   if (Object.keys(assetOverrides).length > 0) {
     liquidationInputs.asset_overrides = assetOverrides
   }

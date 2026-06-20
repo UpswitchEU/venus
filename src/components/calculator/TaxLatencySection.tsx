@@ -48,6 +48,7 @@ import {
 import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
 import { TaxLatencyEditorForm } from './TaxLatencyEditorForm'
 import {
+  findNavTaxLatencyConflicts,
   fuzzyMatch,
   type GroupedTaxLatencyCandidate,
   generateTaxLatencyId,
@@ -306,6 +307,12 @@ export function TaxLatencySection({
         nav_other_revaluations?: number
       }
   )
+  const {
+    nav_real_estate_adjustment: navRealEstateAdjustment,
+    nav_inventory_adjustment: navInventoryAdjustment,
+    nav_hidden_reserves: navHiddenReserves,
+    nav_other_revaluations: navOtherRevaluations,
+  } = navAssets
 
   const items = useTaxLatencyStore((s) => s.items)
   const candidates = useTaxLatencyStore((s) => s.candidates)
@@ -323,56 +330,26 @@ export function TaxLatencySection({
     () => alwaysExpanded && !hasItems && candidates.length === 0
   )
 
-  // Conflict detection: NAV-% deduction (asset-based bridge) AND a BSA tax_latency
-  // row (equity bridge) on overlapping asset classes will both deduct latent tax
-  // from equity → double-count. Detect the most common case (real estate, MAR 22x)
-  // and surface a non-blocking warning so the accountant can choose one channel.
-  //
-  // Scope: BE-only for now. Dutch RGS uses different prefixes (e.g. 0xx for fixed
-  // assets, 3xx for inventory may overlap with BE 30 but means a different thing
-  // in some sub-codes). Firing the BE rules on NL data would yield false positives
-  // (e.g. a Dutch '30xxx' inventory account is not flagged with the same logic).
-  // When NL/EU coverage lands, broaden this guard with country-specific matchers.
   const conflictingLatencyItems = useMemo(() => {
-    // Require an EXPLICIT 'BE' before firing MAR-based heuristics. During
-    // initial form hydration `countryCode` can be undefined; falling through
-    // would render a BE-flavoured warning on a blank form. Once the form
-    // wizard sets the country we re-evaluate.
-    if (countryCode !== 'BE') return []
-
-    const navPctActive =
-      typeof navTaxLatencyPct === 'number' &&
-      Number.isFinite(navTaxLatencyPct) &&
-      navTaxLatencyPct > 0
-    if (!navPctActive) return []
-
-    const grossPositiveNav =
-      Math.max(0, Number(navAssets.nav_real_estate_adjustment) || 0) +
-      Math.max(0, Number(navAssets.nav_inventory_adjustment) || 0) +
-      Math.max(0, Number(navAssets.nav_hidden_reserves) || 0) +
-      Math.max(0, Number(navAssets.nav_other_revaluations) || 0)
-    if (grossPositiveNav <= 0) return []
-
-    return items.filter((item) => {
-      if (item.type !== 'passive') return false
-      const code = (item.accountCode || '').trim()
-      // Belgian MAR 22x = property/buildings; if the user also entered a positive
-      // real-estate revaluation in the NAV schedule, both channels apply latent tax.
-      const realEstateOverlap =
-        code.startsWith('22') && Number(navAssets.nav_real_estate_adjustment) > 0
-      // MAR 3x = inventory revaluations.
-      const inventoryOverlap =
-        code.startsWith('3') && Number(navAssets.nav_inventory_adjustment) > 0
-      return realEstateOverlap || inventoryOverlap
+    return findNavTaxLatencyConflicts({
+      countryCode,
+      items,
+      navTaxLatencyPct,
+      navAssets: {
+        nav_real_estate_adjustment: navRealEstateAdjustment,
+        nav_inventory_adjustment: navInventoryAdjustment,
+        nav_hidden_reserves: navHiddenReserves,
+        nav_other_revaluations: navOtherRevaluations,
+      },
     })
   }, [
     countryCode,
     items,
     navTaxLatencyPct,
-    navAssets.nav_real_estate_adjustment,
-    navAssets.nav_inventory_adjustment,
-    navAssets.nav_hidden_reserves,
-    navAssets.nav_other_revaluations,
+    navRealEstateAdjustment,
+    navInventoryAdjustment,
+    navHiddenReserves,
+    navOtherRevaluations,
   ])
 
   const [draftType, setDraftType] = useState<TaxLatencyType>('passive')

@@ -29,7 +29,14 @@ import {
   shouldWaitForMercuryClientContextBeforeBootstrap,
 } from '../mercury/sessionReadiness'
 import { setBootstrapState } from '../sessionInitialization'
-import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
+import {
+  clearScopedGlobalBootstrapResult,
+  getScopedGlobalBootstrapReportId,
+  getScopedGlobalBootstrapResult,
+  hasScopedGlobalBootstrapResult,
+  rememberScopedGlobalBootstrapResult,
+} from './BootstrapProviderCache'
+import { getBootstrapContextCacheKey } from './contextCacheKey'
 import { applyBootstrapPackageHydration } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
 import { bootstrapService } from './SessionBootstrapService'
@@ -52,40 +59,6 @@ import {
   REQUIRE_AUTH_FOR_VALUATION,
 } from './types'
 import { parseUrlToContext } from './utils'
-
-// Module-level flag: once bootstrap completes successfully, prevent
-// re-triggering for the same existing report from any source (effect re-run,
-// remount, auth toggle). Only reset on explicit forceRefresh or page reload.
-let bootstrapCompletedGlobally = false
-// Module-level snapshot of the last successful result. Unlike the service's
-// TTL-based cache (10s), this never expires for existing reports — it survives
-// component remounts indefinitely, but only for the exact requested context.
-// Cleared only on logout, explicit force-refresh, or context key mismatch.
-let lastGlobalResult: SessionBootstrapState | null = null
-let lastGlobalContextKey: string | null = null
-
-function getScopedGlobalResult(
-  context: BootstrapContextShape | null | undefined
-): SessionBootstrapState | null {
-  const requestedContextKey = getBootstrapContextCacheKey(context)
-  const requestedReportKey = getBootstrapReportCacheKey(context?.reportId)
-  if (
-    !bootstrapCompletedGlobally ||
-    lastGlobalContextKey !== requestedContextKey ||
-    !lastGlobalResult
-  ) {
-    return null
-  }
-
-  // Do not hydrate /reports/new from an immortal module cache. The service TTL
-  // handles short remount deduplication for new report creation.
-  if (requestedReportKey === 'new') {
-    return null
-  }
-
-  const returnedId = lastGlobalResult.report.reportId?.trim()
-  return returnedId === requestedReportKey ? lastGlobalResult : null
-}
 
 function readDelegatedBootstrapReadiness(activeContext: BootstrapContextShape): {
   authSettled: boolean
@@ -125,26 +98,6 @@ function readDelegatedBootstrapReadiness(activeContext: BootstrapContextShape): 
   return { authSettled, needsDelegatedContext, ready }
 }
 
-function rememberScopedGlobalResult(
-  context: BootstrapContextShape | null | undefined,
-  result: SessionBootstrapState
-) {
-  const requestedContextKey = getBootstrapContextCacheKey(context)
-  const requestedReportKey = getBootstrapReportCacheKey(context?.reportId)
-  const returnedId = result.report.reportId?.trim()
-
-  if (requestedReportKey === 'new' || returnedId !== requestedReportKey) {
-    bootstrapCompletedGlobally = false
-    lastGlobalResult = null
-    lastGlobalContextKey = null
-    return
-  }
-
-  bootstrapCompletedGlobally = true
-  lastGlobalResult = result
-  lastGlobalContextKey = requestedContextKey
-}
-
 function hasMeaningfulBootstrapPrefill(prefillData: SessionBootstrapState['prefillData']): boolean {
   if ((prefillData.fieldsPopulated?.length ?? 0) > 0) return true
   if (prefillData.confidence >= 0.05) return true
@@ -171,11 +124,7 @@ function hasMeaningfulBootstrapPrefill(prefillData: SessionBootstrapState['prefi
 }
 
 /** Reset the module-level bootstrap guard (call on logout) */
-export function resetBootstrapGuard() {
-  bootstrapCompletedGlobally = false
-  lastGlobalResult = null
-  lastGlobalContextKey = null
-}
+export { clearScopedGlobalBootstrapResult as resetBootstrapGuard } from './BootstrapProviderCache'
 
 // ============================================================================
 // Context Types
@@ -332,9 +281,10 @@ export function BootstrapProvider({
     }
 
     // Guard 2 (module-level): bootstrap already completed in a previous mount
-    if (bootstrapCompletedGlobally) {
+    if (hasScopedGlobalBootstrapResult()) {
       const cached =
-        bootstrapService.getCachedResult(activeContext) || getScopedGlobalResult(activeContext)
+        bootstrapService.getCachedResult(activeContext) ||
+        getScopedGlobalBootstrapResult(activeContext)
       if (cached) {
         generalLogger.debug(
           '[BootstrapProvider] Module-level guard — hydrating scoped cache (no callbacks)',
@@ -352,11 +302,9 @@ export function BootstrapProvider({
 
       generalLogger.debug('[BootstrapProvider] Ignoring stale module-level bootstrap cache', {
         requestedReportId: activeContext.reportId?.substring(0, 30),
-        cachedReportId: lastGlobalResult?.report.reportId?.substring(0, 30),
+        cachedReportId: getScopedGlobalBootstrapReportId()?.substring(0, 30),
       })
-      bootstrapCompletedGlobally = false
-      lastGlobalResult = null
-      lastGlobalContextKey = null
+      clearScopedGlobalBootstrapResult()
     }
 
     // Guard 3 (singleton cache): prevent re-bootstrap after component remount
@@ -370,7 +318,7 @@ export function BootstrapProvider({
       )
       bootstrapStartedRef.current = true
       bootstrapCompletedRef.current = true
-      rememberScopedGlobalResult(activeContext, cachedResult)
+      rememberScopedGlobalBootstrapResult(activeContext, cachedResult)
       setState(cachedResult)
       setIsBootstrapping(false)
       setBootstrapState(cachedResult)
@@ -483,7 +431,7 @@ export function BootstrapProvider({
 
       if (mountedRef.current) setState(result)
       bootstrapCompletedRef.current = true
-      rememberScopedGlobalResult(bootstrapContext, result)
+      rememberScopedGlobalBootstrapResult(bootstrapContext, result)
 
       // Bootstrap succeeded — clear the reload-loop circuit breaker so
       // future legitimate reloads aren't blocked.
@@ -571,9 +519,7 @@ export function BootstrapProvider({
     generalLogger.debug('[BootstrapProvider] Force refresh — resetting all guards')
     bootstrapStartedRef.current = false
     bootstrapCompletedRef.current = false
-    bootstrapCompletedGlobally = false
-    lastGlobalResult = null
-    lastGlobalContextKey = null
+    clearScopedGlobalBootstrapResult()
     bootstrapRunIdRef.current += 1
     resetBootstrapSyncGateForRetry()
     bootstrapService.clearCache()
@@ -632,9 +578,7 @@ export function BootstrapProvider({
     prevDelegationCacheKeyRef.current = delegationCacheKey
     bootstrapStartedRef.current = false
     bootstrapCompletedRef.current = false
-    bootstrapCompletedGlobally = false
-    lastGlobalResult = null
-    lastGlobalContextKey = null
+    clearScopedGlobalBootstrapResult()
     bootstrapService.clearCache()
     bootstrapService.clearInflightCache()
 
@@ -700,7 +644,7 @@ export function BootstrapProvider({
   // Internal guards (bootstrapCompletedGlobally, bootstrapStartedRef, in-flight
   // promise cache) ensure at-most-once execution per report.
   useEffect(() => {
-    if (bootstrapCompletedGlobally) {
+    if (hasScopedGlobalBootstrapResult()) {
       if (bootstrapStartedRef.current) {
         return
       }
@@ -710,7 +654,8 @@ export function BootstrapProvider({
       }
 
       const cached =
-        bootstrapService.getCachedResult(activeContext) || getScopedGlobalResult(activeContext)
+        bootstrapService.getCachedResult(activeContext) ||
+        getScopedGlobalBootstrapResult(activeContext)
       if (cached) {
         bootstrapStartedRef.current = true
         bootstrapCompletedRef.current = true
@@ -722,11 +667,9 @@ export function BootstrapProvider({
 
       generalLogger.debug('[BootstrapProvider] Global bootstrap cache missed current report', {
         requestedReportId: activeContext.reportId?.substring(0, 30),
-        cachedReportId: lastGlobalResult?.report.reportId?.substring(0, 30),
+        cachedReportId: getScopedGlobalBootstrapReportId()?.substring(0, 30),
       })
-      bootstrapCompletedGlobally = false
-      lastGlobalResult = null
-      lastGlobalContextKey = null
+      clearScopedGlobalBootstrapResult()
     }
 
     if (bootstrapStartedRef.current || initialState) {

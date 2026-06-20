@@ -53,95 +53,27 @@ import { useEffect, useId, useState } from 'react'
 
 import { AuroraInput } from '@/design-system'
 import { cn } from '@/design-system/utils'
+import {
+  LIQUIDATION_ASSET_CLASS_CODES,
+  LIQUIDATION_ASSET_CLASSES,
+  LIQUIDATION_ESSENTIAL_FIELDS,
+  LIQUIDATION_LIABILITY_BUCKET_CODES,
+  LIQUIDATION_LIABILITY_BUCKET_TIERS,
+  LIQUIDATION_PREMISE_OPTIONS,
+  LIQUIDATION_RESET_NUMERIC_FIELD_KEYS,
+  type LiquidationAssetClassCode,
+  type LiquidationLiabilityBucketCode,
+} from '@/lib/methods/liquidation_analysis/liquidationInputConfig'
+import {
+  countPositiveLiquidationValues,
+  formatLiquidationPercentDisplay,
+  parseLiquidationPercentInput,
+  resolveLiquidationPositivePrefill,
+} from '@/lib/methods/liquidation_analysis/liquidationInputModel'
 import { CurrencyInput } from '../CurrencyInput'
 import { IntegerInput } from './IntegerInput'
 import { PrefilledBadge } from './PrefilledBadge'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
-
-// `going_concern` is intentionally NOT exposed here.  Liquidation
-// analysis is in `STANDALONE_METHODS` (different premise of value per
-// IVS 104 §80 — orderly/forced wind-down vs. going-concern).  Picking
-// "going_concern" inside a liquidation report would either be silently
-// ignored by the engine or produce a contradictory narrative.
-// Advisors who need the going-concern reference should select the
-// Adjusted-NAV method (or any going-concern lens) instead, which is
-// already reconciled against liquidation in the
-// liquidation_premise_reconciliation page.
-const PREMISE_OPTIONS: ReadonlyArray<{
-  value: '' | 'orderly_liquidation' | 'forced_liquidation'
-  i18nKey: string
-}> = [
-  { value: '', i18nKey: 'auto' },
-  { value: 'orderly_liquidation', i18nKey: 'orderlyLiquidation' },
-  { value: 'forced_liquidation', i18nKey: 'forcedLiquidation' },
-]
-
-const ESSENTIAL_FIELDS = [
-  'liq_headcount',
-  'liq_monthly_rent',
-  'liq_paid_up_capital',
-  'liq_deferred_tax',
-] as const
-
-/**
- * Per-tier liability bucket order — mirrors
- * `priority_cascade.CascadeTierCode` on the engine side. Each tier
- * has a stable engine string key + a Boek-XX / Faillissementswet
- * citation surfaced as the field hint so the advisor can match a
- * GL trial balance to the right rang. Supplying these buckets kills
- * the engine's "estimated from jurisdiction defaults" warning that
- * fires on every cascade page when `liability_buckets` is null.
- *
- * `shareholders` is intentionally excluded — it's the residual class
- * the cascade *computes*, not an input the advisor supplies.
- */
-const LIABILITY_BUCKET_TIERS = [
-  { code: 'estate_costs', i18nKey: 'estateCosts' },
-  { code: 'secured', i18nKey: 'secured' },
-  { code: 'super_preferent_employees', i18nKey: 'superPreferentEmployees' },
-  { code: 'preferent_tax', i18nKey: 'preferentTax' },
-  { code: 'preferent_other', i18nKey: 'preferentOther' },
-  { code: 'unsecured', i18nKey: 'unsecured' },
-  { code: 'subordinated', i18nKey: 'subordinated' },
-] as const
-
-type LiabilityBucketCode = (typeof LIABILITY_BUCKET_TIERS)[number]['code']
-
-const LIABILITY_BUCKET_FORM_KEYS = LIABILITY_BUCKET_TIERS.map(
-  (tier) => `liq_lb_${tier.code}` as const
-)
-
-/**
- * Per-asset-class adjusted-FMV overrides — mirrors
- * `asset_schedule.AssetClass` on the engine side.  Each class accepts
- * a single number (appraiser FMV in EUR).  Engine's per-class default
- * derives `adjusted_value` from the matching balance-sheet line, so a
- * blank override here just means "trust the book value."  Supplying
- * even a single override surfaces in the realisation schedule with
- * the engine flagging "appraiser override applied."
- *
- * Surfaced under a separate toggle so the section header counts only
- * the *essential* 4 — these are power-user appraiser knowledge, not
- * required inputs.
- */
-const ASSET_CLASSES = [
-  { code: 'cash', i18nKey: 'cash' },
-  { code: 'trade_receivables', i18nKey: 'tradeReceivables' },
-  { code: 'other_receivables', i18nKey: 'otherReceivables' },
-  { code: 'inventory_finished', i18nKey: 'inventoryFinished' },
-  { code: 'inventory_wip', i18nKey: 'inventoryWip' },
-  { code: 'inventory_raw', i18nKey: 'inventoryRaw' },
-  { code: 'land', i18nKey: 'land' },
-  { code: 'buildings', i18nKey: 'buildings' },
-  { code: 'machinery_equipment', i18nKey: 'machineryEquipment' },
-  { code: 'vehicles', i18nKey: 'vehicles' },
-  { code: 'it_equipment', i18nKey: 'itEquipment' },
-  { code: 'intangibles', i18nKey: 'intangibles' },
-] as const
-
-type AssetClassCode = (typeof ASSET_CLASSES)[number]['code']
-
-const ASSET_OVERRIDE_FORM_KEYS = ASSET_CLASSES.map((cls) => `liq_ao_${cls.code}` as const)
 
 /**
  * Decimal-percent input used for the advanced WACC / uplift fields.
@@ -176,8 +108,7 @@ function PercentInput({
   step?: number
   testId?: string
 }) {
-  const display =
-    value === undefined || value === null ? '' : String(Math.round(Number(value) * 1000) / 10)
+  const display = formatLiquidationPercentDisplay(value)
   return (
     <AuroraInput
       id={name}
@@ -196,7 +127,7 @@ function PercentInput({
       disabled={disabled}
       onChange={(e) => {
         const raw = e.target.value
-        onChange(raw === '' ? undefined : Math.max(0, Math.round(Number(raw) * 10) / 1000))
+        onChange(parseLiquidationPercentInput(raw))
       }}
       rightIcon={<span className="select-none text-xs font-medium text-foreground/40">%</span>}
       data-testid={testId}
@@ -237,12 +168,12 @@ export interface LiquidationInputsSectionProps {
   // Per-tier liability buckets — supplied so the priority cascade
   // page renders the actual debt structure instead of the engine's
   // jurisdiction-default estimate (audit P0 #8).
-  liqLiabilityBuckets?: Partial<Record<LiabilityBucketCode, number>>
+  liqLiabilityBuckets?: Partial<Record<LiquidationLiabilityBucketCode, number>>
   // Per-asset-class adjusted-FMV overrides — turn the realisation
   // schedule from a book-value rollforward into an appraiser-grade
   // working paper (audit P0 #9).  Engine falls back to balance-sheet
   // values for any class without an override.
-  liqAssetOverrides?: Partial<Record<AssetClassCode, number>>
+  liqAssetOverrides?: Partial<Record<LiquidationAssetClassCode, number>>
   // Prefill sources (read-only signals from base inputs).  Each is a
   // dominant-source value that the field auto-populates from on first
   // mount; the user's manual edit wins forever after.
@@ -297,14 +228,14 @@ export function LiquidationInputsSection({
   // Count of non-zero buckets — surfaces in the toggle so the advisor
   // can see at-a-glance whether the cascade is running on real data
   // or jurisdiction defaults.
-  const liabilityBucketsFilled = LIABILITY_BUCKET_TIERS.filter((tier) => {
-    const v = liqLiabilityBuckets?.[tier.code]
-    return typeof v === 'number' && v > 0
-  }).length
-  const assetOverridesFilled = ASSET_CLASSES.filter((cls) => {
-    const v = liqAssetOverrides?.[cls.code]
-    return typeof v === 'number' && v > 0
-  }).length
+  const liabilityBucketsFilled = countPositiveLiquidationValues(
+    liqLiabilityBuckets,
+    LIQUIDATION_LIABILITY_BUCKET_CODES
+  )
+  const assetOverridesFilled = countPositiveLiquidationValues(
+    liqAssetOverrides,
+    LIQUIDATION_ASSET_CLASS_CODES
+  )
   const [headcountWasPrefilled, setHeadcountWasPrefilled] = useState(false)
   const [rentWasPrefilled, setRentWasPrefilled] = useState(false)
   const [paidUpCapitalWasPrefilled, setPaidUpCapitalWasPrefilled] = useState(false)
@@ -321,7 +252,7 @@ export function LiquidationInputsSection({
   const essentialsFilled = [liqHeadcount, liqMonthlyRent, liqPaidUpCapital, liqDeferredTax].filter(
     (v) => v !== undefined
   ).length
-  const sectionComplete = essentialsFilled === ESSENTIAL_FIELDS.length
+  const sectionComplete = essentialsFilled === LIQUIDATION_ESSENTIAL_FIELDS.length
 
   // Auto-prefill headcount from base company profile.
   // Runs whenever (a) liqHeadcount is undefined AND (b) the source
@@ -331,12 +262,14 @@ export function LiquidationInputsSection({
   // The user's manual edit wins forever after (the predicate `liqHeadcount === undefined`
   // is only true on the very first time).
   useEffect(() => {
-    if (
-      liqHeadcount === undefined &&
-      prefillSourceHeadcount !== undefined &&
-      prefillSourceHeadcount > 0
-    ) {
-      onFieldChange('liq_headcount', Math.floor(prefillSourceHeadcount))
+    const prefill = resolveLiquidationPositivePrefill({
+      field: 'liq_headcount',
+      currentValue: liqHeadcount,
+      sourceValue: prefillSourceHeadcount,
+      transform: Math.floor,
+    })
+    if (prefill) {
+      onFieldChange(prefill.field, prefill.value)
       setHeadcountWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -349,12 +282,14 @@ export function LiquidationInputsSection({
   // tenant SMEs. Owner-occupied businesses (rent = 0) skip the prefill
   // and the field stays blank — engine defaults take over.
   useEffect(() => {
-    if (
-      liqMonthlyRent === undefined &&
-      prefillSourceAnnualRent !== undefined &&
-      prefillSourceAnnualRent > 0
-    ) {
-      onFieldChange('liq_monthly_rent', Math.round((prefillSourceAnnualRent / 12) * 100) / 100)
+    const prefill = resolveLiquidationPositivePrefill({
+      field: 'liq_monthly_rent',
+      currentValue: liqMonthlyRent,
+      sourceValue: prefillSourceAnnualRent,
+      transform: (annualRent) => Math.round((annualRent / 12) * 100) / 100,
+    })
+    if (prefill) {
+      onFieldChange(prefill.field, prefill.value)
       setRentWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -362,12 +297,13 @@ export function LiquidationInputsSection({
 
   // Auto-prefill paid-up capital from balance-sheet equity composition.
   useEffect(() => {
-    if (
-      liqPaidUpCapital === undefined &&
-      prefillSourcePaidUpCapital !== undefined &&
-      prefillSourcePaidUpCapital > 0
-    ) {
-      onFieldChange('liq_paid_up_capital', prefillSourcePaidUpCapital)
+    const prefill = resolveLiquidationPositivePrefill({
+      field: 'liq_paid_up_capital',
+      currentValue: liqPaidUpCapital,
+      sourceValue: prefillSourcePaidUpCapital,
+    })
+    if (prefill) {
+      onFieldChange(prefill.field, prefill.value)
       setPaidUpCapitalWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -376,33 +312,20 @@ export function LiquidationInputsSection({
   // Auto-prefill deferred tax liabilities from balance-sheet long-term
   // liabilities.  Skips zero/missing values — engine defaults take over.
   useEffect(() => {
-    if (
-      liqDeferredTax === undefined &&
-      prefillSourceDeferredTax !== undefined &&
-      prefillSourceDeferredTax > 0
-    ) {
-      onFieldChange('liq_deferred_tax', prefillSourceDeferredTax)
+    const prefill = resolveLiquidationPositivePrefill({
+      field: 'liq_deferred_tax',
+      currentValue: liqDeferredTax,
+      sourceValue: prefillSourceDeferredTax,
+    })
+    if (prefill) {
+      onFieldChange(prefill.field, prefill.value)
       setDeferredTaxWasPrefilled(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillSourceDeferredTax, liqDeferredTax, onFieldChange])
 
   const handleReset = () => {
-    for (const field of ESSENTIAL_FIELDS) {
-      onFieldChange(field, undefined)
-    }
-    onFieldChange('liq_realised_capital_gains', undefined)
-    onFieldChange('liq_taxable_reserves', undefined)
-    onFieldChange('liq_runway_months_orderly', undefined)
-    onFieldChange('liq_runway_months_forced', undefined)
-    onFieldChange('liq_distress_wacc_orderly', undefined)
-    onFieldChange('liq_distress_wacc_forced', undefined)
-    onFieldChange('liq_intangibles_uplift_pct', undefined)
-    onFieldChange('liq_multiples_value_override', undefined)
-    for (const field of LIABILITY_BUCKET_FORM_KEYS) {
-      onFieldChange(field, undefined)
-    }
-    for (const field of ASSET_OVERRIDE_FORM_KEYS) {
+    for (const field of LIQUIDATION_RESET_NUMERIC_FIELD_KEYS) {
       onFieldChange(field, undefined)
     }
     if (onAnyFieldChange) {
@@ -444,7 +367,7 @@ export function LiquidationInputsSection({
           <p className="text-[11px] leading-snug text-foreground/55">
             {t('essentialsProgress', {
               filled: essentialsFilled,
-              total: ESSENTIAL_FIELDS.length,
+              total: LIQUIDATION_ESSENTIAL_FIELDS.length,
             })}
           </p>
           <span
@@ -589,7 +512,7 @@ export function LiquidationInputsSection({
               )}
               data-testid="liq-premise-override-select"
             >
-              {PREMISE_OPTIONS.map((opt) => (
+              {LIQUIDATION_PREMISE_OPTIONS.map((opt) => (
                 <option key={opt.value || 'auto'} value={opt.value}>
                   {t(`premiseOption.${opt.i18nKey}`)}
                 </option>
@@ -707,7 +630,7 @@ export function LiquidationInputsSection({
           title={t('liabilityBucketsTitle')}
           subtitle={t('liabilityBucketsProgress', {
             filled: liabilityBucketsFilled,
-            total: LIABILITY_BUCKET_TIERS.length,
+            total: LIQUIDATION_LIABILITY_BUCKET_TIERS.length,
           })}
           panelId={liabilityBucketsPanelId}
           testId="liq-liability-buckets-toggle"
@@ -726,7 +649,7 @@ export function LiquidationInputsSection({
               {t('liabilityBucketsSubtitle')}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {LIABILITY_BUCKET_TIERS.map((tier) => {
+              {LIQUIDATION_LIABILITY_BUCKET_TIERS.map((tier) => {
                 const formKey = `liq_lb_${tier.code}` as const
                 const current = liqLiabilityBuckets?.[tier.code]
                 return (
@@ -759,7 +682,7 @@ export function LiquidationInputsSection({
           title={t('assetOverridesTitle')}
           subtitle={t('assetOverridesProgress', {
             filled: assetOverridesFilled,
-            total: ASSET_CLASSES.length,
+            total: LIQUIDATION_ASSET_CLASSES.length,
           })}
           panelId={assetOverridesPanelId}
           testId="liq-asset-overrides-toggle"
@@ -778,7 +701,7 @@ export function LiquidationInputsSection({
               {t('assetOverridesSubtitle')}
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {ASSET_CLASSES.map((cls) => {
+              {LIQUIDATION_ASSET_CLASSES.map((cls) => {
                 const formKey = `liq_ao_${cls.code}` as const
                 const current = liqAssetOverrides?.[cls.code]
                 return (

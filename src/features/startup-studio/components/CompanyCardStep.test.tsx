@@ -265,4 +265,21 @@ describe('CompanyCardStep — identity bridge', () => {
     })
     expect(screen.getAllByText('Weight')).toHaveLength(2)
   })
+
+  it('bridges selected registry legal forms into business_structure for downstream payloads', () => {
+    useManualFormStore.setState(
+      {
+        ...useManualFormStore.getState(),
+        formData: {
+          ...useManualFormStore.getState().formData,
+          legal_form: 'BV',
+        },
+      },
+      true
+    )
+
+    render(<CompanyCardStep locale="en" />)
+
+    expect(useManualFormStore.getState().formData.business_structure).toBe('bv')
+  })
 })

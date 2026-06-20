@@ -44,6 +44,11 @@ import {
   inferCategoryFromCode,
   parseCustomLedgerFromQuery,
 } from './UnifiedNormalizationHelpers'
+import {
+  bulkUpdateNormalizationStatus,
+  removeSelectedNormalizations,
+  updateNormalizationStatus,
+} from './UnifiedNormalizationModalActions'
 import { UnifiedNormalizationModalFooter } from './UnifiedNormalizationModalFooter'
 import {
   type NormalizationPrimaryTab,
@@ -434,21 +439,13 @@ export function UnifiedNormalizationModal({
   // Actions
   const updateStatus = useCallback(
     (id: string, status: NormalizationStatus) => {
-      const reviewedAt = status === 'accepted' ? new Date().toISOString() : undefined
       onNormalizationsChange(
-        normalizations.map((n) =>
-          n.id === id
-            ? {
-                ...n,
-                status,
-                ...(requiresIndividualImportedNormalizationReview(n)
-                  ? reviewedAt
-                    ? { reviewedAt }
-                    : { reviewedAt: undefined }
-                  : {}),
-              }
-            : n
-        )
+        updateNormalizationStatus({
+          items: normalizations,
+          id,
+          status,
+          acceptedAt: new Date().toISOString(),
+        })
       )
     },
     [normalizations, onNormalizationsChange]
@@ -456,28 +453,13 @@ export function UnifiedNormalizationModal({
 
   const bulkUpdateStatus = useCallback(
     (status: NormalizationStatus) => {
-      const reviewedAt = status === 'accepted' ? new Date().toISOString() : undefined
       onNormalizationsChange(
-        normalizations.map((n) =>
-          selectedIds.has(n.id)
-            ? {
-                ...n,
-                status:
-                  status === 'accepted' &&
-                  n.status !== 'accepted' &&
-                  requiresIndividualImportedNormalizationReview(n)
-                    ? n.status
-                    : status,
-                ...(requiresIndividualImportedNormalizationReview(n)
-                  ? reviewedAt
-                    ? n.status !== 'accepted'
-                      ? {}
-                      : { reviewedAt }
-                    : { reviewedAt: undefined }
-                  : {}),
-              }
-            : n
-        )
+        bulkUpdateNormalizationStatus({
+          items: normalizations,
+          selectedIds,
+          status,
+          acceptedAt: new Date().toISOString(),
+        })
       )
       setSelectedIds(new Set())
     },
@@ -491,7 +473,7 @@ export function UnifiedNormalizationModal({
       !window.confirm(nh('confirmBulkRemoveNormalizations', { count }))
     )
       return
-    onNormalizationsChange(normalizations.filter((n) => !selectedIds.has(n.id)))
+    onNormalizationsChange(removeSelectedNormalizations({ items: normalizations, selectedIds }))
     setSelectedIds(new Set())
   }, [normalizations, onNormalizationsChange, selectedIds, nh])
 

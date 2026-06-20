@@ -2,6 +2,14 @@
 
 import { LiquidationInputsSection } from '@/components/calculator/sections/LiquidationInputsSection'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
+import {
+  LIQUIDATION_ASSET_CLASS_CODES,
+  LIQUIDATION_LIABILITY_BUCKET_CODES,
+} from './liquidationInputConfig'
+import {
+  readLiquidationAssetOverrideFormValues,
+  readLiquidationLiabilityBucketFormValues,
+} from './liquidationInputModel'
 
 export interface LiquidationSectionStackProps {
   navStep?: number
@@ -60,29 +68,14 @@ export function LiquidationSectionStack({
       liqDistressWaccForced={formData.liq_distress_wacc_forced as number | undefined}
       liqIntangiblesUpliftPct={formData.liq_intangibles_uplift_pct as number | undefined}
       liqMultiplesValueOverride={formData.liq_multiples_value_override as number | undefined}
-      liqLiabilityBuckets={{
-        estate_costs: formData.liq_lb_estate_costs as number | undefined,
-        secured: formData.liq_lb_secured as number | undefined,
-        super_preferent_employees: formData.liq_lb_super_preferent_employees as number | undefined,
-        preferent_tax: formData.liq_lb_preferent_tax as number | undefined,
-        preferent_other: formData.liq_lb_preferent_other as number | undefined,
-        unsecured: formData.liq_lb_unsecured as number | undefined,
-        subordinated: formData.liq_lb_subordinated as number | undefined,
-      }}
-      liqAssetOverrides={{
-        cash: formData.liq_ao_cash as number | undefined,
-        trade_receivables: formData.liq_ao_trade_receivables as number | undefined,
-        other_receivables: formData.liq_ao_other_receivables as number | undefined,
-        inventory_finished: formData.liq_ao_inventory_finished as number | undefined,
-        inventory_wip: formData.liq_ao_inventory_wip as number | undefined,
-        inventory_raw: formData.liq_ao_inventory_raw as number | undefined,
-        land: formData.liq_ao_land as number | undefined,
-        buildings: formData.liq_ao_buildings as number | undefined,
-        machinery_equipment: formData.liq_ao_machinery_equipment as number | undefined,
-        vehicles: formData.liq_ao_vehicles as number | undefined,
-        it_equipment: formData.liq_ao_it_equipment as number | undefined,
-        intangibles: formData.liq_ao_intangibles as number | undefined,
-      }}
+      liqLiabilityBuckets={readLiquidationLiabilityBucketFormValues(
+        formData,
+        LIQUIDATION_LIABILITY_BUCKET_CODES
+      )}
+      liqAssetOverrides={readLiquidationAssetOverrideFormValues(
+        formData,
+        LIQUIDATION_ASSET_CLASS_CODES
+      )}
       prefillSourceHeadcount={
         (formData as ManualValuationFormData & { number_of_employees?: number })
           .number_of_employees ?? undefined
