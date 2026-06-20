@@ -8,13 +8,11 @@ import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useCredits } from '../../../hooks/useCredits'
 import { useFormSessionSync } from '../../../hooks/useFormSessionSync'
-import { usePdfGeneration } from '../../../hooks/usePdfGeneration'
 import { usePrefillRestorationCoordinator } from '../../../hooks/usePrefillRestorationCoordinator'
 import { usePreSelectedMethodSessionSync } from '../../../hooks/usePreSelectedMethodSessionSync'
 import { useSessionDataPrefill } from '../../../hooks/useSessionDataPrefill'
 import { useSessionOptionalMethodPrefill } from '../../../hooks/useSessionOptionalMethodPrefill'
 import { useBootstrap } from '../../../lib/bootstrap/BootstrapProvider'
-import { backendAPI } from '../../../services/backendApi'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import {
   useManualAccountantContext,
@@ -36,9 +34,8 @@ import {
   useManualRecalculateConfirmation,
   useManualReportApproval,
   useManualReportAttestation,
-  useManualReportHtmlRecovery,
   useManualReportIdentifiers,
-  useManualReportMethodHydration,
+  useManualReportReadinessController,
   useManualReportUiState,
   useManualRestoredFinancialSnapshotBaseline,
   useManualSessionPersistenceLifecycles,
@@ -49,7 +46,6 @@ import {
   useManualVersionNavigation,
   useManualVersionSyncTimeoutRef,
   useManualWorkspaceStores,
-  usePdfStalenessLifecycle,
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
@@ -141,13 +137,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     resultValuationId: result?.valuation_id,
     session,
   })
-  const {
-    state: pdfGenerationState,
-    generatePdf,
-    downloadPdf,
-    isReady: isPdfReady,
-    isGenerating: isPdfGenerating,
-  } = usePdfGeneration(resolvedReportId ?? reportId)
   const currentLocale = useLocale()
   const {
     accountantDisplayName,
@@ -223,26 +212,6 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
       selectedMethod,
       session,
     })
-  const {
-    isHydratingEditModalData,
-    reportMethodHydrationError,
-    retryReportMethodHydration,
-    showFiscalReferenceForOmni,
-  } = useManualReportMethodHydration({
-    firmCountryCode: user?.firm_country_code,
-    reportHydrationLookupId,
-    restorationComplete,
-    setResult,
-  })
-  const { isRecoveringReportHtml } = useManualReportHtmlRecovery({
-    reportId,
-    session,
-    result,
-    standaloneHtmlReport,
-    restorationComplete,
-    isCalculating,
-    isGenerating,
-  })
   const tCa = useTranslations('chatAssistant')
   const {
     acknowledgedQualityWarnings,
@@ -281,26 +250,40 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     showValuationEditModal,
   } = useManualModalState()
   const {
+    pdfGenerationState,
+    generatePdf,
+    downloadPdf,
+    isPdfGenerating,
+    isHydratingEditModalData,
+    reportMethodHydrationError,
+    retryReportMethodHydration,
+    showFiscalReferenceForOmni,
+    isRecoveringReportHtml,
     pdfStale,
     pdfWaitTimedOut,
     pdfPollErrorCount,
     pdfPollTransientCount,
     isPdfRetrying,
-    retry: handleRetryPdfStalled,
-  } = usePdfStalenessLifecycle({
+    handleRetryPdfStalled,
+  } = useManualReportReadinessController({
+    reportId,
+    resolvedReportId,
+    reportHydrationLookupId,
+    pdfStalePollLookupId,
+    firmCountryCode: user?.firm_country_code,
     report,
-    isPdfReady,
-    isPdfGenerating,
-    pdfGenerationState,
-    persistedReportLookupId: pdfStalePollLookupId,
+    result,
+    session,
+    standaloneHtmlReport,
+    restorationComplete,
+    isCalculating,
+    isGenerating,
     canDownloadPdf,
-    generatePdf,
-    getReport: backendAPI.getReport.bind(backendAPI),
     setResult,
     setReport,
     openStarterPaywall,
     showRetryFailureToast: (title, options) => toast.error(title, options),
-    translate: (key) => t(key),
+    translateToast: (key) => t(key),
   })
   const {
     collectedData,

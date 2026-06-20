@@ -181,13 +181,21 @@ describe('manual report handoff load contract', () => {
     expect(source).not.toMatch(/generatePdf,\n {4}isMobile/)
   })
 
-  it('ManualLayout wires PDF staleness lifecycle with generation state', () => {
-    const source = readFileSync(join(__dirname, manualComponentsRoot, 'ManualLayout.tsx'), 'utf8')
-    expect(source).toMatch(/isPdfGenerating/)
-    expect(source).toMatch(/usePdfStalenessLifecycle/)
-    expect(source).toMatch(/isPdfReady/)
-    expect(source).toMatch(/pdfStalePollLookupId/)
-    expect(source).toMatch(/persistedReportLookupId: pdfStalePollLookupId/)
+  it('ManualLayout wires report readiness through the PDF lifecycle controller', () => {
+    const layoutSource = readFileSync(
+      join(__dirname, manualComponentsRoot, 'ManualLayout.tsx'),
+      'utf8'
+    )
+    const controllerSource = readFileSync(
+      join(__dirname, manualHooksRoot, 'useManualReportReadinessController.ts'),
+      'utf8'
+    )
+    expect(layoutSource).toMatch(/useManualReportReadinessController/)
+    expect(layoutSource).toMatch(/isPdfGenerating/)
+    expect(layoutSource).toMatch(/pdfStalePollLookupId/)
+    expect(controllerSource).toMatch(/usePdfStalenessLifecycle/)
+    expect(controllerSource).toMatch(/isPdfReady/)
+    expect(controllerSource).toMatch(/persistedReportLookupId: pdfStalePollLookupId \?\? null/)
   })
 
   it('useManualReportIdentifiers exposes pdfStalePollLookupId fallback for val_* routes', () => {

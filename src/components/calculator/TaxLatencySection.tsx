@@ -9,25 +9,14 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  Edit3,
-  HelpCircle,
-  Plus,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle, Plus } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   applyGrootboekCountryOverrides,
   DEFAULT_LEDGER_ACCOUNTS,
   type LedgerAccount,
 } from '@/constants/grootboek'
-import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
-import { Badge } from '@/design-system/components/Badge'
 import {
   TooltipContent,
   TooltipProvider,
@@ -38,7 +27,6 @@ import { cn } from '@/design-system/utils'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import {
-  calculateLatencyAmount,
   formatCurrencyTaxLatency,
   getNetTaxLatencyImpact,
   type TaxLatencyItem,
@@ -46,7 +34,9 @@ import {
   useTaxLatencyStore,
 } from '../../store/useTaxLatencyStore'
 import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
+import { TaxLatencyCandidateCard } from './TaxLatencyCandidateCard'
 import { TaxLatencyEditorForm } from './TaxLatencyEditorForm'
+import { TaxLatencyRow } from './TaxLatencyRow'
 import {
   findNavTaxLatencyConflicts,
   fuzzyMatch,
@@ -56,210 +46,6 @@ import {
   groupTaxLatencyCandidates,
   parseNumericInput,
 } from './TaxLatencySection.utils'
-
-// ─────────────────────────────────────────
-// READ-ONLY ITEM ROW
-// ─────────────────────────────────────────
-
-interface TaxLatencyRowProps {
-  item: TaxLatencyItem
-  currencyLocale: string
-  onEdit: (item: TaxLatencyItem) => void
-  onRemove: (id: string) => void
-  t: ReturnType<typeof useTranslations<'taxLatency'>>
-}
-
-const TaxLatencyRow = forwardRef<HTMLDivElement, TaxLatencyRowProps>(function TaxLatencyRow(
-  { item, currencyLocale, onEdit, onRemove, t },
-  ref
-) {
-  const amount = calculateLatencyAmount(item)
-
-  return (
-    <motion.div
-      ref={ref}
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
-      transition={{ duration: 0.2 }}
-      className="group grid gap-3 px-3 py-3 rounded-lg border border-foreground/[0.08] bg-background/60 hover:border-foreground/[0.12] transition-colors sm:grid-cols-[120px_minmax(0,1.4fr)_minmax(0,1fr)_110px_70px_110px_72px]"
-    >
-      <span
-        className={cn(
-          'inline-flex items-center justify-center min-w-[120px] px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide',
-          item.type === 'active'
-            ? 'bg-moss-100 text-moss-700 dark:bg-moss-900/30 dark:text-moss-400'
-            : 'bg-rust-100 text-rust-700 dark:bg-rust-900/30 dark:text-rust-400'
-        )}
-      >
-        {item.type === 'active' ? t('typeActive') : t('typePassive')}
-      </span>
-
-      <span
-        className={cn('min-w-0 text-sm text-foreground/80', LEDGER_LABEL_TEXT_CLASSES)}
-        title={getLedgerDisplayLabel(item.accountCode, item.accountName)}
-      >
-        {getLedgerDisplayLabel(item.accountCode, item.accountName)}
-      </span>
-
-      <span
-        className={cn('min-w-0 text-sm text-foreground/80', LEDGER_LABEL_TEXT_CLASSES)}
-        title={
-          typeof item.description === 'string' && item.description ? item.description : undefined
-        }
-      >
-        {item.description || <span className="text-foreground/30 italic">—</span>}
-      </span>
-
-      <span className="text-xs font-mono tabular-nums text-foreground/60">
-        {formatCurrencyTaxLatency(item.temporaryDifference, currencyLocale)}
-      </span>
-
-      <span className="text-xs font-mono tabular-nums text-foreground/50 w-12 text-right">
-        {item.taxRate}%
-      </span>
-
-      <span
-        className={cn(
-          'text-xs font-bold tabular-nums whitespace-nowrap min-w-[80px] text-right',
-          amount > 0
-            ? 'text-moss-600 dark:text-moss-400'
-            : amount < 0
-              ? 'text-rust-600 dark:text-rust-400'
-              : 'text-foreground/50'
-        )}
-      >
-        {amount > 0 ? '+' : ''}
-        {formatCurrencyTaxLatency(amount, currencyLocale)}
-      </span>
-
-      <div className="flex items-center gap-1 sm:justify-end lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-        <TooltipProvider>
-          <TooltipRoot>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => onEdit(item)}
-                className="p-1.5 rounded-md text-foreground/30 hover:text-primary hover:bg-primary/10 transition-colors"
-                aria-label={t('editItem')}
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{t('editItem')}</TooltipContent>
-          </TooltipRoot>
-        </TooltipProvider>
-        <TooltipProvider>
-          <TooltipRoot>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => onRemove(item.id)}
-                className="p-1.5 rounded-md text-foreground/30 hover:text-rust-600 hover:bg-rust-50 dark:hover:bg-rust-900/20 transition-colors"
-                aria-label={t('removeItem')}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{t('removeItem')}</TooltipContent>
-          </TooltipRoot>
-        </TooltipProvider>
-      </div>
-    </motion.div>
-  )
-})
-
-interface TaxLatencyCandidateCardProps {
-  group: GroupedTaxLatencyCandidate
-  currencyLocale: string
-  onUse: (group: GroupedTaxLatencyCandidate) => void
-  onDismiss: (ids: string[]) => void
-  t: ReturnType<typeof useTranslations<'taxLatency'>>
-}
-
-function TaxLatencyCandidateCard({
-  group,
-  currencyLocale,
-  onUse,
-  onDismiss,
-  t,
-}: TaxLatencyCandidateCardProps) {
-  const candidate = group.candidate
-  const firstYear = group.years[0]
-  const lastYear = group.years[group.years.length - 1]
-  const isConsecutive =
-    group.years.length > 1 &&
-    group.years.every((year, idx) => idx === 0 || year === group.years[idx - 1] + 1)
-  const yearLabel =
-    group.years.length === 1
-      ? t('candidateYear', { year: firstYear })
-      : group.years.length > 1
-        ? isConsecutive
-          ? t('candidateYearsRange', {
-              start: firstYear,
-              end: lastYear,
-              count: group.years.length,
-            })
-          : t('candidateYearsList', {
-              years: group.years.join(', '),
-              count: group.years.length,
-            })
-        : null
-
-  return (
-    <div className="rounded-xl border border-amber-200/70 bg-amber-50/60 dark:bg-amber-950/10 dark:border-amber-800/40 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-2 min-w-0">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <p className="text-sm font-medium text-foreground">{candidate.suggestedQuestion}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-foreground/60">
-            <Badge variant="neutral" size="sm">
-              {candidate.accountCode}
-            </Badge>
-            <span>{candidate.accountName}</span>
-            {yearLabel ? <span>{yearLabel}</span> : null}
-          </div>
-          <p className="text-xs text-foreground/55">{candidate.description}</p>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-foreground/55">
-            <span>{t('candidateRate', { rate: candidate.taxRate })}</span>
-            {candidate.temporaryDifference ? (
-              <span>
-                {t('candidateSurplus', {
-                  amount: formatCurrencyTaxLatency(candidate.temporaryDifference, currencyLocale),
-                })}
-              </span>
-            ) : null}
-          </div>
-          {candidate.rationale ? (
-            <p className="text-xs text-foreground/45">{candidate.rationale}</p>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          onClick={() => onDismiss(group.candidateIds)}
-          className="p-1 rounded-md text-foreground/30 hover:text-foreground/60 hover:bg-background/70 transition-colors"
-          aria-label={t('dismissSuggestion')}
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="flex items-center justify-end mt-3">
-        <button
-          type="button"
-          onClick={() => onUse(group)}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          {candidate.autoApply && candidate.temporaryDifference
-            ? t('applyCandidate')
-            : t('reviewCandidate')}
-        </button>
-      </div>
-    </div>
-  )
-}
 
 // ─────────────────────────────────────────
 // MAIN COMPONENT
