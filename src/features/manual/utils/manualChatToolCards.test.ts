@@ -26,6 +26,31 @@ function assistantMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 }
 
 describe('manualChatToolCards', () => {
+  it('adds ids through one registry path while preserving special card defaults', () => {
+    const cards = addIdsToManualChatToolCards(
+      {
+        fieldUpdates: [{ field: 'revenue', value: 1_000_000, label: 'Revenue' }],
+        normalisationSuggestions: [{ description: 'Owner salary add-back' }],
+        valuationDefaultsPreviews: [{ status: 'ok' }],
+        buyerReadyCards: [{ status: 'ready' }],
+      },
+      idFactory()
+    )
+
+    expect(cards.fieldUpdates?.[0]).toEqual({
+      field: 'revenue',
+      value: 1_000_000,
+      label: 'Revenue',
+    })
+    expect(cards.normalisationSuggestions?.[0]).toMatchObject({
+      id: 'id-1',
+      status: 'pending',
+      multiple: 5.2,
+    })
+    expect(cards.valuationDefaultsPreviews?.[0]).toMatchObject({ id: 'id-2' })
+    expect(cards.buyerReadyCards?.[0]).toMatchObject({ id: 'id-3' })
+  })
+
   it('parses streaming field updates through the shared AI tool parser', () => {
     const cards = parseManualChatStreamToolResult(
       'update_field_value',

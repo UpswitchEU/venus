@@ -47,6 +47,7 @@ type ProposalCardKey =
   | 'sellabilityRunRequests'
   | 'listingCreateRequests'
 type SellabilityComputedScore = NonNullable<SellabilityRunCard['computedScore']>
+type ManualChatToolCardKey = keyof ManualChatToolCards & keyof ManualChatToolCardsInput
 
 export interface ManualChatToolCards {
   fieldUpdates?: FieldUpdateCard[]
@@ -169,7 +170,7 @@ const MANUAL_CHAT_TOOL_CARD_KEYS = [
   'registrySearchResults',
   'businessTypeSearchResults',
   'buyerReadyCards',
-] as const satisfies readonly (keyof ManualChatToolCards)[]
+] as const satisfies readonly ManualChatToolCardKey[]
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
@@ -179,6 +180,28 @@ function pushIfAny<T>(target: ManualChatToolCards, key: keyof ManualChatToolCard
   if (values.length > 0) {
     ;(target as Record<keyof ManualChatToolCards, unknown>)[key] = values
   }
+}
+
+function cardWithGeneratedId(
+  key: ManualChatToolCardKey,
+  value: unknown,
+  createId: () => string
+): Record<string, unknown> {
+  const base = asRecord(value) ?? {}
+  const card = {
+    ...base,
+    id: createId(),
+  }
+
+  if (key === 'normalisationSuggestions') {
+    return {
+      ...card,
+      status: 'pending',
+      multiple: 5.2,
+    }
+  }
+
+  return card
 }
 
 export function addIdsToManualChatToolCards(
@@ -192,415 +215,14 @@ export function addIdsToManualChatToolCards(
     'fieldUpdates',
     (cards.fieldUpdates ?? []).map((fieldUpdate) => fieldUpdate as FieldUpdateCard)
   )
-  pushIfAny(
-    out,
-    'normalisationSuggestions',
-    (cards.normalisationSuggestions ?? []).map(
-      (suggestion) =>
-        ({
-          ...(asRecord(suggestion) ?? {}),
-          id: createId(),
-          status: 'pending',
-          multiple: 5.2,
-        }) as NormalisationSuggestionCard
+  for (const key of MANUAL_CHAT_TOOL_CARD_KEYS) {
+    if (key === 'fieldUpdates') continue
+    pushIfAny(
+      out,
+      key,
+      (cards[key] ?? []).map((card) => cardWithGeneratedId(key, card, createId))
     )
-  )
-  pushIfAny(
-    out,
-    'valuationRunRequests',
-    (cards.valuationRunRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ValuationRunCard
-    )
-  )
-  pushIfAny(
-    out,
-    'reportGenerationRequests',
-    (cards.reportGenerationRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ReportGenerationCard
-    )
-  )
-  pushIfAny(
-    out,
-    'sellabilityRunRequests',
-    (cards.sellabilityRunRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as SellabilityRunCard
-    )
-  )
-  pushIfAny(
-    out,
-    'ownerProfileAnswerRequests',
-    (cards.ownerProfileAnswerRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as OwnerProfileAnswerCard
-    )
-  )
-  pushIfAny(
-    out,
-    'integrationConnectRequests',
-    (cards.integrationConnectRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as IntegrationConnectCard
-    )
-  )
-  pushIfAny(
-    out,
-    'integrationSyncRequests',
-    (cards.integrationSyncRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as IntegrationSyncCard
-    )
-  )
-  pushIfAny(
-    out,
-    'syncStatusPreviews',
-    (cards.syncStatusPreviews ?? []).map(
-      (preview) =>
-        ({
-          ...(asRecord(preview) ?? {}),
-          id: createId(),
-        }) as SyncStatusPreviewCard
-    )
-  )
-  pushIfAny(
-    out,
-    'ownerInviteAccountantRequests',
-    (cards.ownerInviteAccountantRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as OwnerInviteAccountantCard
-    )
-  )
-  pushIfAny(
-    out,
-    'ownerReminderRequests',
-    (cards.ownerReminderRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as OwnerReminderCard
-    )
-  )
-  pushIfAny(
-    out,
-    'listingVisibilityRequests',
-    (cards.listingVisibilityRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ListingVisibilityCard
-    )
-  )
-  pushIfAny(
-    out,
-    'shareTokenRequests',
-    (cards.shareTokenRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ShareTokenCard
-    )
-  )
-  pushIfAny(
-    out,
-    'shareTokenRevokeRequests',
-    (cards.shareTokenRevokeRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ShareTokenRevokeCard
-    )
-  )
-  pushIfAny(
-    out,
-    'valuationMethodPreferenceRequests',
-    (cards.valuationMethodPreferenceRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ValuationMethodPreferenceCard
-    )
-  )
-  pushIfAny(
-    out,
-    'bulkValuationRunRequests',
-    (cards.bulkValuationRunRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as BulkValuationRunCard
-    )
-  )
-  pushIfAny(
-    out,
-    'listingFieldUpdateRequests',
-    (cards.listingFieldUpdateRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ListingFieldUpdateCard
-    )
-  )
-  pushIfAny(
-    out,
-    'normalizationDismissRequests',
-    (cards.normalizationDismissRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as NormalizationDismissCard
-    )
-  )
-  pushIfAny(
-    out,
-    'workspaceClientsPreviews',
-    (cards.workspaceClientsPreviews ?? []).map(
-      (preview) =>
-        ({
-          ...(asRecord(preview) ?? {}),
-          id: createId(),
-        }) as WorkspaceClientsPreviewCard
-    )
-  )
-  pushIfAny(
-    out,
-    'valuationDefaultsRequests',
-    (cards.valuationDefaultsRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ValuationDefaultsCard
-    )
-  )
-  pushIfAny(
-    out,
-    'valuationDefaultsPreviews',
-    (cards.valuationDefaultsPreviews ?? []).map(
-      (preview) =>
-        ({
-          ...(asRecord(preview) ?? {}),
-          id: createId(),
-        }) as ValuationDefaultsPreviewCard
-    )
-  )
-  pushIfAny(
-    out,
-    'acknowledgeWarningRequests',
-    (cards.acknowledgeWarningRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as AcknowledgeWarningCard
-    )
-  )
-  pushIfAny(
-    out,
-    'secureCredentialRequests',
-    (cards.secureCredentialRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as SecureCredentialCard
-    )
-  )
-  pushIfAny(
-    out,
-    'csvUploadRequests',
-    (cards.csvUploadRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as CsvUploadCard
-    )
-  )
-  pushIfAny(
-    out,
-    'multiSelectRequests',
-    (cards.multiSelectRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as MultiSelectCard
-    )
-  )
-  pushIfAny(
-    out,
-    'singleSelectRequests',
-    (cards.singleSelectRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as SingleSelectCard
-    )
-  )
-  pushIfAny(
-    out,
-    'clientCreateRequests',
-    (cards.clientCreateRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ClientCreateCard
-    )
-  )
-  pushIfAny(
-    out,
-    'belgianCompanyBootstraps',
-    (cards.belgianCompanyBootstraps ?? []).map(
-      (bootstrap) =>
-        ({
-          ...(asRecord(bootstrap) ?? {}),
-          id: createId(),
-        }) as BelgianCompanyBootstrapCard
-    )
-  )
-  pushIfAny(
-    out,
-    'valuationSessionRequests',
-    (cards.valuationSessionRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ValuationSessionCard
-    )
-  )
-  pushIfAny(
-    out,
-    'clientDataReadinessPreviews',
-    (cards.clientDataReadinessPreviews ?? []).map(
-      (preview) =>
-        ({
-          ...(asRecord(preview) ?? {}),
-          id: createId(),
-        }) as ClientDataReadinessCard
-    )
-  )
-  pushIfAny(
-    out,
-    'importReviewRequests',
-    (cards.importReviewRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ImportReviewCard
-    )
-  )
-  pushIfAny(
-    out,
-    'methodReadinessPreviews',
-    (cards.methodReadinessPreviews ?? []).map(
-      (preview) =>
-        ({
-          ...(asRecord(preview) ?? {}),
-          id: createId(),
-        }) as MethodReadinessCard
-    )
-  )
-  pushIfAny(
-    out,
-    'listingPreviews',
-    (cards.listingPreviews ?? []).map(
-      (preview) =>
-        ({
-          ...(asRecord(preview) ?? {}),
-          id: createId(),
-        }) as ListingPreviewCard
-    )
-  )
-  pushIfAny(
-    out,
-    'listingCreateRequests',
-    (cards.listingCreateRequests ?? []).map(
-      (request) =>
-        ({
-          ...(asRecord(request) ?? {}),
-          id: createId(),
-        }) as ListingCreateCard
-    )
-  )
-  pushIfAny(
-    out,
-    'buyerProfilePreviews',
-    (cards.buyerProfilePreviews ?? []).map(
-      (preview) =>
-        ({
-          ...(asRecord(preview) ?? {}),
-          id: createId(),
-        }) as BuyerProfilePreviewCard
-    )
-  )
-  pushIfAny(
-    out,
-    'registrySearchResults',
-    (cards.registrySearchResults ?? []).map(
-      (entry) =>
-        ({
-          ...(asRecord(entry) ?? {}),
-          id: createId(),
-        }) as RegistrySearchResultsCard
-    )
-  )
-  pushIfAny(
-    out,
-    'businessTypeSearchResults',
-    (cards.businessTypeSearchResults ?? []).map(
-      (entry) =>
-        ({
-          ...(asRecord(entry) ?? {}),
-          id: createId(),
-        }) as BusinessTypeSearchResultsCard
-    )
-  )
-  pushIfAny(
-    out,
-    'buyerReadyCards',
-    (cards.buyerReadyCards ?? []).map(
-      (card) =>
-        ({
-          ...(asRecord(card) ?? {}),
-          id: createId(),
-        }) as BuyerReadyCard
-    )
-  )
+  }
 
   return out
 }
