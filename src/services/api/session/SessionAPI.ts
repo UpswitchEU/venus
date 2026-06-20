@@ -12,10 +12,7 @@ import {
   recordSessionPoolPressureFromHttpError,
   recordSuccessfulSessionPatch,
 } from '../../../hooks/sessionPoolPressureCircuit'
-import type {
-  CreateValuationSessionRequest,
-  UpdateValuationSessionRequest,
-} from '../../../types/api'
+import type { UpdateValuationSessionRequest } from '../../../types/api'
 import type {
   CreateValuationSessionResponse,
   SaveValuationResultResponse,
@@ -35,20 +32,23 @@ import { apiLogger } from '../../../utils/logger'
 import { stripReportBlobsFromSessionPatch } from '../../../utils/stripReportBlobsFromSessionPatch'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
+import type { CreateValuationSessionInput } from './SessionApiCreateHelpers'
+import {
+  buildCreateValuationSessionRequest,
+  normalizeCreateValuationSessionResponse,
+} from './SessionApiCreateHelpers'
 import { isTimeoutLikeError, requestConfig, toAxiosLikeError } from './SessionApiHttp'
 import {
   isCriticalSessionUpdate,
   recoverMissingSessionUpdate,
 } from './SessionApiMissingSessionRecovery'
 import {
-  asSessionRecord,
   normalizeBackendSessionPayload,
   normalizeSessionView,
   parseGetSessionResponse,
   type SessionRecord,
 } from './SessionApiNormalization'
 import {
-  asRecord,
   delay,
   emptyOptimisticUpdate,
   isTransientSessionPatchError,
@@ -69,13 +69,7 @@ type SessionEnvelope<T> = {
   error?: string
 }
 
-export type CreateValuationSessionInput = Partial<CreateValuationSessionRequest> &
-  Omit<Partial<ValuationSession>, 'partialData' | 'sessionData'> & {
-    current_step?: number
-    partialData?: SessionRecord
-    sessionData?: SessionRecord
-    session_key?: string
-  }
+export type { CreateValuationSessionInput } from './SessionApiCreateHelpers'
 
 type SaveValuationResultPayload = {
   sessionData?: SessionRecord
@@ -307,41 +301,10 @@ export class SessionAPI extends HttpClient {
         note: 'Timing information for race condition detection',
       })
 
-      // Map frontend view types to backend view types
-      // Frontend: 'manual' | 'conversational'
-      // Backend: 'simple' | 'advanced'
-      const currentView = normalizeSessionView(session.currentView)
-      const viewType = currentView === 'conversational' ? 'advanced' : 'simple'
-
-      // Build session_data object to send to Titan
-      // Titan API expects: { session_data: {...}, view_type: 'simple'|'advanced', current_step: number }
-      const sessionDataPayload = stripReportBlobsFromSessionPatch({
-        ...(session.sessionData || {}),
-        ...(session.partialData || {}),
-        // Preserve currentView in session_data for restoration
-        currentView: currentView,
-        ...(session.dataSource && { dataSource: session.dataSource }),
-        ...(typeof session.name === 'string' && { name: session.name }),
-      }) as Record<string, unknown>
-
       // AUTH-FIRST: Guest session handling removed - authentication is required
       // Backend will extract userId from JWT token (req.user)
-
-      // Use reportId as session_key if session_key is not provided
-      // This ensures idempotency - if a reportId exists, use it as the session_key
-      const sessionKeyCandidate = session.session_key || session.reportId
-      const sessionKey = typeof sessionKeyCandidate === 'string' ? sessionKeyCandidate : undefined
-      SessionAPI.clearDeletedSessionMarker(sessionKey)
-
-      const backendSession = {
-        session_data: sessionDataPayload,
-        view_type: viewType,
-        current_step: typeof session.current_step === 'number' ? session.current_step : 1,
-        // Also send currentView at top level for DTO transformation
-        currentView: currentView,
-        // Always include session_key if available (from session_key or reportId)
-        ...(sessionKey && { session_key: sessionKey }),
-      }
+      const createRequest = buildCreateValuationSessionRequest(session)
+      SessionAPI.clearDeletedSessionMarker(createRequest.sessionKey)
 
       // ✅ VERIFICATION: HttpClient interceptor automatically adds client context headers via getOwnerHeaders()
       // Headers are added in HttpClient.setupInterceptors() -> getOwnerHeaders()
@@ -352,62 +315,20 @@ export class SessionAPI extends HttpClient {
       // If session_key is provided in payload, Titan will use it (for idempotency)
       // Otherwise, Titan generates a new HMAC-signed session_key
       // Response will contain: { session_key, session_data, view_type, status, ... }
-      const sessionData = asRecord(
-        await this.executeRequest<unknown>(
-          requestConfig({
-            method: 'POST',
-            url: '/api/v2/valuations/sessions',
-            data: backendSession,
-            headers: {}, // HttpClient interceptor adds client context headers automatically
-          }),
-          options
-        )
+      const sessionData = await this.executeRequest<unknown>(
+        requestConfig({
+          method: 'POST',
+          url: '/api/v2/valuations/sessions',
+          data: createRequest.payload,
+          headers: {}, // HttpClient interceptor adds client context headers automatically
+        }),
+        options
       )
 
-      // CRITICAL: Validate sessionData exists before accessing properties
-      if (!sessionData) {
-        throw new Error('Backend returned empty session data')
-      }
-
-      // Titan returns session_key, map it to reportId for Venus
-      const reportIdCandidate = sessionData.session_key || sessionData.reportId
-      const reportId = typeof reportIdCandidate === 'string' ? reportIdCandidate : undefined
-
-      // CRITICAL: Validate required fields exist
-      if (!reportId) {
-        throw new Error(`Backend returned incomplete session data: missing session_key`)
-      }
-
-      const responseSessionData = asRecord(sessionData.session_data) ?? {}
-
-      // Build Venus-compatible session object
-      // Titan's response: { id, session_key, session_data, view_type, status, ... }
-      // Venus expects: { reportId, currentView, sessionData, ... }
-      const venusSession = {
-        ...sessionData,
-        reportId: reportId, // Use session_key as reportId
-        currentView: currentView, // Preserve requested view
-        sessionData: responseSessionData,
-      } as unknown as ValuationSession
-      if (typeof responseSessionData.name === 'string') {
-        venusSession.name = responseSessionData.name
-      } else if (typeof session.name === 'string') {
-        venusSession.name = session.name
-      }
-
-      // Map backend 'ai-guided' to frontend 'conversational' (if it exists in session_data)
-      if (responseSessionData.currentView === 'ai-guided') {
-        venusSession.currentView = 'conversational'
-      }
-      if (responseSessionData.dataSource === 'ai-guided') {
-        responseSessionData.dataSource = 'conversational'
-      }
-
-      return {
-        success: true,
-        session: venusSession,
-        reportId: reportId,
-      }
+      return normalizeCreateValuationSessionResponse(sessionData, {
+        currentView: createRequest.currentView,
+        fallbackName: session.name,
+      })
     } catch (error) {
       this.handleSessionError(error, 'create session')
     }
