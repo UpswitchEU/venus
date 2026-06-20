@@ -25,27 +25,27 @@ import {
   isDelegatedBootstrapCacheAllowed,
   waitForBootstrapAuthReadiness,
 } from './BootstrapReadinessGate'
-import { buildBootstrapFallbackState, buildBootstrapUIHints } from './BootstrapStateBuilders'
 import { recordBootstrapReportMode } from './bootstrapReportModeRegistry'
+import {
+  type ClientSideBootstrapOptions,
+  executeClientSideBootstrapPipeline,
+} from './ClientSideBootstrapPipeline'
 import { getBootstrapCacheLookupKey, getBootstrapContextCacheKey } from './contextCacheKey'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
 import { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
 import { fetchTitanBootstrapPayloadWithStructuredRetry } from './TitanBootstrapClient'
 import {
+  buildTitanBootstrapRequestPolicy,
+  type TitanBootstrapClientContextSnapshot,
+} from './TitanBootstrapRequestPolicy'
+import {
   buildCreditBlockedTitanState,
   buildSuccessfulTitanState,
   type SuccessfulTitanBootstrapData,
 } from './TitanBootstrapResponseMapper'
-import type {
-  BootstrapContext,
-  BootstrapErrorInfo,
-  BootstrapHints,
-  IdentityState,
-  SessionBootstrapState,
-} from './types'
-import { BOOTSTRAP_VERSION, DEFAULT_IDENTITY } from './types'
-import { parseBootstrapHints, parseUrlToContext, truncateForLog } from './utils'
+import type { BootstrapContext, BootstrapErrorInfo, SessionBootstrapState } from './types'
+import { parseBootstrapHints, parseUrlToContext } from './utils'
 
 /**
  * Source-contract sentinel: transport is implemented in `TitanBootstrapClient`,
@@ -57,14 +57,7 @@ import { parseBootstrapHints, parseUrlToContext, truncateForLog } from './utils'
  * BOOTSTRAP_TIMEOUT_USER_MESSAGE, and malformed bodies still throw
  * "Invalid response from bootstrap service".
  */
-interface BootstrapOptions {
-  /** Timeout for bootstrap process in ms */
-  timeout?: number
-  /** Skip auth resolution (for server-side where cookies aren't available) */
-  skipAuth?: boolean
-  /** Use cached bootstrap if available */
-  useCache?: boolean
-}
+type BootstrapOptions = ClientSideBootstrapOptions
 
 const DEFAULT_OPTIONS: BootstrapOptions = {
   timeout: 10000, // Reduced from 15s - auth wait optimization makes this safer
@@ -170,7 +163,15 @@ export class SessionBootstrapService {
     }
 
     this.callTimestamps.push(now)
-    const bootstrapPromise = this.executeBootstrap(context, opts, startTime)
+    const bootstrapPromise = executeClientSideBootstrapPipeline({
+      authResolver: this.authResolver,
+      context,
+      logger: this.logger,
+      options: opts,
+      prefillResolver: this.prefillResolver,
+      sessionResolver: this.sessionResolver,
+      startTime,
+    })
     this.bootstrapPromiseCache.set(cacheKey, bootstrapPromise)
 
     try {
@@ -191,110 +192,6 @@ export class SessionBootstrapService {
   ): Promise<SessionBootstrapState> {
     const context = parseUrlToContext(url, cookies)
     return this.bootstrap(context, options)
-  }
-
-  /**
-   * Execute the bootstrap process
-   */
-  private async executeBootstrap(
-    context: BootstrapContext,
-    options: BootstrapOptions,
-    startTime: number
-  ): Promise<SessionBootstrapState> {
-    const hints = parseBootstrapHints(context)
-
-    this.logger.info('[Bootstrap] Starting bootstrap', {
-      reportId: context.reportId ? truncateForLog(context.reportId) : 'new',
-      hasClientToken: hints.hasClientToken,
-      isEmbedded: hints.isEmbedded,
-    })
-
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-
-    try {
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('Bootstrap timeout')), options.timeout)
-      })
-
-      const result = await Promise.race([
-        this.resolveAllState(context, hints, options),
-        timeoutPromise,
-      ])
-
-      const durationMs = performance.now() - startTime
-
-      this.logger.info('[Bootstrap] Bootstrap complete', {
-        durationMs: Math.round(durationMs),
-        identityType: result.identity.type,
-        reportMode: result.report.mode,
-        prefillConfidence: result.prefillData.confidence.toFixed(2),
-        prefilledFields: result.prefillData.fieldsPopulated.length,
-      })
-
-      return {
-        ...result,
-        bootstrapDurationMs: durationMs,
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      this.logger.error('[Bootstrap] Bootstrap failed:', errorMessage)
-
-      // Return graceful fallback
-      return buildBootstrapFallbackState({ context, hints, startTime })
-    } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-    }
-  }
-
-  /**
-   * Resolve all state components
-   */
-  private async resolveAllState(
-    context: BootstrapContext,
-    hints: BootstrapHints,
-    options: BootstrapOptions
-  ): Promise<SessionBootstrapState> {
-    const phaseStart = performance.now()
-
-    // Phase 1: Resolve identity (required for other resolutions)
-    let identity: IdentityState
-    if (options.skipAuth) {
-      identity = DEFAULT_IDENTITY
-    } else {
-      const authResult = await this.authResolver.resolve(context, hints)
-      identity = authResult.data
-    }
-    const phase1Ms = Math.round(performance.now() - phaseStart)
-    this.logger.info('[Bootstrap] Phase 1 (auth) complete', { durationMs: phase1Ms })
-
-    // Phase 2: Parallel resolution of session and prefill
-    const phase2Start = performance.now()
-    const [sessionResult, prefillResult] = await Promise.all([
-      this.sessionResolver.resolve(context, hints, identity),
-      this.prefillResolver.resolve(context, hints, identity),
-    ])
-    const phase2Ms = Math.round(performance.now() - phase2Start)
-    this.logger.info('[Bootstrap] Phase 2 (session+prefill) complete', { durationMs: phase2Ms })
-
-    const report = sessionResult.data
-    const prefillData = prefillResult.data
-
-    // Phase 3: Build UI hints
-    const ui = buildBootstrapUIHints({ context, hints, identity, report, prefillData })
-    const totalMs = Math.round(performance.now() - phaseStart)
-    this.logger.info('[Bootstrap] Phase 3 (ui hints) complete', { totalDurationMs: totalMs })
-
-    return {
-      identity,
-      report,
-      prefillData,
-      ui,
-      bootstrapVersion: BOOTSTRAP_VERSION,
-      bootstrappedAt: new Date(),
-      bootstrapDurationMs: 0, // Will be set by caller
-    }
   }
 
   /**
@@ -558,93 +455,13 @@ export class SessionBootstrapService {
         }
       }
 
-      // Build request body
-      // CRITICAL: Ensure reportId is always sent if present (not empty string)
-      const validReportId = context.reportId?.trim() || undefined
-
-      // ✅ CRITICAL FIX: Only include mode if it's a valid value ('edit' or 'view')
-      // The Zod schema on the backend only accepts these two values, so invalid values cause 400 errors
-      // Mercury may send mode=accountant in the URL - this is intentionally omitted. Accountant flow
-      // context is conveyed via clientToken, clientId, and X-Client-User-Id headers, not mode.
-      const validMode =
-        context.mode === 'edit' || context.mode === 'view' ? context.mode : undefined
-
-      // CRITICAL: clientToken in body enables Titan to resolve delegated (accountant) flow identity
-      let requestBody: Record<string, unknown> = {
-        reportId: validReportId,
-        clientToken: context.clientToken, // Required for Mercury/accountant flow - Titan resolves identity from this
-        clientId: context.clientId, // Pass clientId for accountant flow verification
-        prefilledQuery: context.prefilledQuery,
-        flow: context.flow,
-        // CRITICAL: Only include mode if it's valid - omit entirely if invalid (don't send mode=accountant)
-        ...(validMode && { mode: validMode }),
-        version: context.version,
-        locale: context.locale,
-      }
-
-      if (context.mode && !validMode) {
-        this.logger.warn('[Bootstrap] Filtered out invalid mode value', {
-          invalidMode: context.mode,
-          note: 'Only "edit" or "view" are valid - mode will be omitted from request',
-        })
-      }
-
-      // CRITICAL LOGGING: Log exactly what we're sending to debug ID mismatch
-      this.logger.info('[Bootstrap] Sending to Titan API', {
-        reportIdFromContext: context.reportId?.substring(0, 30) || 'none',
-        reportIdInRequest: validReportId?.substring(0, 30) || 'none',
-        reportIdLength: validReportId?.length || 0,
-      })
-
-      // Build headers
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        // Trace flow Venus → Venus API → Titan → ValuationIQ for staging/prod debugging
-        'X-Correlation-ID': traceId,
-      }
-
-      // BANK GRADE: Add client context headers using the store's getContextHeaders()
-      // This uses standardized header names: X-Client-User-Id, X-Accountant-User-Id, X-Relationship-Id
-      // AuthGate ensures client context is in the store BEFORE bootstrap runs
+      let clientContextSnapshot: TitanBootstrapClientContextSnapshot | null = null
       try {
         const { useClientContext } = await import('../../stores/clientContext')
         const contextState = useClientContext.getState()
-        const contextHeaders = contextState.getContextHeaders()
-        const clientHeader = contextHeaders['X-Client-User-Id']
-        const accountantHeader = contextHeaders['X-Accountant-User-Id']
-        const relationshipHeader = contextHeaders['X-Relationship-Id']
-        const hasAnyContextHeader = !!(clientHeader || accountantHeader || relationshipHeader)
-        const hasFullDelegatedHeaderSet = !!(clientHeader && accountantHeader && relationshipHeader)
-        const hasPartialDelegatedHeaderSet = !!(accountantHeader && relationshipHeader)
-
-        if (hasFullDelegatedHeaderSet || hasPartialDelegatedHeaderSet) {
-          Object.assign(headers, contextHeaders)
-          this.logger.info('[Bootstrap] Added delegated client context headers from store', {
-            headerCount: Object.keys(contextHeaders).length,
-            hasClientUserId: !!clientHeader,
-            hasClientToken: hints.hasClientToken || !!context.clientToken,
-            partialDelegated: hasPartialDelegatedHeaderSet && !hasFullDelegatedHeaderSet,
-          })
-        } else if (hasAnyContextHeader) {
-          this.logger.warn(
-            '[Bootstrap] Incomplete client context in store - cannot send delegated headers',
-            {
-              hasClientUserId: !!clientHeader,
-              hasAccountantUserId: !!accountantHeader,
-              hasRelationshipId: !!relationshipHeader,
-            }
-          )
-          if (!requestBody['clientId'] && contextState.relationshipId) {
-            requestBody['clientId'] = contextState.relationshipId
-          }
-        }
-
-        if (!hasAnyContextHeader && (hints.hasClientToken || context.clientToken)) {
-          // Only warn if clientToken was present but context not in store
-          this.logger.warn('[Bootstrap] Client token present but client context not in store', {
-            note: 'AuthGate should have ensured context is ready before bootstrap',
-          })
+        clientContextSnapshot = {
+          contextHeaders: contextState.getContextHeaders(),
+          relationshipId: contextState.relationshipId,
         }
       } catch (error) {
         this.logger.warn('[Bootstrap] Failed to get client context headers (non-critical)', {
@@ -652,18 +469,53 @@ export class SessionBootstrapService {
         })
       }
 
-      // DIAGNOSTIC: Log before bootstrap request to trace client context propagation
-      const hasClientContextHeaders = Object.keys(headers).some(
-        (k) =>
-          k.toLowerCase() === 'x-client-user-id' ||
-          k.toLowerCase() === 'x-accountant-user-id' ||
-          k.toLowerCase() === 'x-relationship-id'
-      )
+      const titanRequest = buildTitanBootstrapRequestPolicy({
+        context,
+        clientContext: clientContextSnapshot,
+        hasClientTokenHint: hints.hasClientToken,
+        traceId,
+      })
+
+      if (titanRequest.invalidMode) {
+        this.logger.warn('[Bootstrap] Filtered out invalid mode value', {
+          invalidMode: titanRequest.invalidMode,
+          note: 'Only "edit" or "view" are valid - mode will be omitted from request',
+        })
+      }
+
+      this.logger.info('[Bootstrap] Sending to Titan API', {
+        reportIdFromContext: context.reportId?.substring(0, 30) || 'none',
+        reportIdInRequest: titanRequest.validReportId?.substring(0, 30) || 'none',
+        reportIdLength: titanRequest.validReportId?.length || 0,
+      })
+
+      if (titanRequest.clientContextStatus === 'delegated') {
+        this.logger.info('[Bootstrap] Added delegated client context headers from store', {
+          headerCount: titanRequest.contextHeaderKeys.length,
+          hasClientUserId: titanRequest.hasClientUserId,
+          hasClientToken: hints.hasClientToken || !!context.clientToken,
+          partialDelegated: titanRequest.partialDelegated,
+        })
+      } else if (titanRequest.clientContextStatus === 'incomplete') {
+        this.logger.warn(
+          '[Bootstrap] Incomplete client context in store - cannot send delegated headers',
+          {
+            hasClientUserId: titanRequest.hasClientUserId,
+            hasAccountantUserId: titanRequest.hasAccountantUserId,
+            hasRelationshipId: titanRequest.hasRelationshipId,
+          }
+        )
+      } else if (titanRequest.clientContextStatus === 'missing-token-context') {
+        this.logger.warn('[Bootstrap] Client token present but client context not in store', {
+          note: 'AuthGate should have ensured context is ready before bootstrap',
+        })
+      }
+
       this.logger.info(`[Bootstrap:${traceId}] Pre-request diagnostic`, {
-        hasClientContextHeaders,
+        hasClientContextHeaders: titanRequest.hasClientContextHeaders,
         authReady,
         authWaitMs,
-        headerKeys: Object.keys(headers).filter((k) => k.toLowerCase().startsWith('x-')),
+        headerKeys: titanRequest.contextHeaderKeys,
       })
 
       // Make request (proxy handles 401 refresh; no client-side retry on 401).
@@ -672,8 +524,8 @@ export class SessionBootstrapService {
         getCancellationEpoch: () => this.bootstrapCancellationEpoch,
         logger: this.logger,
         responseAbortControllers: this.responseAbortControllers,
-        requestBody,
-        headers,
+        requestBody: titanRequest.requestBody,
+        headers: titanRequest.headers,
         traceId,
         startTime,
       })

@@ -1,5 +1,5 @@
 import type { AxiosRequestConfig } from 'axios'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type APIRequestConfig, HttpClient } from './HttpClient'
 
 type RequestStub = (config: AxiosRequestConfig) => Promise<unknown>
@@ -26,6 +26,10 @@ describe('HttpClient valuation result transport guard', () => {
 
   beforeEach(() => {
     client = new TestHttpClient('https://api.example.test')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('preemptively omits oversized report blobs for valuation result saves', async () => {
@@ -116,6 +120,38 @@ describe('HttpClient valuation result transport guard', () => {
     )
 
     expect(requests[0].timeout).toBe(120_000)
+  })
+
+  it('enforces managed timeouts even when callers provide an AbortSignal', async () => {
+    vi.useFakeTimers()
+    const callerController = new AbortController()
+    const requestStub = vi.fn(
+      async (config: AxiosRequestConfig) =>
+        new Promise((_resolve, reject) => {
+          const signal = config.signal as AbortSignal
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('Request aborted by managed timeout'))
+            },
+            { once: true }
+          )
+        })
+    )
+    client.setRequestStub(requestStub)
+
+    const request = client.request(
+      { method: 'GET', url: '/api/v2/slow-operation' },
+      { retry: { maxRetries: 0 }, signal: callerController.signal, timeout: 25 }
+    )
+    const rejection = expect(request).rejects.toThrow('Request aborted by managed timeout')
+
+    await vi.advanceTimersByTimeAsync(25)
+    await rejection
+
+    const managedSignal = requestStub.mock.calls[0]?.[0].signal as AbortSignal
+    expect(managedSignal).not.toBe(callerController.signal)
+    expect(managedSignal.aborted).toBe(true)
   })
 
   it('does not retry 503 or 504 responses (upstream pool pressure)', async () => {

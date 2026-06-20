@@ -7,7 +7,6 @@
  * BANK-GRADE ARCHITECTURE:
  * - Correlation ID propagation for distributed tracing
  * - Idempotency key support for safe retries
- * - Request fingerprinting for deduplication
  *
  * @module services/api/HttpClient
  */
@@ -34,6 +33,14 @@ import {
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
 import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
+import {
+  getConfigBodyFieldByteLengths,
+  getConfigReportBlobLengths,
+  omitOversizedValuationResultReportBlobs,
+  VALUATION_RESULT_HTML_OMIT_BYTES,
+  withoutConfigReportBlobs,
+} from './HttpClientPayloadGuards'
+import { createManagedRequestLifecycle } from './HttpClientRequestLifecycle'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -101,17 +108,6 @@ function isExpectedReportBySessionNotReadyLog(error: unknown): boolean {
 
 // BANK-GRADE: Client version for API compatibility tracking
 const CLIENT_VERSION = '2.0.0'
-const VALUATION_RESULT_HTML_OMIT_BYTES = 10 * 1024 * 1024
-const VALUATION_RESULT_TOP_LEVEL_BLOB_KEYS = [
-  'htmlReport',
-  'html_report',
-  '_htmlReport',
-  'pdfHtmlReport',
-  'pdf_html_report',
-  '_pdfHtmlReport',
-  'pdfHtml',
-  'reportHtml',
-] as const
 
 /**
  * Generate a correlation ID for request tracing across services
@@ -129,104 +125,6 @@ function generateCorrelationId(): string {
  */
 function generateIdempotencyKey(): string {
   return `idem_${Date.now().toString(36)}_${crypto.randomUUID().split('-')[0]}`
-}
-
-function isValuationResultSaveConfig(config: AxiosRequestConfig): boolean {
-  const method = String(config.method ?? '').toUpperCase()
-  const url = String(config.url ?? '')
-  return method === 'PUT' && url.includes('/api/v2/valuations/sessions/') && url.includes('/result')
-}
-
-function getConfigReportBlobLengths(config: AxiosRequestConfig): Record<string, number> {
-  const data = config.data
-  if (!isUnknownRecord(data)) {
-    return {}
-  }
-  const lengths: Record<string, number> = {}
-  for (const key of VALUATION_RESULT_TOP_LEVEL_BLOB_KEYS) {
-    const value = data[key]
-    if (typeof value === 'string' && value.length > 0) {
-      lengths[key] = value.length
-    }
-  }
-  return lengths
-}
-
-function hasConfigReportBlobs(config: AxiosRequestConfig): boolean {
-  return Object.keys(getConfigReportBlobLengths(config)).length > 0
-}
-
-function estimateJsonByteLength(value: unknown): number {
-  try {
-    const serialized = JSON.stringify(value)
-    if (!serialized) {
-      return 0
-    }
-    if (typeof TextEncoder !== 'undefined') {
-      return new TextEncoder().encode(serialized).byteLength
-    }
-    return serialized.length
-  } catch {
-    return Number.POSITIVE_INFINITY
-  }
-}
-
-/**
- * Break down a valuation-result PUT body by top-level field so the "oversized"
- * log can point at the elephant. The strip path only touches `htmlReport`-shaped
- * keys; if those are small but the body is huge, the bloater is almost always
- * `sessionData` (normalization snapshots) or `valuationResult` (residual
- * details). Without this breakdown the operator only sees `blobLengths`,
- * which shows the *string* blobs and misses object-shaped fields entirely.
- */
-function getConfigBodyFieldByteLengths(config: AxiosRequestConfig): Record<string, number> {
-  const data = config.data
-  if (!isUnknownRecord(data)) {
-    return {}
-  }
-  const lengths: Record<string, number> = {}
-  for (const key of Object.keys(data)) {
-    if (data[key] === undefined) continue
-    lengths[key] = estimateJsonByteLength(data[key])
-  }
-  return lengths
-}
-
-function withoutConfigReportBlobs(config: AxiosRequestConfig): AxiosRequestConfig | null {
-  if (!isValuationResultSaveConfig(config) || !hasConfigReportBlobs(config)) {
-    return null
-  }
-  const data = { ...(config.data as UnknownRecord) }
-  for (const key of VALUATION_RESULT_TOP_LEVEL_BLOB_KEYS) {
-    if (typeof data[key] === 'string') {
-      data[key] = undefined
-    }
-  }
-  return {
-    ...config,
-    data,
-  }
-}
-
-function omitOversizedValuationResultReportBlobs(config: AxiosRequestConfig): {
-  config: AxiosRequestConfig
-  estimatedBodyBytes?: number
-  omitted: boolean
-} {
-  if (!isValuationResultSaveConfig(config) || !hasConfigReportBlobs(config)) {
-    return { config, omitted: false }
-  }
-
-  const estimatedBodyBytes = estimateJsonByteLength(config.data)
-  if (estimatedBodyBytes <= VALUATION_RESULT_HTML_OMIT_BYTES) {
-    return { config, estimatedBodyBytes, omitted: false }
-  }
-
-  return {
-    config: withoutConfigReportBlobs(config) ?? config,
-    estimatedBodyBytes,
-    omitted: true,
-  }
 }
 
 export interface APIRequestConfig {
@@ -257,7 +155,7 @@ export interface APIRequestConfig {
 export class HttpClient {
   protected client: AxiosInstance
   protected activeRequests: Map<string, AbortController> = new Map()
-  protected requestTimeouts: Map<string, NodeJS.Timeout> = new Map()
+  protected requestTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map()
 
   constructor(baseURL?: string, defaultTimeout: number = 30000) {
     this.client = axios.create({
@@ -296,7 +194,7 @@ export class HttpClient {
    * - Correlation ID propagation for distributed tracing
    * - Idempotency keys for safe retries
    * - Sequential initialization (guaranteed order)
-   * - No timeouts (guaranteed completion)
+   * - Explicit transport timeouts with cleanup
    * - Clear ownership semantics (backend decides)
    */
   private setupInterceptors(): void {
@@ -680,26 +578,16 @@ export class HttpClient {
       metadataConfig._requestStartTime = Date.now().toString()
     }
 
-    // Check for duplicate request
-    if (this.activeRequests.has(correlationId)) {
-      apiLogger.warn('Duplicate request detected, cancelling previous', { correlationId })
-      this.activeRequests.get(correlationId)?.abort()
-    }
-
-    // Create AbortController for this request
-    const controller = new AbortController()
-    this.activeRequests.set(correlationId, controller)
-
-    // Use provided signal or create new one
-    const signal = options?.signal || controller.signal
-
-    // Set up timeout
     const requestTimeout = timeout
-    const timeoutId = setTimeout(() => {
-      apiLogger.warn('Request timeout, aborting', { correlationId, timeout: requestTimeout })
-      controller.abort()
-    }, requestTimeout)
-    this.requestTimeouts.set(correlationId, timeoutId)
+    const lifecycle = createManagedRequestLifecycle({
+      externalSignal: options?.signal,
+      onTimeout: () => {
+        apiLogger.warn('Request timeout, aborting', { correlationId, timeout: requestTimeout })
+      },
+      timeoutMs: requestTimeout,
+    })
+    this.activeRequests.set(correlationId, lifecycle.controller)
+    this.requestTimeouts.set(correlationId, lifecycle.timeoutId)
 
     try {
       apiLogger.debug('Making API request', {
@@ -711,7 +599,7 @@ export class HttpClient {
 
       const response = await this.client.request({
         ...config,
-        signal,
+        signal: lifecycle.signal,
         timeout: requestTimeout,
       })
 
@@ -790,11 +678,8 @@ export class HttpClient {
     } finally {
       // Cleanup
       this.activeRequests.delete(correlationId)
-      const timeout = this.requestTimeouts.get(correlationId)
-      if (timeout) {
-        clearTimeout(timeout)
-        this.requestTimeouts.delete(correlationId)
-      }
+      this.requestTimeouts.delete(correlationId)
+      lifecycle.cleanup()
     }
   }
 
