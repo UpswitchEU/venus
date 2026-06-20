@@ -47,6 +47,13 @@ import type {
 } from '../types'
 import { DEFAULT_IDENTITY, REQUIRE_AUTH_FOR_VALUATION } from '../types'
 import { truncateForLog } from '../utils'
+import { resolveClientTokenIdentity } from './AuthClientContextExchange'
+
+export type { ClientTokenExchangeFailure } from './AuthClientContextExchange'
+export {
+  clearLastClientTokenExchangeFailure,
+  getLastClientTokenExchangeFailure,
+} from './AuthClientContextExchange'
 
 /**
  * Error thrown when authentication is required but user is not authenticated
@@ -63,34 +70,6 @@ export class AuthenticationRequiredError extends Error {
 
 const API_URL = getApiUrl()
 
-// ============================================================================
-// Module-level last-failure record
-// ============================================================================
-// Captures the most recent /exchange-client-context failure so the AuthGate
-// error overlay can render the Titan correlation id (parity with Mercury BFF
-// error overlays). Cleared on successful exchange.
-
-export interface ClientTokenExchangeFailure {
-  /** HTTP status from Titan (0 for network error). */
-  status: number
-  /** Titan-issued correlation id (response header). */
-  correlationId: string | null
-  /** Human-readable reason (Titan body or thrown error). */
-  reason: string
-  /** Performance.now() when captured. */
-  at: number
-}
-
-let lastClientTokenExchangeFailure: ClientTokenExchangeFailure | null = null
-
-export function getLastClientTokenExchangeFailure(): ClientTokenExchangeFailure | null {
-  return lastClientTokenExchangeFailure
-}
-
-export function clearLastClientTokenExchangeFailure(): void {
-  lastClientTokenExchangeFailure = null
-}
-
 export class AuthResolver implements BootstrapResolver<IdentityState> {
   private readonly logger = console
 
@@ -106,8 +85,16 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
     try {
       // Priority 1: Client token (accountant-for-client flow)
       if (hints.hasClientToken && context.clientToken) {
-        const result = await this.resolveClientContext(context.clientToken)
+        const result = await resolveClientTokenIdentity({
+          apiUrl: API_URL,
+          clientToken: context.clientToken,
+        })
         if (result.success) {
+          const clientContext = result.data.clientContext
+          this.logger.info('[AuthResolver] Client context resolved', {
+            clientUserId: truncateForLog(clientContext?.clientUserId ?? undefined),
+            accountantUserId: truncateForLog(clientContext?.accountantUserId),
+          })
           return {
             success: true,
             data: result.data,
@@ -246,123 +233,6 @@ export class AuthResolver implements BootstrapResolver<IdentityState> {
   fallback(): IdentityState {
     return {
       ...DEFAULT_IDENTITY,
-    }
-  }
-
-  /**
-   * Exchange client token for client context
-   *
-   * On failure, captures the Titan correlation id (response header) into a
-   * module-level record so the AuthGate error overlay can display it. This
-   * mirrors the diagnostic chip Mercury BFF routes attach to error responses
-   * via `bff-structured-log` — without it, support has no way to trace which
-   * Titan request actually failed.
-   */
-  private async resolveClientContext(clientToken: string): Promise<ResolverResult<IdentityState>> {
-    const startTime = performance.now()
-
-    try {
-      const response = await fetch(`${API_URL}/api/v2/auth/exchange-client-context`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ token: clientToken }),
-      })
-
-      const correlationId = response.headers.get('x-correlation-id')
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const reason = errorData.message || `Token exchange failed (${response.status})`
-        lastClientTokenExchangeFailure = {
-          status: response.status,
-          correlationId,
-          reason,
-          at: performance.now(),
-        }
-        return {
-          success: false,
-          data: this.fallback(),
-          error: reason,
-          durationMs: performance.now() - startTime,
-        }
-      }
-
-      const contextData = await response.json()
-
-      // Validate response structure (clientUser null when invitation not accepted)
-      if (!contextData.accountantUser || !contextData.relationship) {
-        const reason = 'Invalid client context structure'
-        lastClientTokenExchangeFailure = {
-          status: response.status,
-          correlationId,
-          reason,
-          at: performance.now(),
-        }
-        return {
-          success: false,
-          data: this.fallback(),
-          error: reason,
-          durationMs: performance.now() - startTime,
-        }
-      }
-
-      // Success — clear any stale failure so a follow-up error can capture
-      // its own correlation id without confusion.
-      lastClientTokenExchangeFailure = null
-
-      const clientContext: ClientContext = {
-        clientUserId: contextData.clientUser?.id ?? null,
-        clientEmail: contextData.clientUser?.email ?? null,
-        clientCompanyName:
-          contextData.clientUser?.company_name ?? contextData.relationship.customer_name,
-        accountantUserId: contextData.accountantUser.id,
-        accountantEmail: contextData.accountantUser.email,
-        relationshipId: contextData.relationship.id,
-        permissions: {
-          canCreateValuations: true,
-          canViewReports: true,
-          canEditReports: true,
-        },
-      }
-
-      // When clientUser null (pending invitation), session owned by accountant
-      const effectiveUserId = contextData.clientUser?.id ?? contextData.accountantUser.id
-
-      const identity: IdentityState = {
-        type: 'accountant_for_client',
-        userId: effectiveUserId,
-        clientContext,
-        email: contextData.accountantUser.email,
-        firstName: contextData.accountantUser.first_name,
-        lastName: contextData.accountantUser.last_name,
-      }
-
-      this.logger.info('[AuthResolver] Client context resolved', {
-        clientUserId: truncateForLog(clientContext.clientUserId ?? undefined),
-        accountantUserId: truncateForLog(clientContext.accountantUserId),
-      })
-
-      return {
-        success: true,
-        data: identity,
-        source: 'client_token',
-        durationMs: performance.now() - startTime,
-      }
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : 'Network error'
-      lastClientTokenExchangeFailure = {
-        status: 0,
-        correlationId: null,
-        reason,
-        at: performance.now(),
-      }
-      return {
-        success: false,
-        data: this.fallback(),
-        error: reason,
-        durationMs: performance.now() - startTime,
-      }
     }
   }
 

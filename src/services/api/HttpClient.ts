@@ -32,7 +32,6 @@ import {
 } from '../../utils/errorRecovery'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
-import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import {
   getConfigBodyFieldByteLengths,
   getConfigReportBlobLengths,
@@ -41,6 +40,10 @@ import {
   withoutConfigReportBlobs,
 } from './HttpClientPayloadGuards'
 import { createManagedRequestLifecycle } from './HttpClientRequestLifecycle'
+import {
+  extractHttpResponseData,
+  logValuationResponseDiagnostics,
+} from './HttpClientResponseDiagnostics'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -82,15 +85,6 @@ function getAxiosErrorConfig(error: unknown): HttpClientRequestConfig | undefine
 
 function getRecordValue(value: unknown, key: string): unknown {
   return isUnknownRecord(value) ? value[key] : undefined
-}
-
-function getStringRecordValue(value: unknown, key: string): string | undefined {
-  const field = getRecordValue(value, key)
-  return typeof field === 'string' ? field : undefined
-}
-
-function getObjectKeys(value: unknown): string[] {
-  return isUnknownRecord(value) ? Object.keys(value) : []
 }
 
 function getErrorMessage(error: unknown): string {
@@ -608,73 +602,11 @@ export class HttpClient {
         return { success: true } as T
       }
 
-      // Extract data from nested response structure
-      // Backend returns { success: true, data: result }, so extract nested data first
       const rawData = response.data
-      const nestedData = getRecordValue(rawData, 'data')
-      const responseData = nestedData || rawData
+      const { nestedData, responseData } = extractHttpResponseData(rawData)
+      logValuationResponseDiagnostics({ config, nestedData, rawData, responseData })
 
-      // ✅ FIX: Log response structure for valuation and session endpoints to diagnose missing html_report
-      // Only flag POST /calculate endpoints as CRITICAL - GET session endpoints may not have HTML if called before PUT /result
-      const isPutResultEndpoint =
-        config.url?.includes('/result') && config.method?.toUpperCase() === 'PUT'
-      const isCalculateEndpoint =
-        config.url?.includes('/valuations/calculate') && config.method?.toUpperCase() === 'POST'
-      const isSessionEndpoint = config.url?.includes('/valuation-sessions/') && !isPutResultEndpoint
-
-      // Diagnostic logging for all valuation/session endpoints (for debugging)
-      if (isCalculateEndpoint || isSessionEndpoint) {
-        const extractedData = responseData
-        const htmlReport = getStringRecordValue(extractedData, 'html_report')
-
-        apiLogger.info('DIAGNOSTIC: Valuation response received', {
-          url: config.url,
-          method: config.method,
-          endpointType: isCalculateEndpoint ? 'calculate' : 'session',
-          hasRawData: !!rawData,
-          rawDataType: typeof rawData,
-          rawDataKeys: getObjectKeys(rawData),
-          hasNestedData: !!nestedData,
-          nestedDataKeys: getObjectKeys(nestedData),
-          hasExtractedData: !!extractedData,
-          extractedDataType: typeof extractedData,
-          extractedDataKeys: getObjectKeys(extractedData),
-          hasHtmlReport: !!htmlReport,
-          htmlReportLength: htmlReport?.length || 0,
-          htmlReportType: typeof getRecordValue(extractedData, 'html_report'),
-          hasPdfUrl: !!getRecordValue(extractedData, 'pdf_url'),
-          htmlReportPreview: htmlReport?.substring(0, 200) || 'N/A',
-          extractionMethod: nestedData ? 'nested' : 'direct',
-        })
-      }
-
-      // ✅ FIX: Only flag POST /calculate endpoints as CRITICAL if missing HTML reports
-      // GET session endpoints may legitimately not have HTML if called before PUT /result completes
-      if (isCalculateEndpoint) {
-        const extractedData = responseData
-
-        // CRITICAL: Warn if html_report is missing from calculation response
-        const renderableHtmlReport = getRenderableReportHtml(
-          getStringRecordValue(extractedData, 'html_report')
-        )
-        if (!renderableHtmlReport) {
-          apiLogger.error('CRITICAL: html_report missing or empty in valuation response', {
-            url: config.url,
-            hasExtractedData: !!extractedData,
-            extractedDataKeys: getObjectKeys(extractedData),
-            rawResponseSample: JSON.stringify(response.data).substring(0, 1000),
-            note: 'POST /calculate endpoints should always return HTML reports',
-          })
-        } else {
-          apiLogger.info('SUCCESS: html_report found in valuation response', {
-            url: config.url,
-            htmlReportLength: renderableHtmlReport.length,
-            htmlReportPreview: renderableHtmlReport.substring(0, 200),
-          })
-        }
-      }
-
-      return responseData
+      return responseData as T
     } finally {
       // Cleanup
       this.activeRequests.delete(correlationId)
