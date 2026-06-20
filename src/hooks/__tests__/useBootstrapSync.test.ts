@@ -27,5 +27,6 @@ describe('useBootstrapSync module gate', () => {
     const source = readFileSync(join(__dirname, '../useBootstrapSync.ts'), 'utf8')
     expect(source).toMatch(/globalBootstrapSyncScheduledKey = syncKey/)
     expect(source).toMatch(/function syncEngine\(/)
+    expect(source).toMatch(/syncBootstrapSession\(state\)/)
   })
 })

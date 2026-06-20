@@ -1,4 +1,5 @@
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
+import { getNormalizationAmountForBase } from '../../../utils/normalizationMath'
 import { getAnnualFictiveRentDeductionForDisplay } from '../../../utils/realEstateCarveOutDisplay'
 import { isCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
 import type { NormalizationItem } from '../UnifiedNormalizationModal'
@@ -45,22 +46,10 @@ export function buildManualInputNormalizedData({
     })
     const rawEbitda = Number(yf.ebitda)
     const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
-    const totalAdjustment = yearNorms.reduce((sum, n) => {
-      const rawVal = Number(n.value)
-      const val = Number.isFinite(rawVal) ? rawVal : 0
-      const rawAdj = Number(n.adjustment)
-      const adj = Number.isFinite(rawAdj) ? rawAdj : 0
-      if (
-        yearEbitda === 0 &&
-        (n.type === 'add_percent' || n.type === 'subtract_percent' || n.type === 'absolute')
-      ) {
-        return sum + adj
-      }
-      if (n.type === 'add_percent') return sum + (yearEbitda * val) / 100
-      if (n.type === 'subtract_percent') return sum - (yearEbitda * val) / 100
-      if (n.type === 'absolute') return sum + (val - yearEbitda)
-      return sum + adj
-    }, 0)
+    const totalAdjustment = yearNorms.reduce(
+      (sum, n) => sum + getNormalizationAmountForBase(n, yearEbitda),
+      0
+    )
     const safeTotalAdj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
     const normalizedEbitda = yearEbitda + safeTotalAdj - annualFictiveRentDeduction
     return {

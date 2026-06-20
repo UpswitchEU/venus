@@ -30,6 +30,7 @@ import {
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchArrayBufferWithTimeout, fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { createContextLogger } from '@/utils/logger'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
@@ -43,6 +44,7 @@ const TITAN_PDF_GET_MS = 10_000
 const TITAN_PDF_POST_MS = 110_000
 const STORAGE_FETCH_MS = 30_000
 const ROUTE_RESPONSE_BUDGET_MS = 115_000
+const pdfDownloadLogger = createContextLogger('PdfDownloadRoute')
 
 /** Titan + VIQ reject tiny PDFs; mirror so we never stream HTML/error bodies as PDF. */
 const MIN_PDF_BYTES = 500
@@ -161,7 +163,7 @@ async function titanLookupPdfUrl(
     body = result.json
   } catch (error) {
     if (isDownloadTimeout(error)) throw error
-    console.warn('[PDF Download] Titan PDF lookup failed; attempting regeneration fallback', {
+    pdfDownloadLogger.warn('Titan PDF lookup failed; attempting regeneration fallback', {
       error: error instanceof Error ? error.message : String(error),
     })
     return { pdfUrl: null, errorResponse: null }
@@ -188,12 +190,9 @@ async function titanLookupPdfUrl(
       }
     }
     if (titanResponse.status >= 500) {
-      console.warn(
-        '[PDF Download] Titan PDF lookup returned 5xx; attempting regeneration fallback',
-        {
-          status: titanResponse.status,
-        }
-      )
+      pdfDownloadLogger.warn('Titan PDF lookup returned 5xx; attempting regeneration fallback', {
+        status: titanResponse.status,
+      })
       return { pdfUrl: null, errorResponse: null }
     }
     const errMsg =
@@ -339,9 +338,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error) {
     const isTimeout = isDownloadTimeout(error)
     if (isTimeout) {
-      console.warn('[PDF Download] Timed out:', error instanceof Error ? error.message : error)
+      pdfDownloadLogger.warn('PDF download timed out', {
+        error: error instanceof Error ? error.message : String(error),
+      })
     } else {
-      console.error('[PDF Download] Error:', error instanceof Error ? error.message : error)
+      pdfDownloadLogger.error(
+        'PDF download failed',
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+        error instanceof Error ? error : undefined
+      )
     }
     return pdfErrorJson(
       {

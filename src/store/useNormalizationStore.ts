@@ -16,25 +16,13 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import type {
-  NormalizationItem,
-  NormalizationSource,
-  NormalizationStatus,
-} from '../components/calculator/UnifiedNormalizationTypes'
-import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
+import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
 import {
   getMercurySourceApp,
   getSessionAutosaveDeferRemainingMs,
 } from '../hooks/formSessionAutosaveDefer'
 import { isUpstreamPoolPressureHttpStatus } from '../hooks/sessionPoolPressureCircuit'
 import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
-import type {
-  ConfidenceScoreValue,
-  CreateNormalizationRequest,
-  CustomAdjustment,
-  NormalizationAdjustment,
-  NormalizationCategory,
-} from '../types/ebitdaNormalization'
 import {
   readBrowserRecoveryValue,
   removeBrowserRecoveryValue,
@@ -43,113 +31,28 @@ import {
 import { generalLogger } from '../utils/logger'
 import { appliesToYear } from '../utils/normalizationMath'
 import { isValidSessionId } from '../utils/sessionIdValidation'
+import {
+  acceptNormalizationItem,
+  acceptNormalizationItems,
+  addUniqueNormalizationItems,
+  buildTitanNormalizationRequest,
+  computeNormalizedEbitda,
+  extractSessionNormalizationItems,
+  isNormalizationItem,
+  mapTitanNormalizationsToItems,
+  rejectNormalizationItem,
+  rejectNormalizationItems,
+  removeNormalizationItem,
+  selectAcceptedNormalizations,
+  selectNormalizationsByYear,
+  selectPendingNormalizations,
+  selectRejectedNormalizations,
+  sumNormalizationAdjustments,
+  updateNormalizationItem,
+} from './normalizationStoreModel'
 import { useSessionStore } from './useSessionStore'
 
-// ─────────────────────────────────────────
-// CATEGORY MAPPING
-// ─────────────────────────────────────────
-
-/** Map backend 12-category format back to frontend 7-category display */
-const BACKEND_TO_FRONTEND_CATEGORY: Record<string, NormalizationItem['category']> = {
-  owner_compensation_adjustment: 'salary',
-  one_time_expenses: 'one-time',
-  personal_expenses: 'personal',
-  related_party_transactions: 'rent',
-  non_recurring_revenue: 'other',
-  non_recurring_costs: 'one-time',
-  depreciation_adjustment: 'depreciation',
-  family_expenses: 'personal',
-  unusual_transactions: 'other',
-  tax_optimization_reversal: 'other',
-  discretionary_expenses: 'other',
-  other_adjustments: 'other',
-}
-
-/** Map frontend 7-category to backend 12-category */
-const FRONTEND_TO_BACKEND_CATEGORY: Record<string, string> = {
-  salary: 'owner_compensation_adjustment',
-  rent: 'related_party_transactions',
-  vehicle: 'personal_expenses',
-  'one-time': 'one_time_expenses',
-  personal: 'personal_expenses',
-  depreciation: 'depreciation_adjustment',
-  other: 'other_adjustments',
-}
-
-const VALID_BACKEND_CATEGORIES = new Set(Object.keys(BACKEND_TO_FRONTEND_CATEGORY))
-
-type SessionWithNormalizations = {
-  _normalizations?: unknown
-}
-
-type PersistedNormalizationAdjustment = NormalizationAdjustment & {
-  apply_all_years?: boolean
-  apply_years?: number[]
-  frontend_id?: string
-  normalization_type?: NormalizationItem['type']
-  normalization_value?: number
-}
-
-type RestoredNormalizationAdjustment = NormalizationAdjustment & {
-  apply_all_years?: boolean
-  apply_years?: number[]
-  frontend_id?: string
-  normalization_type?: NormalizationItem['type']
-  normalization_value?: number
-}
-
-type RestoredCustomAdjustment = CustomAdjustment & {
-  apply_all_years?: boolean
-  apply_years?: number[]
-  frontend_id?: string
-  normalization_type?: NormalizationItem['type']
-  normalization_value?: number
-  note?: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
-function isNormalizationItem(value: unknown): value is NormalizationItem {
-  return isRecord(value) && typeof value.id === 'string'
-}
-
-function markNormalizationReviewedIfImported(item: NormalizationItem): Partial<NormalizationItem> {
-  return requiresIndividualImportedNormalizationReview(item)
-    ? { reviewedAt: new Date().toISOString() }
-    : {}
-}
-
-function clearImportedNormalizationReview(item: NormalizationItem): Partial<NormalizationItem> {
-  return requiresIndividualImportedNormalizationReview(item) ? { reviewedAt: undefined } : {}
-}
-
-function toBackendNormalizationCategory(
-  category: string,
-  backendCategory?: string
-): NormalizationCategory {
-  return mapFrontendCategoryToBackend(category, backendCategory) as NormalizationCategory
-}
-
-function toConfidenceScore(value: unknown): ConfidenceScoreValue | undefined {
-  return value === 'high' || value === 'medium' || value === 'low' ? value : undefined
-}
-
-export function mapBackendCategoryToFrontend(category: string): NormalizationItem['category'] {
-  return BACKEND_TO_FRONTEND_CATEGORY[category] || 'other'
-}
-
-/**
- * Map a frontend category to its backend equivalent.
- * If `backendCategory` is provided (preserved from a prior load), it takes
- * priority so round-trips are lossless.
- */
-export function mapFrontendCategoryToBackend(category: string, backendCategory?: string): string {
-  if (backendCategory && VALID_BACKEND_CATEGORIES.has(backendCategory)) return backendCategory
-  if (VALID_BACKEND_CATEGORIES.has(category)) return category
-  return FRONTEND_TO_BACKEND_CATEGORY[category] || category
-}
+export { mapBackendCategoryToFrontend, mapFrontendCategoryToBackend } from './normalizationStoreModel'
 
 // ─────────────────────────────────────────
 // STORE INTERFACE
@@ -278,94 +181,45 @@ export const useNormalizationStore = create<NormalizationStore>()(
 
       addItems: (newItems) =>
         set(
-          (state) => ({
-            items: [
-              ...state.items,
-              ...newItems.filter((n) => !state.items.some((e) => e.id === n.id)),
-            ],
-          }),
+          (state) => ({ items: addUniqueNormalizationItems(state.items, newItems) }),
           false,
           'addItems'
         ),
 
       removeItem: (id) =>
-        set((state) => ({ items: state.items.filter((n) => n.id !== id) }), false, 'removeItem'),
+        set((state) => ({ items: removeNormalizationItem(state.items, id) }), false, 'removeItem'),
 
       updateItem: (id, partial) =>
         set(
-          (state) => ({
-            items: state.items.map((n) => (n.id === id ? { ...n, ...partial } : n)),
-          }),
+          (state) => ({ items: updateNormalizationItem(state.items, id, partial) }),
           false,
           'updateItem'
         ),
 
       acceptItem: (id) =>
         set(
-          (state) => ({
-            items: state.items.map((n) =>
-              n.id === id
-                ? {
-                    ...n,
-                    status: 'accepted' as NormalizationStatus,
-                    ...markNormalizationReviewedIfImported(n),
-                  }
-                : n
-            ),
-          }),
+          (state) => ({ items: state.items.map((n) => (n.id === id ? acceptNormalizationItem(n) : n)) }),
           false,
           'acceptItem'
         ),
 
       rejectItem: (id) =>
         set(
-          (state) => ({
-            items: state.items.map((n) =>
-              n.id === id
-                ? {
-                    ...n,
-                    status: 'rejected' as NormalizationStatus,
-                    ...clearImportedNormalizationReview(n),
-                  }
-                : n
-            ),
-          }),
+          (state) => ({ items: state.items.map((n) => (n.id === id ? rejectNormalizationItem(n) : n)) }),
           false,
           'rejectItem'
         ),
 
       bulkAccept: (ids) =>
         set(
-          (state) => ({
-            items: state.items.map((n) =>
-              ids.includes(n.id)
-                ? requiresIndividualImportedNormalizationReview(n) && n.status !== 'accepted'
-                  ? n
-                  : {
-                      ...n,
-                      status: 'accepted' as NormalizationStatus,
-                      ...markNormalizationReviewedIfImported(n),
-                    }
-                : n
-            ),
-          }),
+          (state) => ({ items: acceptNormalizationItems(state.items, ids) }),
           false,
           'bulkAccept'
         ),
 
       bulkReject: (ids) =>
         set(
-          (state) => ({
-            items: state.items.map((n) =>
-              ids.includes(n.id)
-                ? {
-                    ...n,
-                    status: 'rejected' as NormalizationStatus,
-                    ...clearImportedNormalizationReview(n),
-                  }
-                : n
-            ),
-          }),
+          (state) => ({ items: rejectNormalizationItems(state.items, ids) }),
           false,
           'bulkReject'
         ),
@@ -404,42 +258,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
           set({ isSaving: true, lastFailedPersist: null })
           const doPersist = async (): Promise<void> => {
             const { normalizationService } = await import('../services/ebitdaNormalizationService')
-            const yearItems = items.filter((n) => {
-              if (n.status !== 'accepted') return false
-              if (n.applyAllYears) return true
-              if (n.applyYears && n.applyYears.length > 0) return n.applyYears.includes(year)
-              return n.year === year
-            })
-            const rawEbitda = Number(reportedEbitda)
-            const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
-            const adjustments: PersistedNormalizationAdjustment[] = yearItems.map((n) => {
-              const rawAdj = Number(n.adjustment)
-              let amount = Number.isFinite(rawAdj) ? rawAdj : 0
-              const safeVal = Number.isFinite(n.value) ? n.value : 0
-              if (n.type === 'add_percent') amount = (yearEbitda * safeVal) / 100
-              else if (n.type === 'subtract_percent') amount = -((yearEbitda * safeVal) / 100)
-              else if (n.type === 'absolute') amount = safeVal - yearEbitda
-              if (!Number.isFinite(amount)) amount = 0
-              return {
-                category: toBackendNormalizationCategory(n.category, n.backendCategory),
-                amount,
-                note: n.reason,
-                confidence: toConfidenceScore(n.confidence),
-                ledger_code: n.ledgerCode || undefined,
-                ledger_name: n.ledgerName || undefined,
-                normalization_type: n.type,
-                normalization_value: n.value,
-                frontend_id: n.id,
-                apply_years: n.applyYears,
-                apply_all_years: n.applyAllYears,
-              }
-            })
-            const request: CreateNormalizationRequest = {
-              session_id: reportId,
-              year,
-              reported_ebitda: reportedEbitda ?? 0,
-              adjustments,
-            }
+            const request = buildTitanNormalizationRequest({ items, reportId, reportedEbitda, year })
             await normalizationService.saveNormalization(request)
           }
           const isRetryable = (err: unknown): boolean => {
@@ -550,69 +369,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
             return
           }
 
-          const seenFrontendIds = new Map<string, NormalizationItem>()
-          const items: NormalizationItem[] = []
-          for (const resp of responses) {
-            for (let idx = 0; idx < (resp.adjustments || []).length; idx++) {
-              const adj = resp.adjustments[idx] as RestoredNormalizationAdjustment
-              const restoredType = adj.normalization_type || (adj.amount >= 0 ? 'add' : 'subtract')
-              const restoredValue = adj.normalization_value ?? Math.abs(adj.amount)
-
-              // Deduplicate multi-year normalizations by frontend_id
-              if (adj.frontend_id && seenFrontendIds.has(adj.frontend_id)) {
-                continue
-              }
-
-              const item: NormalizationItem = {
-                id: adj.frontend_id || `titan-${resp.year}-${adj.category}-${idx}`,
-                ledgerCode: adj.ledger_code || '',
-                ledgerName: adj.ledger_name || adj.note || adj.category,
-                category: mapBackendCategoryToFrontend(adj.category),
-                backendCategory: adj.category,
-                type: restoredType,
-                value: restoredValue,
-                adjustment: adj.amount,
-                reason: adj.note,
-                source: 'manual' as NormalizationSource,
-                sourceRef: '',
-                status: 'accepted' as NormalizationStatus,
-                applyAllYears: adj.apply_all_years ?? false,
-                applyYears: adj.apply_years,
-                year: resp.year,
-                confidence: toConfidenceScore(adj.confidence),
-              }
-
-              if (adj.frontend_id) seenFrontendIds.set(adj.frontend_id, item)
-              items.push(item)
-            }
-            for (let idx = 0; idx < (resp.custom_adjustments || []).length; idx++) {
-              const custom = resp.custom_adjustments[idx] as RestoredCustomAdjustment
-
-              if (custom.frontend_id && seenFrontendIds.has(custom.frontend_id)) {
-                continue
-              }
-
-              const item: NormalizationItem = {
-                id: custom.frontend_id || custom.id || `titan-custom-${resp.year}-${idx}`,
-                ledgerCode: custom.ledger_code || '',
-                ledgerName: custom.ledger_name || custom.description,
-                category: 'other',
-                type: custom.normalization_type || (custom.amount >= 0 ? 'add' : 'subtract'),
-                value: custom.normalization_value ?? Math.abs(custom.amount),
-                adjustment: custom.amount,
-                reason: custom.note,
-                source: 'manual' as NormalizationSource,
-                sourceRef: '',
-                status: 'accepted' as NormalizationStatus,
-                applyAllYears: custom.apply_all_years ?? false,
-                applyYears: custom.apply_years,
-                year: resp.year,
-              }
-
-              if (custom.frontend_id) seenFrontendIds.set(custom.frontend_id, item)
-              items.push(item)
-            }
-          }
+          const items = mapTitanNormalizationsToItems(responses)
 
           set({ items, isLoading: false })
           generalLogger.info('[NormalizationStore] Loaded from Titan', {
@@ -628,54 +385,24 @@ export const useNormalizationStore = create<NormalizationStore>()(
       },
 
       loadFromSession: (sessionData) => {
-        if (!isRecord(sessionData)) return
-        const stored = (sessionData as SessionWithNormalizations)._normalizations
-        if (Array.isArray(stored) && stored.length > 0) {
-          const items = stored.filter(isNormalizationItem)
-          if (items.length === 0) return
-          set({ items })
-          generalLogger.debug('[NormalizationStore] Loaded from session data', {
-            count: items.length,
-          })
-        }
+        const items = extractSessionNormalizationItems(sessionData)
+        if (items.length === 0) return
+        set({ items })
+        generalLogger.debug('[NormalizationStore] Loaded from session data', {
+          count: items.length,
+        })
       },
 
       // ─── Selectors ───
 
-      getAccepted: () => get().items.filter((n) => n.status === 'accepted'),
-      getPending: () => get().items.filter((n) => n.status === 'pending'),
-      getRejected: () => get().items.filter((n) => n.status === 'rejected'),
-      getByYear: (year) =>
-        get().items.filter(
-          (n) =>
-            n.applyAllYears ||
-            (n.applyYears && n.applyYears.length > 0
-              ? n.applyYears.includes(year)
-              : n.year === year)
-        ),
-      getTotalAdjustment: () =>
-        get().items.reduce((sum, n) => {
-          const adj = Number(n.adjustment)
-          return sum + (Number.isFinite(adj) ? adj : 0)
-        }, 0),
+      getAccepted: () => selectAcceptedNormalizations(get().items),
+      getPending: () => selectPendingNormalizations(get().items),
+      getRejected: () => selectRejectedNormalizations(get().items),
+      getByYear: (year) => selectNormalizationsByYear(get().items, year),
+      getTotalAdjustment: () => sumNormalizationAdjustments(get().items),
       getAcceptedTotalAdjustment: () =>
-        get()
-          .items.filter((n) => n.status === 'accepted')
-          .reduce((sum, n) => {
-            const adj = Number(n.adjustment)
-            return sum + (Number.isFinite(adj) ? adj : 0)
-          }, 0),
-      getNormalizedEbitda: (originalEbitda) => {
-        const base = Number(originalEbitda)
-        const safeBase = Number.isFinite(base) ? base : 0
-        const totalAdj = get()
-          .items.filter((n) => n.status === 'accepted')
-          .reduce((sum, n) => {
-            const adj = Number(n.adjustment)
-            return sum + (Number.isFinite(adj) ? adj : 0)
-          }, 0)
-        return safeBase + totalAdj
-      },
+        sumNormalizationAdjustments(selectAcceptedNormalizations(get().items)),
+      getNormalizedEbitda: (originalEbitda) => computeNormalizedEbitda(originalEbitda, get().items),
     }),
     { name: 'normalization-store' }
   )

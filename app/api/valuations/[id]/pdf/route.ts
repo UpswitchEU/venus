@@ -20,6 +20,7 @@ import {
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { createContextLogger } from '@/utils/logger'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
@@ -29,6 +30,7 @@ export const maxDuration = 120
 
 const TITAN_PDF_GENERATE_MS = 110_000
 const TITAN_PDF_STATUS_MS = 10_000
+const pdfLogger = createContextLogger('PdfRoute')
 type JsonRecord = Record<string, unknown>
 
 function stringField(body: JsonRecord, key: string): string | null {
@@ -111,7 +113,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         stringField(errBody, 'detail') ||
         'PDF generation failed'
       if (response.status !== 402) {
-        console.error('[PDF] Titan API error:', response.status, errBody)
+        pdfLogger.error('Titan PDF API returned an error', {
+          status: response.status,
+          body: errBody,
+        })
       }
       const paywallBody =
         response.status === 402
@@ -134,14 +139,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     )
   } catch (error) {
     if (isUpstreamTimeout(error)) {
-      console.warn(
-        '[PDF] Titan generation timed out',
-        error instanceof Error ? error.message : error
-      )
+      pdfLogger.warn('Titan PDF generation timed out', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       return pdfJson({ success: false, error: 'PDF generation timed out. Please try again.' }, 504)
     }
 
-    console.error('[PDF] Error:', error instanceof Error ? error.message : error)
+    pdfLogger.error(
+      'PDF generation failed',
+      { error: error instanceof Error ? error.message : String(error) },
+      error instanceof Error ? error : undefined
+    )
     return pdfJson({ success: false, error: 'PDF generation failed' }, 500)
   }
 }
@@ -215,17 +223,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     )
   } catch (error) {
     if (isUpstreamTimeout(error)) {
-      console.warn(
-        '[PDF] Titan PDF status lookup timed out',
-        error instanceof Error ? error.message : error
-      )
+      pdfLogger.warn('Titan PDF status lookup timed out', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       return pdfJson(
         { success: false, error: 'PDF status check timed out. Please try again.' },
         504
       )
     }
 
-    console.error('[PDF] Error:', error instanceof Error ? error.message : error)
+    pdfLogger.error(
+      'PDF status lookup failed',
+      { error: error instanceof Error ? error.message : String(error) },
+      error instanceof Error ? error : undefined
+    )
     return pdfJson({ success: false, error: 'Failed to check PDF status' }, 500)
   }
 }

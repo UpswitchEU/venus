@@ -7,6 +7,13 @@ const mocks = vi.hoisted(() => ({
   getTitanApiUrl: vi.fn(() => 'https://api.upswitch.app'),
 }))
 
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+}))
+
 vi.mock('@/utils/bffAuthProxy', () => ({
   AuthUpstreamTimeoutError: class AuthUpstreamTimeoutError extends Error {
     readonly code = 'upstream_timeout' as const
@@ -21,6 +28,10 @@ vi.mock('@/utils/bffAuthProxy', () => ({
 
 vi.mock('@/utils/getTitanApiUrl', () => ({
   getTitanApiUrl: mocks.getTitanApiUrl,
+}))
+
+vi.mock('@/utils/logger', () => ({
+  createContextLogger: vi.fn(() => loggerMock),
 }))
 
 import { GET } from './route'
@@ -49,6 +60,10 @@ describe('/api/valuations/pdf/status/[jobId]', () => {
     mocks.getBffCookieHeaderForTitan.mockReset()
     mocks.getTitanApiUrl.mockClear()
     mocks.getTitanApiUrl.mockReturnValue('https://api.upswitch.app')
+    loggerMock.debug.mockClear()
+    loggerMock.error.mockClear()
+    loggerMock.info.mockClear()
+    loggerMock.warn.mockClear()
   })
 
   it('forwards delegated client-context headers to Titan on status polling', async () => {
@@ -141,8 +156,6 @@ describe('/api/valuations/pdf/status/[jobId]', () => {
   })
 
   it('returns 504 when Titan status polling times out', async () => {
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     mocks.getBffCookieHeaderForTitan.mockResolvedValue({
       cookieHeader: 'upswitch_access_token=jwt-token',
       cookieSource: 'header',
@@ -159,13 +172,10 @@ describe('/api/valuations/pdf/status/[jobId]', () => {
       error: 'PDF status check timed out. Please try again.',
     })
     expect(res.headers.get('Cache-Control')).toContain('no-store')
-    expect(consoleWarn).toHaveBeenCalledWith(
-      '[PDF Status] Titan status request timed out',
-      'Request timeout - please try again'
-    )
-    expect(consoleError).not.toHaveBeenCalled()
-    consoleWarn.mockRestore()
-    consoleError.mockRestore()
+    expect(loggerMock.warn).toHaveBeenCalledWith('Titan PDF status request timed out', {
+      error: 'Request timeout - please try again',
+    })
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it('normalizes invite-advisor paywall responses while polling', async () => {

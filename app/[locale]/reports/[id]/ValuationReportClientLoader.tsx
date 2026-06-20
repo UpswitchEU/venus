@@ -1,7 +1,7 @@
 'use client'
 
 import nextDynamic from 'next/dynamic'
-import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
+import { CalculatorShellSkeleton } from '../../../../src/components/calculator/CalculatorShellSkeleton'
 
 const ValuationReportClient = nextDynamic(() => import('./ValuationReportClient'), {
   ssr: false,

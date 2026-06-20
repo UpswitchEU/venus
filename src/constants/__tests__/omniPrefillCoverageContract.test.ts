@@ -110,12 +110,20 @@ describe('Omni prefill coverage contract', () => {
   })
 
   it('keeps existing-session package gap-fill path in bootstrap sync', () => {
-    const src = readFileSync(
+    const hookSrc = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'hooks', 'useBootstrapSync.ts'),
       'utf8'
     )
-    expect(src).toContain('mergeSessionSurfaceForOptionalPrefill(pkg.formData)')
-    expect(src).toContain('Hydrated form store with bootstrap/package gap-fill')
-    expect(src).toContain('Updated existing session with bootstrap/package gap-fill data')
+    const sessionSyncSrc = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'hooks', 'bootstrapSyncSession.ts'),
+      'utf8'
+    )
+    expect(hookSrc).toContain('mergeSessionSurfaceForOptionalPrefill(pkg.formData)')
+    expect(hookSrc).toContain('syncBootstrapSession(state)')
+    expect(sessionSyncSrc).toContain('hydrateSessionAndComplete')
+    expect(sessionSyncSrc).toContain('Hydrated form store with bootstrap/package gap-fill')
+    expect(sessionSyncSrc).toContain(
+      'Updated existing session with bootstrap/package gap-fill data'
+    )
   })
 })

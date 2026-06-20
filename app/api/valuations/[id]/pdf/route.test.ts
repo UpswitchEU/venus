@@ -7,6 +7,13 @@ const mocks = vi.hoisted(() => ({
   getTitanApiUrl: vi.fn(() => 'https://api.upswitch.app'),
 }))
 
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+}))
+
 vi.mock('@/utils/bffAuthProxy', () => ({
   AuthUpstreamTimeoutError: class AuthUpstreamTimeoutError extends Error {
     readonly code = 'upstream_timeout' as const
@@ -21,6 +28,10 @@ vi.mock('@/utils/bffAuthProxy', () => ({
 
 vi.mock('@/utils/getTitanApiUrl', () => ({
   getTitanApiUrl: mocks.getTitanApiUrl,
+}))
+
+vi.mock('@/utils/logger', () => ({
+  createContextLogger: vi.fn(() => loggerMock),
 }))
 
 import { GET, POST } from './route'
@@ -58,6 +69,10 @@ describe('/api/valuations/[id]/pdf', () => {
     mocks.getBffCookieHeaderForTitan.mockReset()
     mocks.getTitanApiUrl.mockClear()
     mocks.getTitanApiUrl.mockReturnValue('https://api.upswitch.app')
+    loggerMock.debug.mockClear()
+    loggerMock.error.mockClear()
+    loggerMock.info.mockClear()
+    loggerMock.warn.mockClear()
   })
 
   it('forwards delegated client-context headers to Titan on generation', async () => {
@@ -158,8 +173,6 @@ describe('/api/valuations/[id]/pdf', () => {
   })
 
   it('returns 504 when Titan async generation times out', async () => {
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     authFromCookieStore()
     mocks.fetch.mockRejectedValue(upstreamTimeoutError())
 
@@ -173,19 +186,14 @@ describe('/api/valuations/[id]/pdf', () => {
       error: 'PDF generation timed out. Please try again.',
     })
     expect(res.headers.get('Cache-Control')).toContain('no-store')
-    expect(consoleWarn).toHaveBeenCalledWith(
-      '[PDF] Titan generation timed out',
-      'Request timeout - please try again'
-    )
-    expect(consoleError).not.toHaveBeenCalled()
-    consoleWarn.mockRestore()
-    consoleError.mockRestore()
+    expect(loggerMock.warn).toHaveBeenCalledWith('Titan PDF generation timed out', {
+      error: 'Request timeout - please try again',
+    })
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it('returns 504 when Titan async generation JSON body stalls after headers', async () => {
     vi.useFakeTimers()
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     authFromCookieStore()
     mocks.fetch.mockImplementation((_url: string, init?: RequestInit) => {
       const signal = init?.signal
@@ -214,19 +222,14 @@ describe('/api/valuations/[id]/pdf', () => {
       success: false,
       error: 'PDF generation timed out. Please try again.',
     })
-    expect(consoleWarn).toHaveBeenCalledWith(
-      '[PDF] Titan generation timed out',
-      'Request timeout - please try again'
-    )
-    expect(consoleError).not.toHaveBeenCalled()
+    expect(loggerMock.warn).toHaveBeenCalledWith('Titan PDF generation timed out', {
+      error: 'Request timeout - please try again',
+    })
+    expect(loggerMock.error).not.toHaveBeenCalled()
     vi.useRealTimers()
-    consoleWarn.mockRestore()
-    consoleError.mockRestore()
   })
 
   it('returns 504 when Titan PDF lookup times out', async () => {
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     authFromCookieStore()
     mocks.fetch.mockRejectedValue(upstreamTimeoutError())
 
@@ -240,17 +243,13 @@ describe('/api/valuations/[id]/pdf', () => {
       error: 'PDF status check timed out. Please try again.',
     })
     expect(res.headers.get('Cache-Control')).toContain('no-store')
-    expect(consoleWarn).toHaveBeenCalledWith(
-      '[PDF] Titan PDF status lookup timed out',
-      'Request timeout - please try again'
-    )
-    expect(consoleError).not.toHaveBeenCalled()
-    consoleWarn.mockRestore()
-    consoleError.mockRestore()
+    expect(loggerMock.warn).toHaveBeenCalledWith('Titan PDF status lookup timed out', {
+      error: 'Request timeout - please try again',
+    })
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it('normalizes invite-advisor paywall responses for generation', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     authFromCookieStore()
     mocks.fetch.mockResolvedValue(
       titanJsonResponse(402, {
@@ -273,8 +272,7 @@ describe('/api/valuations/[id]/pdf', () => {
       action: 'invite_accountant',
       inviteAdvisorRequired: true,
     })
-    expect(consoleError).not.toHaveBeenCalled()
-    consoleError.mockRestore()
+    expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
   it('encodes report IDs before proxying to Titan', async () => {

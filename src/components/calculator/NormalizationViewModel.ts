@@ -1,5 +1,6 @@
 import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
+import { getNormalizationAmountForBase, getReportedEbitdaBaseline } from '@/utils/normalizationMath'
 import type { NormalizationItem, NormalizationSource } from './UnifiedNormalizationTypes'
 
 export interface NormalizationViewProps {
@@ -61,20 +62,13 @@ export function adjustmentForYear(
   originalEBITDA: number,
   originalEBITDAByYear?: Record<number, number>
 ): number {
-  const yearEbitda = originalEBITDAByYear?.[year] ?? originalEBITDA
-  const stored = Number.isFinite(item.adjustment) ? item.adjustment : 0
-  const safeVal = Number.isFinite(item.value) ? item.value : 0
-  // When yearEbitda is 0 or non-finite, percentage/absolute recalculation yields wrong result; use stored.
-  if (
-    (!Number.isFinite(yearEbitda) || yearEbitda === 0) &&
-    (item.type === 'add_percent' || item.type === 'subtract_percent' || item.type === 'absolute')
-  ) {
-    return stored
-  }
-  if (item.type === 'add_percent') return (yearEbitda * safeVal) / 100
-  if (item.type === 'subtract_percent') return -((yearEbitda * safeVal) / 100)
-  if (item.type === 'absolute') return safeVal - yearEbitda
-  return stored
+  const yearEbitda = getReportedEbitdaBaseline({
+    year,
+    originalEBITDAByYear,
+    fallbackCandidates: [originalEBITDA],
+  })
+
+  return getNormalizationAmountForBase(item, yearEbitda)
 }
 
 export function useNormalizationCurrencyFormatter() {

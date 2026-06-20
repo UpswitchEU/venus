@@ -14,6 +14,7 @@ import {
 import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { createContextLogger } from '@/utils/logger'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
@@ -22,6 +23,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const TITAN_PDF_STATUS_MS = 10_000
+const pdfStatusLogger = createContextLogger('PdfStatusRoute')
 type JsonRecord = Record<string, unknown>
 
 function pdfStatusJson(body: Record<string, unknown>, status: number): NextResponse {
@@ -114,17 +116,20 @@ export async function GET(
     )
   } catch (error) {
     if (isUpstreamTimeout(error)) {
-      console.warn(
-        '[PDF Status] Titan status request timed out',
-        error instanceof Error ? error.message : error
-      )
+      pdfStatusLogger.warn('Titan PDF status request timed out', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       return pdfStatusJson(
         { success: false, error: 'PDF status check timed out. Please try again.' },
         504
       )
     }
 
-    console.error('[PDF Status] Error:', error instanceof Error ? error.message : error)
+    pdfStatusLogger.error(
+      'PDF status check failed',
+      { error: error instanceof Error ? error.message : String(error) },
+      error instanceof Error ? error : undefined
+    )
     return pdfStatusJson({ success: false, error: 'Failed to check status' }, 500)
   }
 }

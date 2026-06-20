@@ -1,3 +1,4 @@
+import { getNormalizationAmountForBase } from '../../utils/normalizationMath'
 import type { NormalizationType } from './UnifiedNormalizationTypes'
 
 type AdjustmentInput = {
@@ -55,19 +56,14 @@ export function calculateNormalizationAdjustment({
   numericValue,
   safeEbitda,
 }: AdjustmentInput): number {
-  let adjustment = numericValue
-
-  if (type === 'add_percent') {
-    adjustment = (safeEbitda * numericValue) / 100
-  } else if (type === 'subtract_percent') {
-    adjustment = -((safeEbitda * numericValue) / 100)
-  } else if (type === 'subtract') {
-    adjustment = -numericValue
-  } else if (type === 'absolute') {
-    adjustment = numericValue - safeEbitda
-  }
-
-  return Number.isFinite(adjustment) ? adjustment : 0
+  return getNormalizationAmountForBase(
+    {
+      adjustment: type === 'subtract' ? -numericValue : numericValue,
+      type,
+      value: numericValue,
+    },
+    safeEbitda
+  )
 }
 
 export function getNormalizationAdjustmentGuard({

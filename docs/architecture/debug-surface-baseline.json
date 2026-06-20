@@ -1,6 +1,6 @@
 {
   "owner": "Architecture",
-  "updated": "2026-05-20",
+  "updated": "2026-06-20",
   "rule": "Freeze direct console.*, alert(), and debugger usage in production paths. New or increased direct debug surfaces fail guard:debug-surface; approved reductions must update this baseline.",
   "scanRoots": [
     "app",
@@ -14,7 +14,7 @@
     "src/utils/loggers.ts"
   ],
   "totals": {
-    "console": 88,
+    "console": 83,
     "alert": 2,
     "debugger": 0
   },
@@ -190,30 +190,6 @@
       }
     },
     "app/api/user/language/route.ts": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
-    "app/api/valuations/[id]/pdf/download/route.ts": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
-    "app/api/valuations/[id]/pdf/route.ts": {
-      "console": 3,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 3
-      }
-    },
-    "app/api/valuations/pdf/status/[jobId]/route.ts": {
       "console": 1,
       "alert": 0,
       "debugger": 0,
@@ -435,5 +411,5 @@
       }
     }
   },
-  "totalFiles": 51
+  "totalFiles": 48
 }

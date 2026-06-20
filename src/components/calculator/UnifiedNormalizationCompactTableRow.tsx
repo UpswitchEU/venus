@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from '@/design-system/components/Tooltip'
 import { cn } from '@/design-system/utils'
+import { getNormalizationAmountForBase } from '@/utils/normalizationMath'
 import type { NormalizationItem, NormalizationSource } from './UnifiedNormalizationTypes'
 import {
   isImportedLedgerNormalizationItem,
@@ -95,19 +96,16 @@ export function CompactTableRow({
   // Recalculate adjustment for percentage/absolute types when year-specific EBITDA is available
   const displayAdjustment = useMemo(() => {
     const stored = Number.isFinite(item.adjustment) ? item.adjustment : 0
-    const safeVal = Number.isFinite(item.value) ? item.value : 0
     if (yearEbitda == null) return stored
-    // When yearEbitda is 0 or non-finite, recalculation would yield 0/NaN; use stored adjustment
-    if (
-      (!Number.isFinite(yearEbitda) || yearEbitda === 0) &&
-      (item.type === 'add_percent' || item.type === 'subtract_percent' || item.type === 'absolute')
-    ) {
-      return stored
-    }
-    if (item.type === 'add_percent') return (yearEbitda * safeVal) / 100
-    if (item.type === 'subtract_percent') return -((yearEbitda * safeVal) / 100)
-    if (item.type === 'absolute') return safeVal - yearEbitda
-    return stored
+
+    return getNormalizationAmountForBase(
+      {
+        adjustment: item.adjustment,
+        type: item.type,
+        value: item.value,
+      },
+      yearEbitda
+    )
   }, [item.adjustment, item.type, item.value, yearEbitda])
 
   // Year display

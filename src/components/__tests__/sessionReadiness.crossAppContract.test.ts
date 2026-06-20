@@ -128,8 +128,12 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/needsDelegatedContext[\s\S]*useClientContext\.getState\(\)/)
   })
 
-  it('useBootstrapSync gap-fill uses hydrateSessionAndComplete not bare hydrateSession', () => {
-    const path = join(__dirname, '../../hooks/useBootstrapSync.ts')
+  it('bootstrap session sync gap-fill uses hydrateSessionAndComplete not bare hydrateSession', () => {
+    const hookPath = join(__dirname, '../../hooks/useBootstrapSync.ts')
+    const hookSource = readFileSync(hookPath, 'utf8')
+    expect(hookSource).toMatch(/syncBootstrapSession\(state\)/)
+
+    const path = join(__dirname, '../../hooks/bootstrapSyncSession.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/sessionStore\.hydrateSessionAndComplete\(\{/)
     const gapFillBlock = source.slice(
@@ -545,16 +549,25 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/SessionRestorationService\.restore\(reportId, session, \{/)
   })
 
-  it('AdvisorAIDock reuses TanStack client detail cache', () => {
-    const path = join(
+  it('AdvisorAIDock delegates client detail resolution to a cache-first hook', () => {
+    const dockPath = join(
       __dirname,
       mercuryRootFromVenusTests,
       'shared/components/ai-dock/AdvisorAIDock.tsx'
     )
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/queryClient\.getQueryData/)
-    expect(source).toMatch(/accountantClientQueryKeys\.detail\(clientId\)/)
-    expect(source).toMatch(/fetchAccountantClientDetail/)
+    const hookPath = join(
+      __dirname,
+      mercuryRootFromVenusTests,
+      'shared/components/ai-dock/useAdvisorDockResolvedClient.ts'
+    )
+    const dockSource = readFileSync(dockPath, 'utf8')
+    const hookSource = readFileSync(hookPath, 'utf8')
+
+    expect(dockSource).toMatch(/useAdvisorDockResolvedClient\(\{/)
+    expect(hookSource).toMatch(/queryClient\.getQueryData/)
+    expect(hookSource).toMatch(/accountantClientQueryKeys\.detail\(clientId\)/)
+    expect(hookSource).toMatch(/queryFn:\s*\(\)\s*=>\s*fetchAccountantClientDetail\(clientId\)/)
+    expect(hookSource).toMatch(/clientDetailRequestRef/)
   })
 
   it('BootstrapProvider force refresh shows loading immediately on retry', () => {

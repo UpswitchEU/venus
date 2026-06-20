@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { AuthGate } from '../../../../src/components/AuthGate'
-import { CalculatorShellSkeleton } from '../../../../src/components/calculator'
+import { CalculatorShellSkeleton } from '../../../../src/components/calculator/CalculatorShellSkeleton'
 import { ErrorBoundary } from '../../../../src/components/ErrorBoundary'
 import { OwnerUpgradeCta } from '../../../../src/components/OwnerUpgradeCta'
 import { ValuationReport } from '../../../../src/components/ValuationReport'

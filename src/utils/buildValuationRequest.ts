@@ -25,6 +25,7 @@ import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from './fiscalYear'
 import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { generalLogger } from './logger'
+import { getNormalizationAmountForBase } from './normalizationMath'
 import {
   businessTypeWeightsFromSegments,
   resolveBusinessTypeSegments,
@@ -268,12 +269,7 @@ export function buildValuationRequest(
         }
       const rawYearEbitda = yearEbitdaMap[y] ?? 0
       const yearEbitda = Number.isFinite(rawYearEbitda) ? rawYearEbitda : 0
-      const val = toFiniteNumber(n.value) ?? 0
-      let amount = toFiniteNumber(n.adjustment) ?? 0
-      if (n.type === 'add_percent') amount = (yearEbitda * val) / 100
-      else if (n.type === 'subtract_percent') amount = -((yearEbitda * val) / 100)
-      else if (n.type === 'absolute') amount = val - yearEbitda
-      if (!Number.isFinite(amount)) amount = 0
+      const amount = getNormalizationAmountForBase(n, yearEbitda)
       normByYear[y].totalAdjustment += amount
       normByYear[y].count++
       if (n.confidence === 'high') normByYear[y].confidence = 'high'
