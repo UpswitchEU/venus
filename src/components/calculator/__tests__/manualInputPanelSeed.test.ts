@@ -5,11 +5,11 @@ import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
-  getSelectedBelgianAuditEntries,
   isSessionSeedYearStale,
   shouldAutoConfirmPrefilledFilingYear,
   venusLiveBatchImportProvider,
 } from '../ManualInputPanel'
+import { getSelectedBelgianAuditEntries } from '../utils/manualBelgianAuditEntries'
 
 describe('getSeedBaseFilingYear / getSeedYearlyFinancials (filing year rollover)', () => {
   afterEach(() => {
