@@ -144,6 +144,42 @@ export function DcfGlobalAssumptions({
   // intentional. Pattern matches `project_normalization_bridge_phase1_2026_04_29.md`.
   const [terminalGrowthCapAck, setTerminalGrowthCapAck] = useState(false)
 
+  const hasSmartDefaults = smartDefaults != null
+  const smartRevenueGrowthPct = smartDefaults?.revenueGrowthPct
+  const smartEbitdaMarginPct = smartDefaults?.ebitdaMarginPct
+  const smartCapexPct = smartDefaults?.capexPct
+  const smartDaPct = smartDefaults?.daPct
+  const smartNwcPct = smartDefaults?.nwcPct
+  const smartTaxRatePct = smartDefaults?.taxRatePct
+  const smartWaccPct = smartDefaults?.waccPct
+  const smartTerminalGrowthPct = smartDefaults?.terminalGrowthPct
+  const smartExitMultiple = smartDefaults?.exitMultiple
+  const smartDefaultsForSeed = useMemo<DcfSeedSmartDefaults | null>(() => {
+    if (!hasSmartDefaults) return null
+    return {
+      revenueGrowthPct: smartRevenueGrowthPct,
+      ebitdaMarginPct: smartEbitdaMarginPct,
+      capexPct: smartCapexPct,
+      daPct: smartDaPct,
+      nwcPct: smartNwcPct,
+      taxRatePct: smartTaxRatePct,
+      waccPct: smartWaccPct,
+      terminalGrowthPct: smartTerminalGrowthPct,
+      exitMultiple: smartExitMultiple,
+    }
+  }, [
+    hasSmartDefaults,
+    smartRevenueGrowthPct,
+    smartEbitdaMarginPct,
+    smartCapexPct,
+    smartDaPct,
+    smartNwcPct,
+    smartTaxRatePct,
+    smartWaccPct,
+    smartTerminalGrowthPct,
+    smartExitMultiple,
+  ])
+
   // Round-trip the *best available* default into form state when a field is blank
   // so the engine receives the value the user sees in the placeholder. Without this,
   // blank fields ship `undefined` and the backend's own fallback may diverge from
@@ -157,7 +193,6 @@ export function DcfGlobalAssumptions({
   //
   // Only writes when the field is currently undefined (no overwrite of user edits).
   // Gated by `variant` / `dcfInputMode` so we don't seed irrelevant fields.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- stable defaults; we want a one-shot seed per missing field
   useEffect(() => {
     const seedPatch = buildDcfGlobalAssumptionsSeedPatch({
       disabled,
@@ -175,7 +210,7 @@ export function DcfGlobalAssumptions({
         dcfTerminalGrowthPct,
         dcfExitMultiple,
       },
-      smartDefaults,
+      smartDefaults: smartDefaultsForSeed,
       integrationCapexPct,
       integrationDaPct,
     })
@@ -188,15 +223,7 @@ export function DcfGlobalAssumptions({
     terminalValueMethod,
     disabled,
     // Smart-defaults change when historical data updates — re-seed missing fields.
-    smartDefaults?.revenueGrowthPct,
-    smartDefaults?.ebitdaMarginPct,
-    smartDefaults?.capexPct,
-    smartDefaults?.daPct,
-    smartDefaults?.nwcPct,
-    smartDefaults?.taxRatePct,
-    smartDefaults?.waccPct,
-    smartDefaults?.terminalGrowthPct,
-    smartDefaults?.exitMultiple,
+    smartDefaultsForSeed,
     integrationCapexPct,
     integrationDaPct,
     dcfCapexPct,
