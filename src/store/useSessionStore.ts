@@ -16,10 +16,7 @@
 import { create } from 'zustand'
 import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import type { IdentityState } from '../lib/bootstrap/types'
-import {
-  type DelegatedMercuryHandoffSignals,
-  isDelegatedMercuryAccountantHandoff,
-} from '../lib/mercury/sessionReadiness'
+import type { DelegatedMercuryHandoffSignals } from '../lib/mercury/sessionReadiness'
 import type { ISessionEngine, SessionDataRecord } from '../services/session/SessionEngine'
 import { createSessionEngine } from '../services/session/SessionEngineFactory'
 import type { ValuationSession } from '../types/valuation'
@@ -37,6 +34,10 @@ import {
   stripOptimisticShellFromSession,
 } from './useSessionStore.helpers'
 import { createLoadSessionAction, invalidateActiveLoads } from './useSessionStore.loadSession'
+import {
+  buildOptimisticMercuryShellSession,
+  getOptimisticMercuryShellRefusalReason,
+} from './useSessionStore.optimisticShell'
 
 // Source-contract sentinel: "loadSession blocked — engine not initialized" is enforced
 // in `useSessionStore.loadSession.ts`, while this shell preserves the public store boundary.
@@ -220,14 +221,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   seedOptimisticMercuryShell: ({ seedSession, identity, delegatedHandoffSignals }) => {
-    if (identity.type === 'accountant_for_client') {
+    const refusalReason = getOptimisticMercuryShellRefusalReason({
+      delegatedHandoffSignals,
+      identity,
+    })
+
+    if (refusalReason === 'accountant_for_client') {
       storeLogger.warn(
         '[Session] Refusing optimistic Mercury shell for accountant_for_client — bootstrap owns delegated handoffs',
         { reportId: seedSession.reportId.substring(0, 30) }
       )
       return
     }
-    if (delegatedHandoffSignals && isDelegatedMercuryAccountantHandoff(delegatedHandoffSignals)) {
+    if (refusalReason === 'delegated_handoff') {
       storeLogger.warn('[Session] Refusing optimistic Mercury shell — delegated handoff signals', {
         reportId: seedSession.reportId.substring(0, 30),
       })
@@ -235,21 +241,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
 
     const engine = createSessionEngine(identity)
-    const now = seedSession.updatedAt || seedSession.createdAt || new Date()
-    const builtSession: ValuationSession = {
-      reportId: seedSession.reportId,
-      currentView: seedSession.currentView || 'manual',
-      dataSource: seedSession.dataSource || 'manual',
-      createdAt: seedSession.createdAt || now,
-      updatedAt: now,
-      sessionData: seedSession.sessionData || {},
-      partialData: seedSession.partialData || {},
-      ...(seedSession.status && { status: seedSession.status }),
-      ...(seedSession.reportReady !== undefined && { reportReady: seedSession.reportReady }),
-      ...(seedSession.name && { name: seedSession.name }),
-      ...(seedSession.valuationResult && { valuationResult: seedSession.valuationResult }),
-      ...(seedSession.htmlReport && { htmlReport: seedSession.htmlReport }),
-    } as ValuationSession
+    const builtSession = buildOptimisticMercuryShellSession(seedSession)
 
     // Hydrate the engine's internal copy BEFORE the single setState so it
     // matches the session we expose. `engine.hydrateSession` is a method
