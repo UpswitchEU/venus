@@ -115,7 +115,9 @@ export function markNormalizationReviewedIfImported(
   return requiresIndividualImportedNormalizationReview(item) ? { reviewedAt } : {}
 }
 
-export function clearImportedNormalizationReview(item: NormalizationItem): Partial<NormalizationItem> {
+export function clearImportedNormalizationReview(
+  item: NormalizationItem
+): Partial<NormalizationItem> {
   return requiresIndividualImportedNormalizationReview(item) ? { reviewedAt: undefined } : {}
 }
 

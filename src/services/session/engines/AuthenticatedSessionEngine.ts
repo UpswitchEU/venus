@@ -290,9 +290,9 @@ function mergeQueuedLocalSession(
  *
  * Full backend integration - wraps existing SessionService
  *
- * BANK-GRADE: Handles race conditions during async session loading.
- * Tracks pending load promise to prevent "no current session" errors
- * when updateSession is called before loadSession completes.
+ * Coordinates backend loads, local updates, and serialized saves.
+ * Updates that arrive during a current load are queued and only applied if that
+ * load still owns the active report when it resolves.
  */
 export class AuthenticatedSessionEngine implements ISessionEngine {
   private currentSession: ValuationSession | null = null
@@ -307,17 +307,18 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   // We always normalize this.currentSession.reportId back to the requested value
   // so the Zustand store's stage check (session.reportId === reportId) never fails.
   private requestedReportId: string | null = null
+  private sessionLifecycleVersion = 0
 
-  // ✅ RACE CONDITION FIX: Track ongoing save operations to prevent concurrent saves
-  // Multiple hooks can trigger saves simultaneously, causing data loss when they race
+  // Multiple hooks can request persistence at once; serialize writes per active
+  // report and collapse mid-flight callers into one follow-up save.
   private savePromise: Promise<void> | null = null
+  private saveReportId: string | null = null
+  private saveLifecycleVersion = 0
   private savePending: boolean = false
   private lastPersistedSaveFingerprint: string | null = null
 
   /**
    * Load session from backend
-   *
-   * BANK-GRADE: Tracks loading state and applies pending updates after load completes.
    */
   async loadSession(
     reportId: string,
@@ -577,11 +578,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   /**
    * Save session to backend
    *
-   * BANK-GRADE: Waits for pending load before saving, if applicable.
-   *
-   * ✅ RACE CONDITION FIX: Debounces and deduplicates concurrent saves.
-   * If a save is already in progress, queues a follow-up save with the latest data.
-   * This prevents multiple concurrent PATCH requests that can cause data loss.
+   * Waits for a pending load when needed, then serializes saves for the active
+   * report. A stale save queue from a previous report or lifecycle is ignored.
    */
   async saveSession(reason: 'user' | 'autosave' | 'system' = 'autosave'): Promise<void> {
     // If we're loading, wait for it to complete first
@@ -598,25 +596,48 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       return
     }
 
-    // Single drain promise: all callers await the same serialized queue. When
-    // another autosave arrives mid-flight we mark one follow-up pass, and that
-    // pass snapshots the latest in-memory session state.
+    const activeReportId = this.currentSession.reportId
+    const activeLifecycleVersion = this.sessionLifecycleVersion
+
+    // Single drain promise per active report: all same-report callers await the
+    // same queue. If teardown or navigation detached the old queue, this save
+    // starts a fresh one for the current session.
     if (this.savePromise) {
-      this.savePending = true
-      generalLogger.debug('[AuthenticatedSessionEngine] Save already in progress, queuing', {
-        reportId: this.currentSession.reportId,
+      const canJoinActiveQueue =
+        this.saveReportId === activeReportId && this.saveLifecycleVersion === activeLifecycleVersion
+
+      if (canJoinActiveQueue) {
+        this.savePending = true
+        generalLogger.debug('[AuthenticatedSessionEngine] Save already in progress, queuing', {
+          reportId: this.currentSession.reportId,
+          reason,
+        })
+        await this.savePromise
+        return
+      }
+
+      generalLogger.debug('[AuthenticatedSessionEngine] Detaching stale save queue', {
+        staleReportId: this.saveReportId,
+        activeReportId,
         reason,
       })
-      await this.savePromise
-      return
+      this.savePending = false
     }
 
+    const saveReportId = activeReportId
+    const saveLifecycleVersion = activeLifecycleVersion
+    const savePromise = this.drainSaveQueue(reason, saveReportId, saveLifecycleVersion)
     try {
-      this.savePromise = this.drainSaveQueue(reason)
-      await this.savePromise
+      this.savePromise = savePromise
+      this.saveReportId = saveReportId
+      this.saveLifecycleVersion = saveLifecycleVersion
+      await savePromise
     } finally {
-      this.savePromise = null
-      this.savePending = false
+      if (this.savePromise === savePromise) {
+        this.savePromise = null
+        this.saveReportId = null
+        this.savePending = false
+      }
     }
   }
 
@@ -632,10 +653,25 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     })
   }
 
-  private async drainSaveQueue(reason: 'user' | 'autosave' | 'system'): Promise<void> {
+  private isActiveSaveQueue(reportId: string, lifecycleVersion: number): boolean {
+    return (
+      this.sessionLifecycleVersion === lifecycleVersion &&
+      this.currentSession?.reportId === reportId
+    )
+  }
+
+  private async drainSaveQueue(
+    reason: 'user' | 'autosave' | 'system',
+    queueReportId: string,
+    queueLifecycleVersion: number
+  ): Promise<void> {
     let nextReason = reason
 
     do {
+      if (!this.isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
+        return
+      }
+
       if (nextReason === 'autosave') {
         const ready = await this.waitForAutosavePatchGate()
         if (!ready) {
@@ -644,13 +680,25 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_SETTLE_MS))
       }
 
+      if (!this.isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
+        return
+      }
+
       // Absorb callers that arrived during the autosave settle window into the
       // single snapshot about to be sent. Mutations that happen while the HTTP
       // request is in-flight will flip savePending again and schedule one
       // follow-up pass below.
       this.savePending = false
-      const savedMutationVersion = await this.executeSave(nextReason)
+      const savedMutationVersion = await this.executeSave(
+        nextReason,
+        queueReportId,
+        queueLifecycleVersion
+      )
       nextReason = 'autosave'
+
+      if (!this.isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
+        return
+      }
 
       if (this.currentSession && this.localMutationVersion > savedMutationVersion) {
         this.savePending = true
@@ -678,14 +726,24 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * Includes retry with backoff (max 2 attempts) for transient network errors.
    * Validation errors (4xx) are NOT retried.
    */
-  private async executeSave(reason: 'user' | 'autosave' | 'system'): Promise<number> {
+  private async executeSave(
+    reason: 'user' | 'autosave' | 'system',
+    queueReportId: string,
+    queueLifecycleVersion: number
+  ): Promise<number> {
     if (!this.currentSession) return this.localMutationVersion
 
     const MAX_ATTEMPTS = 2
     const BACKOFF_MS = [1000, 3000]
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (!this.isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
+        return this.localMutationVersion
+      }
+
       try {
+        const reportIdAtSend = this.currentSession.reportId
+        const lifecycleVersionAtSend = this.sessionLifecycleVersion
         const updates = this.buildSavePayload()
         const payloadFingerprint = autosavePayloadFingerprint(updates)
         if (reason === 'autosave' && payloadFingerprint === this.lastPersistedSaveFingerprint) {
@@ -697,10 +755,20 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
         const mutationVersionAtSend = this.localMutationVersion
 
-        const updatedSession = await sessionService.saveSession(
-          this.currentSession.reportId,
-          updates
-        )
+        const updatedSession = await sessionService.saveSession(reportIdAtSend, updates)
+
+        if (
+          lifecycleVersionAtSend !== this.sessionLifecycleVersion ||
+          !this.currentSession ||
+          this.currentSession.reportId !== reportIdAtSend
+        ) {
+          generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale save response', {
+            reportId: reportIdAtSend,
+            activeReportId: this.currentSession?.reportId,
+            reason,
+          })
+          return mutationVersionAtSend
+        }
 
         if (updatedSession) {
           const localSession: ValuationSession | null = this.currentSession
@@ -734,6 +802,16 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         return mutationVersionAtSend
       } catch (error) {
         recordSessionPoolPressureFromHttpError(error)
+
+        if (!this.isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
+          generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale save failure', {
+            reportId: queueReportId,
+            activeReportId: this.currentSession?.reportId,
+            reason,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return this.localMutationVersion
+        }
 
         const isRetryableError = isRetryableSessionSaveError(error)
         const isLastAttempt = attempt >= MAX_ATTEMPTS - 1
@@ -807,6 +885,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * Clear session (backend + local state)
    */
   clearSession(): void {
+    this.sessionLifecycleVersion += 1
+
     if (this.currentSession) {
       sessionService.clearSessionCache(this.currentSession.reportId)
 
@@ -817,6 +897,15 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
     this.currentSession = null
     this.requestedReportId = null
+    this.loadingPromise = null
+    this.loadingReportId = null
+    this.loadSequence += 1
+    this.pendingUpdates = []
+    this.savePromise = null
+    this.saveReportId = null
+    this.saveLifecycleVersion = this.sessionLifecycleVersion
+    this.savePending = false
+    this.lastPersistedSaveFingerprint = null
   }
 
   /**

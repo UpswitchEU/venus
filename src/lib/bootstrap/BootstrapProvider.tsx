@@ -36,6 +36,11 @@ import {
   hasScopedGlobalBootstrapResult,
   rememberScopedGlobalBootstrapResult,
 } from './BootstrapProviderCache'
+import {
+  evaluateBootstrapCreditPolicy,
+  evaluateBootstrapReportIdentity,
+  hasMeaningfulBootstrapPrefill,
+} from './BootstrapProviderModel'
 import { getBootstrapContextCacheKey } from './contextCacheKey'
 import { applyBootstrapPackageHydration } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
@@ -96,31 +101,6 @@ function readDelegatedBootstrapReadiness(activeContext: BootstrapContextShape): 
   })
 
   return { authSettled, needsDelegatedContext, ready }
-}
-
-function hasMeaningfulBootstrapPrefill(prefillData: SessionBootstrapState['prefillData']): boolean {
-  if ((prefillData.fieldsPopulated?.length ?? 0) > 0) return true
-  if (prefillData.confidence >= 0.05) return true
-  if (prefillData.companyInfo?.companyName?.trim()) return true
-  if (prefillData.companyInfo?.kboNumber || prefillData.companyInfo?.vatNumber) return true
-  if (prefillData.kboData?.kboNumber || prefillData.kboData?.vatNumber) return true
-  if (prefillData.businessType?.id) return true
-  if (prefillData.financials?.yearData && Object.keys(prefillData.financials.yearData).length > 0) {
-    return true
-  }
-  if (
-    prefillData.financials?.revenue != null &&
-    Number.isFinite(Number(prefillData.financials.revenue))
-  ) {
-    return true
-  }
-  if (
-    prefillData.financials?.ebitda != null &&
-    Number.isFinite(Number(prefillData.financials.ebitda))
-  ) {
-    return true
-  }
-  return false
 }
 
 /** Reset the module-level bootstrap guard (call on logout) */
@@ -201,7 +181,7 @@ export function BootstrapProvider({
   onBootstrapComplete,
   onBootstrapError,
 }: BootstrapProviderProps) {
-  // ✅ WORLD CLASS: Detect if coming from Mercury to optimize loading flow
+  // Detect Mercury handoffs to optimize loading flow.
   const _isFromMercury = React.useMemo(() => {
     if (context?.sourceApp === 'mercury') return true
     if (typeof window !== 'undefined') {
@@ -361,10 +341,13 @@ export function BootstrapProvider({
 
       // CRITICAL VALIDATION: Ensure bootstrap returned the correct reportId
       // If we requested a specific reportId and got a different one, that's a bug
-      const requestedId = bootstrapContext.reportId?.trim()
-      const returnedId = result.report.reportId?.trim()
+      const reportIdentity = evaluateBootstrapReportIdentity({
+        requestedReportId: bootstrapContext.reportId,
+        returnedReportId: result.report.reportId,
+        reportMode: result.report.mode,
+      })
 
-      if (requestedId && requestedId !== returnedId) {
+      if (reportIdentity.kind !== 'match') {
         // The "new" → UUID mint is the expected creation path; accept it.
         // Any other mismatch is a contract violation: Titan resolved a session
         // for a different report than the URL asks for. Silently swapping the
@@ -372,46 +355,42 @@ export function BootstrapProvider({
         // requested one — saves and edits then leaked across reports.
         // Fail loud so ValuationSessionManager can show the error / trigger
         // its stale-recovery redirect to /reports/new.
-        const isExpectedMint = requestedId === 'new' && !!returnedId
-        if (!isExpectedMint) {
+        if (reportIdentity.kind === 'mismatch') {
           generalLogger.error(
             '[BootstrapProvider] Bootstrap returned different reportId than requested - aborting',
             {
-              requested: requestedId.substring(0, 30),
-              returned: returnedId?.substring(0, 30),
-              mode: result.report.mode,
+              requested: reportIdentity.requestedId.substring(0, 30),
+              returned: reportIdentity.returnedId?.substring(0, 30),
+              mode: reportIdentity.reportMode,
             }
           )
-          throw new Error(
-            `Report not available: requested ${requestedId.substring(0, 8)} but resolved ${returnedId?.substring(0, 8) ?? 'null'}. ` +
-              `The report may not exist, you may not have access, or your session may be stale.`
-          )
+          throw new Error(reportIdentity.message)
         }
         generalLogger.debug('[BootstrapProvider] New report minted by server', {
-          minted: returnedId?.substring(0, 30),
+          minted: reportIdentity.returnedId.substring(0, 30),
         })
       }
 
-      // ✅ CREDIT CHECK: Check if credits are insufficient
-      // WORLD-CLASS: Only block NEW reports - existing reports should ALWAYS be viewable
+      // Credit check: only block new reports.
       // Users must be able to view their completed valuations regardless of credit status
-      const isExistingReport = result.report.mode === 'existing'
+      const creditPolicy = evaluateBootstrapCreditPolicy({
+        creditStatus: result.creditStatus,
+        reportMode: result.report.mode,
+      })
 
-      if (result.creditStatus && !result.creditStatus.allowed && !isExistingReport) {
-        const creditError =
-          result.creditStatus.message || 'Insufficient credits to create valuation'
-        onBootstrapErrorRef.current?.(creditError)
+      if (creditPolicy.kind === 'block-new-report') {
+        onBootstrapErrorRef.current?.(creditPolicy.message)
 
         generalLogger.error('[BootstrapProvider] Credit check failed - preventing new valuation', {
-          message: creditError,
-          upgradePath: result.creditStatus.upgrade_path,
-          creditsRemaining: result.creditStatus.credits_remaining,
+          message: creditPolicy.message,
+          upgradePath: creditPolicy.creditStatus.upgrade_path,
+          creditsRemaining: creditPolicy.creditStatus.credits_remaining,
           reportMode: result.report.mode,
         })
 
         if (mountedRef.current) {
           setState(result)
-          setBootstrapError(creditError)
+          setBootstrapError(creditPolicy.message)
         }
         bootstrapCompletedRef.current = true
         setBootstrapState(result)
@@ -419,12 +398,12 @@ export function BootstrapProvider({
       }
 
       // Log if existing report viewed with insufficient credits (allowed, but noted)
-      if (result.creditStatus && !result.creditStatus.allowed && isExistingReport) {
+      if (creditPolicy.kind === 'allow-existing-report-with-credit-warning') {
         generalLogger.debug(
           '[BootstrapProvider] Viewing existing report despite insufficient credits',
           {
             reportId: result.report.reportId.substring(0, 30),
-            creditsRemaining: result.creditStatus.credits_remaining,
+            creditsRemaining: creditPolicy.creditStatus.credits_remaining,
           }
         )
       }

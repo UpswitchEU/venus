@@ -52,7 +52,10 @@ import {
 } from './normalizationStoreModel'
 import { useSessionStore } from './useSessionStore'
 
-export { mapBackendCategoryToFrontend, mapFrontendCategoryToBackend } from './normalizationStoreModel'
+export {
+  mapBackendCategoryToFrontend,
+  mapFrontendCategoryToBackend,
+} from './normalizationStoreModel'
 
 // ─────────────────────────────────────────
 // STORE INTERFACE
@@ -198,14 +201,18 @@ export const useNormalizationStore = create<NormalizationStore>()(
 
       acceptItem: (id) =>
         set(
-          (state) => ({ items: state.items.map((n) => (n.id === id ? acceptNormalizationItem(n) : n)) }),
+          (state) => ({
+            items: state.items.map((n) => (n.id === id ? acceptNormalizationItem(n) : n)),
+          }),
           false,
           'acceptItem'
         ),
 
       rejectItem: (id) =>
         set(
-          (state) => ({ items: state.items.map((n) => (n.id === id ? rejectNormalizationItem(n) : n)) }),
+          (state) => ({
+            items: state.items.map((n) => (n.id === id ? rejectNormalizationItem(n) : n)),
+          }),
           false,
           'rejectItem'
         ),
@@ -258,7 +265,12 @@ export const useNormalizationStore = create<NormalizationStore>()(
           set({ isSaving: true, lastFailedPersist: null })
           const doPersist = async (): Promise<void> => {
             const { normalizationService } = await import('../services/ebitdaNormalizationService')
-            const request = buildTitanNormalizationRequest({ items, reportId, reportedEbitda, year })
+            const request = buildTitanNormalizationRequest({
+              items,
+              reportId,
+              reportedEbitda,
+              year,
+            })
             await normalizationService.saveNormalization(request)
           }
           const isRetryable = (err: unknown): boolean => {

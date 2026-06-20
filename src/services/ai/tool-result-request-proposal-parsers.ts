@@ -1,4 +1,9 @@
-import { optionalString, optionalStringList, recordValue } from './tool-result-parser-utils'
+import {
+  optionalString,
+  optionalStringList,
+  pendingRequest,
+  recordValue,
+} from './tool-result-parser-utils'
 import type {
   AcknowledgeWarningRequest,
   BelgianCompanyBootstrap,
@@ -42,6 +47,39 @@ function ownerProfileAnswerValue(value: unknown): OwnerProfileAnswerRequest['val
   return undefined
 }
 
+type BlockedApprovalRequest = {
+  status: 'blocked'
+  reason?: string
+  message?: string
+}
+
+function buildBlockedApprovalRequest<T extends BlockedApprovalRequest>(
+  data: Record<string, unknown>
+): T {
+  return {
+    status: 'blocked',
+    reason: optionalString(data.reason),
+    message: optionalString(data.message),
+  } as T
+}
+
+function parsePendingApprovalOrBlocked<T extends { status: 'pending_approval' | 'blocked' }>(
+  data: unknown,
+  buildPending: (data: Record<string, unknown>, request: Record<string, unknown>) => T
+): T[] {
+  const d = recordValue(data)
+  if (!d) return []
+
+  const req = pendingRequest(d)
+  if (req) return [buildPending(d, req)]
+
+  if (d.status === 'blocked') {
+    return [buildBlockedApprovalRequest<T & BlockedApprovalRequest>(d) as T]
+  }
+
+  return []
+}
+
 export function parseOwnerProfileAnswerRequest(data: unknown): OwnerProfileAnswerRequest[] {
   const d = recordValue(data)
   const update = recordValue(d?.update)
@@ -63,8 +101,9 @@ export function parseOwnerProfileAnswerRequest(data: unknown): OwnerProfileAnswe
 
 export function parseIntegrationConnectRequest(data: unknown): IntegrationConnectRequest[] {
   const d = recordValue(data)
-  const req = recordValue(d?.request)
-  if (d?.status !== 'pending_approval' || !req) return []
+  if (!d) return []
+  const req = pendingRequest(d)
+  if (!req) return []
 
   const authMode = req.auth_mode
   return [
@@ -80,32 +119,17 @@ export function parseIntegrationConnectRequest(data: unknown): IntegrationConnec
 }
 
 export function parseIntegrationSyncRequest(data: unknown): IntegrationSyncRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
+  return parsePendingApprovalOrBlocked<IntegrationSyncRequest>(data, (d, req) => {
     const scope = req.scope
-    return [
-      {
-        status: 'pending_approval',
-        provider: optionalString(req.provider),
-        scope: scope === 'provider_scope' || scope === 'client_scope' ? scope : undefined,
-        clientId: typeof req.client_id === 'string' ? req.client_id : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+    return {
+      status: 'pending_approval',
+      provider: optionalString(req.provider),
+      scope: scope === 'provider_scope' || scope === 'client_scope' ? scope : undefined,
+      clientId: typeof req.client_id === 'string' ? req.client_id : null,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+    }
+  })
 }
 
 export function parseSyncStatus(data: unknown): import('./tool-result-types').SyncStatusPreview[] {
@@ -140,215 +164,100 @@ export function parseSyncStatus(data: unknown): import('./tool-result-types').Sy
 export function parseOwnerInviteAccountantRequest(
   data: unknown
 ): import('./tool-result-types').OwnerInviteAccountantRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
-    return [
-      {
-        status: 'pending_approval',
-        accountantEmail: optionalString(req.accountant_email),
-        customMessage: typeof req.custom_message === 'string' ? req.custom_message : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+  return parsePendingApprovalOrBlocked<import('./tool-result-types').OwnerInviteAccountantRequest>(
+    data,
+    (d, req) => ({
+      status: 'pending_approval',
+      accountantEmail: optionalString(req.accountant_email),
+      customMessage: typeof req.custom_message === 'string' ? req.custom_message : null,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+    })
+  )
 }
 
 export function parseOwnerReminderRequest(data: unknown): OwnerReminderRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
-    return [
-      {
-        status: 'pending_approval',
-        clientId: optionalString(req.client_id),
-        businessName: typeof req.business_name === 'string' ? req.business_name : null,
-        customerEmail: typeof req.customer_email === 'string' ? req.customer_email : null,
-        customMessage: typeof req.custom_message === 'string' ? req.custom_message : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+  return parsePendingApprovalOrBlocked<OwnerReminderRequest>(data, (d, req) => ({
+    status: 'pending_approval',
+    clientId: optionalString(req.client_id),
+    businessName: typeof req.business_name === 'string' ? req.business_name : null,
+    customerEmail: typeof req.customer_email === 'string' ? req.customer_email : null,
+    customMessage: typeof req.custom_message === 'string' ? req.custom_message : null,
+    reason: optionalString(req.reason),
+    message: optionalString(d.message),
+  }))
 }
 
 export function parseListingVisibilityRequest(data: unknown): ListingVisibilityRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
+  return parsePendingApprovalOrBlocked<ListingVisibilityRequest>(data, (d, req) => {
     const visibility = req.visibility
-    return [
-      {
-        status: 'pending_approval',
-        listingId: optionalString(req.listing_id),
-        visibility: visibility === 'public' || visibility === 'private' ? visibility : undefined,
-        businessName: typeof req.business_name === 'string' ? req.business_name : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+    return {
+      status: 'pending_approval',
+      listingId: optionalString(req.listing_id),
+      visibility: visibility === 'public' || visibility === 'private' ? visibility : undefined,
+      businessName: typeof req.business_name === 'string' ? req.business_name : null,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+    }
+  })
 }
 
 export function parseShareTokenRequest(data: unknown): ShareTokenRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
-    return [
-      {
-        status: 'pending_approval',
-        listingId: optionalString(req.listing_id),
-        expiresInDays: typeof req.expires_in_days === 'number' ? req.expires_in_days : null,
-        maxUses: typeof req.max_uses === 'number' ? req.max_uses : null,
-        label: typeof req.label === 'string' ? req.label : null,
-        businessName: typeof req.business_name === 'string' ? req.business_name : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+  return parsePendingApprovalOrBlocked<ShareTokenRequest>(data, (d, req) => ({
+    status: 'pending_approval',
+    listingId: optionalString(req.listing_id),
+    expiresInDays: typeof req.expires_in_days === 'number' ? req.expires_in_days : null,
+    maxUses: typeof req.max_uses === 'number' ? req.max_uses : null,
+    label: typeof req.label === 'string' ? req.label : null,
+    businessName: typeof req.business_name === 'string' ? req.business_name : null,
+    reason: optionalString(req.reason),
+    message: optionalString(d.message),
+  }))
 }
 
 export function parseShareTokenRevokeRequest(data: unknown): ShareTokenRevokeRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
-    return [
-      {
-        status: 'pending_approval',
-        listingId: optionalString(req.listing_id),
-        tokenId: optionalString(req.token_id),
-        tokenHint: typeof req.token_hint === 'string' ? req.token_hint : null,
-        tokenLabel: typeof req.token_label === 'string' ? req.token_label : null,
-        businessName: typeof req.business_name === 'string' ? req.business_name : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+  return parsePendingApprovalOrBlocked<ShareTokenRevokeRequest>(data, (d, req) => ({
+    status: 'pending_approval',
+    listingId: optionalString(req.listing_id),
+    tokenId: optionalString(req.token_id),
+    tokenHint: typeof req.token_hint === 'string' ? req.token_hint : null,
+    tokenLabel: typeof req.token_label === 'string' ? req.token_label : null,
+    businessName: typeof req.business_name === 'string' ? req.business_name : null,
+    reason: optionalString(req.reason),
+    message: optionalString(d.message),
+  }))
 }
 
 export function parseValuationMethodPreferenceRequest(
   data: unknown
 ): ValuationMethodPreferenceRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
+  return parsePendingApprovalOrBlocked<ValuationMethodPreferenceRequest>(data, (d, req) => {
     const method = req.method === null ? null : optionalString(req.method)
-    return [
-      {
-        status: 'pending_approval',
-        clientId: optionalString(req.client_id),
-        method,
-        businessName: typeof req.business_name === 'string' ? req.business_name : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+    return {
+      status: 'pending_approval',
+      clientId: optionalString(req.client_id),
+      method,
+      businessName: typeof req.business_name === 'string' ? req.business_name : null,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+    }
+  })
 }
 
 export function parseNormalizationDismissRequest(data: unknown): NormalizationDismissRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
-    return [
-      {
-        status: 'pending_approval',
-        reportId: optionalString(req.report_id),
-        adjustmentId: optionalString(req.adjustment_id),
-        category: optionalString(req.category),
-        amount: typeof req.amount === 'number' && Number.isFinite(req.amount) ? req.amount : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+  return parsePendingApprovalOrBlocked<NormalizationDismissRequest>(data, (d, req) => ({
+    status: 'pending_approval',
+    reportId: optionalString(req.report_id),
+    adjustmentId: optionalString(req.adjustment_id),
+    category: optionalString(req.category),
+    amount: typeof req.amount === 'number' && Number.isFinite(req.amount) ? req.amount : null,
+    reason: optionalString(req.reason),
+    message: optionalString(d.message),
+  }))
 }
 
 export function parseListingFieldUpdateRequest(data: unknown): ListingFieldUpdateRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
+  return parsePendingApprovalOrBlocked<ListingFieldUpdateRequest>(data, (d, req) => {
     const rawChange = recordValue(req.change) ?? {}
     const change: ListingFieldUpdateRequest['change'] = {}
     if ('title' in rawChange) {
@@ -371,69 +280,39 @@ export function parseListingFieldUpdateRequest(data: unknown): ListingFieldUpdat
       if (v === null) change.asking_price = null
       else if (typeof v === 'number' && Number.isFinite(v)) change.asking_price = v
     }
-    return [
-      {
-        status: 'pending_approval',
-        listingId: optionalString(req.listing_id),
-        change,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+    return {
+      status: 'pending_approval',
+      listingId: optionalString(req.listing_id),
+      change,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+    }
+  })
 }
 
 export function parseBulkValuationRunRequest(data: unknown): BulkValuationRunRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
+  return parsePendingApprovalOrBlocked<BulkValuationRunRequest>(data, (d, req) => {
     const ids = Array.isArray(req.client_ids)
       ? req.client_ids.filter((v): v is string => typeof v === 'string' && v.length > 0)
       : undefined
-    return [
-      {
-        status: 'pending_approval',
-        clientIds: ids,
-        clientCount: typeof req.client_count === 'number' ? req.client_count : ids?.length,
-        estimatedCredits:
-          typeof req.estimated_credits === 'number' ? req.estimated_credits : undefined,
-        rejectedCount:
-          typeof req.rejected_count === 'number' && req.rejected_count > 0
-            ? req.rejected_count
-            : undefined,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+    return {
+      status: 'pending_approval',
+      clientIds: ids,
+      clientCount: typeof req.client_count === 'number' ? req.client_count : ids?.length,
+      estimatedCredits:
+        typeof req.estimated_credits === 'number' ? req.estimated_credits : undefined,
+      rejectedCount:
+        typeof req.rejected_count === 'number' && req.rejected_count > 0
+          ? req.rejected_count
+          : undefined,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+    }
+  })
 }
 
 export function parseValuationDefaultsRequest(data: unknown): ValuationDefaultsRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
+  return parsePendingApprovalOrBlocked<ValuationDefaultsRequest>(data, (d, req) => {
     const rawChange = recordValue(req.change) ?? {}
     const change: ValuationDefaultsRequest['change'] = {}
     if ('multiple_calibration_adjustment' in rawChange) {
@@ -452,25 +331,13 @@ export function parseValuationDefaultsRequest(data: unknown): ValuationDefaultsR
       if (v === null) change.show_enterprise_to_equity_bridge = null
       else if (typeof v === 'boolean') change.show_enterprise_to_equity_bridge = v
     }
-    return [
-      {
-        status: 'pending_approval',
-        change,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+    return {
+      status: 'pending_approval',
+      change,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+    }
+  })
 }
 
 export function parseWorkspaceClientsPreview(data: unknown): WorkspaceClientsPreview[] {
@@ -574,40 +441,26 @@ export function parseValuationDefaultsPreview(data: unknown): ValuationDefaultsP
 }
 
 export function parseAcknowledgeWarningRequest(data: unknown): AcknowledgeWarningRequest[] {
-  const d = recordValue(data)
-  if (!d) return []
-  const req = recordValue(d.request)
-  if (d.status === 'pending_approval' && req) {
+  return parsePendingApprovalOrBlocked<AcknowledgeWarningRequest>(data, (d, req) => {
     const kind = req.kind
-    return [
-      {
-        status: 'pending_approval',
-        code: optionalString(req.code),
-        warningKind: kind === 'cap_breach' || kind === 'defensibility' ? kind : undefined,
-        summary: typeof req.summary === 'string' ? req.summary : null,
-        reason: optionalString(req.reason),
-        message: optionalString(d.message),
-        clientId: optionalString(req.client_id),
-        reportId: optionalString(req.report_id),
-      },
-    ]
-  }
-  if (d.status === 'blocked') {
-    return [
-      {
-        status: 'blocked',
-        reason: optionalString(d.reason),
-        message: optionalString(d.message),
-      },
-    ]
-  }
-  return []
+    return {
+      status: 'pending_approval',
+      code: optionalString(req.code),
+      warningKind: kind === 'cap_breach' || kind === 'defensibility' ? kind : undefined,
+      summary: typeof req.summary === 'string' ? req.summary : null,
+      reason: optionalString(req.reason),
+      message: optionalString(d.message),
+      clientId: optionalString(req.client_id),
+      reportId: optionalString(req.report_id),
+    }
+  })
 }
 
 export function parseSecureCredentialRequest(data: unknown): SecureCredentialRequest[] {
   const d = recordValue(data)
-  const req = recordValue(d?.request)
-  if (d?.status !== 'pending_approval' || !req) return []
+  if (!d) return []
+  const req = pendingRequest(d)
+  if (!req) return []
 
   const fields = Array.isArray(req.fields)
     ? req.fields
@@ -638,8 +491,9 @@ export function parseSecureCredentialRequest(data: unknown): SecureCredentialReq
 
 export function parseCsvUploadRequest(data: unknown): CsvUploadRequest[] {
   const d = recordValue(data)
-  const req = recordValue(d?.request)
-  if (d?.status !== 'pending_approval' || !req) return []
+  if (!d) return []
+  const req = pendingRequest(d)
+  if (!req) return []
 
   const mode = req.mode
   return [
@@ -675,8 +529,9 @@ function parseSelectOptions(
 
 export function parseMultiSelectRequest(data: unknown): MultiSelectRequest[] {
   const d = recordValue(data)
-  const req = recordValue(d?.request)
-  if (d?.status !== 'pending_approval' || !req) return []
+  if (!d) return []
+  const req = pendingRequest(d)
+  if (!req) return []
   const options = parseSelectOptions(req.options)
   if (options.length < 2) return []
 
@@ -696,8 +551,9 @@ export function parseMultiSelectRequest(data: unknown): MultiSelectRequest[] {
 
 export function parseSingleSelectRequest(data: unknown): SingleSelectRequest[] {
   const d = recordValue(data)
-  const req = recordValue(d?.request)
-  if (d?.status !== 'pending_approval' || !req) return []
+  if (!d) return []
+  const req = pendingRequest(d)
+  if (!req) return []
   const options = parseSelectOptions(req.options)
   if (options.length < 2) return []
 

@@ -1071,6 +1071,95 @@ describe('agentic action envelopes', () => {
 })
 
 // ---------------------------------------------------------------------
+// approval proposal parser hardening
+// ---------------------------------------------------------------------
+
+describe('approval proposal parser hardening', () => {
+  it('drops pending proposal envelopes that do not include a request object', () => {
+    const result = parseAIChatToolResults([
+      { type: 'integration_sync_request', data: { status: 'pending_approval' } },
+      { type: 'owner_reminder_request', data: { status: 'pending_approval', request: null } },
+      { type: 'listing_visibility_request', data: { status: 'pending_approval' } },
+      { type: 'share_token_request', data: { status: 'pending_approval' } },
+      { type: 'valuation_defaults_request', data: { status: 'pending_approval' } },
+      { type: 'normalization_dismiss_request', data: { status: 'pending_approval' } },
+      { type: 'secure_credential_request', data: { status: 'pending_approval' } },
+      { type: 'csv_upload_request', data: { status: 'pending_approval' } },
+      { type: 'multi_select_request', data: { status: 'pending_approval' } },
+    ])
+
+    expect(result.integrationSyncRequests).toEqual([])
+    expect(result.ownerReminderRequests).toEqual([])
+    expect(result.listingVisibilityRequests).toEqual([])
+    expect(result.shareTokenRequests).toEqual([])
+    expect(result.valuationDefaultsRequests).toEqual([])
+    expect(result.normalizationDismissRequests).toEqual([])
+    expect(result.secureCredentialRequests).toEqual([])
+    expect(result.csvUploadRequests).toEqual([])
+    expect(result.multiSelectRequests).toEqual([])
+  })
+
+  it('keeps blocked approval proposal envelopes on the shared blocked branch', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'integration_sync_request',
+        data: { status: 'blocked', reason: 'missing_connection', message: 'Connect Exact first.' },
+      },
+      {
+        type: 'listing_visibility_request',
+        data: { status: 'blocked', reason: 'no_listing', message: 'Create listing first.' },
+      },
+      {
+        type: 'valuation_defaults_request',
+        data: { status: 'blocked', reason: 'not_advisor', message: 'Advisor role required.' },
+      },
+      {
+        type: 'normalization_dismiss_request',
+        data: { status: 'blocked', reason: 'not_found', message: 'Adjustment no longer exists.' },
+      },
+    ])
+
+    expect(result.integrationSyncRequests).toEqual([
+      { status: 'blocked', reason: 'missing_connection', message: 'Connect Exact first.' },
+    ])
+    expect(result.listingVisibilityRequests).toEqual([
+      { status: 'blocked', reason: 'no_listing', message: 'Create listing first.' },
+    ])
+    expect(result.valuationDefaultsRequests).toEqual([
+      { status: 'blocked', reason: 'not_advisor', message: 'Advisor role required.' },
+    ])
+    expect(result.normalizationDismissRequests).toEqual([
+      { status: 'blocked', reason: 'not_found', message: 'Adjustment no longer exists.' },
+    ])
+  })
+
+  it('does not auto-approve pending-only action requests', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'secure_credential_request',
+        data: {
+          status: 'auto_approved',
+          request: {
+            provider: 'exact',
+            fields: [{ key: 'api_key', label: 'API key' }],
+          },
+        },
+      },
+      {
+        type: 'csv_upload_request',
+        data: {
+          status: 'auto_approved',
+          request: { mode: 'bulk_clients', label: 'Bulk CSV' },
+        },
+      },
+    ])
+
+    expect(result.secureCredentialRequests).toEqual([])
+    expect(result.csvUploadRequests).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------
 // belgian_company_bootstrap
 // ---------------------------------------------------------------------
 

@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const sessionServiceMocks = vi.hoisted(() => ({
+  clearSessionCache: vi.fn(),
   loadSession: vi.fn(),
   saveSession: vi.fn(),
 }))
 
 vi.mock('../../index', () => ({
   sessionService: {
+    clearSessionCache: sessionServiceMocks.clearSessionCache,
     loadSession: sessionServiceMocks.loadSession,
     saveSession: sessionServiceMocks.saveSession,
   },
@@ -146,6 +148,118 @@ describe('AuthenticatedSessionEngine', () => {
       nextQueuedEdit: true,
     })
     expect(engine.getSession()?.sessionData).not.toHaveProperty('oldQueuedEdit')
+  })
+
+  it('does not hydrate a stale load after the session is cleared', async () => {
+    const createdAt = new Date('2026-06-04T09:00:00.000Z')
+    const load = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+
+    sessionServiceMocks.loadSession.mockReturnValueOnce(load.promise)
+
+    const engine = new AuthenticatedSessionEngine()
+    const loadPromise = engine.loadSession('val_clear_during_load')
+    engine.updateSession({ sessionData: { queuedBeforeClear: true } })
+    engine.clearSession()
+
+    load.resolve({
+      reportId: 'val_clear_during_load',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Stale Load BV' },
+      partialData: {},
+    })
+
+    await expect(loadPromise).resolves.toBeNull()
+    expect(engine.getSession()).toBeNull()
+  })
+
+  it('does not resurrect a cleared session when an in-flight save resolves', async () => {
+    const createdAt = new Date('2026-06-04T09:10:00.000Z')
+    const save = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+
+    sessionServiceMocks.saveSession.mockReturnValueOnce(save.promise)
+
+    const engine = new AuthenticatedSessionEngine()
+    engine.updateSession({
+      reportId: 'val_clear_during_save',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Clear Save BV' },
+      partialData: {},
+    })
+
+    const savePromise = engine.saveSession('user')
+    await Promise.resolve()
+    expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+
+    engine.clearSession()
+    save.resolve({
+      reportId: 'val_clear_during_save',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: new Date('2026-06-04T09:10:01.000Z'),
+      sessionData: { company_name: 'Server Snapshot BV' },
+      partialData: {},
+    })
+
+    await savePromise
+    expect(sessionServiceMocks.clearSessionCache).toHaveBeenCalledWith('val_clear_during_save')
+    expect(engine.getSession()).toBeNull()
+  })
+
+  it('does not surface stale save failures after the session is cleared', async () => {
+    const createdAt = new Date('2026-06-04T09:20:00.000Z')
+    const save = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+
+    sessionServiceMocks.saveSession.mockReturnValueOnce(save.promise)
+
+    const engine = new AuthenticatedSessionEngine()
+    engine.updateSession({
+      reportId: 'val_clear_during_save_failure',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Clear Failure BV' },
+      partialData: {},
+    })
+
+    const savePromise = engine.saveSession('user')
+    await Promise.resolve()
+    engine.clearSession()
+    save.reject(new Error('network failed after teardown'))
+
+    await expect(savePromise).resolves.toBeUndefined()
+    expect(engine.getSession()).toBeNull()
   })
 
   it('persists top-level session name through centralized save', async () => {
