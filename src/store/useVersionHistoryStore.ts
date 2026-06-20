@@ -9,7 +9,6 @@
 
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
-import { coalesceFiniteNumber } from '../lib/omniPreview'
 import { VersionAPI } from '../services/api/version/VersionAPI'
 import type {
   CreateVersionRequest,
@@ -20,17 +19,9 @@ import type {
   VersionListResponse,
 } from '../types/ValuationVersion'
 import type { ValuationRequest } from '../types/valuation'
-import {
-  getCurrentFilingYear,
-  normalizeCurrentYearForFiling,
-  normalizeHistoricalYearsForFiling,
-} from '../utils/fiscalYear'
 import { createContextLogger } from '../utils/logger'
-import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { getFinalValuation as getAccessibleFinalValuation } from '../utils/valuationResultAccess'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
-import { mapFrontendCategoryToBackend, useNormalizationStore } from './useNormalizationStore'
-import { useTaxLatencyStore } from './useTaxLatencyStore'
 import {
   appendVersionIfMissing,
   createLocalVersionSnapshot,
@@ -39,6 +30,7 @@ import {
   mergeBackendVersionsByNumber,
   partializeVersionHistoryState,
 } from './versionHistoryModel'
+import { enrichCreateVersionRequestFromStores } from './versionHistoryRequestEnrichment'
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
@@ -349,115 +341,21 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         try {
           versionLogger.info('Creating version', { reportId: request.reportId })
 
-          // ✅ ENHANCEMENT: Capture normalization data from store if not provided
-          let enrichedRequest = { ...request }
-
-          if (!enrichedRequest.normalization_data) {
-            const normStore = useNormalizationStore.getState()
-            const normalizationData: ValuationVersion['normalization_data'] = {}
-
-            // Build year-keyed normalization data from unified store
-            // CRITICAL: Respect applyAllYears and applyYears — put each item under every year it applies to
-            const accepted = normStore.items.filter((n) => n.status === 'accepted')
-            const lastFullYear = getCurrentFilingYear()
-            const normalizedHistoricalYearData = normalizeHistoricalYearsForFiling(
-              enrichedRequest.formData?.historical_years_data,
-              enrichedRequest.formData?.filing_year_confirmed
-            )
-            const historicalYears =
-              normalizedHistoricalYearData
-                ?.filter(
-                  (y) => y.ebitda != null && Number(y.year) >= 2000 && Number(y.year) <= 2100
-                )
-                .map((y) => Number(y.year)) ?? []
-            const currentYearData = enrichedRequest.formData?.current_year_data as
-              | {
-                  year?: number
-                  ebitda?: number
-                  ebitda_normalization_metadata?: { reported_ebitda?: number }
-                }
-              | undefined
-            const currentYear = currentYearData?.year
-              ? normalizeCurrentYearForFiling(
-                  currentYearData.year,
-                  enrichedRequest.formData?.filing_year_confirmed
-                )
-              : lastFullYear
-            const allDataYears = Array.from(new Set([currentYear, ...historicalYears]))
-            const yearEbitdaMap: Record<number, number> = {
-              [currentYear]: coalesceFiniteNumber(
-                currentYearData?.ebitda_normalization_metadata?.reported_ebitda ??
-                  currentYearData?.ebitda ??
-                  0
-              ),
-            }
-            normalizedHistoricalYearData?.forEach((y) => {
-              const yearMeta = y?.ebitda_normalization_metadata
-              if (y?.ebitda != null && y?.year != null) {
-                yearEbitdaMap[Number(y.year)] = coalesceFiniteNumber(
-                  yearMeta?.reported_ebitda ?? y.ebitda ?? 0
-                )
-              }
-            })
-
-            const yearGroups: Record<number, typeof accepted> = {}
-            for (const n of accepted) {
-              const yearsToApply: number[] = n.applyAllYears
-                ? allDataYears
-                : n.applyYears && n.applyYears.length > 0
-                  ? n.applyYears
-                  : [n.year]
-              for (const y of yearsToApply) {
-                if (!yearGroups[y]) yearGroups[y] = []
-                yearGroups[y].push(n)
-              }
-            }
-
-            Object.entries(yearGroups).forEach(([year, items]) => {
-              const reportedEbitda = Number(yearEbitdaMap[Number(year)] ?? 0) || 0
-              const totalAdj = items.reduce(
-                (sum, n) => sum + getNormalizationAmountForBase(n, reportedEbitda),
-                0
-              )
-              normalizationData[year] = {
-                reported_ebitda: reportedEbitda,
-                normalized_ebitda: reportedEbitda + totalAdj,
-                total_adjustments: totalAdj,
-                adjustments: items.map((n) => ({
-                  category: mapFrontendCategoryToBackend(n.category, n.backendCategory),
-                  amount: getNormalizationAmountForBase(n, reportedEbitda),
-                  note: n.reason,
-                  ledger_code: n.ledgerCode || undefined,
-                  ledger_name: n.ledgerName || undefined,
-                })),
-                custom_adjustments: [],
-                confidence_score: items[0]?.confidence || 'medium',
-                adjustment_percentage: reportedEbitda !== 0 ? (totalAdj / reportedEbitda) * 100 : 0,
-              }
-            })
-
-            // Only add if we have normalization data
-            if (Object.keys(normalizationData).length > 0) {
-              enrichedRequest.normalization_data = normalizationData
+          const enrichedRequest = enrichCreateVersionRequestFromStores(request, {
+            onNormalizationCaptured: ({ reportId, years }) => {
               versionLogger.info('Captured normalization data for version', {
-                reportId: request.reportId,
-                years: Object.keys(normalizationData),
-                totalYears: Object.keys(normalizationData).length,
+                reportId,
+                years,
+                totalYears: years.length,
               })
-            }
-          }
-
-          // Capture tax latency data from store if not provided
-          if (!enrichedRequest.tax_latency_data) {
-            const taxLatencyItems = useTaxLatencyStore.getState().items
-            if (taxLatencyItems.length > 0) {
-              enrichedRequest.tax_latency_data = taxLatencyItems
+            },
+            onTaxLatencyCaptured: ({ count, reportId }) => {
               versionLogger.info('Captured tax latency data for version', {
-                reportId: request.reportId,
-                count: taxLatencyItems.length,
+                reportId,
+                count,
               })
-            }
-          }
+            },
+          })
 
           // Try backend first
           try {

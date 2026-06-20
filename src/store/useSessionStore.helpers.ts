@@ -161,6 +161,51 @@ export function normalizeHydrateUpdatesRemovingOptimisticShell(
   return { ...updates, sessionData: next as ValuationSession['sessionData'] }
 }
 
+export function buildNoEngineHydratedSession(
+  currentSession: ValuationSession | null | undefined,
+  updates: Partial<ValuationSession>
+): ValuationSession | null {
+  const reportId = updates.reportId ?? currentSession?.reportId
+  if (!reportId) return null
+
+  return preserveRecoveredHtmlOnSessionCommit(
+    currentSession
+      ? {
+          ...currentSession,
+          ...updates,
+          reportId: currentSession.reportId,
+          sessionData: updates.sessionData
+            ? mergeSessionDataStrippingOptimisticShell(
+                asSessionDataRecord(currentSession.sessionData),
+                asSessionDataRecord(updates.sessionData)
+              )
+            : currentSession.sessionData,
+          partialData: updates.partialData
+            ? {
+                ...(currentSession.partialData || {}),
+                ...updates.partialData,
+              }
+            : currentSession.partialData,
+        }
+      : ({
+          reportId,
+          currentView: updates.currentView || 'manual',
+          dataSource: updates.dataSource || 'manual',
+          createdAt: updates.createdAt || new Date(),
+          updatedAt: updates.updatedAt || updates.createdAt || new Date(),
+          sessionData: updates.sessionData || {},
+          partialData: updates.partialData || {},
+          ...(updates.status && { status: updates.status }),
+          ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
+          ...(updates.name && { name: updates.name }),
+          ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
+          ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
+          ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
+        } as ValuationSession),
+    currentSession
+  )
+}
+
 export function asSessionDataRecord(data: unknown): SessionDataRecord {
   return data && typeof data === 'object' ? (data as SessionDataRecord) : {}
 }

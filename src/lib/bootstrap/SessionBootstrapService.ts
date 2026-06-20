@@ -1,7 +1,7 @@
 /**
  * Session Bootstrap Service
  *
- * World-class initialization service that resolves ALL state before UI renders.
+ * Initialization service that resolves all state before UI renders.
  * Orchestrates parallel resolution of auth, session, and prefill data.
  *
  * Bank-grade session bootstrap:
@@ -209,13 +209,13 @@ export class SessionBootstrapService {
       isEmbedded: hints.isEmbedded,
     })
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
     try {
-      // Create timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Bootstrap timeout')), options.timeout)
+        timeoutId = setTimeout(() => reject(new Error('Bootstrap timeout')), options.timeout)
       })
 
-      // Execute bootstrap with timeout
       const result = await Promise.race([
         this.resolveAllState(context, hints, options),
         timeoutPromise,
@@ -241,6 +241,10 @@ export class SessionBootstrapService {
 
       // Return graceful fallback
       return buildBootstrapFallbackState({ context, hints, startTime })
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
   }
 

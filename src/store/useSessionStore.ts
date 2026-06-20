@@ -26,8 +26,8 @@ import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
 import {
   asSessionDataRecord,
+  buildNoEngineHydratedSession,
   isNonCriticalSaveFailureMessage,
-  mergeSessionDataStrippingOptimisticShell,
   normalizeHydrateUpdatesRemovingOptimisticShell,
   preserveRecoveredHtmlOnSessionCommit,
   readString,
@@ -315,8 +315,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
 
       set((current) => {
-        const reportId = updates.reportId ?? current.session?.reportId
-        if (!reportId) {
+        const nextSession = buildNoEngineHydratedSession(current.session, updates)
+        if (!nextSession) {
           return {
             session: current.session,
             status: 'loaded' as SessionStatus,
@@ -326,45 +326,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             dirtyVersion: current.dirtyVersion,
           }
         }
-
-        const nextSession = preserveRecoveredHtmlOnSessionCommit(
-          current.session
-            ? {
-                ...current.session,
-                ...updates,
-                // Same reportId pin as the no-engine hydrateSession branch — see
-                // that path for the rationale (canonical session_key drift).
-                reportId: current.session.reportId,
-                sessionData: updates.sessionData
-                  ? mergeSessionDataStrippingOptimisticShell(
-                      asSessionDataRecord(current.session?.sessionData),
-                      asSessionDataRecord(updates.sessionData)
-                    )
-                  : current.session?.sessionData,
-                partialData: updates.partialData
-                  ? {
-                      ...(current.session?.partialData || {}),
-                      ...updates.partialData,
-                    }
-                  : current.session?.partialData,
-              }
-            : ({
-                reportId,
-                currentView: updates.currentView || 'manual',
-                dataSource: updates.dataSource || 'manual',
-                createdAt: updates.createdAt || new Date(),
-                updatedAt: updates.updatedAt || updates.createdAt || new Date(),
-                sessionData: updates.sessionData || {},
-                partialData: updates.partialData || {},
-                ...(updates.status && { status: updates.status }),
-                ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
-                ...(updates.name && { name: updates.name }),
-                ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
-                ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
-                ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
-              } as ValuationSession),
-          current.session
-        )
 
         return {
           session: nextSession,
@@ -463,58 +424,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
 
       set((current) => {
-        const reportId = updates.reportId ?? current.session?.reportId
-        if (!reportId) {
+        const nextSession = buildNoEngineHydratedSession(current.session, updates)
+        if (!nextSession) {
           return {
             session: current.session,
             hasUnsavedChanges: current.hasUnsavedChanges,
             dirtyVersion: current.dirtyVersion,
           }
         }
-
-        const nextSession = preserveRecoveredHtmlOnSessionCommit(
-          current.session
-            ? {
-                ...current.session,
-                ...updates,
-                // Mirror AuthenticatedSessionEngine.normalizeReportId(): once a
-                // session has been bound to a reportId we never let a hydrate
-                // payload silently drift it (e.g. SessionBackgroundRevalidation
-                // shipping the canonical session_key when the page is on the
-                // URL UUID). The engine path enforces this via requestedReportId;
-                // the no-engine fallback enforces it by pinning to the established
-                // current.session.reportId.
-                reportId: current.session.reportId,
-                sessionData: updates.sessionData
-                  ? mergeSessionDataStrippingOptimisticShell(
-                      asSessionDataRecord(current.session?.sessionData),
-                      asSessionDataRecord(updates.sessionData)
-                    )
-                  : current.session?.sessionData,
-                partialData: updates.partialData
-                  ? {
-                      ...(current.session?.partialData || {}),
-                      ...updates.partialData,
-                    }
-                  : current.session?.partialData,
-              }
-            : ({
-                reportId,
-                currentView: updates.currentView || 'manual',
-                dataSource: updates.dataSource || 'manual',
-                createdAt: updates.createdAt || new Date(),
-                updatedAt: updates.updatedAt || updates.createdAt || new Date(),
-                sessionData: updates.sessionData || {},
-                partialData: updates.partialData || {},
-                ...(updates.status && { status: updates.status }),
-                ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
-                ...(updates.name && { name: updates.name }),
-                ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
-                ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
-                ...(updates.buyerReadiness && { buyerReadiness: updates.buyerReadiness }),
-              } as ValuationSession),
-          current.session
-        )
 
         return {
           session: nextSession,

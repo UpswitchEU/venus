@@ -11,118 +11,25 @@ import type {
   CreateVersionRequest,
   UpdateVersionRequest,
   ValuationVersion,
-  VersionChanges,
   VersionComparison,
   VersionFilterOptions,
   VersionListResponse,
   VersionStatistics,
 } from '../../../types/ValuationVersion'
-import type { ValuationRequest, ValuationResponse } from '../../../types/valuation'
-import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { createContextLogger } from '../../../utils/logger'
-import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
-
-export interface APIRequestConfig {
-  signal?: AbortSignal
-  timeout?: number
-}
-
-type UnknownRecord = Record<string, unknown>
-
-interface VersionConversationContext {
-  conversation: unknown
-  triggerMessage: unknown
-  triggerType: string
-  context: unknown
-}
+import { type APIRequestConfig, VersionAPIClient } from './VersionAPIClient'
+import {
+  buildCreateVersionBackendRequest,
+  transformVersionComparison,
+  transformVersionConversationContext,
+  transformVersionFromBackend,
+  transformVersionStatistics,
+  type VersionConversationContext,
+} from './VersionAPITransforms'
 
 const versionLogger = createContextLogger('VersionAPI')
-const EMPTY_CHANGES_SUMMARY: VersionChanges = { totalChanges: 0, significantChanges: [] }
 
-function asRecord(value: unknown): UnknownRecord | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as UnknownRecord)
-    : null
-}
-
-function nestedRecord(value: UnknownRecord | null | undefined, key: string): UnknownRecord | null {
-  return value ? asRecord(value[key]) : null
-}
-
-function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' && value.trim() ? value : fallback
-}
-
-function asOptionalString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
-}
-
-function asNullableString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null
-}
-
-function asNumber(value: unknown, fallback = 0): number {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : fallback
-}
-
-function asOptionalNumber(value: unknown): number | undefined {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : undefined
-}
-
-function asBoolean(value: unknown, fallback = false): boolean {
-  return typeof value === 'boolean' ? value : fallback
-}
-
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : []
-}
-
-function asDate(value: unknown): Date {
-  const date = new Date(asString(value, new Date().toISOString()))
-  return Number.isNaN(date.getTime()) ? new Date() : date
-}
-
-function asValuationDeltaDirection(value: unknown): 'increase' | 'decrease' | 'unchanged' {
-  return value === 'increase' || value === 'decrease' || value === 'unchanged' ? value : 'unchanged'
-}
-
-function asVersionChanges(value: unknown): VersionChanges {
-  const changes = asRecord(value)
-  return changes ? (changes as unknown as VersionChanges) : { ...EMPTY_CHANGES_SUMMARY }
-}
-
-function asValuationRequest(value: unknown): ValuationRequest {
-  return (asRecord(value) ?? {}) as unknown as ValuationRequest
-}
-
-function asValuationResponse(value: unknown): ValuationResponse | null {
-  const response = asRecord(value)
-  return response ? (response as unknown as ValuationResponse) : null
-}
-
-function asHighlights(value: unknown): VersionComparison['highlights'] {
-  return Array.isArray(value) ? (value as VersionComparison['highlights']) : []
-}
-
-function asMostChangedFields(value: unknown): VersionStatistics['mostChangedFields'] {
-  if (!Array.isArray(value)) return []
-
-  return value.flatMap((item) => {
-    const field = asRecord(item)
-    if (!field) return []
-
-    return [
-      {
-        field: asString(field.field),
-        changeCount: asNumber(field.change_count ?? field.changeCount),
-      },
-    ]
-  })
-}
+export type { APIRequestConfig } from './VersionAPIClient'
 
 /**
  * Version API
@@ -144,72 +51,14 @@ function asMostChangedFields(value: unknown): VersionStatistics['mostChangedFiel
  * - GET /api/v2/valuations/sessions/:reportId/versions/compare?v1=1&v2=3
  * - GET /api/v2/valuations/sessions/:reportId/versions/statistics
  *
- * Note: Uses direct fetch calls since backend endpoints don't exist yet
+ * Transport details live in VersionAPIClient so this class stays focused on
+ * endpoint semantics and response shaping.
  */
-const VERSION_API_TIMEOUT_MS = 10_000 // 10s - prevents indefinite hangs
-
 export class VersionAPI {
-  private baseURL: string
-  /** Use same-origin proxy in browser to avoid CORS; direct Titan URL in Node */
-  private useProxy: boolean
+  private readonly client: VersionAPIClient
 
   constructor() {
-    this.useProxy = typeof window !== 'undefined'
-    this.baseURL = this.useProxy ? '' : getApiUrl()
-  }
-
-  /** Resolve URL: proxy path for browser, Titan path for server */
-  private resolveUrl(path: string): string {
-    if (this.useProxy) {
-      // Proxy: /api/valuations/sessions/... maps to Titan /api/v2/valuations/sessions/...
-      return path.replace('/api/v2/valuations/sessions/', '/api/valuations/sessions/')
-    }
-    return `${this.baseURL}${path}`
-  }
-
-  /**
-   * Execute API request with error handling and timeout
-   */
-  private async executeRequest<T>(
-    config: {
-      method: string
-      url: string
-      data?: unknown
-      headers?: Record<string, string>
-    },
-    options?: APIRequestConfig
-  ): Promise<T> {
-    const url = this.resolveUrl(config.url)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      options?.timeout ?? VERSION_API_TIMEOUT_MS
-    )
-    if (options?.signal) {
-      options.signal.addEventListener('abort', () => controller.abort())
-    }
-    const signal = controller.signal
-
-    try {
-      const response = await fetch(url, {
-        method: config.method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...config.headers,
-        },
-        body: config.data ? JSON.stringify(config.data) : undefined,
-        credentials: 'include',
-        signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`)
-      }
-
-      return response.json()
-    } finally {
-      clearTimeout(timeoutId)
-    }
+    this.client = new VersionAPIClient()
   }
   /**
    * List all versions for a report
@@ -237,7 +86,7 @@ export class VersionAPI {
 
       // Backend endpoint returns:
       // { success: true, data: { versions: [...], total: N, active_version: N } }
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: {
           versions: unknown[]
@@ -261,7 +110,7 @@ export class VersionAPI {
 
       // Transform backend response to frontend types
       const versions: ValuationVersion[] = response.data.versions.map((v) =>
-        this.transformVersionFromBackend(v)
+        transformVersionFromBackend(v)
       )
 
       const result: VersionListResponse = {
@@ -312,7 +161,7 @@ export class VersionAPI {
     try {
       versionLogger.info('Fetching specific version', { reportId, versionNumber })
 
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: unknown
       }>(
@@ -328,7 +177,7 @@ export class VersionAPI {
         return null
       }
 
-      const version = this.transformVersionFromBackend(response.data)
+      const version = transformVersionFromBackend(response.data)
 
       versionLogger.info('Version fetched', { reportId, versionNumber })
 
@@ -361,20 +210,9 @@ export class VersionAPI {
         hasLabel: !!request.versionLabel,
       })
 
-      // Transform to backend format
-      const backendRequest = {
-        version_label: request.versionLabel,
-        form_data: request.formData,
-        valuation_result: request.valuationResult,
-        html_report: request.htmlReport,
-        changes_summary: request.changesSummary,
-        notes: request.notes,
-        tags: request.tags,
-        normalization_data: request.normalization_data,
-        tax_latency_data: request.tax_latency_data,
-      }
+      const backendRequest = buildCreateVersionBackendRequest(request)
 
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: unknown
       }>(
@@ -391,7 +229,7 @@ export class VersionAPI {
         throw new Error('No data in response')
       }
 
-      const version = this.transformVersionFromBackend(response.data)
+      const version = transformVersionFromBackend(response.data)
 
       versionLogger.info('Version created', {
         reportId: request.reportId,
@@ -409,14 +247,6 @@ export class VersionAPI {
     }
   }
 
-  /**
-   * Update version metadata
-   *
-   * @param reportId - Report identifier
-   * @param versionNumber - Version number to update
-   * @param updates - Metadata updates
-   * @returns Updated version
-   */
   /**
    * Update version metadata (local-only).
    *
@@ -450,12 +280,6 @@ export class VersionAPI {
   }
 
   /**
-   * Delete version
-   *
-   * @param reportId - Report identifier
-   * @param versionNumber - Version number to delete
-   */
-  /**
    * Delete version (local-only).
    *
    * Titan does not have a DELETE endpoint for versions yet.
@@ -475,14 +299,6 @@ export class VersionAPI {
   }
 
   /**
-   * Compare two versions
-   *
-   * @param reportId - Report identifier
-   * @param versionA - First version number
-   * @param versionB - Second version number
-   * @returns Comparison result with highlighted changes
-   */
-  /**
    * Restore a version via Titan's POST restore endpoint.
    * Creates a new version that is a copy of the specified version.
    */
@@ -494,7 +310,7 @@ export class VersionAPI {
     try {
       versionLogger.info('Restoring version via Titan', { reportId, versionNumber })
 
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: unknown
       }>(
@@ -507,7 +323,7 @@ export class VersionAPI {
       )
 
       if (response.data) {
-        return this.transformVersionFromBackend(response.data)
+        return transformVersionFromBackend(response.data)
       }
       return null
     } catch (error) {
@@ -537,7 +353,7 @@ export class VersionAPI {
     try {
       versionLogger.info('Comparing versions', { reportId, versionA, versionB })
 
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: unknown
       }>(
@@ -553,27 +369,7 @@ export class VersionAPI {
         throw new Error('No data in response')
       }
 
-      const data = asRecord(response.data)
-      if (!data) {
-        throw new Error('Invalid comparison response')
-      }
-
-      const valuationDelta = asRecord(data.valuation_delta)
-
-      // Transform backend response
-      const comparison: VersionComparison = {
-        versionA: this.transformVersionFromBackend(data.version_a),
-        versionB: this.transformVersionFromBackend(data.version_b),
-        changes: asVersionChanges(data.changes),
-        valuationDelta: valuationDelta
-          ? {
-              absoluteChange: asNumber(valuationDelta.absolute_change),
-              percentChange: asNumber(valuationDelta.percent_change),
-              direction: asValuationDeltaDirection(valuationDelta.direction),
-            }
-          : null,
-        highlights: asHighlights(data.highlights),
-      }
+      const comparison = transformVersionComparison(response.data)
 
       versionLogger.info('Versions compared', { reportId, versionA, versionB })
 
@@ -597,7 +393,7 @@ export class VersionAPI {
    */
   async getStatistics(reportId: string, options?: APIRequestConfig): Promise<VersionStatistics> {
     try {
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: unknown
       }>(
@@ -613,91 +409,13 @@ export class VersionAPI {
         throw new Error('No data in response')
       }
 
-      const data = asRecord(response.data)
-      if (!data) {
-        throw new Error('Invalid statistics response')
-      }
-
-      const firstVersion = asRecord(data.first_version)
-      const latestVersion = asRecord(data.latest_version)
-
-      return {
-        totalVersions: asNumber(data.total_versions),
-        averageTimeBetweenVersions_hours: asNumber(data.avg_time_between_versions_hours),
-        mostChangedFields: asMostChangedFields(data.most_changed_fields),
-        averageValuationChange_percent: asNumber(data.avg_valuation_change_percent),
-        firstVersion: {
-          number: asNumber(firstVersion?.number),
-          createdAt: asDate(firstVersion?.created_at),
-        },
-        latestVersion: {
-          number: asNumber(latestVersion?.number),
-          createdAt: asDate(latestVersion?.created_at),
-        },
-      }
+      return transformVersionStatistics(response.data)
     } catch (error) {
       versionLogger.error('Failed to fetch statistics', {
         reportId,
         error: error instanceof Error ? error.message : 'Unknown error',
       })
       throw error
-    }
-  }
-
-  /**
-   * Transform backend version to frontend type
-   *
-   * Normalizes field names and date objects.
-   */
-  private transformVersionFromBackend(backendVersion: unknown): ValuationVersion {
-    const backend = asRecord(backendVersion) ?? {}
-    // Extract version_data which contains formData and valuationResult
-    const versionData = nestedRecord(backend, 'version_data') ?? {}
-    const outputs = nestedRecord(versionData, 'outputs')
-    const outputDetails = nestedRecord(outputs, 'details')
-    const versionNumber = asNumber(backend.version_number, 1)
-    const formData =
-      backend.formData ?? versionData.formData ?? versionData.inputs ?? backend.form_data ?? {}
-    const valuationResult =
-      backend.valuationResult ?? versionData.valuationResult ?? outputs ?? backend.valuation_result
-    const normalizationData =
-      asRecord(backend.normalization_data) ?? asRecord(versionData.normalization_data)
-    const taxLatencyData = Array.isArray(backend.tax_latency_data)
-      ? backend.tax_latency_data
-      : Array.isArray(versionData.tax_latency_data)
-        ? versionData.tax_latency_data
-        : undefined
-
-    return {
-      id: asString(backend.id, `version-${versionNumber}`),
-      reportId: asString(backend.report_id, asString(backend.reportId)),
-      versionNumber,
-      versionLabel: asString(backend.version_label, `Version ${versionNumber}`),
-      createdAt: asDate(backend.created_at),
-      createdBy: asNullableString(backend.created_by) ?? asNullableString(backend.createdBy),
-      // Extract formData from multiple possible locations
-      formData: asValuationRequest(formData),
-      // Extract valuationResult from multiple possible locations
-      valuationResult: asValuationResponse(valuationResult),
-      // Extract HTML reports from multiple possible locations
-      htmlReport:
-        getFirstRenderableReportHtml(
-          asNullableString(backend.htmlReport),
-          asNullableString(versionData.htmlReport),
-          asNullableString(outputs?.html_report),
-          asNullableString(outputDetails?.html_report),
-          asNullableString(backend.html_report)
-        ) || null,
-      changesSummary: asVersionChanges(backend.changesSummary ?? backend.changes_summary),
-      isActive: asBoolean(backend.isActive, asBoolean(backend.is_active)),
-      isPinned: asBoolean(backend.isPinned, asBoolean(backend.is_pinned)),
-      calculationDuration_ms:
-        asOptionalNumber(backend.calculationDuration_ms) ??
-        asOptionalNumber(backend.calculation_duration_ms),
-      tags: asStringArray(backend.tags),
-      notes: asOptionalString(backend.notes),
-      normalization_data: normalizationData as ValuationVersion['normalization_data'] | undefined,
-      tax_latency_data: taxLatencyData as ValuationVersion['tax_latency_data'] | undefined,
     }
   }
 
@@ -746,7 +464,7 @@ export class VersionAPI {
     try {
       versionLogger.info('Fetching conversation context', { versionId })
 
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: unknown
       }>(
@@ -762,19 +480,12 @@ export class VersionAPI {
         return null
       }
 
-      const data = asRecord(response.data)
-      if (!data) {
-        return null
-      }
+      const context = transformVersionConversationContext(response.data)
+      if (!context) return null
 
       versionLogger.info('Conversation context fetched', { versionId })
 
-      return {
-        conversation: data.conversation,
-        triggerMessage: data.trigger_message,
-        triggerType: asString(data.trigger_type),
-        context: data.context,
-      }
+      return context
     } catch (error) {
       versionLogger.error('Failed to fetch conversation context', {
         versionId,
@@ -795,7 +506,7 @@ export class VersionAPI {
     options?: APIRequestConfig
   ): Promise<unknown[]> {
     try {
-      const response = await this.executeRequest<{
+      const response = await this.client.request<{
         success: boolean
         data: unknown
       }>(

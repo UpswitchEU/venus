@@ -9,15 +9,7 @@
  * @module lib/bootstrap/BootstrapProvider
  */
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useIsMountedRef } from '../../features/manual/hooks/useNavigationCancellation'
 import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { useClientContext } from '../../stores/clientContext'
@@ -30,12 +22,19 @@ import {
 } from '../mercury/sessionReadiness'
 import { setBootstrapState } from '../sessionInitialization'
 import {
+  BootstrapContext,
+  type BootstrapContextValue,
+  resolveBootstrapConvenienceFlags,
+} from './BootstrapContext'
+import {
   clearScopedGlobalBootstrapResult,
-  getScopedGlobalBootstrapReportId,
-  getScopedGlobalBootstrapResult,
   hasScopedGlobalBootstrapResult,
   rememberScopedGlobalBootstrapResult,
 } from './BootstrapProviderCache'
+import {
+  commitBootstrapCacheResult,
+  resolveScopedBootstrapCacheResult,
+} from './BootstrapProviderCacheHydration'
 import {
   evaluateBootstrapCreditPolicy,
   evaluateBootstrapReportIdentity,
@@ -61,7 +60,6 @@ import {
   DEFAULT_PREFILL,
   DEFAULT_REPORT,
   DEFAULT_UI_HINTS,
-  REQUIRE_AUTH_FOR_VALUATION,
 } from './types'
 import { parseUrlToContext } from './utils'
 
@@ -103,50 +101,18 @@ function readDelegatedBootstrapReadiness(activeContext: BootstrapContextShape): 
   return { authSettled, needsDelegatedContext, ready }
 }
 
+export type { BootstrapContextValue } from './BootstrapContext'
+export {
+  useBootstrap,
+  useBootstrapIdentity,
+  useBootstrapPrefill,
+  useBootstrapReport,
+  useBootstrapSafe,
+  useBootstrapUI,
+  useIsBootstrapComplete,
+} from './BootstrapContext'
 /** Reset the module-level bootstrap guard (call on logout) */
 export { clearScopedGlobalBootstrapResult as resetBootstrapGuard } from './BootstrapProviderCache'
-
-// ============================================================================
-// Context Types
-// ============================================================================
-
-interface BootstrapContextValue {
-  // State
-  state: SessionBootstrapState
-  isBootstrapping: boolean
-  bootstrapError: string | null
-
-  // Derived state for convenience
-  identity: IdentityState
-  report: ReportState
-  prefillData: PrefillData
-  ui: UIHints
-  creditStatus?: SessionBootstrapState['creditStatus'] // Credit status from bootstrap state
-
-  // Convenience booleans
-  /** @deprecated Guest flow is no longer supported - always returns false */
-  isGuest: boolean
-  isAuthenticated: boolean
-  /** Whether authentication is required (always true in auth-first architecture) */
-  requiresAuth: boolean
-  isAccountantFlow: boolean
-  isNewReport: boolean
-  isExistingReport: boolean
-  hasPrefilledData: boolean
-
-  // Actions
-  refreshBootstrap: () => Promise<void>
-  updateIdentity: (identity: Partial<IdentityState>) => void
-  updateReport: (report: Partial<ReportState>) => void
-  updatePrefillData: (prefillData: Partial<PrefillData>) => void
-  updateUIHints: (ui: Partial<UIHints>) => void
-}
-
-// ============================================================================
-// Context Creation
-// ============================================================================
-
-const BootstrapContext = createContext<BootstrapContextValue | null>(null)
 
 // ============================================================================
 // Provider Props
@@ -262,9 +228,7 @@ export function BootstrapProvider({
 
     // Guard 2 (module-level): bootstrap already completed in a previous mount
     if (hasScopedGlobalBootstrapResult()) {
-      const cached =
-        bootstrapService.getCachedResult(activeContext) ||
-        getScopedGlobalBootstrapResult(activeContext)
+      const cached = resolveScopedBootstrapCacheResult(activeContext)
       if (cached) {
         generalLogger.debug(
           '[BootstrapProvider] Module-level guard — hydrating scoped cache (no callbacks)',
@@ -272,19 +236,16 @@ export function BootstrapProvider({
             reportId: activeContext.reportId?.substring(0, 30),
           }
         )
-        bootstrapStartedRef.current = true
-        bootstrapCompletedRef.current = true
-        setState(cached)
-        setIsBootstrapping(false)
-        setBootstrapState(cached)
+        commitBootstrapCacheResult({
+          activeContext,
+          bootstrapCompletedRef,
+          bootstrapStartedRef,
+          result: cached,
+          setIsBootstrapping,
+          setState,
+        })
         return
       }
-
-      generalLogger.debug('[BootstrapProvider] Ignoring stale module-level bootstrap cache', {
-        requestedReportId: activeContext.reportId?.substring(0, 30),
-        cachedReportId: getScopedGlobalBootstrapReportId()?.substring(0, 30),
-      })
-      clearScopedGlobalBootstrapResult()
     }
 
     // Guard 3 (singleton cache): prevent re-bootstrap after component remount
@@ -296,13 +257,16 @@ export function BootstrapProvider({
           reportId: activeContext.reportId?.substring(0, 30),
         }
       )
-      bootstrapStartedRef.current = true
-      bootstrapCompletedRef.current = true
-      rememberScopedGlobalBootstrapResult(activeContext, cachedResult)
-      setState(cachedResult)
-      setIsBootstrapping(false)
-      setBootstrapState(cachedResult)
-      onBootstrapCompleteRef.current?.(cachedResult)
+      commitBootstrapCacheResult({
+        activeContext,
+        bootstrapCompletedRef,
+        bootstrapStartedRef,
+        notifyComplete: onBootstrapCompleteRef.current,
+        rememberScopedResult: true,
+        result: cachedResult,
+        setIsBootstrapping,
+        setState,
+      })
       return
     }
 
@@ -632,23 +596,18 @@ export function BootstrapProvider({
         return
       }
 
-      const cached =
-        bootstrapService.getCachedResult(activeContext) ||
-        getScopedGlobalBootstrapResult(activeContext)
+      const cached = resolveScopedBootstrapCacheResult(activeContext)
       if (cached) {
-        bootstrapStartedRef.current = true
-        bootstrapCompletedRef.current = true
-        setState(cached)
-        setIsBootstrapping(false)
-        setBootstrapState(cached)
+        commitBootstrapCacheResult({
+          activeContext,
+          bootstrapCompletedRef,
+          bootstrapStartedRef,
+          result: cached,
+          setIsBootstrapping,
+          setState,
+        })
         return
       }
-
-      generalLogger.debug('[BootstrapProvider] Global bootstrap cache missed current report', {
-        requestedReportId: activeContext.reportId?.substring(0, 30),
-        cachedReportId: getScopedGlobalBootstrapReportId()?.substring(0, 30),
-      })
-      clearScopedGlobalBootstrapResult()
     }
 
     if (bootstrapStartedRef.current || initialState) {
@@ -727,15 +686,7 @@ export function BootstrapProvider({
       ui: state.ui,
       creditStatus: state.creditStatus, // Credit status from bootstrap state
 
-      // Convenience booleans
-      /** @deprecated Guest flow is no longer supported - always returns false */
-      isGuest: false,
-      isAuthenticated:
-        state.identity.type === 'authenticated' || state.identity.type === 'accountant_for_client',
-      requiresAuth: REQUIRE_AUTH_FOR_VALUATION,
-      isAccountantFlow: state.identity.type === 'accountant_for_client',
-      isNewReport: state.report.mode === 'new',
-      isExistingReport: state.report.mode === 'existing',
+      ...resolveBootstrapConvenienceFlags(state),
       hasPrefilledData: hasMeaningfulBootstrapPrefill(state.prefillData),
 
       // Actions
@@ -758,69 +709,6 @@ export function BootstrapProvider({
   )
 
   return <BootstrapContext.Provider value={value}>{children}</BootstrapContext.Provider>
-}
-
-// ============================================================================
-// Hooks
-// ============================================================================
-
-/**
- * Use bootstrap context - throws if not within provider
- */
-export function useBootstrap(): BootstrapContextValue {
-  const context = useContext(BootstrapContext)
-  if (!context) {
-    throw new Error('useBootstrap must be used within a BootstrapProvider')
-  }
-  return context
-}
-
-/**
- * Use bootstrap context - returns null if not within provider (safe version)
- */
-export function useBootstrapSafe(): BootstrapContextValue | null {
-  return useContext(BootstrapContext)
-}
-
-/**
- * Use identity from bootstrap
- */
-export function useBootstrapIdentity(): IdentityState {
-  const { identity } = useBootstrap()
-  return identity
-}
-
-/**
- * Use report from bootstrap
- */
-export function useBootstrapReport(): ReportState {
-  const { report } = useBootstrap()
-  return report
-}
-
-/**
- * Use prefill data from bootstrap
- */
-export function useBootstrapPrefill(): PrefillData {
-  const { prefillData } = useBootstrap()
-  return prefillData
-}
-
-/**
- * Use UI hints from bootstrap
- */
-export function useBootstrapUI(): UIHints {
-  const { ui } = useBootstrap()
-  return ui
-}
-
-/**
- * Check if bootstrap is complete
- */
-export function useIsBootstrapComplete(): boolean {
-  const context = useBootstrapSafe()
-  if (!context) return false
-  return !context.isBootstrapping && !context.bootstrapError
 }
 
 // ============================================================================

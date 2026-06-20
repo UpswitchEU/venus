@@ -60,26 +60,22 @@ import {
   updateSegmentEarningsValue,
   updateSegmentWeightValue,
 } from '@/features/startup-studio/utils/companyCardStepModel'
-import {
-  STARTUP_STUDIO_SECTORS,
-  STARTUP_STUDIO_STAGES,
-} from '@/features/startup-studio/utils/studioDeepLinkContract'
+import { STARTUP_STUDIO_STAGES } from '@/features/startup-studio/utils/studioDeepLinkContract'
 import { useBusinessTypes } from '@/hooks/useBusinessTypes'
 import type { BusinessType as ApiBusinessType } from '@/services/businessTypesApi'
 import { registryService } from '@/services/registry/registryService'
 import type { CompanySearchResult } from '@/services/registry/types'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
-import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import {
-  STARTUP_SECTOR_EXIT_MULTIPLES,
   STARTUP_STAGE_DEFAULT_RAISE,
-  type StartupSector,
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
 import { mapRegistrySearchResultToKboCompany } from '@/utils/mapRegistrySearchResultToKboCompany'
+import { CompanySectorChip } from './CompanySectorChip'
 import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
+import { SwitchToArrNudge } from './SwitchToArrNudge'
 
 interface CompanyCardStepProps {
   /** @deprecated Route locale from next-intl is used. */
@@ -650,7 +646,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
             to, even though that single field swings exit multiples
             from 3× (consumer / hardware) to 10× (biotech).  Inline
             override stays one click away. */}
-        <SectorChip
+        <CompanySectorChip
           sector={sector}
           onChange={(next) => setField('sector', next)}
           appliedMultiple={appliedExitMultiple ?? null}
@@ -689,146 +685,6 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
           size="sm"
         />
       </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// SectorChip — read-only-by-default, one-click override
-// ---------------------------------------------------------------------------
-
-/**
- * Render the canonical engine sector + the exit multiple it drives.
- * Founders never had a way to see what sector the NACE inference
- * picked — and therefore no way to know that "marketplace" was using
- * a 4× multiple while their pitch deck assumed 6× SaaS comps.  The
- * chip surfaces both numbers and stays out of the way until clicked.
- *
- * `appliedMultiple` is the value Exit Story is currently using.  When
- * it differs from the sector default we render the applied number with
- * a small "(default 4×)" hint so the founder sees one truth on this
- * panel, not two.  Falls back to the sector default when the founder
- * hasn't picked yet.
- */
-function SectorChip({
-  sector,
-  onChange,
-  appliedMultiple,
-}: {
-  sector: StartupSector
-  onChange: (next: StartupSector) => void
-  appliedMultiple?: number | null
-}) {
-  const t = useTranslations('startupStudio.companyCard')
-  const tSector = useTranslations('startupStudio.narrative.sectorLabels')
-  const [editing, setEditing] = useState(false)
-  const sectorLabel = tSector(sector)
-  const sectorDefault = STARTUP_SECTOR_EXIT_MULTIPLES[sector]
-  const _multiple = appliedMultiple ?? sectorDefault
-  const isOverridden = appliedMultiple != null && Math.abs(appliedMultiple - sectorDefault) > 0.01
-
-  if (!editing) {
-    // Display chip — sector label + change button only.  The exit
-    // multiple that earlier iterations rendered here ("6× exit
-    // benchmark") was calc context that belongs on the report, not
-    // on an input chip.  Removed 2026-05-10 to keep the input panel
-    // input-only.  The override marker stays because it's input
-    // metadata (tells the user their value differs from the
-    // sector default).
-    return (
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.02] px-3 py-2 text-[12px] text-foreground/75">
-        <span className="font-medium uppercase tracking-wide text-foreground/55 text-[10px]">
-          {t('sectorChipLabel')}
-        </span>
-        <span className="font-semibold text-foreground">{sectorLabel}</span>
-        {isOverridden && (
-          <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-foreground/55">
-            override
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="ml-auto min-h-11 rounded-md border border-foreground/15 bg-background px-3 py-1.5 text-[11px] font-medium text-foreground/75 transition hover:border-primary/50 hover:text-primary sm:min-h-0 sm:px-2 sm:py-0.5"
-        >
-          {t('sectorChipChange')}
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="rounded-lg border border-primary/40 bg-primary/[0.03] p-3">
-      <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-primary">
-        {t('sectorChipPickHeading')}
-      </p>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-        {STARTUP_STUDIO_SECTORS.map((opt) => {
-          const isSelected = opt === sector
-          return (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => {
-                onChange(opt)
-                setEditing(false)
-              }}
-              className={[
-                'min-h-11 rounded-md px-3 py-2 text-[11px] font-medium transition sm:min-h-0 sm:px-2 sm:py-1.5',
-                isSelected
-                  ? 'bg-primary text-primary-foreground'
-                  : 'border border-foreground/15 bg-background text-foreground/75 hover:border-primary/50 hover:text-primary',
-              ].join(' ')}
-            >
-              {tSector(opt)}{' '}
-              <span className="opacity-65 tabular-nums">{STARTUP_SECTOR_EXIT_MULTIPLES[opt]}×</span>
-            </button>
-          )
-        })}
-      </div>
-      <p className="mt-2 text-[10px] text-foreground/55">{t('sectorChipPickHint')}</p>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// SwitchToArrNudge — surfaces the Series-A and post-revenue-seed
-// nudges with a clickable "Switch to ARR multiple" CTA. The text-only
-// nudge that was here before told the founder to "select the SaaS
-// valuation from the method selector" — but the method selector lives
-// somewhere else entirely, so the founder either ignored the prompt
-// or lost their inputs hunting for it. The CTA flips
-// `useManualResultsStore.selectedMethod` directly so the swap happens
-// in place, with all studio inputs preserved.
-// ---------------------------------------------------------------------------
-
-interface SwitchToArrNudgeProps {
-  tone: 'amber' | 'sky'
-  text: string
-}
-
-function SwitchToArrNudge({ tone, text }: SwitchToArrNudgeProps) {
-  const t = useTranslations('startupStudio.companyCard')
-  const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
-  const cls =
-    tone === 'amber'
-      ? 'border-amber-300/50 bg-amber-50/60 text-amber-800 dark:border-amber-700/40 dark:bg-amber-950/25 dark:text-amber-200'
-      : 'border-sky-300/50 bg-sky-50/60 text-sky-800 dark:border-sky-700/40 dark:bg-sky-950/25 dark:text-sky-200'
-  const btnCls =
-    tone === 'amber'
-      ? 'border-amber-500 bg-amber-500 text-white hover:bg-amber-600'
-      : 'border-sky-500 bg-sky-500 text-white hover:bg-sky-600'
-  return (
-    <div className={`mt-3 rounded-lg border p-3 text-[11px] leading-relaxed ${cls}`}>
-      <p>{text}</p>
-      <button
-        type="button"
-        onClick={() => setSelectedMethod('arr_multiple')}
-        aria-label={t('switchToArrAria')}
-        className={`mt-2 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition ${btnCls}`}
-      >
-        {t('switchToArrCta')}
-      </button>
     </div>
   )
 }

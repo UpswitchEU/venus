@@ -40,12 +40,12 @@ describe('Venus attestation product boundary', () => {
       join(process.cwd(), 'src/features/manual/components/useManualUrlActions.ts'),
       'utf8'
     )
-    const layoutSource = readFileSync(
-      join(process.cwd(), 'src/features/manual/components/ManualLayout.tsx'),
+    const commandSource = readFileSync(
+      join(process.cwd(), 'src/features/manual/components/useManualReportCommands.ts'),
       'utf8'
     )
 
-    expect(layoutSource).toMatch(/useManualUrlActions\(\{/)
+    expect(commandSource).toMatch(/useManualUrlActions\(\{/)
     expect(hookSource).toMatch(/urlAction !== 'preview'/)
     expect(hookSource).toMatch(/urlAction !== 'download'/)
     expect(hookSource).toMatch(/handlePreview\(\)/)
@@ -56,16 +56,21 @@ describe('Venus attestation product boundary', () => {
 
   it('gates sign and approve overflow actions to advisor calculator mode', () => {
     const source = readFileSync(
-      join(process.cwd(), 'src/features/manual/components/ManualLayout.tsx'),
+      join(process.cwd(), 'src/features/manual/components/useManualReportCommands.ts'),
       'utf8'
     )
 
     expect(source).toMatch(
-      /useManualReportAttestation\(\{[\s\S]*enabled:\s*[\s\S]*showFullAdvisorMethodNav && isAccountantMode/
+      /reportCommandEnabled\s*=\s*[\s\S]*showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId/
     )
     expect(source).toMatch(
-      /useManualReportApproval\(\{[\s\S]*enabled: showFullAdvisorMethodNav && isAccountantMode/
+      /useManualReportAttestation\(\{[\s\S]*enabled:\s*reportCommandEnabled/
     )
-    expect(source).toMatch(/transientFailedDescription: t\('approveValuationTransientFailed'\)/)
+    expect(source).toMatch(
+      /useManualReportApproval\(\{[\s\S]*enabled: reportCommandEnabled/
+    )
+    expect(source).toMatch(
+      /transientFailedDescription: translate\('approveValuationTransientFailed'\)/
+    )
   })
 })

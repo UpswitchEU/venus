@@ -1,9 +1,7 @@
 'use client'
 import { useLocale, useTranslations } from 'next-intl'
-import React, { Suspense } from 'react'
+import React from 'react'
 import { toast } from 'sonner'
-import { ChatAssistantDrawer } from '../../../components/calculator'
-import { venusAiDockShellClassName } from '../../../components/calculator/venus-ai-dock-layout'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../../hooks/useBootstrapPrefill'
 import { useCredits } from '../../../hooks/useCredits'
@@ -32,8 +30,6 @@ import {
   useManualNormalizationState,
   useManualPanelStorageReset,
   useManualRecalculateConfirmation,
-  useManualReportApproval,
-  useManualReportAttestation,
   useManualReportIdentifiers,
   useManualReportReadinessController,
   useManualReportUiState,
@@ -49,18 +45,14 @@ import {
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
-import { ManualLayoutBody } from './ManualLayoutBody'
-import { ManualLayoutContextBar } from './ManualLayoutContextBar'
-import { ManualLayoutModals } from './ManualLayoutModals'
-import { ManualLayoutNav } from './ManualLayoutNav'
+import { ManualLayoutChrome } from './ManualLayoutChrome'
 import { ManualLayoutSessionGate } from './ManualLayoutSessionGate'
-import { ManualPdfStaleBanner } from './ManualPdfStaleBanner'
 import type { CollectedData } from './manualLayoutDataTypes'
 import { shouldShowManualAssistantFab } from './manualLayoutDerivedState'
 import { useManualLayoutViewport } from './manualLayoutShell'
 import type { ManualLayoutProps } from './manualLayoutTypes'
 import { useManualLayoutPreviewState } from './useManualLayoutPreviewState'
-import { useManualUrlActions } from './useManualUrlActions'
+import { useManualReportCommands } from './useManualReportCommands'
 export const ManualLayout: React.FC<ManualLayoutProps> = (props) => {
   return (
     <ManualLayoutSessionGate reportId={props.reportId}>
@@ -581,33 +573,27 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     translate: t,
     translateReport: tReport,
   })
-  const attestReportId = resolvedReportId ?? reportId ?? null
-  const { canSignAttest, handleSignAttest, isAttesting } = useManualReportAttestation({
-    reportId: attestReportId,
-    enabled: showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
-    startedTitle: t('attestStarted'),
-    successTitle: t('attestSuccess'),
-    successDescription: t('attestSuccessDesc'),
-    failedTitle: t('attestFailed'),
-    notFinalizedDescription: t('attestReportNotFinalized'),
-  })
-  const { approveLabel, canApprove, handleApprove, isApproving } = useManualReportApproval({
-    reportId: attestReportId,
-    enabled: showFullAdvisorMethodNav && isAccountantMode && !!report && !!attestReportId,
-    approveLabel: t('approveValuation'),
-    approvedTitle: t('valuationApproved'),
-    failedTitle: t('approveValuationFailed'),
-    transientFailedDescription: t('approveValuationTransientFailed'),
-  })
-  useManualUrlActions({
-    attestReportId,
+  const {
+    approveLabel,
+    canApprove,
+    canSignAttest,
+    handleApprove,
+    handleSignAttest,
+    isApproving,
+    isAttesting,
+  } = useManualReportCommands({
     canDownloadPdf,
     handleExport,
     handlePreview,
+    isAccountantMode,
     isExporting,
     isPdfGenerating,
     pdfStale,
     report,
+    reportId,
+    resolvedReportId,
+    showFullAdvisorMethodNav,
+    translate: t,
     urlAction,
   })
   const {
@@ -734,192 +720,182 @@ const ManualLayoutLoaded: React.FC<ManualLayoutProps> = ({
     showValuationEditModal,
   })
   return (
-    <>
-      <div
-        className={venusAiDockShellClassName(
-          chatDrawerOpen,
-          isMobile,
-          'aurora-theme flex flex-col h-[100dvh] bg-background overflow-hidden'
-        )}
-      >
-        <ManualLayoutNav
-          accountantDisplayName={accountantDisplayName}
-          activeReportId={resolvedReportId || reportId}
-          assistantOpenTasksCount={assistantOpenTasksCount}
-          canDownloadPdf={canDownloadPdf}
-          chatDrawerOpen={chatDrawerOpen}
-          companyName={displayCompanyName}
-          deletingValuationId={deletingValuationId}
-          downloadHistory={downloadHistory}
-          effectiveIsRestoringExistingReport={effectiveIsRestoringExistingReport}
-          ebitdaNormalizationLocked={ebitdaNormalizationLocked}
-          handleAccountSettings={handleAccountSettings}
-          handleBack={handleBack}
-          handleContinueToListing={handleContinueToListing}
-          handleDeleteValuation={handleDeleteValuation}
-          handleExport={handleExport}
-          handleFullscreen={handleFullscreen}
-          handleLogout={handleLogout}
-          handleNewValuation={handleNewValuation}
-          handleOpenAssistant={handleOpenAssistant}
-          handlePlanLockedMethodAction={handlePlanLockedMethodAction}
-          handlePreSelectMethod={handlePreSelectMethod}
-          handlePreview={handlePreview}
-          handleSelectValuation={handleSelectValuation}
-          handleSelectVersion={handleSelectVersion}
-          handleShowHistory={handleShowHistory}
-          handleSwitchWorkspace={handleSwitchWorkspace}
-          hasReport={!!report}
-          isAccountantMode={isAccountantMode}
-          isCalculating={isCalculating}
-          isAttesting={isAttesting}
-          isExporting={isExporting}
-          isGenerating={isGenerating}
-          isMobile={isMobile}
-          navValuationSummary={navValuationSummary}
-          onSignAttest={canSignAttest ? handleSignAttest : undefined}
-          showSignAttest={canSignAttest}
-          onApproveValuation={canApprove ? handleApprove : undefined}
-          showApproveValuation={canApprove}
-          isApprovingValuation={isApproving}
-          approveValuationLabel={approveLabel}
-          signAttestLabel={t('signAttestReport')}
-          onExitClientView={handleExitClientView}
-          onNavigateToBilling={handleNavigateToBilling}
-          onNavigateToDashboard={handleNavigateToDashboard}
-          onNavigateToHelp={handleNavigateToHelp}
-          onOpenNormalization={openUnifiedNormalizationModal}
-          onOpenValuationEdit={() => setShowValuationEditModal(true)}
-          openStarterPaywall={openStarterPaywall}
-          pendingNormalizationCount={pendingNormalizationCount}
-          planLockedMethodKeys={planLockedMethodKeys}
-          preSelectableMethodsForNav={preSelectableMethodsForNav}
-          preSelectedMethod={preSelectedMethod}
-          preSelectedMethods={preSelectedMethods}
-          recentValuations={recentValuations}
-          rightPanelView={rightPanelView}
-          selectedVersionId={selectedVersionId}
-          showFullAdvisorMethodNav={showFullAdvisorMethodNav}
-          togglePreSelectedMethodWithPlanGate={togglePreSelectedMethodWithPlanGate}
-          translate={t}
-          user={user}
-          versionControlLocked={versionControlLocked}
-          versionHistoryForNav={versionHistoryForNav}
-        />
-        <ManualPdfStaleBanner
-          canDownloadPdf={canDownloadPdf}
-          isPdfRetrying={isPdfRetrying}
-          onRetry={handleRetryPdfStalled}
-          persistedReportLookupId={pdfStalePollLookupId}
-          availablePdfUrl={pdfGenerationState.url}
-          pdfPollErrorCount={pdfPollErrorCount}
-          pdfPollTransientCount={pdfPollTransientCount}
-          pdfStale={pdfStale}
-          pdfWaitTimedOut={pdfWaitTimedOut}
-          report={report}
-          translate={t}
-        />
-        <ManualLayoutContextBar
-          businessName={collectedData.companyName}
-          clientContextId={clientContextId}
-          clientContextName={clientContextName}
-          draftStatus={draftStatus}
-          isAccountantMode={isAccountantMode}
-          lastSaved={lastSaved}
-          onOpenMercuryClientForInvite={handleOpenMercuryClientForInvite}
-          onShowNormalisationReview={handleShowNormalisationReview}
-          pendingNormalizationCount={pendingNormalizationCount}
-          translate={t}
-        />
-        <ManualLayoutBody
-          isMobile={isMobile}
-          manualInputProps={manualInputProps}
-          reportId={reportId}
-          workspaceProps={{
-            isCalculating,
-            isGenerating,
-            isRecoveringReportHtml,
-            isDeletingCurrentReport: !!deletingValuationId,
-            isMethodSwitchRendering,
-            liveMultipleReportPreview,
-            onVersionRestore: handleVersionRestore,
-            report,
-            reportId,
-            rightPanelView,
-            translate: t,
-            translateReport: tReport,
-          }}
-        />
-        <ManualLayoutModals
-          allowedMethodKeys={allowedMethodKeys}
-          canDownloadPdf={canDownloadPdf}
-          clientContextId={clientContextId}
-          collectedData={collectedData}
-          currentLocale={currentLocale}
-          currentVersionNumber={currentVersionNumber}
-          ctxRelationshipId={ctxRelationshipId}
-          effectiveIsRestoringExistingReport={effectiveIsRestoringExistingReport}
-          financialYears={financialYears}
-          formCountry={formCountry}
-          guidedNormalizationPrefill={guidedNormalizationPrefill}
-          handleCancelNewValuation={handleCancelNewValuation}
-          handleCancelRecalculate={handleCancelRecalculate}
-          handleConfirmNewValuation={handleConfirmNewValuation}
-          handleConfirmRecalculate={handleConfirmRecalculate}
-          handleContinueImportReview={handleContinueImportReview}
-          handleExport={handleExport}
-          handleNormalizationsChange={handleNormalizationsChange}
-          handleOpenMercuryClientForInvite={handleOpenMercuryClientForInvite}
-          handleSelectMethodWithOverride={handleSelectMethodWithOverride}
-          handleUnifiedNormalizationModalOpenChange={handleUnifiedNormalizationModalOpenChange}
-          hasImportedNormalizationData={hasImportedNormalizationData}
-          isAccountantMode={isAccountantMode}
-          isCalculating={isCalculating}
-          isConfirmingNewValuation={isConfirmingNewValuation}
-          isExporting={isExporting}
-          isGenerating={isGenerating}
-          isHydratingEditModalData={isHydratingEditModalData}
-          isMethodSwitchRendering={isMethodSwitchRendering}
-          lastFullYear={lastFullYear}
-          latestFormDataRef={
-            latestFormDataRef as React.MutableRefObject<Record<string, unknown> | null>
-          }
-          methodPaywallOpen={methodPaywallOpen}
-          methodPaywallReason={methodPaywallReason}
-          normalizationItems={normalizationItems}
-          openStarterPaywall={openStarterPaywall}
-          originalEBITDA={getOriginalEbitdaForDisplay()}
-          originalEBITDAByYear={originalEBITDAByYear}
-          recalculatePopupFlags={recalculatePopupFlags}
-          report={report}
-          reportId={reportId}
-          reportMethodHydrationError={reportMethodHydrationError}
-          resolvedReportId={resolvedReportId}
-          result={result}
-          retryReportMethodHydration={retryReportMethodHydration}
-          selectedMethod={selectedMethod}
-          setMethodPaywallOpen={setMethodPaywallOpen}
-          setShowFullscreenModal={setShowFullscreenModal}
-          setShowValuationEditModal={setShowValuationEditModal}
-          showFiscalReferenceForOmni={showFiscalReferenceForOmni}
-          showFullscreenModal={showFullscreenModal}
-          showFullAdvisorMethodNav={showFullAdvisorMethodNav}
-          showNewValuationModal={showNewValuationModal}
-          showPreparerMultiplePanel={showPreparerMultiplePanel}
-          showRecalculateConfirmation={showRecalculateConfirmation}
-          showUnifiedNormalizationModal={showUnifiedNormalizationModal}
-          showValuationEditModal={showValuationEditModal}
-          translate={t}
-          userFirmCountryCode={user?.firm_country_code}
-        />
-      </div>
-      <Suspense fallback={null}>
-        <ChatAssistantDrawer
-          {...chatDrawerProps}
-          lockScroll={isMobile}
-          showFabWhenClosed={showAssistantFab}
-        />
-      </Suspense>
-    </>
+    <ManualLayoutChrome
+      chatDrawerOpen={chatDrawerOpen}
+      isMobile={isMobile}
+      showAssistantFab={showAssistantFab}
+      navProps={{
+        accountantDisplayName,
+        activeReportId: resolvedReportId || reportId,
+        assistantOpenTasksCount,
+        canDownloadPdf,
+        chatDrawerOpen,
+        companyName: displayCompanyName,
+        deletingValuationId,
+        downloadHistory,
+        effectiveIsRestoringExistingReport,
+        ebitdaNormalizationLocked,
+        handleAccountSettings,
+        handleBack,
+        handleContinueToListing,
+        handleDeleteValuation,
+        handleExport,
+        handleFullscreen,
+        handleLogout,
+        handleNewValuation,
+        handleOpenAssistant,
+        handlePlanLockedMethodAction,
+        handlePreSelectMethod,
+        handlePreview,
+        handleSelectValuation,
+        handleSelectVersion,
+        handleShowHistory,
+        handleSwitchWorkspace,
+        hasReport: !!report,
+        isAccountantMode,
+        isCalculating,
+        isAttesting,
+        isExporting,
+        isGenerating,
+        isMobile,
+        navValuationSummary,
+        onSignAttest: canSignAttest ? handleSignAttest : undefined,
+        showSignAttest: canSignAttest,
+        onApproveValuation: canApprove ? handleApprove : undefined,
+        showApproveValuation: canApprove,
+        isApprovingValuation: isApproving,
+        approveValuationLabel: approveLabel,
+        signAttestLabel: t('signAttestReport'),
+        onExitClientView: handleExitClientView,
+        onNavigateToBilling: handleNavigateToBilling,
+        onNavigateToDashboard: handleNavigateToDashboard,
+        onNavigateToHelp: handleNavigateToHelp,
+        onOpenNormalization: openUnifiedNormalizationModal,
+        onOpenValuationEdit: () => setShowValuationEditModal(true),
+        openStarterPaywall,
+        pendingNormalizationCount,
+        planLockedMethodKeys,
+        preSelectableMethodsForNav,
+        preSelectedMethod,
+        preSelectedMethods,
+        recentValuations,
+        rightPanelView,
+        selectedVersionId,
+        showFullAdvisorMethodNav,
+        togglePreSelectedMethodWithPlanGate,
+        translate: t,
+        user,
+        versionControlLocked,
+        versionHistoryForNav,
+      }}
+      pdfStaleBannerProps={{
+        canDownloadPdf,
+        isPdfRetrying,
+        onRetry: handleRetryPdfStalled,
+        persistedReportLookupId: pdfStalePollLookupId,
+        availablePdfUrl: pdfGenerationState.url,
+        pdfPollErrorCount,
+        pdfPollTransientCount,
+        pdfStale,
+        pdfWaitTimedOut,
+        report,
+        translate: t,
+      }}
+      contextBarProps={{
+        businessName: collectedData.companyName,
+        clientContextId,
+        clientContextName,
+        draftStatus,
+        isAccountantMode,
+        lastSaved,
+        onOpenMercuryClientForInvite: handleOpenMercuryClientForInvite,
+        onShowNormalisationReview: handleShowNormalisationReview,
+        pendingNormalizationCount,
+        translate: t,
+      }}
+      bodyProps={{
+        isMobile,
+        manualInputProps,
+        reportId,
+        workspaceProps: {
+          isCalculating,
+          isGenerating,
+          isRecoveringReportHtml,
+          isDeletingCurrentReport: !!deletingValuationId,
+          isMethodSwitchRendering,
+          liveMultipleReportPreview,
+          onVersionRestore: handleVersionRestore,
+          report,
+          reportId,
+          rightPanelView,
+          translate: t,
+          translateReport: tReport,
+        },
+      }}
+      modalsProps={{
+        allowedMethodKeys,
+        canDownloadPdf,
+        clientContextId,
+        collectedData,
+        currentLocale,
+        currentVersionNumber,
+        ctxRelationshipId,
+        effectiveIsRestoringExistingReport,
+        financialYears,
+        formCountry,
+        guidedNormalizationPrefill,
+        handleCancelNewValuation,
+        handleCancelRecalculate,
+        handleConfirmNewValuation,
+        handleConfirmRecalculate,
+        handleContinueImportReview,
+        handleExport,
+        handleNormalizationsChange,
+        handleOpenMercuryClientForInvite,
+        handleSelectMethodWithOverride,
+        handleUnifiedNormalizationModalOpenChange,
+        hasImportedNormalizationData,
+        isAccountantMode,
+        isCalculating,
+        isConfirmingNewValuation,
+        isExporting,
+        isGenerating,
+        isHydratingEditModalData,
+        isMethodSwitchRendering,
+        lastFullYear,
+        latestFormDataRef: latestFormDataRef as React.MutableRefObject<Record<
+          string,
+          unknown
+        > | null>,
+        methodPaywallOpen,
+        methodPaywallReason,
+        normalizationItems,
+        openStarterPaywall,
+        originalEBITDA: getOriginalEbitdaForDisplay(),
+        originalEBITDAByYear,
+        recalculatePopupFlags,
+        report,
+        reportId,
+        reportMethodHydrationError,
+        resolvedReportId,
+        result,
+        retryReportMethodHydration,
+        selectedMethod,
+        setMethodPaywallOpen,
+        setShowFullscreenModal,
+        setShowValuationEditModal,
+        showFiscalReferenceForOmni,
+        showFullscreenModal,
+        showFullAdvisorMethodNav,
+        showNewValuationModal,
+        showPreparerMultiplePanel,
+        showRecalculateConfirmation,
+        showUnifiedNormalizationModal,
+        showValuationEditModal,
+        translate: t,
+        userFirmCountryCode: user?.firm_country_code,
+      }}
+      chatDrawerProps={chatDrawerProps}
+    />
   )
 }

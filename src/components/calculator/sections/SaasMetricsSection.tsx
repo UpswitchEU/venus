@@ -1,7 +1,7 @@
 'use client'
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
 import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
@@ -9,138 +9,11 @@ import { inferStartupSectorFromNace } from '@/store/manual/inferStartupSectorFro
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { formatPreviewMetricValue, PreviewMetricCard } from './previewMetricCards'
+import { FieldWithSourceChip, type PrefillSource, SaasPanel } from './SaasMetricsSectionParts'
 import { SAAS_SECTOR_DEFAULTS } from './saasBenchmarks'
+import { getSaasMetricHealthStatus } from './saasMetricsHealth'
 import { computeYoyRevenueGrowthPct, type YearlyFinancialsRow } from './saasYoyPrefill'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
-
-type HealthStatus = 'excellent' | 'good' | 'warning' | 'poor'
-
-function getHealthStatus(metric: string, value: number | null): HealthStatus | null {
-  if (value == null || !Number.isFinite(value)) return null
-  switch (metric) {
-    case 'ruleOf40':
-      if (value >= 40) return 'excellent'
-      if (value >= 25) return 'good'
-      if (value >= 10) return 'warning'
-      return 'poor'
-    case 'ltvCac':
-      if (value >= 3) return 'excellent'
-      if (value >= 2) return 'good'
-      if (value >= 1) return 'warning'
-      return 'poor'
-    case 'cacPaybackMonths':
-      if (value <= 12) return 'excellent'
-      if (value <= 18) return 'good'
-      if (value <= 24) return 'warning'
-      return 'poor'
-    case 'magicNumber':
-      if (value >= 1) return 'excellent'
-      if (value >= 0.75) return 'good'
-      if (value >= 0.5) return 'warning'
-      return 'poor'
-    case 'nrrExpansionSpread':
-      if (value >= 20) return 'excellent'
-      if (value >= 10) return 'good'
-      if (value >= 0) return 'warning'
-      return 'poor'
-    default:
-      return null
-  }
-}
-
-function SaasPanel({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: ReactNode
-}) {
-  return (
-    <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
-      <div className="space-y-1">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-          {title}
-        </h4>
-        <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-/**
- * Inline chip rendered immediately under a SaaS input that we
- * pre-filled. Surfaces the source ("Sector benchmark" /
- * "From your revenue history") so the founder never confuses a
- * prefilled value with their own data — the chief reason an M&A
- * audience trusted the pre-2026 sector banner less than this
- * per-field signal. The chip's `title` carries the tooltip copy.
- */
-type PrefillSource = 'benchmark' | 'history' | 'derived'
-
-function PrefilledFieldChip({
-  source,
-  label,
-  tooltip,
-}: {
-  source: PrefillSource
-  label: string
-  tooltip: string
-}) {
-  // Two visual tones:
-  //   - amber  → sector benchmark (numbers we made up from medians;
-  //              founder MUST tune for the report to be defensible)
-  //   - emerald → derived from the founder's own input (history grid
-  //              YoY, or arithmetic identity like ARR / 12); already
-  //              defensible, just labelled so it's not mistaken for a
-  //              guess.
-  const tone =
-    source === 'benchmark'
-      ? 'border-amber-300/60 bg-amber-50/70 text-amber-900 dark:border-amber-700/40 dark:bg-amber-950/30 dark:text-amber-200'
-      : 'border-emerald-300/60 bg-emerald-50/70 text-emerald-800 dark:border-emerald-700/40 dark:bg-emerald-950/30 dark:text-emerald-200'
-  return (
-    <span
-      className={cn(
-        'mt-1 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tracking-tight',
-        tone
-      )}
-      title={tooltip}
-    >
-      <span aria-hidden="true">●</span>
-      {label}
-    </span>
-  )
-}
-
-/**
- * Wraps an input + an optional prefilled-source chip so the chip
- * always renders directly under the field it describes (no second
- * render path, no layout drift between locales).
- */
-function FieldWithSourceChip({
-  prefilled,
-  source,
-  label,
-  tooltip,
-  children,
-}: {
-  prefilled: boolean
-  source: PrefillSource | null
-  label: string
-  tooltip: string
-  children: ReactNode
-}) {
-  return (
-    <div className="space-y-0">
-      {children}
-      {prefilled && source && (
-        <PrefilledFieldChip source={source} label={label} tooltip={tooltip} />
-      )}
-    </div>
-  )
-}
 
 interface SaasMetricsSectionProps {
   step: number
@@ -769,7 +642,7 @@ export function SaasMetricsSection({
               },
             ] as const
           ).map(({ key, label, value, suffix }) => {
-            const status = getHealthStatus(key, value)
+            const status = getSaasMetricHealthStatus(key, value)
             // The `title` attribute carries the formula so an
             // accountant verifying the engine output can see the math
             // without round-tripping to the docs.
