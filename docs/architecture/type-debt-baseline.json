@@ -1,13 +1,13 @@
 {
   "owner": "Architecture",
-  "updated": "2026-06-19",
+  "updated": "2026-06-20",
   "rule": "Freeze current explicit any and TypeScript/lint suppression debt. New debt fails guard:type-debt; removed debt must also be removed from this baseline.",
   "explicitAny": {
     "total": 0,
     "files": {}
   },
   "suppressions": {
-    "total": 31,
+    "total": 27,
     "files": {
       "app/[locale]/reports/[id]/ValuationReportClient.tsx": 1,
       "src/components/AuthGate.tsx": 1,
@@ -16,7 +16,6 @@
       "src/components/calculator/hooks/useManualDcfProjectionModelSync.ts": 1,
       "src/components/calculator/sections/DcfGlobalAssumptions.tsx": 1,
       "src/components/calculator/sections/FiscalInputsSection.tsx": 1,
-      "src/components/calculator/sections/LiquidationInputsSection.tsx": 4,
       "src/components/calculator/sections/SaasMetricsSection.tsx": 1,
       "src/components/calculator/sections/WaccBreakdownPanel.tsx": 1,
       "src/design-system/components/Select.tsx": 2,

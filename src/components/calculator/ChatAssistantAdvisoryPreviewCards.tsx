@@ -1,60 +1,23 @@
 'use client'
 
-import { FormCardShell, type FormCardTone } from '@upswitch/ai-dock-shells'
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
-import { cn } from '@/design-system/utils'
 import {
-  buildBelgianBootstrapActions,
   buildBuyerProfileGapPrompt,
-  buildClientDataReadinessActions,
   buildListingGapPrompt,
-  buildMethodReadinessActions,
   buyerProfileSubject,
-  type FollowUpAction,
-  formatMethodName,
   listingSubject,
 } from './ChatAssistantAdvisoryPreviewActions'
+import { ChatAssistantBelgianBootstrapCards } from './ChatAssistantBelgianBootstrapCards'
+import {
+  ChatAssistantClientDataReadinessCards,
+  ChatAssistantMethodReadinessCards,
+} from './ChatAssistantReadinessPreviewCards'
 import type { ChatMessage } from './ChatAssistantTypes'
 
 interface ChatAssistantAdvisoryPreviewCardsProps {
   message: ChatMessage
   onSendFollowUp?: (content: string) => void
-}
-
-function FollowUpButtons({
-  actions,
-  onSendFollowUp,
-}: {
-  actions: FollowUpAction[]
-  onSendFollowUp?: (content: string) => void
-}) {
-  if (typeof onSendFollowUp !== 'function' || actions.length === 0) return null
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:gap-3">
-      {actions.map((action) => (
-        <button
-          key={`${action.label}-${action.prompt}`}
-          type="button"
-          onClick={() => onSendFollowUp(action.prompt)}
-          className={cn(
-            'inline-flex min-h-11 items-center rounded-full px-3 transition-colors touch-manipulation sm:min-h-0 sm:px-0',
-            action.primary
-              ? 'font-medium text-primary/85 hover:text-primary'
-              : 'text-foreground/55 hover:text-foreground/75'
-          )}
-        >
-          {action.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function advisoryTone({ blocked, ready }: { blocked?: boolean; ready?: boolean }): FormCardTone {
-  if (blocked) return 'warning'
-  if (ready) return 'success'
-  return 'idle'
 }
 
 export function ChatAssistantAdvisoryPreviewCards({
@@ -67,312 +30,26 @@ export function ChatAssistantAdvisoryPreviewCards({
 
   return (
     <>
-      {/* Belgian public-data bootstrap — read-only KBO/NBB context before data connection. */}
       {message.belgianCompanyBootstraps && message.belgianCompanyBootstraps.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
-          {message.belgianCompanyBootstraps.map((bootstrap) => {
-            const isBlocked = bootstrap.status === 'blocked' || bootstrap.status === 'failed'
-            const fmtEuros = (value: number | null | undefined) =>
-              value != null && Number.isFinite(Number(value))
-                ? `€${Math.round(Number(value)).toLocaleString(currencyLocale)}`
-                : null
-            const summaryBits: string[] = []
-            if (bootstrap.identity?.legalName) summaryBits.push(bootstrap.identity.legalName)
-            if (bootstrap.identity?.kboNumber) summaryBits.push(bootstrap.identity.kboNumber)
-            if (bootstrap.identity?.city) summaryBits.push(bootstrap.identity.city)
-            if (!isBlocked && bootstrap.filingSummary?.filingYear) {
-              summaryBits.push(
-                ca('proposalCards.belgianBootstrap.filingYear', {
-                  year: bootstrap.filingSummary.filingYear,
-                })
-              )
-            }
-            const revenue = fmtEuros(bootstrap.filingSummary?.revenue)
-            const ebitda = fmtEuros(bootstrap.filingSummary?.ebitda)
-            const equity = fmtEuros(bootstrap.valuationPreview?.equityMid)
-            if (revenue)
-              summaryBits.push(`${ca('proposalCards.valuation.labelRevenue')} ${revenue}`)
-            if (ebitda) summaryBits.push(`EBITDA ${ebitda}`)
-            if (equity)
-              summaryBits.push(`${ca('proposalCards.belgianBootstrap.equityPreview')} ${equity}`)
-            const followUpActions = buildBelgianBootstrapActions(bootstrap, ca)
-
-            return (
-              <motion.div
-                key={bootstrap.id}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="text-sm leading-relaxed"
-              >
-                <p className="text-foreground">
-                  {isBlocked
-                    ? ca('proposalCards.belgianBootstrap.titleBlocked')
-                    : ca('proposalCards.belgianBootstrap.titleReady')}
-                </p>
-                {bootstrap.message && (
-                  <p className="text-foreground/55 text-xs mt-0.5">{bootstrap.message}</p>
-                )}
-                {summaryBits.length > 0 && (
-                  <p className="text-foreground/55 text-xs mt-0.5">{summaryBits.join(' · ')}</p>
-                )}
-                {!isBlocked && (
-                  <div className="mt-2 space-y-1.5">
-                    <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-foreground/80 truncate">
-                          {bootstrap.identity?.legalName ??
-                            bootstrap.identity?.kboNumber ??
-                            ca('proposalCards.belgianBootstrap.identityTitle')}
-                        </span>
-                        {bootstrap.identity?.isActive != null && (
-                          <span className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55">
-                            {bootstrap.identity.isActive
-                              ? ca('proposalCards.belgianBootstrap.active')
-                              : ca('proposalCards.belgianBootstrap.inactive')}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-foreground/55">
-                        {bootstrap.identity?.kboNumber && (
-                          <span>{bootstrap.identity.kboNumber}</span>
-                        )}
-                        {bootstrap.identity?.legalForm && (
-                          <span>{bootstrap.identity.legalForm}</span>
-                        )}
-                        {bootstrap.identity?.city && <span>{bootstrap.identity.city}</span>}
-                        {bootstrap.identity?.naceDescription && (
-                          <span>{bootstrap.identity.naceDescription}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-                      <div className="rounded-md bg-foreground/[0.03] px-2 py-1.5 text-xs">
-                        <p className="text-[10px] font-medium uppercase text-foreground/35">
-                          {ca('proposalCards.belgianBootstrap.filingTitle')}
-                        </p>
-                        <p className="mt-0.5 text-foreground/65 leading-snug">
-                          {bootstrap.filingSummary?.filingYear
-                            ? ca('proposalCards.belgianBootstrap.filingYear', {
-                                year: bootstrap.filingSummary.filingYear,
-                              })
-                            : ca('proposalCards.belgianBootstrap.noFiling')}
-                        </p>
-                        {bootstrap.filingSummary?.dataHealthMessage && (
-                          <p className="mt-0.5 text-[10px] text-foreground/45">
-                            {bootstrap.filingSummary.dataHealthMessage}
-                          </p>
-                        )}
-                      </div>
-                      <div className="rounded-md bg-foreground/[0.03] px-2 py-1.5 text-xs">
-                        <p className="text-[10px] font-medium uppercase text-foreground/35">
-                          {ca('proposalCards.belgianBootstrap.benchmarkTitle')}
-                        </p>
-                        <p className="mt-0.5 text-foreground/65 leading-snug">
-                          {bootstrap.benchmark?.businessTypeTitle ??
-                            ca('proposalCards.belgianBootstrap.noBenchmark')}
-                        </p>
-                        {bootstrap.benchmark?.evEbitdaMedian != null && (
-                          <p className="mt-0.5 font-mono text-[10px] text-foreground/45">
-                            {Number(bootstrap.benchmark.evEbitdaMedian).toFixed(1)}x
-                          </p>
-                        )}
-                      </div>
-                      <div className="rounded-md bg-foreground/[0.03] px-2 py-1.5 text-xs">
-                        <p className="text-[10px] font-medium uppercase text-foreground/35">
-                          {ca('proposalCards.belgianBootstrap.previewTitle')}
-                        </p>
-                        <p className="mt-0.5 text-foreground/65 leading-snug">
-                          {fmtEuros(bootstrap.valuationPreview?.equityMid) ??
-                            ca('proposalCards.belgianBootstrap.noPreview')}
-                        </p>
-                        {bootstrap.valuationPreview?.ebitdaYear && (
-                          <p className="mt-0.5 font-mono text-[10px] text-foreground/45">
-                            EBITDA {bootstrap.valuationPreview.ebitdaYear}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
-              </motion.div>
-            )
-          })}
-        </div>
+        <ChatAssistantBelgianBootstrapCards
+          bootstraps={message.belgianCompanyBootstraps}
+          currencyLocale={currencyLocale}
+          onSendFollowUp={onSendFollowUp}
+        />
       )}
 
-      {/* Client-data readiness — Hermes checkpoint before valuation handoff. */}
       {message.clientDataReadinessPreviews && message.clientDataReadinessPreviews.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
-          {message.clientDataReadinessPreviews.map((readiness) => {
-            const needsReview =
-              readiness.status === 'needs_import_review' ||
-              readiness.recommendedNextTool === 'open_import_review'
-            const isReady = readiness.status === 'ready_for_valuation'
-            const sources = (readiness.accountingSources ?? [])
-              .map((source) => source.provider)
-              .filter(Boolean)
-              .slice(0, 4)
-            const topFlags = readiness.importQualitySummary?.topFlags ?? []
-            const actionableFlagCount =
-              readiness.importQualitySummary?.actionableFlagCount ?? topFlags.length
-            const summaryBits: string[] = []
-            if (readiness.businessName) summaryBits.push(readiness.businessName)
-            summaryBits.push(
-              readiness.hasSyncedFinancials
-                ? ca('proposalCards.clientDataReadiness.syncedLabel')
-                : ca('proposalCards.clientDataReadiness.notSyncedLabel')
-            )
-            if (sources.length > 0) summaryBits.push(sources.join(', '))
-            if (actionableFlagCount > 0) {
-              summaryBits.push(
-                ca('proposalCards.clientDataReadiness.flagCount', {
-                  count: actionableFlagCount,
-                })
-              )
-            }
-            const followUpActions = buildClientDataReadinessActions(readiness, ca)
-
-            return (
-              <motion.div
-                key={readiness.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <FormCardShell
-                  title={
-                    needsReview
-                      ? ca('proposalCards.clientDataReadiness.titleReview')
-                      : isReady
-                        ? ca('proposalCards.clientDataReadiness.titleReady')
-                        : ca('proposalCards.clientDataReadiness.titleBlocked')
-                  }
-                  reason={summaryBits.length > 0 ? summaryBits.join(' · ') : undefined}
-                  tone={advisoryTone({ blocked: needsReview, ready: isReady })}
-                >
-                  {readiness.recommendedNextAction && (
-                    <p className="text-xs text-foreground/65 leading-snug">
-                      <span className="font-medium text-foreground/75">
-                        {ca('proposalCards.clientDataReadiness.nextActionLabel')}:
-                      </span>{' '}
-                      {readiness.recommendedNextAction}
-                    </p>
-                  )}
-                  {topFlags.length > 0 && (
-                    <div className="space-y-1">
-                      {topFlags.slice(0, 3).map((flag, index) => (
-                        <div
-                          key={`${flag.year ?? 'year'}-${flag.code ?? flag.field ?? index}`}
-                          className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-foreground/75 truncate">
-                              {flag.code ??
-                                flag.field ??
-                                ca('proposalCards.clientDataReadiness.flagsLabel')}
-                            </span>
-                            {flag.severity && (
-                              <span className="shrink-0 rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55">
-                                {flag.severity}
-                              </span>
-                            )}
-                          </div>
-                          {flag.message && (
-                            <p className="mt-0.5 text-foreground/55">{flag.message}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
-                </FormCardShell>
-              </motion.div>
-            )
-          })}
-        </div>
+        <ChatAssistantClientDataReadinessCards
+          previews={message.clientDataReadinessPreviews}
+          onSendFollowUp={onSendFollowUp}
+        />
       )}
 
-      {/* Method-readiness previews — read-only ValuationIQ method coverage. */}
       {message.methodReadinessPreviews && message.methodReadinessPreviews.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
-          {message.methodReadinessPreviews.map((preview) => {
-            const isBlocked = preview.status === 'blocked'
-            const summaryBits: string[] = []
-            if (preview.businessName) summaryBits.push(preview.businessName)
-            if (!isBlocked) {
-              summaryBits.push(
-                ca('proposalCards.methodReadiness.readyCount', {
-                  count: preview.readyMethods.length,
-                })
-              )
-              if (preview.blockedMethods.length > 0) {
-                summaryBits.push(
-                  ca('proposalCards.methodReadiness.blockedCount', {
-                    count: preview.blockedMethods.length,
-                  })
-                )
-              }
-            } else if (preview.message) {
-              summaryBits.push(preview.message)
-            }
-            const followUpActions = buildMethodReadinessActions(preview, ca)
-
-            return (
-              <motion.div
-                key={preview.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <FormCardShell
-                  title={
-                    isBlocked
-                      ? ca('proposalCards.methodReadiness.titleBlocked')
-                      : ca('proposalCards.methodReadiness.titleReady')
-                  }
-                  reason={summaryBits.length > 0 ? summaryBits.join(' · ') : undefined}
-                  tone={advisoryTone({ blocked: isBlocked })}
-                >
-                  {!isBlocked && (
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5">
-                        <p className="text-[10px] font-medium uppercase text-foreground/35">
-                          {ca('proposalCards.methodReadiness.readyLabel')}
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {preview.readyMethods.slice(0, 6).map((method) => (
-                            <span
-                              key={method}
-                              className="rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] text-success/90"
-                            >
-                              {formatMethodName(method)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="rounded-md bg-foreground/[0.025] px-2 py-1.5">
-                        <p className="text-[10px] font-medium uppercase text-foreground/35">
-                          {ca('proposalCards.methodReadiness.blockedLabel')}
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {preview.blockedMethods.slice(0, 6).map((method) => (
-                            <span
-                              key={method}
-                              className="rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/55"
-                            >
-                              {formatMethodName(method)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <FollowUpButtons actions={followUpActions} onSendFollowUp={onSendFollowUp} />
-                </FormCardShell>
-              </motion.div>
-            )
-          })}
-        </div>
+        <ChatAssistantMethodReadinessCards
+          previews={message.methodReadinessPreviews}
+          onSendFollowUp={onSendFollowUp}
+        />
       )}
 
       {/* Listing previews — read-only anonymized marketplace draft. */}

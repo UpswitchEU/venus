@@ -187,6 +187,38 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
     )
   })
 
+  it('routes blocked Belgian public-data bootstrap cards toward gap resolution', () => {
+    const onSendFollowUp = vi.fn()
+    const message: ChatMessage = {
+      id: 'msg-2b',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      belgianCompanyBootstraps: [
+        {
+          id: 'bootstrap-blocked',
+          status: 'blocked',
+          message: 'No KBO identity could be resolved.',
+          identity: {
+            legalName: 'Fallback BV',
+            kboNumber: '9876543210',
+          },
+        },
+      ],
+    }
+
+    render(<ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'proposalCards.belgianBootstrap.resolveGapsAction' })
+    )
+
+    expect(screen.getByText('No KBO identity could be resolved.')).toBeInTheDocument()
+    expect(onSendFollowUp).toHaveBeenCalledWith(
+      'Help me bootstrap Fallback BV from KBO/NBB public data and resolve the data gaps.'
+    )
+  })
+
   it('routes client-data readiness toward review, valuation, and accounting import paths', () => {
     const onSendFollowUp = vi.fn()
     const message: ChatMessage = {

@@ -19,7 +19,7 @@
  *      regression guard.
  */
 
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -87,6 +87,32 @@ describe('LiquidationInputsSection', () => {
       />
     )
     expect(onFieldChange).toHaveBeenCalledWith('liq_headcount', 5)
+  })
+
+  it('does not duplicate an already-applied prefill when parent callbacks churn', async () => {
+    const firstOnFieldChange = vi.fn()
+    const { rerender } = render(
+      <LiquidationInputsSection
+        {...baseProps}
+        onFieldChange={firstOnFieldChange}
+        prefillSourceHeadcount={5}
+      />
+    )
+
+    await waitFor(() => {
+      expect(firstOnFieldChange).toHaveBeenCalledWith('liq_headcount', 5)
+    })
+
+    const secondOnFieldChange = vi.fn()
+    rerender(
+      <LiquidationInputsSection
+        {...baseProps}
+        onFieldChange={secondOnFieldChange}
+        prefillSourceHeadcount={5}
+      />
+    )
+
+    expect(secondOnFieldChange).not.toHaveBeenCalled()
   })
 
   it('routes premise override to onAnyFieldChange (string payload)', () => {

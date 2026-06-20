@@ -16,7 +16,7 @@ export function makeChunkDispatchState(): ChunkDispatchState {
 
 /**
  * Callback bag the dispatcher fires for each meaningful chunk type.
- * Mirrors `AIChatService.StreamCallbacks` exactly so the service can
+ * Mirrors `AIChatResponseTypes.StreamCallbacks` exactly so the service can
  * pass its callback object straight through.
  */
 export interface ChunkDispatchCallbacks {

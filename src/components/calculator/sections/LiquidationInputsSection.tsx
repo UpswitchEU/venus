@@ -49,7 +49,7 @@
 import { motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useEffect, useId, useState } from 'react'
+import { useId, useState } from 'react'
 
 import { AuroraInput } from '@/design-system'
 import { cn } from '@/design-system/utils'
@@ -68,11 +68,11 @@ import {
   countPositiveLiquidationValues,
   formatLiquidationPercentDisplay,
   parseLiquidationPercentInput,
-  resolveLiquidationPositivePrefill,
 } from '@/lib/methods/liquidation_analysis/liquidationInputModel'
 import { CurrencyInput } from '../CurrencyInput'
 import { IntegerInput } from './IntegerInput'
 import { PrefilledBadge } from './PrefilledBadge'
+import { useLiquidationAutoPrefill } from './useLiquidationAutoPrefill'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 /**
@@ -236,10 +236,17 @@ export function LiquidationInputsSection({
     liqAssetOverrides,
     LIQUIDATION_ASSET_CLASS_CODES
   )
-  const [headcountWasPrefilled, setHeadcountWasPrefilled] = useState(false)
-  const [rentWasPrefilled, setRentWasPrefilled] = useState(false)
-  const [paidUpCapitalWasPrefilled, setPaidUpCapitalWasPrefilled] = useState(false)
-  const [deferredTaxWasPrefilled, setDeferredTaxWasPrefilled] = useState(false)
+  const { prefilledFields, markFieldEdited, clearPrefillFlags } = useLiquidationAutoPrefill({
+    liqHeadcount,
+    liqMonthlyRent,
+    liqPaidUpCapital,
+    liqDeferredTax,
+    prefillSourceHeadcount,
+    prefillSourceAnnualRent,
+    prefillSourcePaidUpCapital,
+    prefillSourceDeferredTax,
+    onFieldChange,
+  })
   // Disclosure-panel ids — needed so each toggle's `aria-controls`
   // points to the panel it expands. `useId()` gives us a stable prefix
   // that survives re-renders; suffixes keep the three panels distinct
@@ -254,76 +261,6 @@ export function LiquidationInputsSection({
   ).length
   const sectionComplete = essentialsFilled === LIQUIDATION_ESSENTIAL_FIELDS.length
 
-  // Auto-prefill headcount from base company profile.
-  // Runs whenever (a) liqHeadcount is undefined AND (b) the source
-  // signal becomes available. This handles the async case where the
-  // company-registry lookup completes AFTER the form mounts — without
-  // the dependency the prefill silently misses those rows.
-  // The user's manual edit wins forever after (the predicate `liqHeadcount === undefined`
-  // is only true on the very first time).
-  useEffect(() => {
-    const prefill = resolveLiquidationPositivePrefill({
-      field: 'liq_headcount',
-      currentValue: liqHeadcount,
-      sourceValue: prefillSourceHeadcount,
-      transform: Math.floor,
-    })
-    if (prefill) {
-      onFieldChange(prefill.field, prefill.value)
-      setHeadcountWasPrefilled(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourceHeadcount, liqHeadcount, onFieldChange])
-
-  // Auto-prefill monthly rent from `current_year_data.rent_expense / 12`.
-  // Same async-safe pattern as headcount: re-fires when the source
-  // signal arrives. Hermes mappers populate `rent_expense` from MAR
-  // 61x / RGS huurkosten, so this is the dominant prefill path for
-  // tenant SMEs. Owner-occupied businesses (rent = 0) skip the prefill
-  // and the field stays blank — engine defaults take over.
-  useEffect(() => {
-    const prefill = resolveLiquidationPositivePrefill({
-      field: 'liq_monthly_rent',
-      currentValue: liqMonthlyRent,
-      sourceValue: prefillSourceAnnualRent,
-      transform: (annualRent) => Math.round((annualRent / 12) * 100) / 100,
-    })
-    if (prefill) {
-      onFieldChange(prefill.field, prefill.value)
-      setRentWasPrefilled(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourceAnnualRent, liqMonthlyRent, onFieldChange])
-
-  // Auto-prefill paid-up capital from balance-sheet equity composition.
-  useEffect(() => {
-    const prefill = resolveLiquidationPositivePrefill({
-      field: 'liq_paid_up_capital',
-      currentValue: liqPaidUpCapital,
-      sourceValue: prefillSourcePaidUpCapital,
-    })
-    if (prefill) {
-      onFieldChange(prefill.field, prefill.value)
-      setPaidUpCapitalWasPrefilled(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourcePaidUpCapital, liqPaidUpCapital, onFieldChange])
-
-  // Auto-prefill deferred tax liabilities from balance-sheet long-term
-  // liabilities.  Skips zero/missing values — engine defaults take over.
-  useEffect(() => {
-    const prefill = resolveLiquidationPositivePrefill({
-      field: 'liq_deferred_tax',
-      currentValue: liqDeferredTax,
-      sourceValue: prefillSourceDeferredTax,
-    })
-    if (prefill) {
-      onFieldChange(prefill.field, prefill.value)
-      setDeferredTaxWasPrefilled(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillSourceDeferredTax, liqDeferredTax, onFieldChange])
-
   const handleReset = () => {
     for (const field of LIQUIDATION_RESET_NUMERIC_FIELD_KEYS) {
       onFieldChange(field, undefined)
@@ -331,10 +268,7 @@ export function LiquidationInputsSection({
     if (onAnyFieldChange) {
       onAnyFieldChange('liq_premise_override', undefined)
     }
-    setHeadcountWasPrefilled(false)
-    setRentWasPrefilled(false)
-    setPaidUpCapitalWasPrefilled(false)
-    setDeferredTaxWasPrefilled(false)
+    clearPrefillFlags()
   }
 
   const prefillBadge = <PrefilledBadge label={tPrefill('badge')} />
@@ -389,16 +323,16 @@ export function LiquidationInputsSection({
               value={liqHeadcount}
               onChange={(next) => {
                 onFieldChange('liq_headcount', next)
-                if (next !== undefined && headcountWasPrefilled) {
-                  setHeadcountWasPrefilled(false)
-                }
+                markFieldEdited('liq_headcount')
               }}
               min={0}
               max={10_000}
               placeholder={t('headcountPlaceholder')}
               disabled={disabled}
               trailingLabelAccessory={
-                headcountWasPrefilled && liqHeadcount !== undefined ? prefillBadge : undefined
+                prefilledFields.liq_headcount && liqHeadcount !== undefined
+                  ? prefillBadge
+                  : undefined
               }
             />
             <CurrencyInput
@@ -409,14 +343,14 @@ export function LiquidationInputsSection({
               value={liqMonthlyRent}
               onChange={(next) => {
                 onFieldChange('liq_monthly_rent', next)
-                if (next !== undefined && rentWasPrefilled) {
-                  setRentWasPrefilled(false)
-                }
+                markFieldEdited('liq_monthly_rent')
               }}
               disabled={disabled}
               truncateLabel={false}
               trailingLabelAccessory={
-                rentWasPrefilled && liqMonthlyRent !== undefined ? prefillBadge : undefined
+                prefilledFields.liq_monthly_rent && liqMonthlyRent !== undefined
+                  ? prefillBadge
+                  : undefined
               }
             />
           </div>
@@ -434,14 +368,12 @@ export function LiquidationInputsSection({
               value={liqPaidUpCapital}
               onChange={(next) => {
                 onFieldChange('liq_paid_up_capital', next)
-                if (next !== undefined && paidUpCapitalWasPrefilled) {
-                  setPaidUpCapitalWasPrefilled(false)
-                }
+                markFieldEdited('liq_paid_up_capital')
               }}
               disabled={disabled}
               truncateLabel={false}
               trailingLabelAccessory={
-                paidUpCapitalWasPrefilled && liqPaidUpCapital !== undefined
+                prefilledFields.liq_paid_up_capital && liqPaidUpCapital !== undefined
                   ? prefillBadge
                   : undefined
               }
@@ -454,14 +386,14 @@ export function LiquidationInputsSection({
               value={liqDeferredTax}
               onChange={(next) => {
                 onFieldChange('liq_deferred_tax', next)
-                if (next !== undefined && deferredTaxWasPrefilled) {
-                  setDeferredTaxWasPrefilled(false)
-                }
+                markFieldEdited('liq_deferred_tax')
               }}
               disabled={disabled}
               truncateLabel={false}
               trailingLabelAccessory={
-                deferredTaxWasPrefilled && liqDeferredTax !== undefined ? prefillBadge : undefined
+                prefilledFields.liq_deferred_tax && liqDeferredTax !== undefined
+                  ? prefillBadge
+                  : undefined
               }
             />
             {/* Realised capital gains — drives the meerwaarde leg of

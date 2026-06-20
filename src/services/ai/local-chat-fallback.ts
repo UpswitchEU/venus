@@ -1,10 +1,7 @@
-import type { AIChatRequest, AIChatResponse } from './AIChatService'
+import type { AIChatResponse } from './AIChatResponseTypes'
+import type { AIChatRequest, AssistantIntent } from './AIChatTypes'
 
-export type AssistantIntent =
-  | 'explain_ebitda'
-  | 'explain_value'
-  | 'suggest_normalizations'
-  | 'general'
+export type { AssistantIntent } from './AIChatTypes'
 
 type NormalizationLike = {
   status?: string

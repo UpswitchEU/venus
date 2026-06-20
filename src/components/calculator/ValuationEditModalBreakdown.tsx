@@ -4,46 +4,16 @@ import { AlertTriangle, Calculator, Percent, Scale, TrendingUp } from 'lucide-re
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { cn } from '@/design-system/utils'
-import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
-import type {
-  HistoricalFcfReadiness,
-  MultiplePipelineStage,
-  ValuationMethodResult,
-  ValuationResponse,
-  WaterfallStep,
-} from '../../types/valuation'
+import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import { DcfSensitivityMatrix } from './sections/DcfSensitivityMatrix'
 import {
-  formatCurrency,
-  formatMultiple,
-  formatPercent,
-  sumAdjustmentValues,
-  toNumberOrNull,
-} from './ValuationEditModalFormatting'
-
-function isHistoricalFcfReadiness(value: unknown): value is HistoricalFcfReadiness {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.status === 'string' &&
-    typeof candidate.historical_years_count === 'number' &&
-    typeof candidate.actual_capex_years === 'number' &&
-    typeof candidate.actual_tax_years === 'number' &&
-    typeof candidate.actual_nwc_years === 'number'
-  )
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function normalizeComparablesQualityKey(raw: string): string {
-  const key = raw.toLowerCase().trim()
-  if (key === 'moderate') return 'medium'
-  return key
-}
+  buildMethodBreakdownModel,
+  buildMultipleFormulaModel,
+  getDcfReadinessMissingFieldKeys,
+  getFormulaTranslationKey,
+  normalizeComparablesQualityKey,
+} from './ValuationEditModalBreakdownModel'
+import { formatCurrency, formatMultiple, formatPercent } from './ValuationEditModalFormatting'
 
 function getComparablesQualityLabel(tBreakdown: (key: string) => string, raw: string): string {
   const nestedKey = `comparablesQualityValues.${normalizeComparablesQualityKey(raw)}`
@@ -146,147 +116,47 @@ export function MethodBreakdownSection({
     )
   }
 
-  const resultRecord = (result ?? null) as Record<string, unknown> | null
-  const resultDetails =
-    resultRecord?.details && typeof resultRecord.details === 'object'
-      ? (resultRecord.details as Record<string, unknown>)
-      : {}
-  const details =
-    method.details && typeof method.details === 'object'
-      ? (method.details as Record<string, unknown>)
-      : {}
-
-  const normalizedEbitda =
-    toNumberOrNull(resultDetails.sustainable_ebitda) ??
-    toNumberOrNull(resultDetails.weighted_ebitda_total) ??
-    toNumberOrNull(resultRecord?.ebitda)
-  const revenueValue =
-    toNumberOrNull(details.revenue) ??
-    toNumberOrNull(resultDetails.revenue) ??
-    toNumberOrNull(resultRecord?.revenue)
-  const arrValue =
-    toNumberOrNull(details.arr) ??
-    toNumberOrNull((details.saas_metrics as Record<string, unknown> | undefined)?.arr)
-  const netDebt =
-    toNumberOrNull(resultDetails.net_debt) ??
-    toNumberOrNull(resultRecord?.net_debt) ??
-    toNumberOrNull((resultRecord?.valuation_result as Record<string, unknown> | undefined)?.netDebt)
-  const balanceSheetAdjustments =
-    sumAdjustmentValues(resultDetails.balance_sheet_adjustments) ??
-    sumAdjustmentValues(resultRecord?.balance_sheet_adjustments)
-  const enterpriseValue =
-    toNumberOrNull(details.enterprise_value) ??
-    toNumberOrNull(result?.multiples_valuation?.enterprise_value) ??
-    toNumberOrNull(
-      (resultRecord?.valuation_result as Record<string, unknown> | undefined)?.enterpriseValueMid
-    )
-  const equityValue = toNumberOrNull(method.value)
-  const wacc = toNumberOrNull(method.wacc ?? details.wacc)
-  const terminalValue = toNumberOrNull(details.terminal_value)
-  const terminalValueMethodology =
-    typeof details.terminal_value_methodology === 'string'
-      ? details.terminal_value_methodology
-      : null
-  const terminalExitMultiple = toNumberOrNull(details.terminal_exit_multiple)
-  const dcfReadiness = isHistoricalFcfReadiness(details.historical_fcf_readiness)
-    ? details.historical_fcf_readiness
-    : isHistoricalFcfReadiness(result?.dcf_valuation?.historical_fcf_readiness)
-      ? result.dcf_valuation.historical_fcf_readiness
-      : null
-  const operatingDcfEnterpriseValue = toNumberOrNull(details.dcf_enterprise_value_before_apv)
-  const operatingDcfEquityValue = toNumberOrNull(details.dcf_equity_value_before_apv)
-  const apvTaxShieldValue = toNumberOrNull(details.apv_tax_shield_value)
-  const apvEnterpriseValue = toNumberOrNull(details.apv_enterprise_value) ?? enterpriseValue
-  const apvEquityValue = toNumberOrNull(details.apv_equity_value) ?? equityValue
-  const apvDiscountRate = toNumberOrNull(details.apv_discount_rate)
-  const apvDiscountingConvention =
-    typeof details.apv_discounting_convention === 'string'
-      ? details.apv_discounting_convention
-      : null
-  const apvBenchmarkReconciliation = asRecord(details.apv_benchmark_reconciliation)
-  const apvBenchmarkStatus =
-    typeof apvBenchmarkReconciliation?.status === 'string'
-      ? apvBenchmarkReconciliation.status
-      : null
-  const apvBenchmarkName =
-    typeof apvBenchmarkReconciliation?.benchmark_name === 'string'
-      ? apvBenchmarkReconciliation.benchmark_name
-      : 'Henk customer DCF template'
-  const hasApvBridge = methodKey === 'dcf' && apvTaxShieldValue != null
-  const sensitivityMatrix =
-    details.sensitivity_matrix_2d &&
-    typeof details.sensitivity_matrix_2d === 'object' &&
-    Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).wacc_values) &&
-    Array.isArray((details.sensitivity_matrix_2d as Record<string, unknown>).ev_matrix)
-      ? (details.sensitivity_matrix_2d as {
-          wacc_values: number[]
-          growth_values?: number[]
-          secondary_values?: number[]
-          secondary_axis_key?: 'terminal_growth' | 'exit_multiple' | string
-          secondary_axis_format?: 'percent' | 'multiple' | string
-          ev_matrix: number[][]
-        })
-      : null
-  const ownerSalaryEstimate = toNumberOrNull(details.owner_salary_estimate)
-  const sdeValue = toNumberOrNull(details.sde)
-  const bookEquity =
-    toNumberOrNull(details.book_equity) ??
-    toNumberOrNull((details as Record<string, unknown>).fiscal_book_equity)
-  const methodologyJustification =
-    typeof details.methodology_justification === 'string'
-      ? details.methodology_justification
-      : typeof details.description === 'string'
-        ? details.description
-        : null
-  const saasMetrics =
-    details.saas_metrics && typeof details.saas_metrics === 'object'
-      ? (details.saas_metrics as Record<string, unknown>)
-      : null
-  const saasRuleOf40 = toNumberOrNull(saasMetrics?.rule_of_40)
-  const saasNrr = toNumberOrNull(saasMetrics?.nrr_pct)
-  const comparablesCount = toNumberOrNull(result?.multiples_valuation?.comparables_count)
-  const comparablesQuality = result?.multiples_valuation?.comparables_quality ?? null
-  const pipelineRows = (result?.multiple_pipeline?.discount_waterfall?.slice(0, 4) ?? []).map(
-    (row: WaterfallStep) => ({
-      label: row.step_name,
-      before: toNumberOrNull(row.multiple_before_mid) ?? toNumberOrNull(row.multiple_before_low),
-      after: toNumberOrNull(row.multiple_after_mid) ?? toNumberOrNull(row.multiple_after_low),
-      discount: toNumberOrNull(row.discount_percentage),
-    })
+  const model = buildMethodBreakdownModel({ methodKey, method, result, appliedMultiple })
+  const {
+    usesRevenueMetric,
+    normalizedEbitda,
+    revenueValue,
+    arrValue,
+    netDebt,
+    balanceSheetAdjustments,
+    enterpriseValue,
+    equityValue,
+    wacc,
+    terminalValue,
+    terminalValueMethodology,
+    terminalExitMultiple,
+    dcfReadiness,
+    operatingDcfEnterpriseValue,
+    operatingDcfEquityValue,
+    apvTaxShieldValue,
+    apvEnterpriseValue,
+    apvEquityValue,
+    apvDiscountRate,
+    apvDiscountingConvention,
+    apvBenchmarkStatus,
+    apvBenchmarkName,
+    hasApvBridge,
+    sensitivityMatrix,
+    ownerSalaryEstimate,
+    sdeValue,
+    bookEquity,
+    methodologyJustification,
+    saasRuleOf40,
+    saasNrr,
+    comparablesCount,
+    comparablesQuality,
+    fallbackPipelineRows,
+    effectiveAppliedMultiple,
+  } = model
+  const missingReadinessFields = getDcfReadinessMissingFieldKeys(dcfReadiness).map((field) =>
+    tFcfReadiness(`fields.${field}`)
   )
-
-  const fallbackPipelineRows =
-    pipelineRows.length > 0
-      ? pipelineRows
-      : (result?.multiple_pipeline?.stages?.slice(0, 4) ?? []).map(
-          (stage: MultiplePipelineStage) => ({
-            label: stage.step_name,
-            before: toNumberOrNull(stage.multiple_before_mid ?? stage.multiple_before),
-            after: toNumberOrNull(stage.multiple_after_mid ?? stage.multiple_after),
-            discount: toNumberOrNull(stage.discount_percentage),
-          })
-        )
-
-  const effectiveAppliedMultiple =
-    appliedMultiple ??
-    toNumberOrNull(method.multiple_used) ??
-    toNumberOrNull(result?.multiple_pipeline?.final_multiple_mid) ??
-    toNumberOrNull(result?.multiple_pipeline?.final_multiple)
-
-  const missingReadinessFields =
-    dcfReadiness == null
-      ? []
-      : [
-          ...(dcfReadiness.actual_capex_years < dcfReadiness.historical_years_count
-            ? [tFcfReadiness('fields.capex')]
-            : []),
-          ...(dcfReadiness.actual_tax_years < dcfReadiness.historical_years_count
-            ? [tFcfReadiness('fields.taxes')]
-            : []),
-          ...(dcfReadiness.actual_nwc_years < Math.max(0, dcfReadiness.historical_years_count - 1)
-            ? [tFcfReadiness('fields.working_capital')]
-            : []),
-        ]
+  const multipleFormula = buildMultipleFormulaModel(methodKey, model)
 
   return (
     <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-4 space-y-3">
@@ -354,7 +224,7 @@ export function MethodBreakdownSection({
                 )}
                 <BreakdownMetricCard
                   label={tBreakdown('apvTaxShield')}
-                  value={formatCurrency(apvTaxShieldValue)}
+                  value={formatCurrency(apvTaxShieldValue ?? 0)}
                 />
                 {apvEnterpriseValue != null && (
                   <BreakdownMetricCard
@@ -555,7 +425,7 @@ export function MethodBreakdownSection({
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-2">
-            {isRevenueMethodologyKey(methodKey) ? (
+            {usesRevenueMetric ? (
               <StableMetricCard
                 label={tBreakdown('revenue')}
                 value={revenueValue}
@@ -672,66 +542,40 @@ export function MethodBreakdownSection({
           {tBreakdown('formulaHeading')}
         </div>
         <p className="text-[11px] leading-snug text-foreground/55">
-          {methodKey === 'dcf'
-            ? hasApvBridge
-              ? tBreakdown('formulaDcfApv')
-              : tBreakdown('formulaDcf')
-            : methodKey === 'fiscal_4x'
-              ? tBreakdown('formulaFiscal')
-              : methodKey === 'adjusted_nav'
-                ? tBreakdown('formulaNav')
-                : methodKey === 'sde_multiple'
-                  ? tBreakdown('formulaSde')
-                  : methodKey === 'arr_multiple'
-                    ? tBreakdown('formulaArr')
-                    : isRevenueMethodologyKey(methodKey)
-                      ? tBreakdown('formulaRevenue')
-                      : tBreakdown('formulaMultiple')}
+          {tBreakdown(getFormulaTranslationKey(methodKey, hasApvBridge))}
         </p>
-        {(() => {
-          const isMultiple =
-            methodKey === 'sde_multiple' ||
-            methodKey === 'arr_multiple' ||
-            isRevenueMethodologyKey(methodKey) ||
-            (methodKey !== 'dcf' && methodKey !== 'fiscal_4x' && methodKey !== 'adjusted_nav')
-          if (!isMultiple) return null
-          const metric =
-            methodKey === 'sde_multiple'
-              ? sdeValue
-              : methodKey === 'arr_multiple'
-                ? arrValue
-                : isRevenueMethodologyKey(methodKey)
-                  ? revenueValue
-                  : normalizedEbitda
-          const multiple = effectiveAppliedMultiple
-          if (metric == null || multiple == null || enterpriseValue == null) return null
-          const equity = equityValue ?? enterpriseValue
-          return (
-            <p className="text-[11px] font-mono tabular-nums text-foreground/70 leading-relaxed pt-1 border-t border-border/40 break-words">
-              {formatCurrency(metric)} <span className="text-foreground/40">×</span>{' '}
-              {multiple.toFixed(2)}× <span className="text-foreground/40">=</span>{' '}
-              <span className="text-foreground/85">{formatCurrency(enterpriseValue)}</span>
-              {netDebt != null && netDebt !== 0 && (
-                <>
-                  {' '}
-                  <span className="text-foreground/40">{netDebt > 0 ? '−' : '+'}</span>{' '}
-                  {formatCurrency(Math.abs(netDebt))}
-                </>
-              )}
-              {balanceSheetAdjustments != null && balanceSheetAdjustments !== 0 && (
+        {multipleFormula && (
+          <p className="text-[11px] font-mono tabular-nums text-foreground/70 leading-relaxed pt-1 border-t border-border/40 break-words">
+            {formatCurrency(multipleFormula.metric)} <span className="text-foreground/40">×</span>{' '}
+            {multipleFormula.multiple.toFixed(2)}× <span className="text-foreground/40">=</span>{' '}
+            <span className="text-foreground/85">
+              {formatCurrency(multipleFormula.enterpriseValue)}
+            </span>
+            {multipleFormula.netDebt != null && multipleFormula.netDebt !== 0 && (
+              <>
+                {' '}
+                <span className="text-foreground/40">
+                  {multipleFormula.netDebt > 0 ? '−' : '+'}
+                </span>{' '}
+                {formatCurrency(Math.abs(multipleFormula.netDebt))}
+              </>
+            )}
+            {multipleFormula.balanceSheetAdjustments != null &&
+              multipleFormula.balanceSheetAdjustments !== 0 && (
                 <>
                   {' '}
                   <span className="text-foreground/40">
-                    {balanceSheetAdjustments > 0 ? '+' : '−'}
+                    {multipleFormula.balanceSheetAdjustments > 0 ? '+' : '−'}
                   </span>{' '}
-                  {formatCurrency(Math.abs(balanceSheetAdjustments))}
+                  {formatCurrency(Math.abs(multipleFormula.balanceSheetAdjustments))}
                 </>
               )}{' '}
-              <span className="text-foreground/40">→</span>{' '}
-              <span className="text-primary font-semibold">{formatCurrency(equity)}</span>
-            </p>
-          )
-        })()}
+            <span className="text-foreground/40">→</span>{' '}
+            <span className="text-primary font-semibold">
+              {formatCurrency(multipleFormula.equity)}
+            </span>
+          </p>
+        )}
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { NormalizationItem } from '../../components/calculator/UnifiedNormalizationTypes'
 import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useImportQualityStore } from '../../store/useImportQualityStore'
@@ -6,7 +7,28 @@ import { useNbbPrefillStore } from '../../store/useNbbPrefillStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useSessionStore } from '../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import type { ValuationResponse } from '../../types/valuation'
 import { SessionRestorationService } from './SessionRestorationService'
+
+function valuationResultFixture(
+  overrides: Partial<ValuationResponse> & Record<string, unknown> = {}
+): ValuationResponse {
+  return {
+    valuation_id: 'val_test',
+    company_name: 'Test BV',
+    equity_value_low: 0,
+    equity_value_mid: 0,
+    equity_value_high: 0,
+    recommended_asking_price: 0,
+    confidence_score: 0,
+    overall_confidence: 'medium',
+    ...overrides,
+  }
+}
+
+function valuationResultDetails(result: ValuationResponse | null) {
+  return result?.details as { valuation_results?: Record<string, unknown> } | undefined
+}
 
 describe('SessionRestorationService', () => {
   beforeEach(() => {
@@ -14,7 +36,7 @@ describe('SessionRestorationService', () => {
     useNormalizationStore.getState().clear()
     useTaxLatencyStore.getState().clear()
     useNbbPrefillStore.getState().clear()
-    useImportQualityStore.setState({ importQuality: null, provider: null } as any)
+    useImportQualityStore.setState({ importQuality: null, provider: null })
     vi.spyOn(useNormalizationStore.getState(), 'loadFromTitan').mockResolvedValue(undefined)
     useManualFormStore.getState().resetForm()
     useManualResultsStore.setState({
@@ -24,14 +46,14 @@ describe('SessionRestorationService', () => {
       isCalculating: false,
       error: null,
       calculationProgress: 0,
-    } as any)
+    })
 
     useSessionStore.setState({
       session: null,
       status: 'idle',
       errorMessage: null,
       restorationComplete: false,
-    } as any)
+    })
   })
 
   afterEach(() => {
@@ -63,9 +85,55 @@ describe('SessionRestorationService', () => {
     expect(useSessionStore.getState().restorationComplete).toBe(false)
   })
 
+  it('coalesces concurrent restoration for the same report', async () => {
+    let releaseTitanLoad: (() => void) | undefined
+    vi.mocked(useNormalizationStore.getState().loadFromTitan).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseTitanLoad = resolve
+        })
+    )
+
+    const first = SessionRestorationService.restore('val_concurrent_restore', {
+      reportId: 'val_concurrent_restore',
+      sessionData: {
+        company_name: 'Concurrent BV',
+      },
+      valuationResult: {
+        valuation_id: 'val_concurrent_restore',
+        equity_value_mid: 100000,
+        currency: 'EUR',
+      },
+    })
+
+    expect(SessionRestorationService.isRestorationInProgress('val_concurrent_restore')).toBe(true)
+
+    const second = SessionRestorationService.restore('val_concurrent_restore', {
+      reportId: 'val_concurrent_restore',
+      sessionData: {
+        company_name: 'Should Not Rehydrate BV',
+      },
+      valuationResult: {
+        valuation_id: 'val_concurrent_restore',
+        equity_value_mid: 999999,
+        currency: 'EUR',
+      },
+    })
+
+    releaseTitanLoad?.()
+    const [firstResult, secondResult] = await Promise.all([first, second])
+
+    expect(useNormalizationStore.getState().loadFromTitan).toHaveBeenCalledTimes(1)
+    expect(firstResult.success).toBe(true)
+    expect(secondResult.success).toBe(true)
+    expect(useManualFormStore.getState().formData.company_name).toBe('Concurrent BV')
+    expect(useManualResultsStore.getState().result?.equity_value_mid).toBe(100000)
+    expect(SessionRestorationService.isRestorationInProgress('val_concurrent_restore')).toBe(false)
+  })
+
   it('preserves valuation methods during package-only hydration', () => {
     useManualResultsStore.setState({
-      result: {
+      result: valuationResultFixture({
         valuation_id: 'val_existing',
         html_report: '<html>Old report</html>',
         valuation_results: {
@@ -75,9 +143,9 @@ describe('SessionRestorationService', () => {
             label: 'Upswitch adaptieve marktbenadering',
           },
         },
-      } as any,
+      }),
       htmlReport: '<html>Old report</html>',
-    } as any)
+    })
 
     SessionRestorationService.hydrateFromPackage(
       'val_existing',
@@ -156,7 +224,7 @@ describe('SessionRestorationService', () => {
         equity_value_mid: 100000,
         currency: 'EUR',
       },
-    } as any)
+    })
 
     const fd = useManualFormStore.getState().formData
     expect(fd.company_name).toBe('Nested BV')
@@ -172,7 +240,7 @@ describe('SessionRestorationService', () => {
           kbo_number: '0888888888',
         },
       },
-    } as any)
+    })
 
     const fd = useManualFormStore.getState().formData
     expect(fd.company_name).toBe('Draft BV')
@@ -198,7 +266,7 @@ describe('SessionRestorationService', () => {
         },
       },
       htmlReport: '<html>Report</html>',
-    } as any)
+    })
 
     const state = useManualResultsStore.getState()
     expect(state.result?.valuation_results).toMatchObject({
@@ -207,7 +275,7 @@ describe('SessionRestorationService', () => {
         value: 250000,
       },
     })
-    expect((state.result as any)?.details?.valuation_results).toMatchObject({
+    expect(valuationResultDetails(state.result)?.valuation_results).toMatchObject({
       ebitda_multiple: {
         available: true,
         value: 250000,
@@ -428,7 +496,7 @@ describe('SessionRestorationService', () => {
           },
         },
       },
-    } as any)
+    })
 
     const items = useNormalizationStore.getState().items
     expect(items.some((i) => i.ledgerCode === '620')).toBe(true)
@@ -495,7 +563,7 @@ describe('SessionRestorationService', () => {
           ],
         },
       },
-    } as any)
+    })
 
     const nbb = useNbbPrefillStore.getState()
     expect(nbb.hasNbbData).toBe(true)
@@ -533,7 +601,7 @@ describe('SessionRestorationService', () => {
           },
         },
       },
-    } as any)
+    })
 
     expect(useTaxLatencyStore.getState().candidates).toEqual([
       expect.objectContaining({
@@ -566,7 +634,7 @@ describe('SessionRestorationService', () => {
           ],
         },
       },
-    } as any)
+    })
 
     expect(useTaxLatencyStore.getState().candidates).toEqual([
       expect.objectContaining({
@@ -579,23 +647,22 @@ describe('SessionRestorationService', () => {
 
   it('restore seeds tax latency candidates even when normalization items already exist', async () => {
     SessionRestorationService.clearRestorationState('val_restore_tax_latency_with_norms')
-    useNormalizationStore.getState().setItems([
-      {
-        id: 'norm-1',
-        ledgerCode: '610',
-        ledgerName: 'Discretionary',
-        category: 'other',
-        type: 'add',
-        value: 5000,
-        adjustment: 5000,
-        reason: 'Existing normalization',
-        source: 'manual',
-        status: 'accepted',
-        year: 2024,
-        applyAllYears: false,
-        createdAt: new Date().toISOString(),
-      } as any,
-    ])
+    const existingNormalization = {
+      id: 'norm-1',
+      ledgerCode: '610',
+      ledgerName: 'Discretionary',
+      category: 'other',
+      type: 'add',
+      value: 5000,
+      adjustment: 5000,
+      reason: 'Existing normalization',
+      source: 'manual',
+      status: 'accepted',
+      year: 2024,
+      applyAllYears: false,
+      createdAt: new Date().toISOString(),
+    } satisfies NormalizationItem & { createdAt: string }
+    useNormalizationStore.getState().setItems([existingNormalization])
     useTaxLatencyStore.getState().clear()
 
     await SessionRestorationService.restore('val_restore_tax_latency_with_norms', {
@@ -618,7 +685,7 @@ describe('SessionRestorationService', () => {
           },
         },
       },
-    } as any)
+    })
 
     expect(useTaxLatencyStore.getState().candidates).toEqual([
       expect.objectContaining({
@@ -636,7 +703,7 @@ describe('SessionRestorationService', () => {
         company_name: 'Legacy Stake Co',
         shares_for_sale: 40,
       },
-    } as any)
+    })
 
     const state = useManualFormStore.getState()
     expect(state.formData.shares_for_sale).toBe(100)

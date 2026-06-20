@@ -12,18 +12,12 @@ import { cn } from '@/design-system/utils'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
-import {
-  detectDossierSignal,
-  SUGGESTED_DELTA_BAND,
-} from '../../store/manual/preparerCalibrationSuggestions'
-import {
-  clientShouldWarnExtremeMultiple,
-  usePreparerMultipleStore,
-} from '../../store/manual/usePreparerMultipleStore'
+import { usePreparerMultipleStore } from '../../store/manual/usePreparerMultipleStore'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
 import { MethodBreakdownSection, StakeCalculatorSection } from './ValuationEditModalBreakdown'
-import { formatCurrency, sumAdjustmentValues, toNumberOrNull } from './ValuationEditModalFormatting'
+import { formatCurrency } from './ValuationEditModalFormatting'
+import { buildValuationEditPreparerModel } from './ValuationEditModalPreparerModel'
 import { ValuationEditModalPreparerSection } from './ValuationEditModalPreparerSection'
 
 const METHOD_OVERRIDE_REASON_KEYS = [
@@ -243,201 +237,87 @@ export function ValuationEditModal({
 
   const availableCount = panoramaEntries.filter(([, m]) => m.available).length
 
-  // Preparer helpers
-  const mv = result?.multiples_valuation
-  const appliedNum = appliedMedian != null ? Number(appliedMedian) : null
-  const benchmarkNum =
-    benchmarkMedian ?? (mv?.ebitda_multiple != null ? Number(mv.ebitda_multiple) : null)
-  const prepDeltaNum =
-    appliedNum != null && benchmarkNum != null
-      ? Math.round((appliedNum - benchmarkNum) * 100) / 100
-      : null
-  const showExtreme =
-    appliedNum != null &&
-    clientShouldWarnExtremeMultiple(
-      appliedNum,
-      mv?.p10_ebitda_multiple,
-      mv?.p90_ebitda_multiple,
+  const prepModel = useMemo(
+    () =>
+      buildValuationEditPreparerModel({
+        result,
+        benchmarkMedian,
+        appliedMedian,
+        reasonKey,
+        note,
+        locale,
+        businessTypeLabel,
+        industryLabel,
+        countryCode,
+        contextSeparator: tPrep('contextSeparator'),
+        activeMethodValue: activeMethod?.value,
+        selectedMethod,
+        preparerDisabled,
+        isMethodPersisting,
+      }),
+    [
+      result,
       benchmarkMedian,
-      mv?.p25_ebitda_multiple,
-      mv?.p75_ebitda_multiple
-    )
-  const bench = benchmarkNum ?? 5
-
-  // Slider clamps anchored on benchmark (replaces legacy hard-coded 0.1–20×):
-  // – wide enough to cover strategic-buyer premia (up to ~2.2× benchmark)
-  //   and distress / asset-heavy discounts (down to ~0.45× benchmark);
-  // – capped at 30× absolute ceiling so SaaS-flavoured peers stay reachable
-  //   without unlocking joke values; floor at 0.5× absolute.
-  const sliderMin = Math.max(0.5, Math.round(bench * 0.45 * 20) / 20)
-  const sliderMax = Math.min(30, Math.round(bench * 2.2 * 20) / 20)
-
-  // Extreme-band info for descriptive warning copy.
-  const extremeBoundInfo = (() => {
-    if (!showExtreme || appliedNum == null) return null
-    const p90 = mv?.p90_ebitda_multiple
-    const p75 = mv?.p75_ebitda_multiple
-    const p10 = mv?.p10_ebitda_multiple
-    const p25 = mv?.p25_ebitda_multiple
-    const hi = p90 != null && p90 > 0 ? p90 : p75
-    const lo = p10 != null && p10 > 0 ? p10 : p25
-    if (hi != null && appliedNum > hi) {
-      return {
-        direction: tPrep('extremeWarningAbove'),
-        directionLabel: tPrep('extremeWarningDirAboveLabel'),
-        bound: 'p90' as const,
-        boundValue: hi.toFixed(2),
-      }
-    }
-    if (lo != null && appliedNum < lo) {
-      return {
-        direction: tPrep('extremeWarningBelow'),
-        directionLabel: tPrep('extremeWarningDirBelowLabel'),
-        bound: 'p10' as const,
-        boundValue: lo.toFixed(2),
-      }
-    }
-    return null
-  })()
-
-  // ── "Already in the benchmark" — surface the engine's own discount cascade
-  //    so the preparer can see what's already priced in BEFORE adding their
-  //    own override. The waterfall stages carry both the step label and the
-  //    discount percentage; we filter trivial (<0.1pt) noise so the card
-  //    stays actionable. Falls back to `stages` when `discount_waterfall`
-  //    isn't present (legacy payloads). #}
-  const engineDiscountSteps = useMemo(() => {
-    const pipeline = (result as ValuationResponse | null)?.multiple_pipeline
-    const raw = pipeline?.discount_waterfall ?? pipeline?.stages ?? []
-    const TRIVIAL = 0.1
-    return raw
-      .map((row) => {
-        const name = (row as { step_name?: string }).step_name ?? ''
-        const pct =
-          'discount_percentage' in row && typeof row.discount_percentage === 'number'
-            ? row.discount_percentage
-            : null
-        return name && pct != null && Math.abs(pct) >= TRIVIAL ? { name: name.trim(), pct } : null
-      })
-      .filter((row): row is { name: string; pct: number } => row !== null)
-      .slice(0, 6) // keep the card scannable on a narrow modal column
-  }, [result])
-
-  // ── Dossier-signal-driven calibration suggestion. Fed from the response
-  //    root (recurring-revenue %, owner-concentration risk) and de-duped
-  //    against the engine's discount waterfall so we never propose a
-  //    discount the engine has already applied. See
-  //    `preparerCalibrationSuggestions.detectDossierSignal` for the rules. #}
-  const dossierSignal = useMemo(() => {
-    const resultRecord = (result ?? null) as Record<string, unknown> | null
-    const recurringRevenuePercentage = toNumberOrNull(resultRecord?.recurring_revenue_percentage)
-    const ownerConcRisk =
-      typeof mv?.owner_concentration?.risk_level === 'string'
-        ? mv.owner_concentration.risk_level
-        : null
-    return detectDossierSignal({
-      recurringRevenuePercentage,
-      ownerConcentrationRisk: ownerConcRisk,
-      appliedWaterfallStepNames: engineDiscountSteps.map((s) => s.name),
-    })
-  }, [result, mv, engineDiscountSteps])
-
-  // ── Restored-from-save signal. The store has already hydrated the picker
-  //    from `multiple_adjustment_summary`; we surface a small badge so the
-  //    preparer knows these aren't fresh defaults but their last save. #}
-  const wasRestoredFromSave = useMemo(() => {
-    const savedKey = result?.multiple_adjustment_summary?.reason_key
-    return Boolean(savedKey && savedKey === reasonKey)
-  }, [result, reasonKey])
-
-  // ── Currently-selected reason's typical band (for the inline caption
-  //    under the Justification picker). Hidden for `other` (no anchor) and
-  //    when no reason is picked. We narrow the empty-string case via a
-  //    truthy check so the SUGGESTED_DELTA_BAND lookup is type-safe.
-  const selectedReasonBand = reasonKey ? SUGGESTED_DELTA_BAND[reasonKey] : null
-
-  let regionName: string | null = null
-  if (countryCode && countryCode.length === 2) {
-    try {
-      const loc = locale === 'nl' ? 'nl-BE' : 'en-GB'
-      regionName =
-        new Intl.DisplayNames([loc], { type: 'region' }).of(countryCode.toUpperCase()) ?? null
-    } catch {
-      regionName = countryCode.toUpperCase()
-    }
-  }
-  const contextSegments = [businessTypeLabel, industryLabel, regionName].filter(
-    (s): s is string => typeof s === 'string' && s.trim().length > 0
+      appliedMedian,
+      reasonKey,
+      note,
+      locale,
+      businessTypeLabel,
+      industryLabel,
+      countryCode,
+      tPrep,
+      activeMethod?.value,
+      selectedMethod,
+      preparerDisabled,
+      isMethodPersisting,
+    ]
   )
-  const benchmarkContext =
-    contextSegments.length > 0 ? contextSegments.join(tPrep('contextSeparator')) : null
 
-  const qualityRaw = `${mv?.comparables_quality ?? ''} ${mv?.confidence ?? ''}`.toUpperCase()
-  let confidenceKey: 'confidenceHigh' | 'confidenceMedium' | 'confidenceLow' | 'confidenceDefault' =
-    'confidenceDefault'
-  if (qualityRaw.includes('HIGH')) confidenceKey = 'confidenceHigh'
-  else if (qualityRaw.includes('MEDIUM') || qualityRaw.includes('MODERATE'))
-    confidenceKey = 'confidenceMedium'
-  else if (qualityRaw.includes('LOW')) confidenceKey = 'confidenceLow'
-
-  const hasPrepData = !!(result?.multiples_valuation?.ebitda_multiple || benchmarkMedian != null)
-  const nonEbitdaMethodSelected =
-    selectedMethod !== 'upswitch_adaptive' && selectedMethod !== 'ebitda_multiple'
-  const effectiveDisabled = preparerDisabled || nonEbitdaMethodSelected || isMethodPersisting
-
-  const savedSummary = result?.multiple_adjustment_summary
-  const livePreview =
-    benchmarkNum != null &&
-    appliedNum != null &&
-    reasonKey &&
-    Math.abs(appliedNum - benchmarkNum) >= 0.005
-      ? tPrep('previewTemplate', {
-          benchmark: benchmarkNum.toFixed(2),
-          applied: appliedNum.toFixed(2),
-          delta: Math.abs(appliedNum - benchmarkNum).toFixed(2),
-          adjustmentLabel:
-            appliedNum >= benchmarkNum ? tPrep('adjustmentPremium') : tPrep('adjustmentDiscount'),
-          reason: tPrep(`reasons.${reasonKey}`),
-        }) + (note.trim() ? ` ${tPrep('previewNote', { note: note.trim() })}` : '')
-      : null
-  const savedPreview =
-    locale === 'nl'
-      ? (savedSummary?.generated_footnote_nl ?? savedSummary?.generated_footnote ?? null)
-      : (savedSummary?.generated_footnote_en ?? savedSummary?.generated_footnote ?? null)
-  const previewText = livePreview ?? savedPreview
-  const resultRecord = (result ?? null) as Record<string, unknown> | null
-  const detailsRecord = resultRecord?.details
-  const resultDetails =
-    detailsRecord && typeof detailsRecord === 'object'
-      ? (detailsRecord as Record<string, unknown>)
-      : {}
-  const previewNetDebt =
-    toNumberOrNull(resultDetails.net_debt) ?? toNumberOrNull(resultRecord?.net_debt) ?? 0
-  const previewBalanceSheetAdjustments =
-    sumAdjustmentValues(resultDetails.balance_sheet_adjustments) ??
-    sumAdjustmentValues(resultRecord?.balance_sheet_adjustments) ??
-    0
-  const sustainableEbitda =
-    toNumberOrNull(resultDetails.sustainable_ebitda) ??
-    toNumberOrNull(resultDetails.weighted_ebitda_total) ??
-    toNumberOrNull(resultRecord?.ebitda)
-  // Always render the live preview when EBITDA + multiple are known so the
-  // reader gets immediate "what will the headline be after Recalculate?" signal.
-  // Benchmark fallback: when the user hasn't moved the slider, preview the
-  // benchmark median itself (delta = 0 against headline by construction).
-  const previewMultiple =
-    appliedNum != null && Number.isFinite(appliedNum)
-      ? appliedNum
-      : benchmarkNum != null && Number.isFinite(benchmarkNum)
-        ? benchmarkNum
-        : null
-  const liveEquityPreview =
-    sustainableEbitda != null && previewMultiple != null && previewMultiple > 0
-      ? Math.round(
-          sustainableEbitda * previewMultiple - previewNetDebt + previewBalanceSheetAdjustments
-        )
-      : null
-  const activeMetricValue = toNumberOrNull(activeMethod?.value)
+  const {
+    activeMetricValue,
+    appliedNum,
+    bench,
+    benchmarkContext,
+    benchmarkNum,
+    confidenceKey,
+    dossierSignal,
+    effectiveDisabled,
+    engineDiscountSteps,
+    hasPrepData,
+    liveEquityPreview,
+    mv,
+    nonEbitdaMethodSelected,
+    prepDeltaNum,
+    selectedReasonBand,
+    showExtreme,
+    sliderMax,
+    sliderMin,
+    wasRestoredFromSave,
+  } = prepModel
+  const extremeBoundInfo = prepModel.extremeBoundInfo
+    ? {
+        direction: tPrep(prepModel.extremeBoundInfo.directionKey),
+        directionLabel: tPrep(prepModel.extremeBoundInfo.directionLabelKey),
+        bound: prepModel.extremeBoundInfo.bound,
+        boundValue: prepModel.extremeBoundInfo.boundValue,
+      }
+    : null
+  const livePreview = prepModel.livePreview
+    ? tPrep('previewTemplate', {
+        benchmark: prepModel.livePreview.benchmark,
+        applied: prepModel.livePreview.applied,
+        delta: prepModel.livePreview.delta,
+        adjustmentLabel:
+          prepModel.livePreview.adjustment === 'premium'
+            ? tPrep('adjustmentPremium')
+            : tPrep('adjustmentDiscount'),
+        reason: tPrep(`reasons.${prepModel.livePreview.reasonKey}`),
+      }) +
+      (prepModel.livePreview.note
+        ? ` ${tPrep('previewNote', { note: prepModel.livePreview.note })}`
+        : '')
+    : null
+  const previewText = livePreview ?? prepModel.savedPreview
 
   if (panoramaEntries.length === 0) {
     const title = isHydratingMethods
