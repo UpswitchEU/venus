@@ -24,6 +24,7 @@ import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
 import type { DcfSmartDefaults, WaccSectorBand } from './dcfSmartDefaults'
 import { EmbeddedDcfControls } from './EmbeddedDcfControls'
 import { HistoricalYearCard } from './HistoricalYearCard'
+import { InviteAccountantInline } from './InviteAccountantInline'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 import { NormalizedEbitdaSummary } from './NormalizedEbitdaSummary'
 
@@ -199,6 +200,9 @@ export function FinancialHistorySection({
         taxLatencyCount={taxLatencyCount}
         totalYearsWithEbitda={totalYearsWithEbitda}
       />
+
+      {/* BET-317 — in-form "invite my accountant" so the owner stays in the funnel. */}
+      <InviteAccountantInline />
 
       <div className="space-y-3">
         {historicalCardRows.map((yearData) => {

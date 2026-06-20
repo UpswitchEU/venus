@@ -610,11 +610,21 @@ describe('sessionReadiness Mercury report URL contract', () => {
   })
 
   it('AuthenticatedSessionEngine does not retry 503/504 autosave failures', () => {
-    const path = join(__dirname, '../../services/session/engines/AuthenticatedSessionEngine.ts')
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/Pool-pressure \/ BFF timeout/)
-    expect(source).toMatch(/awaitSessionPoolPressureGate/)
-    expect(source).toMatch(/recordSessionPoolPressureFromHttpError/)
+    const enginePath = join(
+      __dirname,
+      '../../services/session/engines/AuthenticatedSessionEngine.ts'
+    )
+    const errorPolicyPath = join(
+      __dirname,
+      '../../services/session/engines/AuthenticatedSessionSaveErrorPolicy.ts'
+    )
+    const engineSource = readFileSync(enginePath, 'utf8')
+    const errorPolicySource = readFileSync(errorPolicyPath, 'utf8')
+    expect(errorPolicySource).toMatch(/Pool-pressure \/ BFF timeout/)
+    expect(errorPolicySource).toMatch(/status === 503 \|\| status === 504/)
+    expect(engineSource).toMatch(/awaitSessionPoolPressureGate/)
+    expect(engineSource).toMatch(/recordSessionPoolPressureFromHttpError/)
+    expect(engineSource).toMatch(/isRetryableSessionSaveError/)
   })
 
   it('HttpClient does not retry 503/504 by default', () => {

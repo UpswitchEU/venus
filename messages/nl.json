@@ -1426,6 +1426,25 @@
 		"calculating": "Berekenen...",
 		"calculateEstimate": "Bereken Schatting",
 		"liveAccountingImportHint": "Haal historische cijfers op of vernieuw ze vanuit uw gekoppelde {provider}-account.",
+		"inviteAccountant": {
+			"prompt": "Heb je de cijfers niet bij de hand? Vraag je boekhouder om ze in te vullen.",
+			"cta": "Mijn boekhouder vragen",
+			"title": "Boekhouder uitnodigen",
+			"description": "Geef het e-mailadres in — we sturen een beveiligde link om hun tool te koppelen of de cijfers voor jou in te vullen.",
+			"emailLabel": "E-mail boekhouder",
+			"emailPlaceholder": "naam@boekhouder.be",
+			"messageLabel": "Persoonlijke noot (optioneel)",
+			"messagePlaceholder": "Een korte noot ter context. Leeg laten = standaard uitnodiging.",
+			"send": "Uitnodiging sturen",
+			"sending": "Versturen…",
+			"cancel": "Annuleren",
+			"invalidEmail": "Voer een geldig e-mailadres in.",
+			"missingEmail": "E-mail boekhouder is verplicht.",
+			"tooLong": "Persoonlijke noot mag maximaal {max} tekens zijn.",
+			"sentTitle": "Uitnodiging verzonden",
+			"sentBody": "We laten het je weten zodra {email} koppelt of je cijfers invult.",
+			"genericError": "Uitnodiging kon niet worden verzonden. Probeer opnieuw."
+		},
 		"silverfin": {
 			"importBatchSuccessTitle": "{years} boekjaren geïmporteerd uit {provider}",
 			"importBatchSuccessDescription": "Grootboek gemapt: {score}% overeenstemming met Belgische MAR"

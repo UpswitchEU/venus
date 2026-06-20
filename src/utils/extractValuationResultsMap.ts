@@ -11,8 +11,30 @@
  */
 import type { ValuationMethodResult, ValuationResponse } from '@/types/valuation'
 import { normalizeValuationResultEnvelope } from '@/utils/resolveAcademicValidationIssues'
+import {
+  isRevenueMethodologyKey,
+  normalizeSelectedMethodKey,
+  withRevenueMethodAliases,
+} from './valuationMethodAliases'
+import {
+  asRecord,
+  midpointFromPositiveRange,
+  nestedRecord,
+  toFiniteNumber,
+  toFiniteNumberArray,
+  toPositiveFiniteNumber,
+  type UnknownRecord,
+} from './valuationResultExtractionPrimitives'
 
-type UnknownRecord = Record<string, unknown>
+export {
+  getValuationMethodResultForKey,
+  hydratedRevenueMethodKeysAreSameRef,
+  isDuplicateHydratedRevenueAliasEntry,
+  isRevenueMethodologyKey,
+  normalizeSelectedMethodKey,
+  revenueMethodologySiblingKey,
+} from './valuationMethodAliases'
+
 type MethodResultRow = ValuationMethodResult & UnknownRecord
 type MethodResultMap = Record<string, MethodResultRow>
 
@@ -23,52 +45,6 @@ export type ExtractValuationResultsContext = {
 /** Optional override when merging two payloads (e.g. session restore + in-memory result). */
 export type HydrateClientValuationResultsOptions = {
   selectedValuationMethodOverride?: string | null
-}
-
-/** The other NL/EN key for the same revenue-multiple methodology. */
-export function revenueMethodologySiblingKey(
-  key: string
-): 'omzet_multiple' | 'revenue_multiple' | null {
-  if (key === 'omzet_multiple') return 'revenue_multiple'
-  if (key === 'revenue_multiple') return 'omzet_multiple'
-  return null
-}
-
-/** Read method row from a hydrated map; `omzet_multiple` / `revenue_multiple` are aliases. */
-export function getValuationMethodResultForKey(
-  map: Record<string, ValuationMethodResult> | null | undefined,
-  methodKey: string
-): ValuationMethodResult | undefined {
-  if (!map) return undefined
-  const direct = map[methodKey]
-  if (direct) return direct
-  const sibling = revenueMethodologySiblingKey(methodKey)
-  if (sibling) return map[sibling]
-  return undefined
-}
-
-/**
- * After {@link withMethodAliases}, `revenue_multiple` may duplicate `omzet_multiple` by reference.
- * Skip copying/enumerating the EN key when merging UI rows.
- */
-export function isDuplicateHydratedRevenueAliasEntry(
-  map: Record<string, ValuationMethodResult | undefined>,
-  key: string,
-  method: ValuationMethodResult | undefined
-): boolean {
-  if (key !== 'revenue_multiple' || method == null) return false
-  const omzet = map.omzet_multiple
-  return omzet != null && omzet === method
-}
-
-/** True when both keys exist and reference the same hydrated row. */
-export function hydratedRevenueMethodKeysAreSameRef(
-  map: Record<string, ValuationMethodResult | undefined> | null | undefined
-): boolean {
-  if (!map || typeof map !== 'object') return false
-  const omzet = map.omzet_multiple
-  const revenue = map.revenue_multiple
-  return omzet != null && revenue != null && omzet === revenue
 }
 
 /**
@@ -110,34 +86,6 @@ export function resolveSelectedValuationMethodForExtraction(
   return null
 }
 
-const METHOD_KEY_ALIASES: Record<string, string> = {
-  revenue_multiple: 'omzet_multiple',
-}
-const REVENUE_METHOD_KEYS = new Set(['omzet_multiple', 'revenue_multiple'])
-
-export function isRevenueMethodologyKey(methodKey: string): boolean {
-  return REVENUE_METHOD_KEYS.has(methodKey)
-}
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
-function asRecord(value: unknown): UnknownRecord | null {
-  return isRecord(value) ? value : null
-}
-
-function nestedRecord(value: UnknownRecord | null | undefined, key: string): UnknownRecord | null {
-  return value ? asRecord(value[key]) : null
-}
-
-export function normalizeSelectedMethodKey(methodKey: unknown): string {
-  if (methodKey == null) return ''
-  const raw = String(methodKey).trim().toLowerCase().replace(/-/g, '_')
-  const normalized = raw.split(/\s+/).join('_')
-  return METHOD_KEY_ALIASES[normalized] || normalized
-}
-
 function isDcfMethodKey(methodKey: unknown): boolean {
   const normalized = normalizeSelectedMethodKey(methodKey)
   return (
@@ -151,41 +99,6 @@ function isDcfMethodKey(methodKey: unknown): boolean {
 function isHybridMethodKey(methodKey: unknown): boolean {
   const normalized = normalizeSelectedMethodKey(methodKey)
   return normalized === 'hybrid' || normalized === 'hybrid_dcf' || normalized === 'hybrid_valuation'
-}
-
-function withMethodAliases(map: MethodResultMap | null): MethodResultMap | null {
-  if (!map || typeof map !== 'object' || Array.isArray(map)) {
-    return map
-  }
-  if (map.omzet_multiple && !map.revenue_multiple) {
-    return { ...map, revenue_multiple: map.omzet_multiple }
-  }
-  if (map.revenue_multiple && !map.omzet_multiple) {
-    return { ...map, omzet_multiple: map.revenue_multiple }
-  }
-  return map
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (value == null || value === '') return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
-function toPositiveFiniteNumber(value: unknown): number | null {
-  const numeric = toFiniteNumber(value)
-  return numeric != null && numeric > 0 ? numeric : null
-}
-
-function midpointFromPositiveRange(low: number | null, high: number | null): number | null {
-  if (low == null || high == null || low <= 0 || high <= 0) return null
-  return Math.round((low + high) / 2)
-}
-
-function toFiniteNumberArray(value: unknown): number[] | null {
-  if (!Array.isArray(value)) return null
-  const normalized = value.map(toFiniteNumber)
-  return normalized.every((v): v is number => v != null) ? normalized : null
 }
 
 function enrichDcfDetailsFromValuation(
@@ -773,11 +686,11 @@ export function extractValuationResultsMap(
       if (!pruned) {
         continue
       }
-      return withMethodAliases(enrichDcfMethod(pruned, valuationResult))
+      return withRevenueMethodAliases(enrichDcfMethod(pruned, valuationResult))
     }
   }
 
-  return withMethodAliases(synthesizeMinimalValuationResultsMap(valuationResult, context))
+  return withRevenueMethodAliases(synthesizeMinimalValuationResultsMap(valuationResult, context))
 }
 
 /**

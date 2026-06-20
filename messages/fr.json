@@ -1426,6 +1426,25 @@
 		"calculating": "Calcul...",
 		"calculateEstimate": "Calculer l'estimation",
 		"liveAccountingImportHint": "Extrayez ou actualisez les chiffres historiques de votre compte {provider} connecté.",
+		"inviteAccountant": {
+			"prompt": "Vous n'avez pas les chiffres sous la main ? Demandez à votre comptable de les remplir.",
+			"cta": "Demander à mon comptable",
+			"title": "Inviter votre comptable",
+			"description": "Indiquez son e-mail — nous enverrons un lien sécurisé pour connecter son outil ou saisir les chiffres à votre place.",
+			"emailLabel": "E-mail du comptable",
+			"emailPlaceholder": "nom@comptable.be",
+			"messageLabel": "Note personnelle (facultatif)",
+			"messagePlaceholder": "Une courte note pour le contexte. Laissez vide pour envoyer l'invitation par défaut.",
+			"send": "Envoyer l'invitation",
+			"sending": "Envoi…",
+			"cancel": "Annuler",
+			"invalidEmail": "Saisissez une adresse e-mail valide.",
+			"missingEmail": "L'e-mail du comptable est requis.",
+			"tooLong": "La note personnelle ne peut pas dépasser {max} caractères.",
+			"sentTitle": "Invitation envoyée",
+			"sentBody": "Nous vous préviendrons dès que {email} se connecte ou remplit vos chiffres.",
+			"genericError": "L'invitation n'a pas pu être envoyée. Réessayez."
+		},
 		"silverfin": {
 			"importBatchSuccessTitle": "Exercices fiscaux {years} importés à partir de {provider}",
 			"importBatchSuccessDescription": "Balance de vérification cartographiée : {score}% correspond au MAR belge"

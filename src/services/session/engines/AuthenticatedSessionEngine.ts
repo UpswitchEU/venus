@@ -27,263 +27,15 @@ import { generalLogger } from '../../../utils/logger'
 import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../../../utils/reportHtmlRecovery'
 import { sessionService } from '../../index'
 import type { FlowType, ISessionEngine, SessionDataRecord } from '../SessionEngine'
-
-/**
- * Backend-computed fields that must NOT round-trip through autosave PATCHes.
- *
- * The session blob the engine holds in memory mirrors what Titan returns —
- * including the heavy server-rendered artifacts (``valuation_result``, the
- * HTML report, the PDF-HTML report, and their underscore-prefixed mirrors).
- * Sending them back in every PATCH causes:
- *   1. **Multi-MB payloads** — METANOUS revisit shipped 13.9MB per autosave
- *      (Titan log: `content-length: 13920316`), which spent ~5.5s on the
- *      wire and twice triggered "Premature close" 500s.
- *   2. **Race-condition data loss** — every PATCH overwrites the server's
- *      authoritative ``valuation_result`` with the engine's stale copy.
- *      If a parallel backend update fired (PDF gen, normalization,
- *      benchmark refresh), our PATCH would clobber it.
- *
- * These keys are produced server-side and never edited by the form, so
- * the autosave PATCH can safely omit them. The next GET pulls the
- * authoritative blob back if the in-memory copy needed refreshing.
- */
-const BACKEND_COMPUTED_SESSION_KEYS = new Set<string>([
-  'valuation_result',
-  'valuationResult',
-  '_valuationResult',
-  'html_report',
-  'htmlReport',
-  '_htmlReport',
-  'pdf_html_report',
-  'pdfHtmlReport',
-  '_pdfHtmlReport',
-  'pdfHtml',
-  'reportHtml',
-  'report_context',
-])
-
-function stripBackendComputedFields(payload: Record<string, unknown>): Record<string, unknown> {
-  const stripped: Record<string, unknown> = {}
-  let removedCount = 0
-  let removedBytes = 0
-  for (const [key, value] of Object.entries(payload)) {
-    if (BACKEND_COMPUTED_SESSION_KEYS.has(key)) {
-      removedCount += 1
-      // Best-effort size estimate so the log is informative — JSON.stringify
-      // on the value is bounded by the keys we're stripping (kBs at most for
-      // metadata, but valuation_result + html_report can be MB-class).
-      try {
-        removedBytes += JSON.stringify(value)?.length ?? 0
-      } catch {
-        /* unstringifiable — skip the byte count, keep the strip */
-      }
-      continue
-    }
-    stripped[key] = value
-  }
-  if (removedCount > 0) {
-    generalLogger.debug(
-      '[AuthenticatedSessionEngine] Stripped backend-computed keys from autosave',
-      {
-        removedCount,
-        approxBytesRemoved: removedBytes,
-      }
-    )
-  }
-  return stripped
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function coerceStatus(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  return /^\d{3}$/.test(trimmed) ? Number(trimmed) : undefined
-}
-
-function readNumericStatus(value: unknown, seen = new Set<unknown>()): number | undefined {
-  const record = asRecord(value)
-  if (!record || seen.has(value)) return undefined
-  seen.add(value)
-
-  const directStatus = record.status ?? record.statusCode
-  const directNumericStatus = coerceStatus(directStatus)
-  if (directNumericStatus !== undefined) return directNumericStatus
-
-  const response = asRecord(record.response)
-  const responseStatus = coerceStatus(response?.status)
-  if (responseStatus !== undefined) return responseStatus
-
-  const context = asRecord(record.context)
-  const contextStatus = coerceStatus(context?.statusCode ?? context?.status)
-  if (contextStatus !== undefined) return contextStatus
-
-  const nestedStatus = readNumericStatus(context?.originalError, seen)
-  if (nestedStatus !== undefined) return nestedStatus
-
-  return readNumericStatus(response?.data, seen)
-}
-
-function collectErrorText(value: unknown, seen = new Set<unknown>()): string {
-  if (typeof value === 'string') return value
-  const record = asRecord(value)
-  if (!record || seen.has(value)) return ''
-  seen.add(value)
-
-  const parts = [
-    typeof record.name === 'string' ? record.name : undefined,
-    typeof record.code === 'string' ? record.code : undefined,
-    typeof record.message === 'string' ? record.message : undefined,
-  ]
-
-  const response = asRecord(record.response)
-  const responseData = response?.data
-  const responseRecord = asRecord(responseData)
-  parts.push(typeof responseData === 'string' ? responseData : undefined)
-  parts.push(typeof responseRecord?.message === 'string' ? responseRecord.message : undefined)
-  parts.push(typeof responseRecord?.error === 'string' ? responseRecord.error : undefined)
-
-  const context = asRecord(record.context)
-  parts.push(typeof context?.code === 'string' ? context.code : undefined)
-  parts.push(collectErrorText(context?.originalError, seen))
-
-  return parts.filter(Boolean).join(' ')
-}
-
-function readRetryableStatusFromText(text: string): number | undefined {
-  const statusMatch = text.match(/\b(?:status(?:\s+code)?|http)\s*:?\s*(408|429|499|5\d{2})\b/i)
-  if (statusMatch?.[1]) return Number(statusMatch[1])
-
-  const namedStatusMatch = text.match(
-    /\b(408|429|499|5\d{2})\s+(?:request timeout|too many requests|client closed request|service unavailable|server error|internal server error|bad gateway|gateway timeout)\b/i
-  )
-  return namedStatusMatch?.[1] ? Number(namedStatusMatch[1]) : undefined
-}
-
-function isRetryableSessionSaveError(error: unknown): boolean {
-  const status = readNumericStatus(error)
-  if (status === 400 || status === 401 || status === 403 || status === 404 || status === 409) {
-    return false
-  }
-  // Pool-pressure / BFF timeout — client retry storms make recovery slower.
-  if (status === 503 || status === 504) {
-    return false
-  }
-  if (
-    status === 408 ||
-    status === 429 ||
-    status === 499 ||
-    (status !== undefined && status >= 500 && status < 600)
-  ) {
-    return true
-  }
-
-  if (error instanceof TypeError) return true
-
-  const text = collectErrorText(error).toLowerCase()
-  if (
-    text.includes('authentication required') ||
-    text.includes('unauthorized') ||
-    text.includes('forbidden') ||
-    text.includes('invalid authentication token')
-  ) {
-    return false
-  }
-
-  if (readRetryableStatusFromText(text) !== undefined) {
-    const textStatus = readRetryableStatusFromText(text)
-    if (textStatus === 503 || textStatus === 504) return false
-    return true
-  }
-
-  if (/\bstatus code 503\b/i.test(text) || /\bstatus code 504\b/i.test(text)) {
-    return false
-  }
-
-  if (
-    text.includes('database temporarily unavailable') ||
-    text.includes('database pool pressure') ||
-    text.includes('session patch deferred')
-  ) {
-    return false
-  }
-
-  return (
-    text.includes('fetch') ||
-    text.includes('network') ||
-    text.includes('econnrefused') ||
-    text.includes('econnreset') ||
-    text.includes('etimedout') ||
-    text.includes('aborterror') ||
-    text.includes('aborted') ||
-    text.includes('canceled') ||
-    text.includes('cancelled') ||
-    text.includes('timeout') ||
-    text.includes('timed out') ||
-    text.includes('did not respond in time') ||
-    text.includes('upstream_timeout') ||
-    text.includes('server error') ||
-    text.includes('bad gateway') ||
-    text.includes('gateway timeout')
-  )
-}
+import { isRetryableSessionSaveError } from './AuthenticatedSessionSaveErrorPolicy'
+import {
+  autosavePayloadFingerprint,
+  buildAuthenticatedSessionSavePayload,
+  mergeQueuedLocalSession,
+} from './AuthenticatedSessionSavePayload'
+import { createAuthenticatedSessionFromUpdate } from './AuthenticatedSessionState'
 
 const AUTOSAVE_SETTLE_MS = 750
-
-function normalizeForAutosaveFingerprint(value: unknown): unknown {
-  if (value instanceof Date) {
-    return value.toISOString()
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeForAutosaveFingerprint(item))
-  }
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>
-    const normalized: Record<string, unknown> = {}
-    for (const key of Object.keys(record).sort()) {
-      const child = record[key]
-      if (child !== undefined) {
-        normalized[key] = normalizeForAutosaveFingerprint(child)
-      }
-    }
-    return normalized
-  }
-  return value
-}
-
-function autosavePayloadFingerprint(payload: Record<string, unknown>): string {
-  return JSON.stringify(normalizeForAutosaveFingerprint(payload))
-}
-
-function mergeQueuedLocalSession(
-  serverSession: ValuationSession,
-  localSession: ValuationSession
-): ValuationSession {
-  const merged: ValuationSession = {
-    ...serverSession,
-    ...localSession,
-    status: serverSession.status ?? localSession.status,
-    reportReady:
-      localSession.reportReady === true
-        ? true
-        : (serverSession.reportReady ?? localSession.reportReady),
-    sessionData: {
-      ...(serverSession.sessionData || {}),
-      ...(localSession.sessionData || {}),
-    },
-    partialData: {
-      ...(serverSession.partialData || {}),
-      ...(localSession.partialData || {}),
-    },
-  }
-
-  return preserveClientRecoveredHtmlWhenServerSessionStale(merged, localSession)
-}
 
 /**
  * Authenticated Session Engine
@@ -450,28 +202,19 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
   hydrateSession(updates: Partial<ValuationSession>): void {
     if (!this.currentSession) {
-      if (!updates.reportId) {
+      const initialSession = createAuthenticatedSessionFromUpdate(
+        updates,
+        updates.updatedAt || updates.createdAt || new Date()
+      )
+      if (!initialSession) {
         generalLogger.debug(
           '[AuthenticatedSessionEngine] Skipping hydrate - no current session and no reportId'
         )
         return
       }
 
-      this.currentSession = {
-        reportId: updates.reportId,
-        currentView: updates.currentView || 'manual',
-        dataSource: updates.dataSource || 'manual',
-        createdAt: updates.createdAt || new Date(),
-        updatedAt: updates.updatedAt || updates.createdAt || new Date(),
-        sessionData: updates.sessionData || {},
-        partialData: updates.partialData || {},
-        ...(updates.status && { status: updates.status }),
-        ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
-        ...(updates.name && { name: updates.name }),
-        ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
-        ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
-      } as ValuationSession
-      this.requestedReportId = updates.reportId
+      this.currentSession = initialSession
+      this.requestedReportId = initialSession.reportId
       this.normalizeReportId()
       return
     }
@@ -512,33 +255,22 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         return
       }
 
-      if (updates.reportId) {
+      const initialSession = createAuthenticatedSessionFromUpdate(updates, new Date())
+      if (initialSession) {
         // Bootstrap is setting initial session - accept it
-        this.currentSession = {
-          reportId: updates.reportId,
-          currentView: updates.currentView || 'manual',
-          dataSource: updates.dataSource || 'manual',
-          createdAt: updates.createdAt || new Date(),
-          updatedAt: new Date(),
-          sessionData: updates.sessionData || {},
-          partialData: updates.partialData || {},
-          ...(updates.status && { status: updates.status }),
-          ...(updates.reportReady !== undefined && { reportReady: updates.reportReady }),
-          ...(updates.name && { name: updates.name }),
-          ...(updates.valuationResult && { valuationResult: updates.valuationResult }),
-          ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
-        } as ValuationSession
+        this.currentSession = initialSession
         // Mirror loadSession + hydrateSession's no-current-session branch: any
         // path that mints currentSession also pins requestedReportId so the
         // normalizeReportId() guards on every later mutation have something to
         // pin against. Without this, a subsequent updater can still drift the
         // session id away from the URL.
-        this.requestedReportId = updates.reportId
+        this.requestedReportId = initialSession.reportId
+        this.normalizeReportId()
 
         generalLogger.debug(
           '[AuthenticatedSessionEngine] Session initialized from updates (bootstrap flow)',
           {
-            reportId: updates.reportId,
+            reportId: initialSession.reportId,
             hasSessionData: !!updates.sessionData,
           }
         )
@@ -739,7 +471,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       try {
         const reportIdAtSend = this.currentSession.reportId
         const lifecycleVersionAtSend = this.sessionLifecycleVersion
-        const updates = this.buildSavePayload()
+        const updates = buildAuthenticatedSessionSavePayload(this.currentSession)
         const payloadFingerprint = autosavePayloadFingerprint(updates)
         if (reason === 'autosave' && payloadFingerprint === this.lastPersistedSaveFingerprint) {
           generalLogger.debug('[AuthenticatedSessionEngine] Skipping unchanged autosave payload', {
@@ -834,27 +566,6 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
 
     return this.localMutationVersion
-  }
-
-  private buildSavePayload(): Record<string, unknown> {
-    if (!this.currentSession) return {}
-
-    // Strip server-rendered artifacts (valuation_result, html_report,
-    // pdf_html_report) before shipping the PATCH. These are produced
-    // backend-side and don't need to round-trip — leaving them in
-    // turned the autosave into a multi-MB upload that triggered
-    // ``Premature close`` 500s on the METANOUS revisit (Titan log
-    // content-length: 13920316). See BACKEND_COMPUTED_SESSION_KEYS.
-    const mergedPayload = {
-      ...(this.currentSession.sessionData || {}),
-      ...(this.currentSession.partialData || {}),
-    }
-
-    return {
-      ...stripBackendComputedFields(mergedPayload),
-      currentView: this.currentSession.currentView,
-      ...(this.currentSession.name !== undefined && { name: this.currentSession.name }),
-    }
   }
 
   /**

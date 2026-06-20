@@ -1426,6 +1426,25 @@
 		"calculating": "Calculating...",
 		"calculateEstimate": "Calculate Estimate",
 		"liveAccountingImportHint": "Pull or refresh historical figures from your connected {provider} account.",
+		"inviteAccountant": {
+			"prompt": "Don't have the figures to hand? Ask your accountant to fill them in.",
+			"cta": "Ask my accountant",
+			"title": "Invite your accountant",
+			"description": "Enter their email — we'll send a secure link to connect their tool or type the figures for you.",
+			"emailLabel": "Accountant email",
+			"emailPlaceholder": "name@accountancy.be",
+			"messageLabel": "Personal note (optional)",
+			"messagePlaceholder": "A short note for context. Leave empty to send the default invite.",
+			"send": "Send invite",
+			"sending": "Sending…",
+			"cancel": "Cancel",
+			"invalidEmail": "Enter a valid email address.",
+			"missingEmail": "Accountant email is required.",
+			"tooLong": "Personal note must be {max} characters or fewer.",
+			"sentTitle": "Invite sent",
+			"sentBody": "We'll let you know when {email} connects or fills in your figures.",
+			"genericError": "Could not send the invite. Please try again."
+		},
 		"silverfin": {
 			"importBatchSuccessTitle": "Imported {years} fiscal years from {provider}",
 			"importBatchSuccessDescription": "Trial balance mapped: {score}% match with Belgian MAR"

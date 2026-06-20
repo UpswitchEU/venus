@@ -24,7 +24,9 @@ const BACKEND_COMPUTED_SESSION_KEYS = new Set<string>([
   'report_context',
 ])
 
-export function stripBackendComputedFields(payload: Record<string, unknown>): Record<string, unknown> {
+export function stripBackendComputedFields(
+  payload: Record<string, unknown>
+): Record<string, unknown> {
   const stripped: Record<string, unknown> = {}
   let removedCount = 0
   let removedBytes = 0
