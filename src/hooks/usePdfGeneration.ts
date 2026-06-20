@@ -14,83 +14,23 @@ import { useClientContext } from '../stores/clientContext'
 import { APIError } from '../types/errors'
 import { generalLogger } from '../utils/logger'
 import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
-
-/** Let the BFF return its structured 504 before the browser gives up. */
-const PDF_DOWNLOAD_FETCH_MS = 125_000
-const PDF_STATUS_FETCH_MS = 10_000
-const PDF_STATUS_POLL_INTERVAL_MS = 2_000
-const PDF_STATUS_POLL_MAX_BACKOFF_MS = 16_000
-const PDF_STATUS_MAX_POLL_MS = 5 * 60_000
-
-type TimeoutAbortHandle = {
-  signal: AbortSignal
-  abort: () => void
-  cleanup: () => void
-  didTimeout: () => boolean
-}
-
-function createTimeoutAbortHandle(
-  timeoutMs: number,
-  incomingSignal?: AbortSignal
-): TimeoutAbortHandle {
-  const controller = new AbortController()
-  let timedOut = false
-  const timeoutId = setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, timeoutMs)
-  const abortFromIncomingSignal = () => controller.abort(incomingSignal?.reason)
-
-  if (incomingSignal) {
-    if (incomingSignal.aborted) {
-      abortFromIncomingSignal()
-    } else {
-      incomingSignal.addEventListener('abort', abortFromIncomingSignal, { once: true })
-    }
-  }
-
-  return {
-    signal: controller.signal,
-    abort: () => controller.abort(),
-    cleanup: () => {
-      clearTimeout(timeoutId)
-      incomingSignal?.removeEventListener('abort', abortFromIncomingSignal)
-    },
-    didTimeout: () => timedOut,
-  }
-}
-
-async function blobStartsWithPdfMagic(blob: Blob): Promise<boolean> {
-  if (blob.size < 8) return false
-  const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer())
-  return head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46
-}
-
-type PdfAccessErrorBody = {
-  action?: unknown
-  code?: unknown
-  inviteAdvisorRequired?: unknown
-  required_tier?: unknown
-  upgradeRequired?: unknown
-}
+import {
+  blobStartsWithPdfMagic,
+  buildPdfAccessErrorContext,
+  createTimeoutAbortHandle,
+  derivePdfPollDelay,
+  derivePdfPollProgress,
+  PDF_DOWNLOAD_FETCH_MS,
+  PDF_STATUS_FETCH_MS,
+  PDF_STATUS_MAX_POLL_MS,
+  PDF_STATUS_POLL_INTERVAL_MS,
+  type TimeoutAbortHandle,
+} from './pdfGenerationModel'
 
 function pdfFetchHeaders(extra?: Record<string, string>): Record<string, string> {
   return {
     ...useClientContext.getState().getContextHeaders(),
     ...extra,
-  }
-}
-
-function buildPdfAccessErrorContext(errBody: PdfAccessErrorBody): Record<string, unknown> {
-  const code = typeof errBody.code === 'string' ? errBody.code : undefined
-  const inviteAdvisorRequired =
-    errBody.inviteAdvisorRequired === true || code === 'INVITE_ADVISOR_REQUIRED'
-  return {
-    upgradeRequired: inviteAdvisorRequired ? false : true,
-    inviteAdvisorRequired,
-    ...(code ? { code } : {}),
-    ...(typeof errBody.action === 'string' ? { action: errBody.action } : {}),
-    ...(typeof errBody.required_tier === 'string' ? { required_tier: errBody.required_tier } : {}),
   }
 }
 
@@ -287,10 +227,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           if (!response.ok) {
             if (isPdfTransientUpstreamStatus(response.status)) {
               consecutiveTransientErrors++
-              nextPollDelayMs = Math.min(
-                PDF_STATUS_POLL_INTERVAL_MS * 2 ** (consecutiveTransientErrors - 1),
-                PDF_STATUS_POLL_MAX_BACKOFF_MS
-              )
+              nextPollDelayMs = derivePdfPollDelay(consecutiveTransientErrors)
               generalLogger.debug('[PDF] Polling status transient upstream error — will retry', {
                 jobId,
                 pollCount,
@@ -323,7 +260,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
           if (!mountedRef.current) return
 
-          const progress = Math.min(30 + pollCount, 90)
+          const progress = derivePdfPollProgress(pollCount)
           setState((prev) => ({ ...prev, progress }))
 
           if (data.status === 'completed' && data.pdfUrl) {
@@ -356,18 +293,12 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             if (statusAbortHandle.didTimeout()) {
               generalLogger.warn('[PDF] Polling status request timed out', { jobId, pollCount })
               consecutiveTransientErrors++
-              nextPollDelayMs = Math.min(
-                PDF_STATUS_POLL_INTERVAL_MS * 2 ** (consecutiveTransientErrors - 1),
-                PDF_STATUS_POLL_MAX_BACKOFF_MS
-              )
+              nextPollDelayMs = derivePdfPollDelay(consecutiveTransientErrors)
             }
             return
           }
           consecutiveTransientErrors++
-          nextPollDelayMs = Math.min(
-            PDF_STATUS_POLL_INTERVAL_MS * 2 ** (consecutiveTransientErrors - 1),
-            PDF_STATUS_POLL_MAX_BACKOFF_MS
-          )
+          nextPollDelayMs = derivePdfPollDelay(consecutiveTransientErrors)
           generalLogger.warn('[PDF] Polling error', { error, nextPollDelayMs })
         } finally {
           statusAbortHandle.cleanup()

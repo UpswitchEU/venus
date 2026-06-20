@@ -18,12 +18,10 @@ import type {
   VersionComparison,
   VersionListResponse,
 } from '../types/ValuationVersion'
-import type { ValuationRequest } from '../types/valuation'
 import { createContextLogger } from '../utils/logger'
-import { getFinalValuation as getAccessibleFinalValuation } from '../utils/valuationResultAccess'
-import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import {
   appendVersionIfMissing,
+  compareValuationVersions,
   createLocalVersionSnapshot,
   deduplicateVersionsByNumber,
   markVersionsInactive,
@@ -121,75 +119,6 @@ export interface VersionHistoryStore {
   ) => VersionComparison | null
   clearVersions: (reportId: string) => void
   syncVersions: (reportId: string) => Promise<void> // ✅ NEW: Explicit sync method
-}
-
-/**
- * Detect changes between two data objects
- */
-function detectChanges(
-  oldData: Partial<ValuationRequest>,
-  newData: Partial<ValuationRequest>
-): VersionChanges {
-  const changes: VersionChanges = {
-    totalChanges: 0,
-    significantChanges: [],
-  }
-
-  const timestamp = new Date()
-
-  // Financial changes (same resolution as buildValuationRequest / detectVersionChanges)
-  const oldRev = resolveFormRevenue(oldData)
-  const newRev = resolveFormRevenue(newData)
-  if (oldRev !== newRev) {
-    const percentChange = oldRev !== 0 ? ((newRev - oldRev) / Math.abs(oldRev)) * 100 : 0
-    changes.revenue = {
-      from: oldRev,
-      to: newRev,
-      percentChange,
-      timestamp,
-    }
-    changes.totalChanges++
-    if (Math.abs(percentChange) > 10) {
-      changes.significantChanges.push('revenue')
-    }
-  }
-
-  const oldEbit = resolveFormEbitda(oldData)
-  const newEbit = resolveFormEbitda(newData)
-  if (oldEbit !== newEbit) {
-    const percentChange = oldEbit !== 0 ? ((newEbit - oldEbit) / Math.abs(oldEbit)) * 100 : 0
-    changes.ebitda = {
-      from: oldEbit,
-      to: newEbit,
-      percentChange,
-      timestamp,
-    }
-    changes.totalChanges++
-    if (Math.abs(percentChange) > 10) {
-      changes.significantChanges.push('ebitda')
-    }
-  }
-
-  // Business profile changes
-  if (oldData.company_name !== newData.company_name) {
-    changes.companyName = {
-      from: oldData.company_name || '',
-      to: newData.company_name || '',
-      timestamp,
-    }
-    changes.totalChanges++
-  }
-
-  if (oldData.founding_year !== newData.founding_year) {
-    changes.foundingYear = {
-      from: oldData.founding_year ?? 0,
-      to: newData.founding_year ?? 0,
-      timestamp,
-    }
-    changes.totalChanges++
-  }
-
-  return changes
 }
 
 /**
@@ -619,66 +548,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
 
         if (!vA || !vB) return null
 
-        // Detect changes between versions
-        const changes = detectChanges(vA.formData, vB.formData)
-
-        // Calculate valuation delta
-        const valuationDelta =
-          vA.valuationResult &&
-          typeof vA.valuationResult === 'object' &&
-          vB.valuationResult &&
-          typeof vB.valuationResult === 'object'
-            ? (() => {
-                const vAVal = getAccessibleFinalValuation(vA.valuationResult)
-                const vBVal = getAccessibleFinalValuation(vB.valuationResult)
-                if (vAVal == null || vBVal == null) return null
-                const absoluteChange = vBVal - vAVal
-                const denom = Math.abs(vAVal) > 1e-9 ? Math.abs(vAVal) : null
-                return {
-                  absoluteChange,
-                  percentChange: denom != null ? (absoluteChange / denom) * 100 : 0,
-                  direction:
-                    vBVal > vAVal
-                      ? ('increase' as const)
-                      : vBVal < vAVal
-                        ? ('decrease' as const)
-                        : ('unchanged' as const),
-                }
-              })()
-            : null
-
-        // Generate highlights
-        const highlights = []
-        if (changes.revenue) {
-          const percentChange = changes.revenue.percentChange ?? 0
-          highlights.push({
-            field: 'revenue',
-            label: 'Revenue',
-            oldValue: changes.revenue.from,
-            newValue: changes.revenue.to,
-            impact: `${percentChange > 0 ? '+' : ''}${percentChange.toFixed(1)}%`,
-          })
-        }
-        if (changes.ebitda) {
-          const percentChange = changes.ebitda.percentChange ?? 0
-          highlights.push({
-            field: 'ebitda',
-            label: 'EBITDA',
-            oldValue: changes.ebitda.from,
-            newValue: changes.ebitda.to,
-            impact: `${percentChange > 0 ? '+' : ''}${percentChange.toFixed(1)}%`,
-          })
-        }
-
-        const comparison: VersionComparison = {
-          versionA: vA,
-          versionB: vB,
-          changes,
-          valuationDelta,
-          highlights,
-        }
-
-        return comparison
+        return compareValuationVersions(vA, vB)
       },
 
       /**

@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import {
   appendVersionIfMissing,
+  compareValuationVersions,
   createLocalVersionSnapshot,
   deduplicateVersionsByNumber,
+  detectVersionChanges,
   markVersionsInactive,
   mergeBackendVersionsByNumber,
   partializeVersionHistoryState,
@@ -109,6 +111,111 @@ describe('versionHistoryModel', () => {
 
   it('marks previous versions inactive', () => {
     expect(markVersionsInactive([version({ versionNumber: 1 })])[0]?.isActive).toBe(false)
+  })
+
+  it('detects significant financial changes with stable timestamps', () => {
+    const timestamp = new Date('2026-06-20T12:00:00Z')
+
+    const changes = detectVersionChanges(
+      {
+        company_name: 'Old Co',
+        founding_year: 2010,
+        current_year_data: { year: 2025, revenue: 2_000_000, ebitda: 500_000 },
+      } as unknown as ValuationVersion['formData'],
+      {
+        company_name: 'New Co',
+        founding_year: 2012,
+        current_year_data: { year: 2025, revenue: 2_500_000, ebitda: 750_000 },
+      } as unknown as ValuationVersion['formData'],
+      timestamp
+    )
+
+    expect(changes.revenue).toMatchObject({
+      from: 2_000_000,
+      percentChange: 25,
+      timestamp,
+      to: 2_500_000,
+    })
+    expect(changes.ebitda).toMatchObject({
+      from: 500_000,
+      percentChange: 50,
+      timestamp,
+      to: 750_000,
+    })
+    expect(changes.companyName).toMatchObject({ from: 'Old Co', to: 'New Co', timestamp })
+    expect(changes.foundingYear).toMatchObject({ from: 2010, to: 2012, timestamp })
+    expect(changes.significantChanges).toEqual(['revenue', 'ebitda'])
+    expect(changes.totalChanges).toBe(4)
+  })
+
+  it('compares versions with valuation delta and financial highlights', () => {
+    const comparison = compareValuationVersions(
+      version({
+        versionNumber: 1,
+        formData: {
+          current_year_data: { year: 2025, revenue: 2_000_000, ebitda: 500_000 },
+        } as unknown as ValuationVersion['formData'],
+        valuationResult: {
+          valuation_summary: { final_valuation: 4_200_000 },
+        } as unknown as ValuationVersion['valuationResult'],
+      }),
+      version({
+        versionNumber: 2,
+        formData: {
+          current_year_data: { year: 2025, revenue: 2_500_000, ebitda: 750_000 },
+        } as unknown as ValuationVersion['formData'],
+        valuationResult: {
+          valuation_summary: { final_valuation: 6_200_000 },
+        } as unknown as ValuationVersion['valuationResult'],
+      })
+    )
+
+    expect(comparison.valuationDelta).toMatchObject({
+      absoluteChange: 2_000_000,
+      direction: 'increase',
+    })
+    expect(comparison.highlights).toEqual([
+      {
+        field: 'revenue',
+        impact: '+25.0%',
+        label: 'Revenue',
+        newValue: 2_500_000,
+        oldValue: 2_000_000,
+      },
+      {
+        field: 'ebitda',
+        impact: '+50.0%',
+        label: 'EBITDA',
+        newValue: 750_000,
+        oldValue: 500_000,
+      },
+    ])
+  })
+
+  it('compares versions using an accessible positive range midpoint when final valuation is zero', () => {
+    const comparison = compareValuationVersions(
+      version({
+        versionNumber: 1,
+        valuationResult: {
+          equity_value_high: 18_400_000,
+          equity_value_low: 12_800_000,
+          equity_value_mid: 0,
+          recommended_asking_price: 0,
+          valuation_summary: { final_valuation: 0 },
+        } as unknown as ValuationVersion['valuationResult'],
+      }),
+      version({
+        versionNumber: 2,
+        valuationResult: {
+          valuation_summary: { final_valuation: 20_000_000 },
+        } as unknown as ValuationVersion['valuationResult'],
+      })
+    )
+
+    expect(comparison.valuationDelta).toMatchObject({
+      absoluteChange: 4_400_000,
+      direction: 'increase',
+    })
   })
 
   it('persists only lightweight version metadata', () => {
