@@ -15,11 +15,6 @@ import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
-import { refreshDelegatedClientContextIfNeeded } from '../auth/delegatedClientContextRefresh'
-import {
-  isDelegatedClientContextReadyForBootstrap,
-  shouldWaitForMercuryClientContextBeforeBootstrap,
-} from '../mercury/sessionReadiness'
 import { setBootstrapState } from '../sessionInitialization'
 import {
   BootstrapContext,
@@ -36,11 +31,14 @@ import {
   resolveScopedBootstrapCacheResult,
 } from './BootstrapProviderCacheHydration'
 import {
+  resolveDelegatedBootstrapReadiness,
+  useBootstrapDelegationReadiness,
+} from './BootstrapProviderDelegation'
+import {
   evaluateBootstrapCreditPolicy,
   evaluateBootstrapReportIdentity,
   hasMeaningfulBootstrapPrefill,
 } from './BootstrapProviderModel'
-import { getBootstrapContextCacheKey } from './contextCacheKey'
 import { applyBootstrapPackageHydration } from './packageHydration'
 import { AuthenticationRequiredError } from './resolvers/AuthResolver'
 import { bootstrapService } from './SessionBootstrapService'
@@ -62,44 +60,6 @@ import {
   DEFAULT_UI_HINTS,
 } from './types'
 import { parseUrlToContext } from './utils'
-
-function readDelegatedBootstrapReadiness(activeContext: BootstrapContextShape): {
-  authSettled: boolean
-  needsDelegatedContext: boolean
-  ready: boolean
-} {
-  const authState = useAuthStore.getState()
-  const authSettled = !authState.loading && !authState.isInitializing && !authState.isRefreshing
-  const needsDelegatedContext = shouldWaitForMercuryClientContextBeforeBootstrap({
-    sourceApp: activeContext.sourceApp,
-    reportId: activeContext.reportId,
-    clientId: activeContext.clientId,
-    clientToken: activeContext.clientToken,
-    mercuryPersonaMode: activeContext.mercuryPersonaMode,
-    url: activeContext.url,
-    hasClientTokenHint: !!activeContext.clientToken?.trim(),
-  })
-
-  if (!authSettled) {
-    return { authSettled, needsDelegatedContext, ready: false }
-  }
-
-  if (!needsDelegatedContext) {
-    return { authSettled, needsDelegatedContext, ready: true }
-  }
-
-  const ctx = useClientContext.getState()
-  const ready = isDelegatedClientContextReadyForBootstrap({
-    needsMercuryClientContext: true,
-    contextGateResolved: ctx.contextGateResolved,
-    clientId: activeContext.clientId,
-    isActingAsClient: ctx.isActingAsClient,
-    accountantId: ctx.accountant?.id ?? null,
-    relationshipId: ctx.relationshipId,
-  })
-
-  return { authSettled, needsDelegatedContext, ready }
-}
 
 export type { BootstrapContextValue } from './BootstrapContext'
 export {
@@ -166,7 +126,6 @@ export function BootstrapProvider({
   const bootstrapCompletedRef = useRef(false)
   const bootstrapRunIdRef = useRef(0)
   const _contextReportIdRef = useRef(context?.reportId)
-  const prevDelegationCacheKeyRef = useRef<string | null>(null)
 
   // Stable refs for parent callbacks — avoids runBootstrap re-creation
   // when parent passes new closure references on every render.
@@ -199,7 +158,7 @@ export function BootstrapProvider({
       return
     }
 
-    const { authSettled, ready: delegatedReady } = readDelegatedBootstrapReadiness(activeContext)
+    const { authSettled, delegatedReady } = resolveDelegatedBootstrapReadiness(activeContext)
 
     if (!authSettled) {
       generalLogger.debug('[BootstrapProvider] Auth not settled — deferring bootstrap')
@@ -484,102 +443,13 @@ export function BootstrapProvider({
   // Single derived boolean keeps the re-render count to one per auth-readiness
   // transition (previously each of the three selectors fired independently,
   // tripling provider renders on every auth tick).
-  const delegationCacheKey = useMemo(
-    () => getBootstrapContextCacheKey(activeContext),
-    [activeContext]
-  )
-
-  const needsMercuryClientContext = useMemo(
-    () =>
-      shouldWaitForMercuryClientContextBeforeBootstrap({
-        sourceApp: activeContext.sourceApp,
-        reportId: activeContext.reportId,
-        clientId: activeContext.clientId,
-        clientToken: activeContext.clientToken,
-        mercuryPersonaMode: activeContext.mercuryPersonaMode,
-        url: activeContext.url,
-        hasClientTokenHint: !!activeContext.clientToken?.trim(),
-      }),
-    [
-      activeContext.sourceApp,
-      activeContext.reportId,
-      activeContext.clientId,
-      activeContext.clientToken,
-      activeContext.mercuryPersonaMode,
-      activeContext.url,
-    ]
-  )
-
-  useEffect(() => {
-    if (!needsMercuryClientContext) return
-    if (prevDelegationCacheKeyRef.current === null) {
-      prevDelegationCacheKeyRef.current = delegationCacheKey
-      return
-    }
-    if (prevDelegationCacheKeyRef.current === delegationCacheKey) return
-
-    prevDelegationCacheKeyRef.current = delegationCacheKey
-    bootstrapStartedRef.current = false
-    bootstrapCompletedRef.current = false
-    clearScopedGlobalBootstrapResult()
-    bootstrapService.clearCache()
-    bootstrapService.clearInflightCache()
-
-    void refreshDelegatedClientContextIfNeeded({
-      clientId: activeContext.clientId,
-      reportId: activeContext.reportId,
-      sourceApp: activeContext.sourceApp,
-      mercuryPersonaMode: activeContext.mercuryPersonaMode,
-      clientToken: activeContext.clientToken,
-      url: activeContext.url,
-    })
-  }, [
-    delegationCacheKey,
-    needsMercuryClientContext,
-    activeContext.clientId,
-    activeContext.reportId,
-    activeContext.sourceApp,
-    activeContext.mercuryPersonaMode,
-    activeContext.clientToken,
-    activeContext.url,
-  ])
-
-  const mercuryClientContextReady = useClientContext((s) =>
-    isDelegatedClientContextReadyForBootstrap({
-      needsMercuryClientContext,
-      contextGateResolved: s.contextGateResolved,
-      clientId: activeContext.clientId,
-      isActingAsClient: s.isActingAsClient,
-      accountantId: s.accountant?.id ?? null,
-      relationshipId: s.relationshipId,
-    })
-  )
-
-  const authStoreReady = useAuthStore((s) => !s.loading && !s.isInitializing && !s.isRefreshing)
-  const authError = useAuthStore((s) => s.error)
-  const authReady = authStoreReady && mercuryClientContextReady
-
-  // Delegated Mercury opens: if get-client-context failed, surface auth error instead of
-  // spinning on loading until the 30s session timeout (optimistic AuthGate still renders children).
-  useEffect(() => {
-    if (!needsMercuryClientContext || mercuryClientContextReady || !authStoreReady) return
-    const message = authError?.trim()
-    if (!message || bootstrapCompletedRef.current) return
-
-    generalLogger.warn('[BootstrapProvider] Mercury client context failed — surfacing error', {
-      reportId: activeContext.reportId?.substring(0, 30),
-      hasClientId: !!activeContext.clientId?.trim(),
-    })
-    setBootstrapError(message)
-    setIsBootstrapping(false)
-  }, [
-    needsMercuryClientContext,
-    mercuryClientContextReady,
-    authStoreReady,
-    authError,
-    activeContext.reportId,
-    activeContext.clientId,
-  ])
+  const { authReady } = useBootstrapDelegationReadiness({
+    activeContext,
+    bootstrapCompletedRef,
+    bootstrapStartedRef,
+    setBootstrapError,
+    setIsBootstrapping,
+  })
 
   // Auto-bootstrap when auth is ready and no initial state is provided.
   // Fires on mount (non-optimistic path: AuthGate already gated) and again

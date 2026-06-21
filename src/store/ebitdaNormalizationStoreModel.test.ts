@@ -6,6 +6,8 @@ import {
 import {
   addCustomAdjustmentToNormalization,
   createEbitdaNormalizationTemplate,
+  isVirginEbitdaNormalization,
+  mergeLoadedEbitdaNormalizations,
   normalizeEbitdaNormalizationResponse,
   removeCustomAdjustmentFromNormalization,
   safeNormalizationNumber,
@@ -153,6 +155,51 @@ describe('ebitdaNormalizationStoreModel', () => {
       normalized_ebitda: 0,
       confidence_score: 'high',
       market_rate_source: undefined,
+    })
+  })
+
+  it('treats empty optimistic templates as replaceable server-load placeholders', () => {
+    expect(isVirginEbitdaNormalization(baseNormalization())).toBe(true)
+    expect(
+      isVirginEbitdaNormalization(
+        baseNormalization({
+          id: 'norm-1',
+        })
+      )
+    ).toBe(false)
+    expect(
+      isVirginEbitdaNormalization(
+        baseNormalization({
+          adjustments: [{ category: NormalizationCategory.OTHER_ADJUSTMENTS, amount: 1 }],
+        })
+      )
+    ).toBe(false)
+  })
+
+  it('merges loaded normalizations without overwriting local edits from late responses', () => {
+    const localEdited = baseNormalization({
+      adjustments: [{ category: NormalizationCategory.OWNER_COMPENSATION, amount: 25_000 }],
+    })
+    const loaded2024 = baseNormalization({ id: 'server-2024', normalized_ebitda: 90_000 })
+    const loaded2023 = baseNormalization({
+      id: 'server-2023',
+      year: 2023,
+      normalized_ebitda: 80_000,
+    })
+
+    expect(
+      mergeLoadedEbitdaNormalizations(
+        {
+          2024: localEdited,
+        },
+        {
+          2024: loaded2024,
+          2023: loaded2023,
+        }
+      )
+    ).toEqual({
+      2024: localEdited,
+      2023: loaded2023,
     })
   })
 })

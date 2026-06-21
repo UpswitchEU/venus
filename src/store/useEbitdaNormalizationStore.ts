@@ -29,15 +29,15 @@ import { isValidSessionId } from '../utils/sessionIdValidation'
 import {
   addCustomAdjustmentToNormalization,
   createEbitdaNormalizationTemplate,
+  isVirginEbitdaNormalization,
+  mergeLoadedEbitdaNormalizations,
   normalizeEbitdaNormalizationResponse,
   removeCustomAdjustmentFromNormalization,
   safeNormalizationNumber as safeNum,
   updateCustomAdjustmentInNormalization,
   upsertStandardAdjustment,
 } from './ebitdaNormalizationStoreModel'
-
-// Serialize load operations per session to prevent last-write-wins
-const loadQueue = new Map<string, Promise<void>>()
+import { enqueueEbitdaNormalizationLoad } from './useEbitdaNormalizationStore.loadQueue'
 
 interface EbitdaNormalizationStore {
   // State
@@ -362,8 +362,6 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
       // Load normalization from backend (serialized per session+year to prevent race)
       loadNormalization: async (sessionId, year) => {
-        const key = `load:${sessionId}:${year}`
-        const prev = loadQueue.get(key) ?? Promise.resolve()
         const run = async () => {
           if (!isValidSessionId(sessionId)) {
             set({ isLoading: false })
@@ -377,12 +375,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
             set((s) => {
               const current = s.normalizations[year]
-              const isVirginTemplate =
-                current &&
-                !current.id &&
-                (current.adjustments?.length ?? 0) === 0 &&
-                (current.custom_adjustments?.length ?? 0) === 0
-              if (!current || isVirginTemplate) {
+              if (!current || isVirginEbitdaNormalization(current)) {
                 return {
                   normalizations: { ...s.normalizations, [year]: normalization },
                   isLoading: false,
@@ -422,19 +415,11 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             }
           }
         }
-        const next = prev.then(run, run)
-        loadQueue.set(key, next)
-        try {
-          await next
-        } finally {
-          if (loadQueue.get(key) === next) loadQueue.delete(key)
-        }
+        await enqueueEbitdaNormalizationLoad(sessionId, run)
       },
 
       // Load all normalizations for session (serialized per session to prevent race with loadNormalization)
       loadAllNormalizations: async (sessionId) => {
-        const key = `loadAll:${sessionId}`
-        const prev = loadQueue.get(key) ?? Promise.resolve()
         const run = async () => {
           if (!isValidSessionId(sessionId)) {
             set({ isLoading: false })
@@ -454,10 +439,10 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             }
 
             set({
-              normalizations: {
-                ...get().normalizations,
-                ...normalizationsMap,
-              },
+              normalizations: mergeLoadedEbitdaNormalizations(
+                get().normalizations,
+                normalizationsMap
+              ),
               isLoading: false,
             })
 
@@ -476,13 +461,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             })
           }
         }
-        const next = prev.then(run, run)
-        loadQueue.set(key, next)
-        try {
-          await next
-        } finally {
-          if (loadQueue.get(key) === next) loadQueue.delete(key)
-        }
+        await enqueueEbitdaNormalizationLoad(sessionId, run)
       },
 
       // Remove normalization

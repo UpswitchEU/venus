@@ -3,14 +3,12 @@ import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStor
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import type { DataResponse } from '../types/data-collection'
 import { ValidationError } from '../types/errors'
-import type { ValuationFormData, ValuationRequest, YearDataInput } from '../types/valuation'
+import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import {
-  hasPositiveHistoricalRevenue,
   hasValidHistoricalEbitdaWeights,
   logValuationRequestDebug,
   normalizeAdvisorDiscountWeights,
   normalizeMultipleTypeWeights,
-  pickOptionalYearDataFields,
   requireNonNegativeRevenue,
   resolveCurrentYearFromHistoricalBackstop,
   toBooleanOrNull,
@@ -35,7 +33,8 @@ import {
   applyLiquidationInputs,
   applyTaxLatencyBalanceSheetAdjustments,
 } from './valuationRequestSpecialInputs'
-import { deriveNwcChangesForActualYears, isYearRowForecast } from './yearData'
+import { buildValuationRequestYearData } from './valuationRequestYearData'
+import { isYearRowForecast } from './yearData'
 
 type FormDataRecord = ValuationFormData & Record<string, unknown>
 
@@ -208,192 +207,18 @@ export function buildValuationRequest(
     yearEbitdaMap,
   })
 
-  // Check if the selected current year EBITDA is normalized
-  const currentYearNormalization = normByYear[currentFiscalYear]
-
-  // Build current_year_data with normalization support
-  const currentYearData: YearDataInput = {
-    year: currentFiscalYear,
-    revenue: revenue,
-    ebitda: currentYearNormalization ? ebitda + currentYearNormalization.totalAdjustment : ebitda,
-    ...(currentYearNormalization && {
-      ebitda_normalized: true,
-      ebitda_normalization_metadata: {
-        reported_ebitda: ebitda,
-        normalized_ebitda: ebitda + currentYearNormalization.totalAdjustment,
-        total_adjustments: currentYearNormalization.totalAdjustment,
-        adjustment_count: currentYearNormalization.count,
-        confidence_score: currentYearNormalization.confidence,
-        has_custom_adjustments: currentYearNormalization.hasCustomAdjustments,
-        adjustments: currentYearNormalization.items,
-      },
-    }),
-    ...pickOptionalYearDataFields(formData.current_year_data),
-  }
-
-  // Normalize historical data (filter and sort) with normalization support
-  const historicalYearsData = deriveNwcChangesForActualYears(
-    actualHistoricalData
-      .filter(
-        (year) =>
-          toFiniteNumber(year.ebitda) != null &&
-          year.year >= 2000 &&
-          year.year <= 2100 &&
-          hasPositiveHistoricalRevenue(year)
-      )
-      .map((year) => {
-        const clampedYear = Math.min(Math.max(year.year, 2000), 2100)
-
-        const normalization = normByYear[year.year]
-
-        if (normalization) {
-          const reportedEbitda = toFiniteNumber(year.ebitda) ?? 0
-          const normalizedRevenue = requireNonNegativeRevenue(
-            year.revenue,
-            `historical_years_data.${year.year}.revenue`
-          )
-          return {
-            year: clampedYear,
-            revenue: normalizedRevenue,
-            ebitda: reportedEbitda + normalization.totalAdjustment,
-            ...pickOptionalYearDataFields(year),
-            ebitda_normalized: true,
-            ebitda_normalization_metadata: {
-              reported_ebitda: reportedEbitda,
-              normalized_ebitda: reportedEbitda + normalization.totalAdjustment,
-              total_adjustments: normalization.totalAdjustment,
-              adjustment_count: normalization.count,
-              confidence_score: normalization.confidence,
-              has_custom_adjustments: normalization.hasCustomAdjustments,
-              adjustments: normalization.items,
-            },
-          }
-        }
-
-        const normalizedRevenue = requireNonNegativeRevenue(
-          year.revenue,
-          `historical_years_data.${year.year}.revenue`
-        )
-
-        return {
-          year: clampedYear,
-          revenue: normalizedRevenue,
-          ebitda: toFiniteNumber(year.ebitda) ?? 0,
-          ...pickOptionalYearDataFields(year),
-          ebitda_normalized: false,
-        }
-      })
-      .sort((a, b) => a.year - b.year) || []
-  )
-
-  const derivedActualYears = deriveNwcChangesForActualYears([
-    ...historicalYearsData,
-    currentYearData,
-  ])
-  const derivedCurrentYearData = derivedActualYears[derivedActualYears.length - 1]
-  if (derivedCurrentYearData) {
-    Object.assign(currentYearData, derivedCurrentYearData)
-  }
-
   const dcfInputMode = (formData as ValuationFormData).dcf_input_mode ?? 'ebitda'
-  const isFcffOnlyMode = dcfInputMode === 'fcff_only'
-
-  const forecastYearsData =
-    rawForecastData
-      .filter((year) => year.year >= 2000 && year.year <= 2100)
-      .map((year) => {
-        const clampedYear = Math.min(Math.max(year.year, 2000), 2100)
-
-        if (isFcffOnlyMode) {
-          const fcf = toFiniteNumber((year as { free_cash_flow?: unknown }).free_cash_flow)
-          if (fcf === null) {
-            throw new ValidationError(
-              'Forecast free cash flow must be a valid number for each year in FCFF-only mode.',
-              `forecast_years_data.${year.year}.free_cash_flow`,
-              (year as { free_cash_flow?: unknown }).free_cash_flow
-            )
-          }
-          return {
-            year: clampedYear,
-            revenue: 0,
-            ebitda: 0,
-            free_cash_flow: fcf,
-            is_forecast: true,
-          }
-        }
-
-        const revenue = toFiniteNumber(year.revenue)
-        if (revenue === null || revenue < 0) {
-          throw new ValidationError(
-            'Forecast revenue must be a valid number and cannot be negative.',
-            `forecast_years_data.${year.year}.revenue`,
-            year.revenue
-          )
-        }
-
-        const normalizedEbitda = toFiniteNumber(year.ebitda) ?? 0
-
-        return {
-          year: clampedYear,
-          revenue,
-          ebitda: normalizedEbitda,
-          ...pickOptionalYearDataFields(year),
-          is_forecast: true,
-        }
-      })
-      .sort((a, b) => a.year - b.year) || []
-
-  const historicalYearSet = new Set<number>()
-  for (const year of historicalYearsData) {
-    if (historicalYearSet.has(year.year)) {
-      throw new ValidationError(
-        `Historical year ${year.year} is duplicated. Each historical year must appear only once.`,
-        'historical_years_data',
-        year.year
-      )
-    }
-
-    if (year.year >= currentFiscalYear) {
-      throw new ValidationError(
-        `Historical year ${year.year} must be earlier than the current fiscal year ${currentFiscalYear}.`,
-        'historical_years_data',
-        year.year
-      )
-    }
-
-    historicalYearSet.add(year.year)
-  }
-
-  const forecastYearSet = new Set<number>()
-  for (const year of forecastYearsData) {
-    if (forecastYearSet.has(year.year)) {
-      throw new ValidationError(
-        `Forecast year ${year.year} is duplicated. Each forecast year must appear only once.`,
-        'forecast_years_data',
-        year.year
-      )
-    }
-
-    if (historicalYearSet.has(year.year)) {
-      throw new ValidationError(
-        `Forecast year ${year.year} cannot duplicate a historical year.`,
-        'forecast_years_data',
-        year.year
-      )
-    }
-
-    if (year.year <= currentFiscalYear) {
-      throw new ValidationError(
-        `Forecast year ${year.year} must be later than the current fiscal year ${currentFiscalYear}.`,
-        'forecast_years_data',
-        year.year
-      )
-    }
-
-    forecastYearSet.add(year.year)
-  }
-
-  const projectionYears = Math.max(5, forecastYearsData.length > 0 ? forecastYearsData.length : 5)
+  const { currentYearData, historicalYearsData, forecastYearsData, projectionYears } =
+    buildValuationRequestYearData({
+      currentFiscalYear,
+      revenue,
+      ebitda,
+      effectiveCurrentYearData,
+      actualHistoricalData,
+      rawForecastData,
+      normByYear,
+      dcfInputMode,
+    })
 
   // Normalize recurring revenue percentage (0.0-1.0)
   // Priority: explicit percentage > currency amount derived > legacy field

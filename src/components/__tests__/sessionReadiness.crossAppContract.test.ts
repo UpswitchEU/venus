@@ -122,10 +122,13 @@ describe('sessionReadiness Mercury report URL contract', () => {
   })
 
   it('BootstrapProvider runBootstrap defers Titan when delegated context is not ready', () => {
-    const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/Delegated client context not ready — deferring Titan bootstrap/)
-    expect(source).toMatch(/needsDelegatedContext[\s\S]*useClientContext\.getState\(\)/)
+    const providerPath = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const delegationPath = join(__dirname, '../../lib/bootstrap/BootstrapProviderDelegation.ts')
+    const providerSource = readFileSync(providerPath, 'utf8')
+    const delegationSource = readFileSync(delegationPath, 'utf8')
+    expect(providerSource).toMatch(/Delegated client context not ready — deferring Titan bootstrap/)
+    expect(providerSource).toMatch(/resolveDelegatedBootstrapReadiness\(activeContext\)/)
+    expect(delegationSource).toMatch(/needsDelegatedContext[\s\S]*useClientContext\.getState\(\)/)
   })
 
   it('bootstrap session sync gap-fill uses hydrateSessionAndComplete not bare hydrateSession', () => {
@@ -291,7 +294,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
   })
 
   it('BootstrapProvider runBootstrap uses URL-matched delegated context gate', () => {
-    const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const path = join(__dirname, '../../lib/bootstrap/BootstrapProviderDelegation.ts')
     const source = readFileSync(path, 'utf8')
     expect(source).toMatch(/isDelegatedClientContextReadyForBootstrap/)
     expect(source).toMatch(/contextGateResolved/)
@@ -365,12 +368,15 @@ describe('sessionReadiness Mercury report URL contract', () => {
   })
 
   it('BootstrapProvider refreshes delegated context on in-session handoff changes', () => {
-    const path = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/refreshDelegatedClientContextIfNeeded/)
-    expect(source).toMatch(/bootstrapService\.clearCache\(\)/)
-    expect(source).toMatch(/readDelegatedBootstrapReadiness/)
-    expect(source).toMatch(/delegationCacheKey/)
+    const providerPath = join(__dirname, '../../lib/bootstrap/BootstrapProvider.tsx')
+    const delegationPath = join(__dirname, '../../lib/bootstrap/BootstrapProviderDelegation.ts')
+    const providerSource = readFileSync(providerPath, 'utf8')
+    const delegationSource = readFileSync(delegationPath, 'utf8')
+    expect(providerSource).toMatch(/useBootstrapDelegationReadiness\(\{/)
+    expect(delegationSource).toMatch(/refreshDelegatedClientContextIfNeeded/)
+    expect(delegationSource).toMatch(/bootstrapService\.clearCache\(\)/)
+    expect(delegationSource).toMatch(/resolveDelegatedBootstrapReadiness/)
+    expect(delegationSource).toMatch(/delegationCacheKey/)
   })
 
   it('preview incident: bootstrap wait and delegated handoff agree', () => {
@@ -578,7 +584,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const source = readFileSync(path, 'utf8')
     const block = source.slice(
       source.indexOf('const forceRefreshBootstrap = useCallback'),
-      source.indexOf('const needsMercuryClientContext = useMemo')
+      source.indexOf('// Auth-readiness subscription.')
     )
     expect(block).toMatch(/setBootstrapError\(null\)/)
     expect(block).toMatch(/setIsBootstrapping\(true\)/)

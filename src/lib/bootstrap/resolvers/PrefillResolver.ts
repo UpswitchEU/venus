@@ -11,9 +11,7 @@
  */
 
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
-import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
-import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -28,34 +26,23 @@ import type {
   ResolverResult,
 } from '../types'
 import { DEFAULT_PREFILL } from '../types'
-import { calculatePrefillConfidence, mergeWithPriority, truncateForLog } from '../utils'
+import { calculatePrefillConfidence, truncateForLog } from '../utils'
 import { fetchRegistryPrefill, resolveCountryCode } from './PrefillRegistryClient'
+import {
+  ALL_PREFILL_FIELDS,
+  asRecord,
+  extractSessionPrefill,
+  getPopulatedFields,
+  mergeCompanyInfo,
+  mergeFinancials,
+  parseEmployeeCount,
+  readString,
+  type SessionDataForPrefill,
+} from './PrefillResolverModel'
 
 export { parsePrefilledQueryIdentifiers } from './PrefillRegistryClient'
 
 const API_URL = getApiUrl()
-
-// Fields that we track for prefill completeness
-const ALL_PREFILL_FIELDS = [
-  'company_name',
-  'business_type_id',
-  'industry',
-  'country_code',
-  'founding_year',
-  'employee_count',
-  'revenue',
-  'ebitda',
-  'kbo_number',
-  'vat_number',
-  'legal_form',
-  'city',
-  'postal_code',
-  'nace_code',
-  'nace_description',
-  'activity_code',
-  'taxonomy',
-  'canonical_nace_code',
-]
 
 interface UserProfile {
   id: string
@@ -73,43 +60,6 @@ interface UserProfile {
   employee_count_range?: string
   nace_code?: string
   nace_description?: string
-}
-
-interface SessionDataForPrefill {
-  company_name?: string
-  business_type_id?: string
-  industry?: string
-  country_code?: string
-  founding_year?: number
-  employee_count?: number
-  number_of_employees?: number
-  revenue?: number
-  ebitda?: number
-  current_year_data?: { year?: number; revenue?: number | null; ebitda?: number | null }
-  historical_years_data?: Array<{ year: number; revenue?: number; ebitda?: number }>
-  year_data?: Record<number, { revenue?: number; ebitda?: number }>
-  kbo_number?: string
-  vat_number?: string
-  legal_form?: string
-  city?: string
-  postal_code?: string
-  nace_code?: string
-  nace_description?: string
-  activity_code?: string
-  activity_label?: string
-  taxonomy?: string
-  canonical_nace_code?: string
-  _businessInfo?: Record<string, unknown>
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function readString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined
 }
 
 export class PrefillResolver implements BootstrapResolver<PrefillData> {
@@ -146,7 +96,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           ? this.fetchUserProfile(identity)
           : Promise.resolve(null),
         sessionData
-          ? Promise.resolve(this.extractSessionPrefill(sessionData as SessionDataForPrefill))
+          ? Promise.resolve(extractSessionPrefill(sessionData as SessionDataForPrefill))
           : Promise.resolve(null),
       ])
 
@@ -158,13 +108,13 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       // Merge company info — see `mergeCompanyInfo` for the precedence rules.
       // Summary: KBO (URL-driven) wins for identity fields when present;
       // otherwise session > profile.
-      const companyInfo = this.mergeCompanyInfo(
+      const companyInfo = mergeCompanyInfo(
         sessionResult?.companyInfo,
         profileResult?.companyInfo,
         kboResult?.companyInfo
       )
 
-      const financials = this.mergeFinancials(sessionResult?.financials, profileResult?.financials)
+      const financials = mergeFinancials(sessionResult?.financials, profileResult?.financials)
 
       let businessType = sessionResult?.businessType || profileResult?.businessType
 
@@ -219,7 +169,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       const kboData = kboResult?.kboData
 
       // Calculate which fields are populated
-      const populatedFields = this.getPopulatedFields(companyInfo, financials, businessType)
+      const populatedFields = getPopulatedFields(companyInfo, financials, businessType)
       const remainingFields = ALL_PREFILL_FIELDS.filter((f) => !populatedFields.includes(f))
       const confidence = calculatePrefillConfidence(populatedFields, ALL_PREFILL_FIELDS)
 
@@ -365,7 +315,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       }
 
       const financials: PartialFinancials = {
-        employeeCount: this.parseEmployeeCount(profile.employee_count_range),
+        employeeCount: parseEmployeeCount(profile.employee_count_range),
       }
 
       let businessType: BusinessTypeInfo | undefined
@@ -480,211 +430,6 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     } catch {
       return undefined
     }
-  }
-
-  /**
-   * Extract prefill data from existing session
-   */
-  private extractSessionPrefill(sessionData: SessionDataForPrefill): {
-    companyInfo?: CompanyInfo
-    financials?: PartialFinancials
-    businessType?: BusinessTypeInfo
-  } {
-    const merged = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
-
-    const canonicalNace =
-      (merged.canonical_nace_code as string) || (merged.nace_code as string) || undefined
-    const activityPresentation = (merged.activity_code as string) || undefined
-    const companyInfo: CompanyInfo = {
-      companyName: merged.company_name as string,
-      kboNumber: merged.kbo_number as string,
-      vatNumber: merged.vat_number as string,
-      legalForm: merged.legal_form as string,
-      city: merged.city as string,
-      postalCode: merged.postal_code as string,
-      countryCode: resolveCountryCode(
-        merged.country_code as string | undefined,
-        merged.country as string | undefined
-      ),
-      foundingYear: merged.founding_year as number,
-      canonicalNaceCode: canonicalNace,
-      naceCode:
-        activityPresentation &&
-        canonicalNace &&
-        activityPresentation.trim() !== canonicalNace.trim()
-          ? activityPresentation
-          : canonicalNace,
-      naceDescription:
-        (merged.activity_label as string) || (merged.nace_description as string) || undefined,
-      activityCode: activityPresentation,
-      activityLabel: merged.activity_label as string,
-      taxonomy: merged.taxonomy as string,
-    }
-
-    // Extract financials: prefer top-level, fallback to current_year_data (Mercury accountant flow)
-    const cyd = merged.current_year_data as
-      | { year?: number; revenue?: number | null; ebitda?: number | null }
-      | undefined
-    const revenue =
-      (merged.revenue as number) ?? (cyd?.revenue != null ? Number(cyd.revenue) : undefined)
-    const ebitda =
-      (merged.ebitda as number) ?? (cyd?.ebitda != null ? Number(cyd.ebitda) : undefined)
-    const yearData =
-      (merged.year_data as Record<number, { revenue?: number; ebitda?: number }>) ??
-      (merged.yearData as Record<number, { revenue?: number; ebitda?: number }>) ??
-      (merged.historical_years_data &&
-      Array.isArray(merged.historical_years_data) &&
-      merged.historical_years_data.length > 0
-        ? Object.fromEntries(
-            merged.historical_years_data.map(
-              (y: { year: number; revenue?: number; ebitda?: number }) => [
-                y.year,
-                { revenue: y.revenue, ebitda: y.ebitda },
-              ]
-            )
-          )
-        : cyd?.revenue != null || cyd?.ebitda != null
-          ? {
-              [cyd?.year ?? getCurrentFilingYear()]: {
-                revenue: cyd?.revenue ?? undefined,
-                ebitda: cyd?.ebitda ?? undefined,
-              },
-            }
-          : undefined)
-
-    const financials: PartialFinancials = {
-      revenue,
-      ebitda,
-      employeeCount: (merged.employee_count ?? merged.number_of_employees) as number,
-      yearData,
-    }
-
-    let businessType: BusinessTypeInfo | undefined
-    const businessTypeId = normalizeBusinessTypeId(merged.business_type_id)
-    if (businessTypeId) {
-      businessType = {
-        id: businessTypeId,
-        title: '', // Will be resolved later if needed
-        industry: merged.industry as string,
-      }
-    }
-
-    return { companyInfo, financials, businessType }
-  }
-
-  /**
-   * Merge company info from session, user profile, and KBO sources.
-   *
-   * **Precedence rules:**
-   *
-   * - When KBO data is present, it came from an explicit URL `prefilledQuery`
-   *   (the user navigated here to value *that specific company*). KBO must
-   *   beat the signed-in user's business card for the **company identity**
-   *   fields (name, KBO/VAT, legal form, address, NACE, founding year).
-   *   Otherwise an owner-operator who is also valuing an external target
-   *   (e.g. orphaned-seller flow on Mercury) sees their own company's
-   *   identity overwrite the URL-driven one. See incident: bakery owner
-   *   valuing a restaurant via the dashboard CTA.
-   *
-   * - For non-identity fields KBO doesn't carry (e.g. `industry`), the
-   *   normal session > profile fallback still applies via the spread.
-   *
-   * - When KBO is absent, fall back to the prior behavior:
-   *   session > profile (later sources win in `mergeWithPriority`).
-   */
-  private mergeCompanyInfo(
-    session?: CompanyInfo,
-    profile?: CompanyInfo,
-    kbo?: CompanyInfo
-  ): CompanyInfo | undefined {
-    if (!session && !profile && !kbo) {
-      return undefined
-    }
-
-    if (!kbo) {
-      return mergeWithPriority(profile, session) as CompanyInfo
-    }
-
-    // KBO present: identity fields are authoritative. Order: profile, session,
-    // kbo so that kbo wins for any field it provides while session/profile
-    // still fill gaps (e.g. an `industry` value not present on the KBO record).
-    return mergeWithPriority(profile, session, kbo) as CompanyInfo
-  }
-
-  /**
-   * Merge financials with priority
-   */
-  private mergeFinancials(
-    session?: PartialFinancials,
-    profile?: PartialFinancials
-  ): PartialFinancials | undefined {
-    if (!session && !profile) {
-      return undefined
-    }
-
-    return mergeWithPriority(profile, session) as PartialFinancials
-  }
-
-  /**
-   * Get list of populated fields
-   */
-  private getPopulatedFields(
-    companyInfo?: CompanyInfo,
-    financials?: PartialFinancials,
-    businessType?: BusinessTypeInfo
-  ): string[] {
-    const populated: string[] = []
-
-    if (companyInfo) {
-      if (companyInfo.companyName) populated.push('company_name')
-      if (companyInfo.kboNumber) populated.push('kbo_number')
-      if (companyInfo.vatNumber) populated.push('vat_number')
-      if (companyInfo.legalForm) populated.push('legal_form')
-      if (companyInfo.city) populated.push('city')
-      if (companyInfo.postalCode) populated.push('postal_code')
-      if (companyInfo.countryCode) populated.push('country_code')
-      if (companyInfo.foundingYear) populated.push('founding_year')
-      if (companyInfo.naceCode) populated.push('nace_code')
-      if (companyInfo.naceDescription) populated.push('nace_description')
-    }
-
-    if (financials) {
-      if (financials.revenue != null && Number.isFinite(Number(financials.revenue))) {
-        populated.push('revenue')
-      }
-      if (financials.ebitda != null && Number.isFinite(Number(financials.ebitda))) {
-        populated.push('ebitda')
-      }
-      if (financials.employeeCount) populated.push('employee_count')
-    }
-
-    if (businessType) {
-      populated.push('business_type_id')
-      if (businessType.industry) populated.push('industry')
-    }
-
-    return populated
-  }
-
-  /**
-   * Parse employee count from range string
-   */
-  private parseEmployeeCount(range?: string): number | undefined {
-    if (!range) return undefined
-
-    const rangeMap: Record<string, number> = {
-      '1-10': 5,
-      '10-50': 25,
-      '11-25': 18,
-      '26-50': 38,
-      '50-100': 75,
-      '51-100': 75,
-      '100-500': 250,
-      '101-500': 250,
-      '500+': 750,
-    }
-
-    return rangeMap[range.trim()]
   }
 }
 

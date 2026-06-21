@@ -60,6 +60,34 @@ export function createEbitdaNormalizationTemplate({
   }
 }
 
+export function isVirginEbitdaNormalization(
+  normalization: EbitdaNormalization | undefined
+): boolean {
+  return (
+    !!normalization &&
+    !normalization.id &&
+    (normalization.adjustments?.length ?? 0) === 0 &&
+    (normalization.custom_adjustments?.length ?? 0) === 0
+  )
+}
+
+export function mergeLoadedEbitdaNormalizations(
+  current: Record<number, EbitdaNormalization>,
+  loaded: Record<number, EbitdaNormalization>
+): Record<number, EbitdaNormalization> {
+  const next = { ...current }
+
+  for (const [rawYear, incoming] of Object.entries(loaded)) {
+    const year = Number(rawYear)
+    const existing = next[year]
+    if (!existing || isVirginEbitdaNormalization(existing)) {
+      next[year] = incoming
+    }
+  }
+
+  return next
+}
+
 export function upsertStandardAdjustment(
   normalization: EbitdaNormalization,
   category: NormalizationCategory,

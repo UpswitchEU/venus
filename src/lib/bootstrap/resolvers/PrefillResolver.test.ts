@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BusinessTypeInfo, CompanyInfo, KBOCompanyEntity, PartialFinancials } from '../types'
+import type { CompanyInfo, KBOCompanyEntity } from '../types'
 import { PrefillResolver, parsePrefilledQueryIdentifiers } from './PrefillResolver'
+import { extractSessionPrefill, mergeCompanyInfo } from './PrefillResolverModel'
 
 type PrefillResolverInternals = {
-  extractSessionPrefill: (sessionData: Record<string, unknown>) => {
-    businessType?: Pick<BusinessTypeInfo, 'id'>
-    financials?: PartialFinancials
-  }
   fetchKBO: (
     query: string,
     countryCode?: string
@@ -14,11 +11,6 @@ type PrefillResolverInternals = {
     companyInfo: CompanyInfo
     kboData: KBOCompanyEntity
   } | null>
-  mergeCompanyInfo: (
-    session?: Partial<CompanyInfo>,
-    profile?: Partial<CompanyInfo>,
-    kbo?: Partial<CompanyInfo>
-  ) => CompanyInfo | undefined
 }
 
 function asInternals(resolver: PrefillResolver): PrefillResolverInternals {
@@ -34,8 +26,7 @@ describe('PrefillResolver session fallback years', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
 
-    const resolver = asInternals(new PrefillResolver())
-    const result = resolver.extractSessionPrefill({
+    const result = extractSessionPrefill({
       company_name: 'Northwind BV',
       current_year_data: {
         revenue: 1_000_000,
@@ -49,8 +40,7 @@ describe('PrefillResolver session fallback years', () => {
   })
 
   it('canonicalizes session business_type_id aliases during prefill extraction', () => {
-    const resolver = asInternals(new PrefillResolver())
-    const result = resolver.extractSessionPrefill({
+    const result = extractSessionPrefill({
       company_name: 'Upswitch',
       business_type_id: 'fintech-lending-credit',
       industry: 'Financial Services',
@@ -252,9 +242,6 @@ describe('PrefillResolver KVK lookup routing', () => {
 })
 
 describe('PrefillResolver.mergeCompanyInfo precedence', () => {
-  const resolver = new PrefillResolver()
-  const merge = asInternals(resolver).mergeCompanyInfo.bind(resolver)
-
   it('lets KBO override the user business card for company identity (orphaned-seller bug)', () => {
     // Reproduces the production bug: a Bakkerij Van Damme owner valuing
     // RESTAURANT AB via the dashboard "Vul uw cijfers in" CTA. The URL
@@ -275,7 +262,7 @@ describe('PrefillResolver.mergeCompanyInfo precedence', () => {
       legalForm: 'BV',
     }
 
-    const merged = merge(undefined, profile, kbo)
+    const merged = mergeCompanyInfo(undefined, profile, kbo)
 
     expect(merged.companyName).toBe('RESTAURANT AB')
     expect(merged.kboNumber).toBe('0861.786.602')
@@ -295,7 +282,7 @@ describe('PrefillResolver.mergeCompanyInfo precedence', () => {
       kboNumber: '0861.786.602',
     }
 
-    const merged = merge(undefined, profile, kbo)
+    const merged = mergeCompanyInfo(undefined, profile, kbo)
 
     expect(merged.companyName).toBe('RESTAURANT AB')
     expect(merged.industry).toBe('food-and-beverage')
@@ -305,13 +292,13 @@ describe('PrefillResolver.mergeCompanyInfo precedence', () => {
     const profile = { companyName: 'Profile Co', city: 'Brussels' }
     const session = { companyName: 'Session Co' }
 
-    const merged = merge(session, profile, undefined)
+    const merged = mergeCompanyInfo(session, profile, undefined)
 
     expect(merged.companyName).toBe('Session Co')
     expect(merged.city).toBe('Brussels')
   })
 
   it('returns undefined when all sources are absent', () => {
-    expect(merge(undefined, undefined, undefined)).toBeUndefined()
+    expect(mergeCompanyInfo(undefined, undefined, undefined)).toBeUndefined()
   })
 })

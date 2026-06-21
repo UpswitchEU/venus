@@ -23,12 +23,9 @@ import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
 import { deriveMarkSavedState, deriveMarkUnsavedState } from './useSessionStore.dirtyState'
 import {
-  asSessionDataRecord,
   buildNoEngineHydratedSession,
-  isNonCriticalSaveFailureMessage,
   normalizeHydrateUpdatesRemovingOptimisticShell,
   preserveRecoveredHtmlOnSessionCommit,
-  readString,
   scheduleOptionalGapFillAfterHydrate,
   sessionHydrateUpdatesAreNoop,
   stripOptimisticShellFromSession,
@@ -38,6 +35,7 @@ import {
   buildOptimisticMercuryShellSession,
   getOptimisticMercuryShellRefusalReason,
 } from './useSessionStore.optimisticShell'
+import { createSaveSessionAction } from './useSessionStore.saveSession'
 
 // Source-contract sentinel: "loadSession blocked — engine not initialized" is enforced
 // in `useSessionStore.loadSession.ts`, while this shell preserves the public store boundary.
@@ -488,125 +486,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  /**
-   * Save session to backend
-   * ✅ TWIN ENGINE: Delegates to engine (Guest or Auth)
-   * @param reason - Reason for save: 'user' (explicit user action), 'autosave' (debounced form sync), 'system' (restoration/system-triggered)
-   */
-  saveSession: async (reason: 'user' | 'autosave' | 'system' = 'autosave') => {
-    const state = get()
-
-    if (!state.engine) {
-      storeLogger.warn('[Session] Cannot save - engine not initialized')
-      return
-    }
-
-    if (!state.session) {
-      storeLogger.warn('[Session] Cannot save: no active session')
-      return
-    }
-
-    if (state.isSaving) {
-      storeLogger.debug('[Session] Save already in progress, delegating to engine queue', {
-        reason,
-      })
-    }
-
-    // ✅ FIX: Capture hasUnsavedChanges BEFORE save starts (for toast callback)
-    // This ensures we know if there were actual changes, even if state changes during save
-    const hadUnsavedChangesBeforeSave = state.hasUnsavedChanges
-    const saveStartDirtyVersion = state.dirtyVersion
-
-    set({ isSaving: true, errorMessage: null })
-
-    try {
-      storeLogger.debug('[Session] Saving session', {
-        reportId: state.session.reportId,
-        reason,
-        hadUnsavedChanges: hadUnsavedChangesBeforeSave,
-      })
-
-      // ✅ TWIN ENGINE: Delegate to engine
-      await state.engine.saveSession(reason)
-
-      // Update local state from engine
-      const savedSession = state.engine.getSession()
-
-      // ✅ FIX: Update store with the saved session (includes business card data merged after save)
-      // This ensures the store has the latest session data, including any business card data
-      // that was fetched and merged during the save/reload process
-      if (savedSession) {
-        // ✅ DIAGNOSTIC: Verify business card data is in saved session
-        const savedSessionData = asSessionDataRecord(savedSession.sessionData)
-        const savedCompanyName = readString(savedSessionData, 'company_name')
-        const hasSavedCompanyName = savedCompanyName && savedCompanyName.trim() !== ''
-        storeLogger.debug('[Session] Updating store with saved session', {
-          reportId: state.session.reportId,
-          hasSavedSession: !!savedSession,
-          savedCompanyName,
-          hasSavedCompanyName,
-          savedBusinessTypeId: savedSessionData.business_type_id,
-        })
-
-        // Update session in store with the saved session (includes merged business card data)
-        set({
-          session: savedSession,
-        })
-      }
-
-      storeLogger.info('[Session] Session saved successfully', {
-        reportId: state.session.reportId,
-        reason,
-        hadUnsavedChanges: hadUnsavedChangesBeforeSave,
-      })
-
-      // ✅ FIX: Only trigger callback for 'user' saves (manual CTA clicks), not 'autosave' (form syncs)
-      // This ensures toast only shows when user explicitly saves, not during form interactions
-      if (reason === 'user' && state.onSaveSuccess) {
-        // Call callback - it will read the ref value which should still be true if there were changes
-        state.onSaveSuccess()
-      }
-
-      // ✅ FIX: Update state AFTER callback is invoked
-      // This ensures the ref still has the "before save" value when callback reads it
-      set((current) => deriveMarkSavedState(current, saveStartDirtyVersion))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save session'
-
-      // ✅ WORLD-CLASS FIX: Don't crash UI for non-critical errors
-      // Rate limits (429) and network errors are transient - don't show error screen
-      const isNonCritical = isNonCriticalSaveFailureMessage(message)
-
-      if (isNonCritical) {
-        storeLogger.warn('[Session] Non-critical save error (will retry automatically)', {
-          reportId: state.session.reportId,
-          error: message,
-          reason,
-          note: 'Rate limit or network error - update will be retried on next change',
-        })
-
-        // Don't set error state for non-critical errors - just mark as not saving
-        set({
-          isSaving: false,
-          errorMessage: null, // Don't show error for transient issues
-        })
-        return // Exit early - don't show error UI
-      }
-
-      storeLogger.error('[Session] Save failed', {
-        reportId: state.session.reportId,
-        error: message,
-        reason,
-      })
-
-      set({
-        isSaving: false,
-        errorMessage: message,
-      })
-
-      throw error
-    }
-  },
+  saveSession: createSaveSessionAction(set, get),
 
   /**
    * Clear session state
