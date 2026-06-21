@@ -18,6 +18,9 @@ export type DcfGlobalAssumptionsVariant = 'full' | 'forecastDefaultsOnly' | 'dis
 
 export type DcfInputMode = 'ebitda' | 'fcff_only'
 
+export const TERMINAL_METHOD_VALUES = ['perpetual_growth', 'exit_multiple'] as const
+export const DCF_DISCOUNTING_CONVENTION_VALUES = ['mid_year', 'year_end'] as const
+
 export type DcfGlobalAssumptionsSeedField =
   | 'dcf_revenue_growth_pct'
   | 'dcf_ebitda_margin_pct'
@@ -67,6 +70,23 @@ interface BuildDcfGlobalAssumptionsSeedPatchParams {
   integrationDaPct?: number | null
 }
 
+interface BuildDcfGlobalAssumptionsSectionStateParams {
+  variant: DcfGlobalAssumptionsVariant
+  dcfInputMode: DcfInputMode
+  terminalValueMethod: TerminalValueMethod
+  dcfRevenueGrowthPct?: number
+  dcfEbitdaMarginPct?: number
+  dcfWaccPct?: number
+  dcfTerminalGrowthPct?: number
+  dcfExitMultiple?: number
+}
+
+export interface DcfGlobalAssumptionsSectionState {
+  sectionComplete: boolean
+  showForecastDefaultsBlock: boolean
+  showDiscountTerminalBlock: boolean
+}
+
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -86,6 +106,44 @@ function seedIfMissing(
 ) {
   if (finite(current) || value === undefined) return
   patch[field] = value
+}
+
+function isPositiveFinite(value: unknown): value is number {
+  return finite(value) && value > 0
+}
+
+export function buildDcfGlobalAssumptionsSectionState({
+  variant,
+  dcfInputMode,
+  terminalValueMethod,
+  dcfRevenueGrowthPct,
+  dcfEbitdaMarginPct,
+  dcfWaccPct,
+  dcfTerminalGrowthPct,
+  dcfExitMultiple,
+}: BuildDcfGlobalAssumptionsSectionStateParams): DcfGlobalAssumptionsSectionState {
+  const showForecastDefaultsBlock = variant === 'full' || variant === 'forecastDefaultsOnly'
+  const showDiscountTerminalBlock = variant === 'full' || variant === 'discountTerminalOnly'
+
+  const forecastDefaultsComplete =
+    dcfInputMode === 'fcff_only' || (finite(dcfRevenueGrowthPct) && finite(dcfEbitdaMarginPct))
+
+  const effectiveTerminalMethod =
+    dcfInputMode === 'fcff_only' ? 'perpetual_growth' : terminalValueMethod
+  const terminalComplete =
+    effectiveTerminalMethod === 'perpetual_growth'
+      ? finite(dcfTerminalGrowthPct)
+      : isPositiveFinite(dcfExitMultiple)
+  const globalAssumptionsComplete = isPositiveFinite(dcfWaccPct) && terminalComplete
+
+  const sectionComplete =
+    variant === 'forecastDefaultsOnly' ? forecastDefaultsComplete : globalAssumptionsComplete
+
+  return {
+    sectionComplete,
+    showForecastDefaultsBlock,
+    showDiscountTerminalBlock,
+  }
 }
 
 export function buildDcfGlobalAssumptionsSeedPatch({

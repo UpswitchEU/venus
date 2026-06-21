@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildDcfGlobalAssumptionsSeedPatch } from './DcfGlobalAssumptionsModel'
+import {
+  buildDcfGlobalAssumptionsSectionState,
+  buildDcfGlobalAssumptionsSeedPatch,
+} from './DcfGlobalAssumptionsModel'
 
 describe('DcfGlobalAssumptionsModel', () => {
   it('seeds forecast defaults only in the forecast block', () => {
@@ -127,5 +130,78 @@ describe('DcfGlobalAssumptionsModel', () => {
         },
       })
     ).toEqual({})
+  })
+
+  it('marks the forecast defaults section complete from finite EBITDA-mode defaults', () => {
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'forecastDefaultsOnly',
+        dcfInputMode: 'ebitda',
+        terminalValueMethod: 'perpetual_growth',
+        dcfRevenueGrowthPct: 3,
+        dcfEbitdaMarginPct: 10,
+      })
+    ).toMatchObject({
+      sectionComplete: true,
+      showForecastDefaultsBlock: true,
+      showDiscountTerminalBlock: false,
+    })
+
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'forecastDefaultsOnly',
+        dcfInputMode: 'ebitda',
+        terminalValueMethod: 'perpetual_growth',
+        dcfRevenueGrowthPct: 3,
+      }).sectionComplete
+    ).toBe(false)
+  })
+
+  it('treats FCFF-only forecast defaults as complete without EBITDA placeholder fields', () => {
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'forecastDefaultsOnly',
+        dcfInputMode: 'fcff_only',
+        terminalValueMethod: 'exit_multiple',
+      }).sectionComplete
+    ).toBe(true)
+  })
+
+  it('requires WACC and the active terminal input for the discount section', () => {
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'discountTerminalOnly',
+        dcfInputMode: 'ebitda',
+        terminalValueMethod: 'exit_multiple',
+        dcfWaccPct: 11,
+        dcfExitMultiple: 6.5,
+      })
+    ).toMatchObject({
+      sectionComplete: true,
+      showForecastDefaultsBlock: false,
+      showDiscountTerminalBlock: true,
+    })
+
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'discountTerminalOnly',
+        dcfInputMode: 'ebitda',
+        terminalValueMethod: 'exit_multiple',
+        dcfWaccPct: 11,
+        dcfTerminalGrowthPct: 2,
+      }).sectionComplete
+    ).toBe(false)
+  })
+
+  it('forces the perpetual terminal completion path for FCFF-only discount sections', () => {
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'discountTerminalOnly',
+        dcfInputMode: 'fcff_only',
+        terminalValueMethod: 'exit_multiple',
+        dcfWaccPct: 11,
+        dcfTerminalGrowthPct: 2,
+      }).sectionComplete
+    ).toBe(true)
   })
 })

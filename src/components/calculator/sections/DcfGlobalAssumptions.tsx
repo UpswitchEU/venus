@@ -1,30 +1,24 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Database, History } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useEffect, useMemo, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
-import { Switch } from '@/design-system/components/Switch'
 import { cn } from '@/design-system/utils'
 import { AcademicValidationNotice } from './AcademicValidationNotice'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
+import { DcfForecastDefaultsBlock } from './DcfForecastDefaultsBlock'
 import {
+  buildDcfGlobalAssumptionsSectionState,
   buildDcfGlobalAssumptionsSeedPatch,
+  DCF_DISCOUNTING_CONVENTION_VALUES,
   type DcfDiscountingConvention,
   type DcfGlobalAssumptionsVariant,
   type DcfSeedSmartDefaults,
+  TERMINAL_METHOD_VALUES,
   type TerminalValueMethod,
 } from './DcfGlobalAssumptionsModel'
-import {
-  DCF_DEFAULT_CAPEX_PCT,
-  DCF_DEFAULT_DA_PCT,
-  DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
-  DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_REVENUE_GROWTH_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
-  DCF_DEFAULT_TERMINAL_GROWTH_PCT,
-} from './dcfEngineDefaults'
+import { DCF_DEFAULT_TERMINAL_GROWTH_PCT } from './dcfEngineDefaults'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
@@ -91,9 +85,6 @@ interface DcfGlobalAssumptionsProps {
   } | null
 }
 
-const TERMINAL_METHOD_VALUES: TerminalValueMethod[] = ['perpetual_growth', 'exit_multiple']
-const DCF_DISCOUNTING_CONVENTION_VALUES: DcfDiscountingConvention[] = ['mid_year', 'year_end']
-
 export function DcfGlobalAssumptions({
   step,
   variant = 'full',
@@ -133,11 +124,6 @@ export function DcfGlobalAssumptions({
   waccSectorBand,
 }: DcfGlobalAssumptionsProps) {
   const t = useTranslations('manualInput.methodSelector')
-  const tManual = useTranslations('manualInput')
-  // Collapsed by default — the FCFF drivers (CapEx, D&A, NWC ratio, tax) are
-  // shown in the summary line and are typically left on sector defaults. Keeping
-  // them open by default greets the user with six percent inputs and reads as overload.
-  const [showAdvancedDrivers, setShowAdvancedDrivers] = useState(false)
 
   // Cap-ack state for the >5% terminal-growth hard-stop. Local-only (we don't
   // persist this on the request) — re-firing the gate after a fresh entry is
@@ -251,32 +237,29 @@ export function DcfGlobalAssumptions({
     label: t(`dcfDiscountingConvention.${value}` as const),
   }))
 
-  const forecastDefaultsComplete = useMemo(() => {
-    if (dcfInputMode === 'fcff_only') return true
-    const g = dcfRevenueGrowthPct
-    const m = dcfEbitdaMarginPct
-    return (
-      typeof g === 'number' && Number.isFinite(g) && typeof m === 'number' && Number.isFinite(m)
-    )
-  }, [dcfRevenueGrowthPct, dcfEbitdaMarginPct, dcfInputMode])
-
-  const globalAssumptionsComplete = useMemo(() => {
-    const waccOk = dcfWaccPct != null && Number.isFinite(dcfWaccPct) && dcfWaccPct > 0
-    const effectiveTerminal =
-      dcfInputMode === 'fcff_only' ? 'perpetual_growth' : terminalValueMethod
-    const terminalOk =
-      effectiveTerminal === 'perpetual_growth'
-        ? dcfTerminalGrowthPct != null && Number.isFinite(dcfTerminalGrowthPct)
-        : dcfExitMultiple != null && Number.isFinite(dcfExitMultiple) && dcfExitMultiple > 0
-    return waccOk && terminalOk
-  }, [dcfWaccPct, terminalValueMethod, dcfTerminalGrowthPct, dcfExitMultiple, dcfInputMode])
-
-  const sectionComplete =
-    variant === 'forecastDefaultsOnly'
-      ? forecastDefaultsComplete
-      : variant === 'discountTerminalOnly'
-        ? globalAssumptionsComplete
-        : globalAssumptionsComplete
+  const { sectionComplete, showForecastDefaultsBlock, showDiscountTerminalBlock } = useMemo(
+    () =>
+      buildDcfGlobalAssumptionsSectionState({
+        variant,
+        dcfInputMode,
+        terminalValueMethod,
+        dcfRevenueGrowthPct,
+        dcfEbitdaMarginPct,
+        dcfWaccPct,
+        dcfTerminalGrowthPct,
+        dcfExitMultiple,
+      }),
+    [
+      variant,
+      dcfInputMode,
+      terminalValueMethod,
+      dcfRevenueGrowthPct,
+      dcfEbitdaMarginPct,
+      dcfWaccPct,
+      dcfTerminalGrowthPct,
+      dcfExitMultiple,
+    ]
+  )
 
   const sectionTitle =
     variant === 'forecastDefaultsOnly'
@@ -291,19 +274,6 @@ export function DcfGlobalAssumptions({
       : variant === 'discountTerminalOnly'
         ? t('sections.dcfDiscountAndTerminalAria')
         : t('sections.dcfGlobalAssumptions')
-  const advancedDriverSummary = useMemo(
-    () =>
-      t('advancedDriversSummary', {
-        capex: (dcfCapexPct ?? DCF_DEFAULT_CAPEX_PCT).toFixed(1),
-        da: (dcfDaPct ?? DCF_DEFAULT_DA_PCT).toFixed(1),
-        nwc: (dcfNwcPct ?? DCF_DEFAULT_NWC_PCT).toFixed(1),
-        tax: (dcfTaxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT).toFixed(1),
-      }),
-    [t, dcfCapexPct, dcfDaPct, dcfNwcPct, dcfTaxRatePct]
-  )
-
-  const showForecastDefaultsBlock = variant === 'full' || variant === 'forecastDefaultsOnly'
-  const showDiscountTerminalBlock = variant === 'full' || variant === 'discountTerminalOnly'
 
   return (
     <motion.section
@@ -322,203 +292,27 @@ export function DcfGlobalAssumptions({
         </p>
       )}
 
-      {variant === 'forecastDefaultsOnly' && dcfInputMode === 'ebitda' && (
-        <p className="text-xs leading-relaxed text-muted-foreground -mt-1">
-          {t('forecastDefaultsLead')}
-        </p>
-      )}
-
-      {/* No-history affordance: when smartDefaults is null, we're shipping
-          sector-only fallbacks. Surface that explicitly so the user knows the
-          calibration is loose and can act (add historical years above).
-          Only render in EBITDA-mode forecast block — FCFF-only doesn't use these. */}
-      {variant === 'forecastDefaultsOnly' && dcfInputMode === 'ebitda' && smartDefaults == null && (
-        <div
-          className="-mt-0.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.05] px-3 py-2"
-          role="note"
-        >
-          <p className="text-[11px] leading-snug text-amber-900 dark:text-amber-200/90">
-            {t('forecastDefaultsNoHistoryNote')}
-          </p>
-        </div>
-      )}
-
-      {variant === 'forecastDefaultsOnly' && dcfDefaultsProvenance !== 'none' && (
-        <div
-          className="-mt-0.5 flex flex-wrap items-center gap-1.5"
-          role="status"
-          aria-label={t('forecastDefaultsProvenanceAria')}
-        >
-          <span className="inline-flex max-w-full items-center gap-1 rounded-lg border border-primary/15 bg-primary/[0.06] px-2 py-1 text-[10px] font-medium leading-tight text-primary/85 ring-1 ring-inset ring-primary/10">
-            {dcfDefaultsProvenance === 'both' && (
-              <>
-                <History className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
-                <Database className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
-                <span>{t('forecastDefaultsProvenance.both')}</span>
-              </>
-            )}
-            {dcfDefaultsProvenance === 'history' && (
-              <>
-                <History className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
-                <span>{t('forecastDefaultsProvenance.history')}</span>
-              </>
-            )}
-            {dcfDefaultsProvenance === 'integration' && (
-              <>
-                <Database className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
-                <span>{t('forecastDefaultsProvenance.integration')}</span>
-              </>
-            )}
-          </span>
-          <p className="text-[10px] leading-snug text-muted-foreground">
-            {t('forecastDefaultsEditableHint')}
-          </p>
-        </div>
-      )}
-
-      {showDcfInputModeToggle &&
-        variant === 'forecastDefaultsOnly' &&
-        dcfModeSegmentOptions &&
-        onDcfInputModeChange && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
-              {t('dcfInputModeLabelEmbedded')}
-            </span>
-            <SegmentedControl
-              value={dcfInputMode}
-              onChange={(v) => onDcfInputModeChange(v as 'ebitda' | 'fcff_only')}
-              options={dcfModeSegmentOptions}
-              disabled={disabled}
-              size="sm"
-              fullWidth
-              aria-label={t('dcfInputModeLabelEmbedded')}
-            />
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              {dcfInputMode === 'fcff_only'
-                ? tManual('dcfInputMode.fcffOnlyHint')
-                : tManual('dcfInputMode.ebitdaHint')}
-            </p>
-          </div>
-        )}
-
-      {/* Forecast defaults: growth, margin, and FCFF bridge drivers */}
       {showForecastDefaultsBlock && (
-        <div className="space-y-3">
-          {variant === 'full' && (
-            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
-              {t('globalAssumptionGroups.forecastDefaults')}
-            </h4>
-          )}
-          {dcfInputMode === 'fcff_only' ? (
-            <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {t('fcffOnlyForecastDefaultsNotice')}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-3">
-                <AdaptivePercentInput
-                  label={t('fields.dcfRevenueGrowthPct')}
-                  value={dcfRevenueGrowthPct}
-                  onChange={(v) => onFieldChange('dcf_revenue_growth_pct', v)}
-                  placeholder={String(DCF_DEFAULT_REVENUE_GROWTH_PCT)}
-                  disabled={disabled}
-                  truncateLabel={false}
-                />
-                <AdaptivePercentInput
-                  label={t('fields.dcfEbitdaMarginPct')}
-                  value={dcfEbitdaMarginPct}
-                  onChange={(v) => onFieldChange('dcf_ebitda_margin_pct', v)}
-                  placeholder={String(DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT)}
-                  disabled={disabled}
-                  truncateLabel={false}
-                />
-              </div>
-              <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3">
-                <div className="space-y-2">
-                  <Switch
-                    size="sm"
-                    checked={showAdvancedDrivers}
-                    onChange={(next) => setShowAdvancedDrivers(next)}
-                    disabled={disabled}
-                    label={t('advancedDriversTitle')}
-                    labelPosition="right"
-                  />
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    {advancedDriverSummary}
-                  </p>
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    {t('advancedDriversHelp')}
-                  </p>
-                </div>
-                <AnimatePresence initial={false}>
-                  {showAdvancedDrivers && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="mt-3 grid grid-cols-1 gap-3 border-t border-primary/10 pt-3"
-                    >
-                      <AdaptivePercentInput
-                        label={t('fields.dcfCapexPct')}
-                        value={dcfCapexPct}
-                        onChange={(v) => onFieldChange('dcf_capex_pct', v)}
-                        placeholder={String(DCF_DEFAULT_CAPEX_PCT)}
-                        disabled={disabled}
-                        truncateLabel={false}
-                      />
-                      <AdaptivePercentInput
-                        label={t('fields.dcfDaPct')}
-                        value={dcfDaPct}
-                        onChange={(v) => onFieldChange('dcf_da_pct', v)}
-                        placeholder={String(DCF_DEFAULT_DA_PCT)}
-                        disabled={disabled}
-                        truncateLabel={false}
-                      />
-                      <AdaptivePercentInput
-                        label={t('fields.dcfNwcPct')}
-                        description={t('fieldHints.dcfNwcPct')}
-                        value={dcfNwcPct}
-                        onChange={(v) => onFieldChange('dcf_nwc_pct', v)}
-                        placeholder={String(DCF_DEFAULT_NWC_PCT)}
-                        disabled={disabled}
-                        truncateLabel={false}
-                      />
-                      <AdaptivePercentInput
-                        label={t('fields.dcfTaxRatePct')}
-                        value={dcfTaxRatePct}
-                        onChange={(v) => onFieldChange('dcf_tax_rate_pct', v)}
-                        placeholder={String(DCF_DEFAULT_TAX_RATE_PCT)}
-                        disabled={disabled}
-                        truncateLabel={false}
-                      />
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        {t('dcfCapexFootnote')}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              {onApplyToForecastYears && (
-                <div className="flex flex-col gap-2 rounded-xl border border-primary/10 bg-primary/[0.03] p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    {t('applyForecastYearsDescription', { count: forecastYearCount })}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onApplyToForecastYears}
-                    disabled={disabled || !canApplyToForecastYears}
-                    className="inline-flex items-center justify-center rounded-lg border border-primary/20 bg-background px-3 py-2 text-sm font-medium text-primary transition-colors hover:border-primary/35 hover:bg-primary/5 disabled:cursor-not-allowed disabled:border-primary/10 disabled:text-primary/40 disabled:hover:bg-background"
-                  >
-                    {t('applyForecastYears')}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <DcfForecastDefaultsBlock
+          variant={variant}
+          dcfInputMode={dcfInputMode}
+          dcfRevenueGrowthPct={dcfRevenueGrowthPct}
+          dcfEbitdaMarginPct={dcfEbitdaMarginPct}
+          dcfCapexPct={dcfCapexPct}
+          dcfDaPct={dcfDaPct}
+          dcfNwcPct={dcfNwcPct}
+          dcfTaxRatePct={dcfTaxRatePct}
+          dcfDefaultsProvenance={dcfDefaultsProvenance}
+          smartDefaultsPresent={smartDefaults != null}
+          showDcfInputModeToggle={showDcfInputModeToggle && variant === 'forecastDefaultsOnly'}
+          dcfModeSegmentOptions={dcfModeSegmentOptions}
+          onDcfInputModeChange={onDcfInputModeChange}
+          onFieldChange={onFieldChange}
+          onApplyToForecastYears={onApplyToForecastYears}
+          canApplyToForecastYears={canApplyToForecastYears}
+          forecastYearCount={forecastYearCount}
+          disabled={disabled}
+        />
       )}
 
       {/* Discount rate + terminal value */}
