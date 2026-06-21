@@ -1,10 +1,10 @@
 'use client'
 
-import { Home, Info, LogOut, Settings, User, UserPlus } from 'lucide-react'
+import { Home, Info, LogOut, Settings, UserPlus } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   hasUsableMercuryHandoffReturnUrl,
   isManualMercuryEmbeddedContext,
@@ -12,7 +12,7 @@ import {
   readManualMercuryHandoffFromBrowser,
 } from '@/features/manual/utils/manualMercuryNavigate'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
-import { User as UserType } from '../contexts/AuthContextTypes'
+import type { User as UserType } from '../contexts/AuthContextTypes'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import UrlGeneratorService from '../services/urlGenerator'
 import { useSessionStore } from '../store/useSessionStore'
@@ -20,20 +20,31 @@ import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
+import {
+  isReportPathname,
+  resolveMercuryLocale,
+  resolveReportId,
+  resolveUserDropdownIdentity,
+} from './UserDropdownModel'
+import {
+  UserDropdownButton,
+  UserDropdownMenu,
+  type UserDropdownMenuItem,
+} from './UserDropdownParts'
 
 interface UserDropdownProps {
   user: UserType | null
   onLogout: () => Promise<void>
 }
 
-export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) => {
+export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const t = useTranslations('userDropdown')
   // Get client context to show client avatar when acting as client
   const { isActingAsClient, client } = useClientContext()
   const router = useTransitionRouter()
   const pathname = usePathname()
   /** Mercury app routes are /en|nl/... — align deep links with current Venus locale. */
-  const mercuryLocale = pathname?.match(/^\/(en|nl|fr)/)?.[1] || 'en'
+  const mercuryLocale = resolveMercuryLocale(pathname)
   const [isOpen, setIsOpen] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -50,9 +61,12 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
   const clearSession = useSessionStore((state) => state.clearSession)
 
   // Check if we're on a report page
-  const isOnReportPage = pathname?.startsWith('/reports/') && pathname !== '/reports/new'
-  const reportId =
-    session?.reportId || (isOnReportPage ? pathname?.split('/reports/')[1]?.split('?')[0] : null)
+  const isOnReportPage = isReportPathname(pathname)
+  const reportId = resolveReportId({
+    isOnReportPage,
+    pathname,
+    sessionReportId: session?.reportId,
+  })
 
   /** Only then may Mercury show "valuation added to business card" — not on plain exit. */
   const celebrateMercuryReturn = !!session?.valuationResult || !!session?.htmlReport
@@ -117,32 +131,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     }
   }, [isOpen])
 
-  // Close exit modal when dropdown closes
-  useEffect(() => {
-    if (!isOpen) {
-      setShowExitModal(false)
-    }
-  }, [isOpen])
-
-  // Get user initials for placeholder
-  const getUserInitials = () => {
-    // Always show accountant initials in toolbar
-    if (!user?.name) return '?'
-    const names = user.name.split(' ')
-    if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase()
-    }
-    return user.name.substring(0, 2).toUpperCase()
-  }
-
-  // Use client avatar when acting as client, otherwise use user avatar
-  const avatarUrl =
-    isActingAsClient && client
-      ? client.avatarUrl
-      : user?.avatar_url || user?.avatar || user?.profile_picture || user?.picture
-  const hasAvatar = !!avatarUrl
-  // Always show accountant identity in toolbar; client name belongs in breadcrumb/context bar
-  const displayName = user?.name || user?.email
+  const identity = resolveUserDropdownIdentity({ client, isActingAsClient, user })
 
   const handleUserClick = () => {
     setIsOpen((prev) => !prev)
@@ -152,8 +141,6 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     setIsOpen(false)
     await onLogout()
   }
-
-  // Removed handleSignIn since Sign In menu item was removed
 
   const handleCreateAccount = () => {
     setIsOpen(false)
@@ -207,7 +194,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
   const handleBackToDashboard = () => {
     setIsOpen(false)
-    const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
+    const locale = resolveMercuryLocale(pathname)
     const { relationshipId } = useClientContext.getState()
     broadcastReportUpdateBeforeMercuryReturn()
     navigateToMercuryFromManualHandoff({
@@ -257,7 +244,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
 
     if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
       generalLogger.info('[UserDropdown] Returning to Mercury via handoff')
-      const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
+      const locale = resolveMercuryLocale(pathname)
       broadcastReportUpdateBeforeMercuryReturn()
       const { relationshipId: relId } = useClientContext.getState()
       navigateToMercuryFromManualHandoff({
@@ -330,7 +317,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       setShowExitModal(false)
 
       if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
-        const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
+        const locale = resolveMercuryLocale(pathname)
         const { relationshipId: relId2 } = useClientContext.getState()
         navigateToMercuryFromManualHandoff({
           currentLocale: locale,
@@ -358,7 +345,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
       setShowExitModal(false)
 
       if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
-        const locale = pathname?.match(/\/(en|nl|fr)\//)?.[1] || 'en'
+        const locale = resolveMercuryLocale(pathname)
         const { relationshipId: relId3 } = useClientContext.getState()
         navigateToMercuryFromManualHandoff({
           currentLocale: locale,
@@ -411,9 +398,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     setShowExitModal(false)
   }
 
-  // Menu items for authenticated users
-  const authenticatedMenuItems = [
-    // Show "Back to Home" when on report page, otherwise "Back to Dashboard"
+  const authenticatedMenuItems: UserDropdownMenuItem[] = [
     ...(isOnReportPage
       ? [
           {
@@ -439,7 +424,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     },
     {
       key: 'divider-1',
-      isDivider: true,
+      isDivider: true as const,
     },
     {
       key: 'logout',
@@ -449,9 +434,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     },
   ]
 
-  // Menu items for guest users
-  const guestMenuItems = [
-    // Show "Back to Home" when on report page
+  const guestMenuItems: UserDropdownMenuItem[] = [
     ...(isOnReportPage
       ? [
           {
@@ -465,7 +448,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
           },
           {
             key: 'divider-home',
-            isDivider: true,
+            isDivider: true as const,
           },
         ]
       : []),
@@ -477,7 +460,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     },
     {
       key: 'divider-1',
-      isDivider: true,
+      isDivider: true as const,
     },
     {
       key: 'learn-more',
@@ -487,6 +470,10 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
     },
   ]
 
+  const menuItems = user ? authenticatedMenuItems : guestMenuItems
+  const menuItemKeySignature = menuItems.map((item) => item.key).join('|')
+  const hasBackToHomeMenuItem = menuItemKeySignature.split('|').includes('back-to-home')
+
   // Debug: Log menu items when they change
   useEffect(() => {
     if (!user) {
@@ -494,168 +481,52 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ user, onLogout }) =>
         isOnReportPage,
         pathname,
         menuItemCount: guestMenuItems.length,
-        hasBackToHome: guestMenuItems.some((item) => item.key === 'back-to-home'),
+        hasBackToHome: hasBackToHomeMenuItem,
       })
     }
-  }, [user, isOnReportPage, pathname, guestMenuItems.length, guestMenuItems.some])
-
-  const menuItems = user ? authenticatedMenuItems : guestMenuItems
+  }, [user, isOnReportPage, pathname, guestMenuItems.length, hasBackToHomeMenuItem])
 
   // Debug: Log which menu items are being used
   useEffect(() => {
     generalLogger.debug('[UserDropdown] Menu items updated', {
       userType: user ? 'authenticated' : 'guest',
       menuItemCount: menuItems.length,
-      menuItemKeys: menuItems.map((item) => item.key),
+      menuItemKeys: menuItemKeySignature.split('|'),
       isOnReportPage,
       pathname,
     })
-  }, [user, menuItems.length, isOnReportPage, pathname, menuItems.map])
+  }, [user, menuItems.length, menuItemKeySignature, isOnReportPage, pathname])
 
   return (
     <div ref={dropdownRef} className="relative" style={{ zIndex: 10001, position: 'relative' }}>
-      {/* Avatar Button */}
-      <button
-        ref={buttonRef}
-        data-testid="user-menu"
+      <UserDropdownButton
+        accountMenuLabel={t('accountMenu')}
+        buttonRef={buttonRef}
+        guestAccountMenuLabel={t('guestAccountMenu')}
+        identity={identity}
+        isOpen={isOpen}
         onClick={handleUserClick}
-        className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-full bg-foreground/10 text-foreground text-sm font-medium hover:bg-foreground/15 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-        aria-label={user ? `${displayName} - ${t('accountMenu')}` : t('guestAccountMenu')}
-        aria-expanded={isOpen}
-        aria-haspopup="true"
-        style={{ position: 'relative', zIndex: 10001 }}
-      >
-        {user ? (
-          <>
-            {hasAvatar ? (
-              <img
-                src={avatarUrl || ''}
-                alt={displayName || 'User'}
-                className="w-full h-full rounded-full object-cover"
-                loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                  e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                }}
-              />
-            ) : null}
-            <span className={hasAvatar ? 'hidden' : 'block'}>{getUserInitials()}</span>
-          </>
-        ) : (
-          <User className="w-4 h-4 text-muted-foreground" />
-        )}
-      </button>
+        user={user}
+      />
 
-      {/* Dropdown Menu */}
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-[10000]"
-            onClick={() => setIsOpen(false)}
-            aria-hidden="true"
-            style={{ zIndex: 10000 }}
-          />
-
-          {/* Dropdown */}
-          {/* ✅ FIX: Use very high z-index to ensure dropdown appears above report content */}
-          <div
-            className="fixed w-56 bg-popover rounded-lg shadow-lg border border-foreground/10 py-2 z-[10001]"
-            style={{
-              top: `${dropdownPosition.top}px`, // Dynamic position
-              right: `${dropdownPosition.right}px`, // Dynamic position
-              zIndex: 10001,
-            }}
-          >
-            {/* User Profile Header */}
-            <div className="px-4 py-3 border-b border-foreground/10">
-              {user ? (
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
-                    {hasAvatar ? (
-                      <img
-                        src={avatarUrl || ''}
-                        alt={user?.name || 'User'}
-                        className="w-full h-full rounded-full object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                          e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                        }}
-                      />
-                    ) : null}
-                    <span
-                      className={hasAvatar ? 'hidden' : 'block text-foreground text-sm font-medium'}
-                    >
-                      {getUserInitials()}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">
-                      {user.name || 'User'}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col">
-                  <p className="text-sm font-medium text-foreground">{t('welcomeGuest')}</p>
-                  <p className="text-xs text-muted-foreground">{t('signInToDashboard')}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Menu Items */}
-            <div className="py-2">
-              {menuItems.map((item, index) => {
-                if (item.isDivider) {
-                  return <div key={index} className="h-px bg-foreground/10 my-1" role="separator" />
-                }
-
-                const Icon = item.icon
-                const isFirst = index === 0
-                const isLast = index === menuItems.length - 1
-
-                const isLogout = item.key === 'logout'
-                return (
-                  <button
-                    key={index}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      generalLogger.debug('[UserDropdown] Menu item clicked', {
-                        key: item.key,
-                        label: item.label,
-                        hasAction: !!item.action,
-                      })
-                      item.action?.()
-                    }}
-                    className={`
-                      w-full flex items-center gap-3 px-4 py-4 sm:py-3 text-base sm:text-sm font-medium text-left border-0 bg-transparent
-                      transition-colors duration-150
-                      ${isFirst ? 'rounded-t-xl' : ''}
-                      ${isLast ? 'rounded-b-xl' : ''}
-                      ${
-                        isLogout
-                          ? 'hover:bg-red-900/20 text-red-400 hover:text-red-300'
-                          : 'hover:bg-foreground/10 text-muted-foreground hover:text-foreground'
-                      }
-                    `}
-                    role="menuitem"
-                    tabIndex={0}
-                  >
-                    {Icon && (
-                      <Icon
-                        className={`w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0 ${isLogout ? 'text-red-400' : 'text-muted-foreground'}`}
-                      />
-                    )}
-                    <span className="flex-1">{item.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </>
+        <UserDropdownMenu
+          identity={identity}
+          menuItems={menuItems}
+          onClose={() => setIsOpen(false)}
+          onItemSelect={(item) => {
+            generalLogger.debug('[UserDropdown] Menu item clicked', {
+              key: item.key,
+              label: item.label,
+              hasAction: !!item.action,
+            })
+            item.action()
+          }}
+          position={dropdownPosition}
+          signInToDashboardLabel={t('signInToDashboard')}
+          user={user}
+          welcomeGuestLabel={t('welcomeGuest')}
+        />
       )}
 
       {/* Exit Confirmation Modal */}

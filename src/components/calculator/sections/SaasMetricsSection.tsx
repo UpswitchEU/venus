@@ -2,21 +2,24 @@
 import { motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { cn } from '@/design-system/utils'
-import { PREVIEW_DECIMALS, useManualPreviewFormatters } from '@/lib/omniPreview'
 import { computeSaasPreviewMetrics } from '@/lib/saas'
 import { inferStartupSectorFromNace } from '@/store/manual/inferStartupSectorFromNace'
 import { CurrencyInput } from '../CurrencyInput'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
-import { formatPreviewMetricValue, PreviewMetricCard } from './previewMetricCards'
 import {
   buildSaasBenchmarkPrefillPlan,
   buildSaasMrrPrefillPatch,
   buildSaasProgressModel,
 } from './SaasMetricsSectionModel'
+import {
+  SaasArrProjectionPreviewCard,
+  SaasDerivedMetricsGrid,
+  type SaasImportedProvenance,
+  SaasImportedProvenanceBanner,
+  SaasProgressCard,
+} from './SaasMetricsSectionOutputs'
 import { FieldWithSourceChip, type PrefillSource, SaasPanel } from './SaasMetricsSectionParts'
 import { SAAS_SECTOR_DEFAULTS } from './saasBenchmarks'
-import { getSaasMetricHealthStatus } from './saasMetricsHealth'
 import { computeYoyRevenueGrowthPct, type YearlyFinancialsRow } from './saasYoyPrefill'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
@@ -37,12 +40,7 @@ interface SaasMetricsSectionProps {
   onFieldChange: (field: string, value: number | undefined) => void
   disabled?: boolean
   arrProjectionPreview?: Array<{ year: number; arr: number }>
-  importedSaasProvenance?: {
-    source?: string
-    confidence?: number
-    derivation_method?: string
-    fiscal_year?: number
-  } | null
+  importedSaasProvenance?: SaasImportedProvenance | null
   /** NACE-BEL or generic NACE Rev. 2 code from KBO/KVK lookup. Drives
    *  the one-shot benchmark prefill of gross margin, churn, NRR, growth.
    *  Optional — when absent, no prefill is attempted. */
@@ -76,7 +74,6 @@ export function SaasMetricsSection({
   yearlyFinancials,
 }: SaasMetricsSectionProps) {
   const t = useTranslations('manualInput.methodSelector')
-  const { saasMetric: metricFormatter, currency: currencyFormatter } = useManualPreviewFormatters()
   const [advancedExpanded, setAdvancedExpanded] = useState(false)
 
   // Sector-benchmark prefill — runs once per mount when KBO/KVK has
@@ -198,10 +195,6 @@ export function SaasMetricsSection({
     onFieldChange(patch.field, patch.value)
   }, [saasArr, saasMrr, importedSaasProvenance, onFieldChange])
 
-  const importedProviderLabel = importedSaasProvenance?.source
-    ? importedSaasProvenance.source.charAt(0).toUpperCase() + importedSaasProvenance.source.slice(1)
-    : null
-
   const derivedMetrics = useMemo(
     () =>
       computeSaasPreviewMetrics({
@@ -298,53 +291,16 @@ export function SaasMetricsSection({
         }
       />
 
-      {importedSaasProvenance && importedProviderLabel && (
-        <div className="rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5">
-          <p className="text-xs font-medium text-foreground">{t('saasImported.title')}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {t('saasImported.description', {
-              provider: importedProviderLabel,
-              confidence: Math.round((importedSaasProvenance.confidence ?? 0) * 100),
-              year: importedSaasProvenance.fiscal_year ?? '—',
-            })}
-          </p>
-        </div>
+      {importedSaasProvenance && (
+        <SaasImportedProvenanceBanner provenance={importedSaasProvenance} />
       )}
 
-      <div className="rounded-xl border border-primary/10 bg-primary/[0.03] p-3 space-y-3">
-        <div className="space-y-1">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground/60">
-            {t('saasPanels.startLeadTitle')}
-          </h4>
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('fields.saasLead')}</p>
-          <p className="text-[11px] text-foreground/45">{t('fields.saasQuickStart')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
-              <motion.div
-                className={cn(
-                  'h-full rounded-full transition-colors',
-                  isReady ? 'bg-emerald-500' : 'bg-primary/50'
-                )}
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              />
-            </div>
-          </div>
-          <p className="whitespace-nowrap text-[10px] text-foreground/45">
-            {isReady
-              ? t('saasProgress.ready')
-              : t('saasProgress.filled', { count: filledCount, total: totalFields })}
-          </p>
-        </div>
-        {!isReady && (
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {t('saasProgress.minimumHint')}
-          </p>
-        )}
-      </div>
+      <SaasProgressCard
+        filledCount={filledCount}
+        isReady={isReady}
+        progressPct={progressPct}
+        totalFields={totalFields}
+      />
 
       <SaasPanel
         title={t('saasPanels.startHereTitle')}
@@ -567,101 +523,9 @@ export function SaasMetricsSection({
         )}
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
-            {t('sections.saasDerivedMetrics')}
-          </h4>
-          <span className="text-[10px] text-foreground/45">{t('fields.saasAutoCalculated')}</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {(
-            [
-              {
-                key: 'ruleOf40',
-                label: t('fields.ruleOf40Score'),
-                value: derivedMetrics.ruleOf40,
-                suffix: '%',
-              },
-              {
-                key: 'ltvCac',
-                label: t('fields.ltvCacRatio'),
-                value: derivedMetrics.ltvCac,
-                suffix: 'x',
-              },
-              {
-                key: 'cacPaybackMonths',
-                label: t('fields.cacPaybackMonths'),
-                value: derivedMetrics.cacPaybackMonths,
-                suffix: '',
-              },
-              {
-                key: 'magicNumber',
-                label: t('fields.magicNumber'),
-                value: derivedMetrics.magicNumber,
-                suffix: 'x',
-              },
-              {
-                key: 'nrrExpansionSpread',
-                label: t('fields.nrrExpansionSpread'),
-                value: derivedMetrics.nrrExpansionSpread,
-                suffix: ' pts',
-              },
-            ] as const
-          ).map(({ key, label, value, suffix }) => {
-            const status = getSaasMetricHealthStatus(key, value)
-            // The `title` attribute carries the formula so an
-            // accountant verifying the engine output can see the math
-            // without round-tripping to the docs.
-            const formula = t(`saasFormulas.${key}`)
-            return (
-              <div key={key} title={formula}>
-                <PreviewMetricCard
-                  label={label}
-                  value={formatPreviewMetricValue(
-                    value,
-                    metricFormatter,
-                    PREVIEW_DECIMALS.saasMetric,
-                    suffix
-                  )}
-                  status={status}
-                  statusLabel={status ? t(`saasHealthStatus.${status}`) : undefined}
-                />
-              </div>
-            )
-          })}
-        </div>
-        {!isReady && (
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {t('fields.saasDerivedNeedMoreInputs')}
-          </p>
-        )}
-      </div>
+      <SaasDerivedMetricsGrid derivedMetrics={derivedMetrics} isReady={isReady} />
 
-      {arrProjectionPreview.length > 0 && (
-        <div className="rounded-xl border border-foreground/10 bg-background/70 p-3">
-          <p className="text-sm font-medium text-foreground">{t('saasProjectionPreview.title')}</p>
-          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            {t('saasProjectionPreview.description')}
-          </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            {arrProjectionPreview.map((row) => (
-              <div
-                key={row.year}
-                className="rounded-lg border border-foreground/8 bg-foreground/[0.02] px-3 py-2"
-              >
-                <p className="text-xs font-semibold text-foreground">{row.year}</p>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  {t('saasProjectionPreview.arr')}
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {currencyFormatter.format(row.arr)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <SaasArrProjectionPreviewCard rows={arrProjectionPreview} />
     </motion.section>
   )
 }

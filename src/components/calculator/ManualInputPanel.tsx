@@ -13,7 +13,7 @@
  */
 
 import { useLocale, useTranslations } from 'next-intl'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import type { ParsedCSVData } from '@/components/integrations/CSVUploadCard'
 import {
   isAccountantFreeOrStarterTier,
@@ -45,7 +45,6 @@ import type {
 } from '../../types/valuation'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
-import { realEstateCarveOutAppliesTo } from '../../utils/realEstateCarveOutDisplay'
 import { isYearRowForecast } from '../../utils/yearData'
 import { getLatestCompleteYearlyFinancial } from '../../utils/yearlyFinancials'
 import type { FieldHelpContext } from './FieldHelpTrigger'
@@ -54,6 +53,10 @@ import { useManualAccountingImportController } from './hooks/useManualAccounting
 import { useManualCompanyIdentificationController } from './hooks/useManualCompanyIdentificationController'
 import { useManualDcfForecastController } from './hooks/useManualDcfForecastController'
 import { useManualFinancialRowsController } from './hooks/useManualFinancialRowsController'
+import {
+  type ManualInputAssistantPatch,
+  useManualInputAssistantPatchSync,
+} from './hooks/useManualInputAssistantPatchSync'
 import { useManualInputFormDataSync } from './hooks/useManualInputFormDataSync'
 import { useManualInputPrefillSync } from './hooks/useManualInputPrefillSync'
 import { ManualInputPanelModals } from './ManualInputPanelModals'
@@ -62,11 +65,7 @@ import { CompanyIdentificationSection } from './sections/CompanyIdentificationSe
 import { FinancialHistorySection } from './sections/FinancialHistorySection'
 import { ManualInputMethodSections } from './sections/ManualInputMethodSections'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
-import {
-  applyManualCurrentYearBalance,
-  applyManualFinancialYearSelection,
-  type ManualCurrentYearBalance,
-} from './utils/manualFinancialRowMutations'
+import { applyManualFinancialYearSelection } from './utils/manualFinancialRowMutations'
 import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
@@ -82,22 +81,13 @@ import { buildManualInputInitialFormData } from './utils/manualInputInitialFormD
 import { buildManualInputNormalizedData } from './utils/manualInputNormalizedData'
 import { deriveManualInputReadiness } from './utils/manualInputReadiness'
 import { buildManualInputSubmitPayload } from './utils/manualInputSubmitPayload'
+import { shouldShowManualRealEstateCarveOut } from './utils/manualRealEstateCarveOutVisibility'
 
 // Types — `ManualValuationFormData` = `Partial<` canonical `ValuationFormData` + `ManualValuationFormUiBase` (`src/types/valuation.ts`)
 export type { ManualValuationFormData, YearlyFinancials }
+export type { ManualInputAssistantPatch } from './hooks/useManualInputAssistantPatchSync'
 /** Back-compat name used throughout this file and `calculator` exports. */
 export type ValuationFormData = ManualValuationFormData
-export type ManualInputAssistantPatch =
-  | {
-      id: string
-      type: 'select_financial_years'
-      years: number[]
-    }
-  | {
-      id: string
-      type: 'set_current_year_balance'
-      balance: ManualCurrentYearBalance
-    }
 export { venusLiveBatchImportProvider } from './hooks/useManualAccountingImportController'
 export { getSelectedBelgianAuditEntries } from './utils/manualBelgianAuditEntries'
 export {
@@ -183,19 +173,7 @@ export function ManualInputPanel({
   const [formData, setFormData] = useState<ValuationFormData>(() =>
     buildManualInputInitialFormData(initialData)
   )
-  const appliedAssistantPatchIdRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (!assistantPatch || appliedAssistantPatchIdRef.current === assistantPatch.id) return
-    appliedAssistantPatchIdRef.current = assistantPatch.id
-
-    if (assistantPatch.type === 'select_financial_years') {
-      setFormData((prev) => applyManualFinancialYearSelection(prev, assistantPatch.years).next)
-    }
-
-    if (assistantPatch.type === 'set_current_year_balance') {
-      setFormData((prev) => applyManualCurrentYearBalance(prev, assistantPatch.balance))
-    }
-  }, [assistantPatch])
+  useManualInputAssistantPatchSync({ assistantPatch, setFormData })
   const { appliedFields: advisorDefaultsAppliedFields } = useApplyAdvisorValuationDefaults({
     enabled: isAccountantTierRole(user?.role),
     formData,
@@ -383,14 +361,10 @@ export function ManualInputPanel({
    * the panel so they can see (and clear) the stored values rather than
    * having silent state hidden by the UI.
    */
-  const hasCarveOutData =
-    formData.real_estate_treatment === 'carve_out' ||
-    formData.real_estate_treatment === 'included' ||
-    Boolean(formData.exclude_real_estate) ||
-    formData.real_estate_market_value != null ||
-    formData.real_estate_book_value != null ||
-    formData.estimated_market_rent != null
-  const showRealEstateCarveOut = realEstateCarveOutAppliesTo(effectiveMethods) || hasCarveOutData
+  const showRealEstateCarveOut = shouldShowManualRealEstateCarveOut({
+    effectiveMethods,
+    formData,
+  })
   const setSelectedMethod = useManualResultsStore((s) => s.setSelectedMethod)
   // Synthesis weighting rendered as the final step in the left panel (props from ManualLayout)
   const { markPrevMethod: markDcfForecastSyncPrevMethod } = useDcfForecastSync({

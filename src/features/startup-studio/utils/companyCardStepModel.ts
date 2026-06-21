@@ -1,3 +1,9 @@
+import {
+  buildBusinessTypeFormData,
+  buildBusinessTypeSegmentsFormData,
+} from '@/components/ValuationForm/utils/businessTypeFormData'
+import type { KBOCompany } from '@/design-system'
+import type { BusinessType as ApiBusinessType } from '@/services/businessTypesApi'
 import type { StartupStage as StoreStartupStage } from '@/store/manual/useStartupValuationStore'
 import { STARTUP_STAGE_DEFAULT_RAISE } from '@/store/manual/useStartupValuationStore'
 import type { BusinessTypeSegmentInput, ValuationFormData } from '@/types/valuation'
@@ -135,6 +141,94 @@ export function buildBusinessStructurePatch(
 ): Partial<ValuationFormData> & Record<string, unknown> {
   const businessStructure = mapLegalFormToBusinessStructure(legalForm ?? '')
   return { business_structure: businessStructure || undefined }
+}
+
+export function buildCompanyCardBusinessTypeSelectionPatch({
+  selectedBusinessTypes,
+  existingSegments = [],
+  extraUpdates = {},
+}: {
+  selectedBusinessTypes: ApiBusinessType[]
+  existingSegments?: BusinessTypeSegmentInput[]
+  extraUpdates?: Record<string, unknown>
+}): Partial<ValuationFormData> & Record<string, unknown> {
+  const primaryBusinessType = selectedBusinessTypes[0]
+  if (!primaryBusinessType) {
+    return {
+      ...extraUpdates,
+      business_type_id: undefined,
+      business_type_title: undefined,
+      business_type_segments: [],
+      business_model: undefined,
+      industry: undefined,
+    }
+  }
+
+  return {
+    ...extraUpdates,
+    ...buildBusinessTypeFormData(primaryBusinessType),
+    ...buildBusinessTypeSegmentsFormData(selectedBusinessTypes, existingSegments),
+  }
+}
+
+export interface CompanyCardRegistrySelectionPlan {
+  formPatch: Partial<ValuationFormData> & Record<string, unknown>
+  countryCode: string
+  foundingYearSeed: number | null
+  descriptionSeed: string | null
+}
+
+function shouldSeedFoundingYear(currentFoundingYear: unknown): boolean {
+  return (
+    currentFoundingYear === undefined ||
+    currentFoundingYear === null ||
+    (typeof currentFoundingYear === 'number' && currentFoundingYear === 0)
+  )
+}
+
+export function buildCompanyCardRegistrySelectionPlan({
+  company,
+  currentDescription,
+  currentFoundingYear,
+  fallbackCountry,
+}: {
+  company: KBOCompany
+  currentDescription?: string | null
+  currentFoundingYear?: ValuationFormData['founding_year'] | null
+  fallbackCountry: string
+}): CompanyCardRegistrySelectionPlan {
+  const canonicalNaceCode = company.canonicalNaceCode?.trim() || company.naceCode?.trim() || ''
+  const countryCode = (company.countryCode || fallbackCountry).toUpperCase()
+  const formPatch: Partial<ValuationFormData> & Record<string, unknown> = {
+    company_name: company.name,
+    kbo_number: company.kboNumber ?? '',
+    legal_form: company.legalForm ?? '',
+    ...buildBusinessStructurePatch(company.legalForm),
+    country_code: countryCode,
+    nace_code: canonicalNaceCode || undefined,
+    nace_description: company.naceDescription || undefined,
+  }
+
+  const hasFiniteFoundingYear =
+    typeof company.foundingYear === 'number' && Number.isFinite(company.foundingYear)
+  const foundingYearSeed =
+    hasFiniteFoundingYear && shouldSeedFoundingYear(currentFoundingYear)
+      ? (company.foundingYear ?? null)
+      : null
+  if (foundingYearSeed != null) {
+    formPatch.founding_year = foundingYearSeed
+  }
+
+  const sourceText = company.activityLabel?.trim() || company.naceDescription?.trim() || ''
+  const descriptionSeed =
+    !currentDescription?.trim() && sourceText ? sourceText.slice(0, 120) : null
+
+  return {
+    formPatch,
+    countryCode,
+    foundingYearSeed,
+    descriptionSeed,
+  }
 }
 
 export function updateSegmentEarningsValue(
