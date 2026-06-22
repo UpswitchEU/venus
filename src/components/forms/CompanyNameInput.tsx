@@ -8,6 +8,7 @@
 
 import { useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useLatestAbortableRequest } from '../../hooks/useLatestAbortableRequest'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { debounce } from '../../utils/debounce'
@@ -17,6 +18,11 @@ import type { CustomInputFieldProps } from './CustomInputField'
 import CustomInputField from './CustomInputField'
 
 type CountryCode = 'BE' | 'NL'
+
+interface CompanySearchContext {
+  country: string
+  query: string
+}
 
 const FINANCIAL_TERMS: Record<CountryCode, { registrationNumberShort: string }> = {
   BE: { registrationNumberShort: 'KBO' },
@@ -54,105 +60,113 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   const [isLoading, setIsLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
-  const [_retryTrigger, setRetryTrigger] = useState(0)
   const [exactMatch, setExactMatch] = useState<CompanySearchResult | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const lastSearchEmptyRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const { beginRequest, cancelRequest, reserveRequest } =
+    useLatestAbortableRequest<CompanySearchContext>()
 
   // Debounced search function - memoized with useRef to persist across renders
-  const performSearchRef = useRef<((query: string, country: string) => void) | null>(null)
+  const performSearchRef = useRef<
+    ((query: string, country: string, searchToken: number) => void) | null
+  >(null)
 
   useEffect(() => {
     // Create debounced function once
     if (!performSearchRef.current) {
-      performSearchRef.current = debounce(async (query: string, country: string) => {
-        if (!query || query.trim().length < 2) {
-          lastSearchEmptyRef.current = false
-          setSearchResults([])
-          setExactMatch(null)
-          setSearchError(null)
-          setIsLoading(false)
-          setShowSuggestions(false)
-          return
-        }
+      performSearchRef.current = debounce(
+        async (query: string, country: string, searchToken: number) => {
+          const trimmedQuery = query.trim()
+          const request = beginRequest(searchToken)
 
-        setIsLoading(true)
-        setSearchError(null)
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
-        }
-        const controller = new AbortController()
-        abortControllerRef.current = controller
-        try {
-          const response = await registryService.searchCompanies(
-            query.trim(),
-            country,
-            200,
-            controller.signal
-          )
+          if (!request) return
+          const { isCurrent, release, signal } = request
 
-          // Guard: ignore stale response if request was aborted (rapid typing)
-          if (controller.signal.aborted) return
-
-          if (response.success && response.results) {
-            const results = response.results
-            lastSearchEmptyRef.current = results.length === 0
-            setSearchResults(results)
-            setSearchError(null)
-
-            // Check for exact match (for highlighting/display only)
-            const match = results.find(
-              (r) => r.company_name.toLowerCase() === query.trim().toLowerCase()
-            )
-            setExactMatch(match || null)
-
-            // Show dropdown for results or empty (so we can show "Search on KBO" link)
-            setShowSuggestions(true)
-            if (results.length > 0) {
-              generalLogger.debug('KBO suggestions ready - showing dropdown', {
-                count: results.length,
-                query,
-                has_exact_match: !!match,
-              })
-            }
-          } else {
+          if (!query || query.trim().length < 2) {
             lastSearchEmptyRef.current = false
             setSearchResults([])
             setExactMatch(null)
-            setSearchError(response.error || 'Search temporarily unavailable')
-            setShowSuggestions(true)
+            setSearchError(null)
+            setIsLoading(false)
+            setShowSuggestions(false)
+            return
           }
-        } catch (error) {
-          if (error instanceof DOMException && error.name === 'AbortError') return
-          lastSearchEmptyRef.current = false
-          generalLogger.warn('KBO search failed', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            query,
-            country,
-          })
-          setSearchResults([])
-          setExactMatch(null)
-          setSearchError(
-            error instanceof Error ? error.message : t('forms.kboLookup.searchUnavailable')
-          )
-          setShowSuggestions(true)
-        } finally {
-          const wasReplaced = abortControllerRef.current !== controller
-          if (!controller.signal.aborted) {
-            abortControllerRef.current = null
-          }
-          if (!wasReplaced) setIsLoading(false)
-        }
-      }, 450)
-    }
-  }, [t])
 
-  const performSearch = useCallback((query: string, country: string) => {
-    performSearchRef.current?.(query, country)
-  }, [])
+          setIsLoading(true)
+          setSearchError(null)
+          try {
+            const response = await registryService.searchCompanies(
+              query.trim(),
+              country,
+              200,
+              signal
+            )
+
+            // Guard: ignore stale response if request was aborted (rapid typing)
+            if (signal.aborted || !isCurrent()) return
+
+            if (response.success && response.results) {
+              const results = response.results
+              lastSearchEmptyRef.current = results.length === 0
+              setSearchResults(results)
+              setSearchError(null)
+
+              // Check for exact match (for highlighting/display only)
+              const match = results.find(
+                (r) => r.company_name.toLowerCase() === trimmedQuery.toLowerCase()
+              )
+              setExactMatch(match || null)
+
+              // Show dropdown for results or empty (so we can show "Search on KBO" link)
+              setShowSuggestions(true)
+              if (results.length > 0) {
+                generalLogger.debug('KBO suggestions ready - showing dropdown', {
+                  count: results.length,
+                  query: trimmedQuery,
+                  has_exact_match: !!match,
+                })
+              }
+            } else {
+              lastSearchEmptyRef.current = false
+              setSearchResults([])
+              setExactMatch(null)
+              setSearchError(response.error || 'Search temporarily unavailable')
+              setShowSuggestions(true)
+            }
+          } catch (error) {
+            if (!isCurrent()) return
+            if (error instanceof DOMException && error.name === 'AbortError') return
+            lastSearchEmptyRef.current = false
+            generalLogger.warn('KBO search failed', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              query: trimmedQuery,
+              country,
+            })
+            setSearchResults([])
+            setExactMatch(null)
+            setSearchError(
+              error instanceof Error ? error.message : t('forms.kboLookup.searchUnavailable')
+            )
+            setShowSuggestions(true)
+          } finally {
+            release()
+            if (isCurrent()) setIsLoading(false)
+          }
+        },
+        450
+      )
+    }
+  }, [beginRequest, t])
+
+  const performSearch = useCallback(
+    (query: string, country: string) => {
+      const searchToken = reserveRequest({ country, query: query.trim() })
+      performSearchRef.current?.(query, country, searchToken)
+    },
+    [reserveRequest]
+  )
 
   // Trigger search when value changes
   useEffect(() => {
@@ -165,11 +179,13 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         generalLogger.debug('[CompanyNameInput] Skipping search - company already selected', {
           company_name: selectedCompany.company_name,
         })
+        cancelRequest()
+        setIsLoading(false)
         return
       }
       performSearch(value, countryCode)
     } else {
-      abortControllerRef.current?.abort()
+      cancelRequest()
       lastSearchEmptyRef.current = false
       setSearchResults([])
       setExactMatch(null)
@@ -177,7 +193,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
       setShowSuggestions(false)
       setHighlightedIndex(-1)
     }
-  }, [value, countryCode, performSearch, selectedCompany])
+  }, [value, countryCode, performSearch, selectedCompany, cancelRequest])
 
   // Reset highlighted index when search results change
   useEffect(() => {
@@ -390,7 +406,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
               onClick={() => {
                 setSearchError(null)
                 setIsLoading(true)
-                setRetryTrigger((p) => p + 1)
+                performSearch(value, countryCode)
               }}
               className="text-xs font-medium text-primary hover:text-primary/80"
             >

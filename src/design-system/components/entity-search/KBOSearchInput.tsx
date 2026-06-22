@@ -6,6 +6,7 @@ import { Building2, Check, Loader2, Search, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
+import { useLatestAbortableRequest } from '@/hooks/useLatestAbortableRequest'
 import { REGISTRY_SEARCH_CLIENT_TIMEOUT_MS } from '@/services/registry/types'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { formatLegalFormLabel } from '@/utils/registryCompanyDisplay'
@@ -60,6 +61,10 @@ function defaultKBOSearch(_query: string, _signal?: AbortSignal): KBOCompany[] {
 
 const REQUEST_TIMEOUT_MS = REGISTRY_SEARCH_CLIENT_TIMEOUT_MS
 
+interface KboSearchContext {
+  query: string
+}
+
 export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputProps>(
   (
     {
@@ -112,8 +117,8 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     const inputRef = React.useRef<HTMLInputElement>(null)
     const containerRef = React.useRef<HTMLDivElement>(null)
     const dropdownRef = React.useRef<HTMLDivElement>(null)
-    const abortControllerRef = React.useRef<AbortController | null>(null)
-    const timedOutRef = React.useRef(false)
+    const { beginRequest, cancelRequest, reserveRequest } =
+      useLatestAbortableRequest<KboSearchContext>()
     const tRef = React.useRef(t)
 
     React.useEffect(() => {
@@ -150,36 +155,35 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     }, [shouldShowDropdown, canSearch])
 
     const runSearch = React.useCallback(
-      async (query: string) => {
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
-        }
-        const controller = new AbortController()
-        abortControllerRef.current = controller
-        timedOutRef.current = false
+      async (query: string, existingSearchToken?: number) => {
+        const searchToken = existingSearchToken ?? reserveRequest({ query })
+        const request = beginRequest(searchToken)
+
+        if (!request) return
+        const { isCurrent, release, signal } = request
+
+        let timedOut = false
 
         const timeoutId = setTimeout(() => {
-          timedOutRef.current = true
-          controller.abort()
+          timedOut = true
+          request.controller.abort()
         }, REQUEST_TIMEOUT_MS)
 
         try {
-          const found = await searchFn(query, controller.signal)
-          clearTimeout(timeoutId)
-          if (!controller.signal.aborted) {
+          const found = await searchFn(query, signal)
+          if (!signal.aborted && isCurrent()) {
             setResults(found)
             setShowDropdown(true)
             setSearchError(null)
           }
         } catch (err) {
-          clearTimeout(timeoutId)
-          if (err instanceof DOMException && err.name === 'AbortError' && !timedOutRef.current)
-            return
-          if (controller.signal.aborted && !timedOutRef.current) return
+          if (!isCurrent()) return
+          if (err instanceof DOMException && err.name === 'AbortError' && !timedOut) return
+          if (signal.aborted && !timedOut) return
 
           setResults([])
           setSearchError(
-            timedOutRef.current
+            timedOut
               ? tRef.current('searchUnavailable')
               : err instanceof Error && err.message
                 ? err.message
@@ -187,44 +191,56 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           )
           setShowDropdown(true)
         } finally {
-          setIsSearching(false)
+          clearTimeout(timeoutId)
+          release()
+          if (isCurrent()) setIsSearching(false)
         }
       },
-      [searchFn]
+      [beginRequest, reserveRequest, searchFn]
     )
 
     // Debounced search with request cancellation; align with BFF/Titan budget
     React.useEffect(() => {
       if (selectedCompany) {
+        cancelRequest()
         setResults([])
         setShowDropdown(false)
         setSearchError(null)
+        setIsSearching(false)
         return
       }
 
       if (trimmedValueLength < minQueryLength) {
+        cancelRequest()
         setResults([])
         setSearchError(null)
         setIsSearching(false)
         return
       }
 
+      const searchToken = reserveRequest({ query: trimmedValue })
       setIsSearching(true)
       setSearchError(null)
       setShowDropdown(true)
 
       const timeout = setTimeout(async () => {
-        await runSearch(trimmedValue)
+        await runSearch(trimmedValue, searchToken)
       }, debounceMs)
 
       return () => {
         clearTimeout(timeout)
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort()
-          abortControllerRef.current = null
-        }
+        cancelRequest(searchToken)
       }
-    }, [trimmedValue, trimmedValueLength, selectedCompany, minQueryLength, debounceMs, runSearch])
+    }, [
+      cancelRequest,
+      reserveRequest,
+      trimmedValue,
+      trimmedValueLength,
+      selectedCompany,
+      minQueryLength,
+      debounceMs,
+      runSearch,
+    ])
     // Close on outside click (Portal: check both container and dropdown)
     React.useEffect(() => {
       function handleClickOutside(e: MouseEvent) {

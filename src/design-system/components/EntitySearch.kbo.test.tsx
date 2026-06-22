@@ -23,6 +23,40 @@ const bakkerAldoFixture: KBOCompany = {
   countryCode: 'BE',
 }
 
+interface Deferred<T> {
+  promise: Promise<T>
+  reject: (reason?: unknown) => void
+  resolve: (value: T) => void
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve: Deferred<T>['resolve'] | undefined
+  let reject: Deferred<T>['reject'] | undefined
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  if (!resolve || !reject) {
+    throw new Error('Deferred promise was not initialized')
+  }
+
+  return { promise, reject, resolve }
+}
+
+function makeCompany(id: string, name: string): KBOCompany {
+  return {
+    id,
+    name,
+    kboNumber: id,
+    legalForm: 'BV',
+    address: 'Example street 1',
+    postalCode: '1000',
+    city: 'Brussel',
+    countryCode: 'BE',
+  }
+}
+
 function TestHarness({
   searchFn,
   selectedCompany = null,
@@ -115,6 +149,58 @@ describe('Venus KBOSearchInput', () => {
 
     expect(searchFn).toHaveBeenCalledTimes(2)
     expect(searchFn.mock.calls[1]?.[0]).toBe('retry bv')
+  })
+
+  it('ignores stale KBO results when a newer query is pending', async () => {
+    vi.useFakeTimers()
+    const requests: Array<{
+      deferred: Deferred<KBOCompany[]>
+      query: string
+      signal?: AbortSignal
+    }> = []
+    const searchFn = vi.fn((query: string, signal?: AbortSignal) => {
+      const deferred = createDeferred<KBOCompany[]>()
+      requests.push({ deferred, query, signal })
+      return deferred.promise
+    })
+
+    render(<TestHarness searchFn={searchFn} />)
+
+    const input = screen.getByLabelText('Bedrijfsnaam of KBO-nummer')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Acme' } })
+
+    await act(async () => {
+      vi.advanceTimersByTime(20)
+      await Promise.resolve()
+    })
+    expect(requests).toHaveLength(1)
+
+    fireEvent.change(input, { target: { value: 'Beta' } })
+    expect(requests[0].signal?.aborted).toBe(true)
+
+    await act(async () => {
+      requests[0].deferred.resolve([makeCompany('be-1', 'Acme BV')])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.queryByText('Acme BV')).not.toBeInTheDocument()
+
+    await act(async () => {
+      vi.advanceTimersByTime(20)
+      await Promise.resolve()
+    })
+    expect(requests).toHaveLength(2)
+    expect(requests[1].query).toBe('Beta')
+
+    await act(async () => {
+      requests[1].deferred.resolve([makeCompany('be-2', 'Beta BV')])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('Beta BV')).toBeInTheDocument()
+    expect(screen.queryByText('Acme BV')).not.toBeInTheDocument()
   })
 
   it('renders selected company card with short legal form and full NACE description', () => {
