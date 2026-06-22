@@ -7,11 +7,7 @@
  * @module services/api/session/SessionAPI
  */
 
-import {
-  awaitSessionPoolPressureGate,
-  recordSessionPoolPressureFromHttpError,
-  recordSuccessfulSessionPatch,
-} from '../../../hooks/sessionPoolPressureCircuit'
+import { recordSessionPoolPressureFromHttpError } from '../../../hooks/sessionPoolPressureCircuit'
 import type { UpdateValuationSessionRequest } from '../../../types/api'
 import type {
   CreateValuationSessionResponse,
@@ -30,7 +26,7 @@ import {
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
 import { stripReportBlobsFromSessionPatch } from '../../../utils/stripReportBlobsFromSessionPatch'
-import { APIRequestConfig, HttpClient } from '../HttpClient'
+import { type APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
 import type { CreateValuationSessionInput } from './SessionApiCreateHelpers'
 import {
@@ -56,14 +52,15 @@ import {
   type SessionRecord,
 } from './SessionApiNormalization'
 import {
-  delay,
-  isTransientSessionPatchError,
   mapTitanPatchAndStripReportBlobs,
   normalizeSaveValuationResultResponse,
   normalizeUpdateSessionResponse,
   stripValuationResultPayload,
-  transientSessionPatchMessage,
 } from './SessionApiPatchHelpers'
+import {
+  SESSION_PATCH_TIMEOUT_MS as DEFAULT_SESSION_PATCH_TIMEOUT_MS,
+  patchValuationSessionWithTransientRetry,
+} from './SessionApiPatchRetry'
 import { retryRateLimitedSessionPatch } from './SessionApiRateLimitRecovery'
 import {
   SESSION_DELETION_TOMBSTONE_TTL_MS,
@@ -94,57 +91,20 @@ export class SessionAPI extends HttpClient {
   private static readonly deletedSessionTombstones = new SessionDeletionTombstoneStore({
     ttlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
   })
-  /** Align with Titan/Supabase pool checkout (~15s) plus network margin. */
-  static readonly SESSION_PATCH_TIMEOUT_MS = 20_000
-  private static readonly TRANSIENT_PATCH_RETRY_DELAYS_MS = [500, 1500]
+  static readonly SESSION_PATCH_TIMEOUT_MS = DEFAULT_SESSION_PATCH_TIMEOUT_MS
 
   private async patchValuationSessionWithTransientRetry(
     reportId: string,
     patchBody: Record<string, unknown>,
     options?: APIRequestConfig
   ): Promise<unknown> {
-    const gateReady = await awaitSessionPoolPressureGate({ maxWaitMs: 120_000 })
-    if (!gateReady) {
-      const deferred = Object.assign(new Error('Session PATCH deferred: database pool pressure'), {
-        response: { status: 503 },
-      })
-      throw deferred
-    }
-
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        const patchOptions: APIRequestConfig = {
-          ...options,
-          timeout: options?.timeout ?? SessionAPI.SESSION_PATCH_TIMEOUT_MS,
-          retry: options?.retry ?? { maxRetries: 0 },
-        }
-        const response = await this.executeRequest<unknown>(
-          requestConfig({
-            method: 'PATCH',
-            url: `/api/v2/valuations/sessions/${reportId}`,
-            data: patchBody,
-            headers: {},
-          }),
-          patchOptions
-        )
-        recordSuccessfulSessionPatch()
-        return response
-      } catch (error) {
-        recordSessionPoolPressureFromHttpError(error)
-        const retryDelay = SessionAPI.TRANSIENT_PATCH_RETRY_DELAYS_MS[attempt]
-        if (!isTransientSessionPatchError(error) || retryDelay == null) {
-          throw error
-        }
-        apiLogger.warn('Transient session PATCH failed, retrying', {
-          reportId,
-          attempt: attempt + 1,
-          retryDelay,
-          status: toAxiosLikeError(error).response?.status,
-          message: transientSessionPatchMessage(error),
-        })
-        await delay(retryDelay)
-      }
-    }
+    return patchValuationSessionWithTransientRetry({
+      executeRequest: (config, requestOptions) =>
+        this.executeRequest<unknown>(config, requestOptions),
+      options,
+      patchBody,
+      reportId,
+    })
   }
 
   /**

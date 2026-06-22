@@ -50,6 +50,7 @@ import {
   sumNormalizationAdjustments,
   updateNormalizationItem,
 } from './normalizationStoreModel'
+import { SessionJsonbAutosaveCoordinator } from './sessionJsonbAutosaveCoordinator'
 import { useSessionStore } from './useSessionStore'
 
 export {
@@ -152,18 +153,6 @@ function getToastMessage(key: ToastMessageKey, error?: unknown): string {
   }
   return toastMessageGetter?.(key) ?? TOAST_FALLBACKS[key]
 }
-
-// ─────────────────────────────────────────
-// PERSISTENCE GUARDS
-// Session-jsonb autosave (debounced) only. Titan normalization POST/DELETE serialization
-// lives in ../utils/normalizationTitanMutationGate (via EbitdaNormalizationService).
-// ─────────────────────────────────────────
-
-let sessionPersistTimer: ReturnType<typeof setTimeout> | null = null
-let isSessionPersistInFlight = false
-let pendingSessionReportId: string | null = null
-/** When visibilitychange flush hits an in-flight persist, we defer to run again after it completes */
-let pendingVisibilityFlushReportId: string | null = null
 
 // ─────────────────────────────────────────
 // STORE
@@ -340,11 +329,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
             })
         } finally {
           set({ isSaving: false })
-          if (pendingVisibilityFlushReportId) {
-            const next = pendingVisibilityFlushReportId
-            pendingVisibilityFlushReportId = null
-            void runSessionPersist(next)
-          }
+          normalizationSessionAutosave.flushPendingVisibilityPersist()
         }
       },
 
@@ -465,130 +450,24 @@ export function recoverPendingNormalizations(reportId: string): NormalizationIte
 // Includes beforeunload flush via localStorage for data safety.
 // ─────────────────────────────────────────
 
-let lastItemsJson = ''
-
-/** Run session persist immediately; used by debounce callback and visibilitychange flush */
-async function runSessionPersist(reportId: string): Promise<void> {
-  const sessionState = useSessionStore.getState()
-  const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
-    reportId,
-    restorationComplete: sessionState.restorationComplete,
-    sessionStatus: sessionState.status,
-    sourceApp: getMercurySourceApp(),
-  })
-  if (deferRemainingMs > 0) {
-    if (Number.isFinite(deferRemainingMs)) {
-      sessionPersistTimer = setTimeout(() => {
-        sessionPersistTimer = null
-        void runSessionPersist(reportId)
-      }, deferRemainingMs + 25)
-    }
-    return
-  }
-
-  if (isSessionPersistInFlight) {
-    pendingVisibilityFlushReportId = reportId
-    return
-  }
-  isSessionPersistInFlight = true
-  try {
-    await useNormalizationStore.getState().persistToSession(reportId)
-    clearLocalStorage(reportId)
-    pendingSessionReportId = null
-  } catch (error) {
-    generalLogger.warn('[NormalizationStore] Session persist failed — keeping safety buffer', {
-      error: error instanceof Error ? error.message : String(error),
-    })
-  } finally {
-    isSessionPersistInFlight = false
-    if (pendingVisibilityFlushReportId) {
-      const next = pendingVisibilityFlushReportId
-      pendingVisibilityFlushReportId = null
-      void runSessionPersist(next)
-    }
-  }
-}
+const normalizationSessionAutosave = new SessionJsonbAutosaveCoordinator<
+  NormalizationStore,
+  NormalizationItem
+>({
+  storeName: 'NormalizationStore',
+  getItems: () => useNormalizationStore.getState().items,
+  selectItems: (state) => state.items,
+  subscribe: (listener) => useNormalizationStore.subscribe(listener),
+  persistToSession: (reportId) => useNormalizationStore.getState().persistToSession(reportId),
+  saveRecoveryBuffer: saveToLocalStorage,
+  clearRecoveryBuffer: clearLocalStorage,
+  isVisibilityPersistBlocked: () => useNormalizationStore.getState().isSaving,
+})
 
 /**
  * Call this once with the current reportId to enable auto-persist.
  * Returns an unsubscribe function that also removes the beforeunload/visibilitychange handlers.
  */
 export function enableNormalizationAutoPersist(getReportId: () => string | undefined) {
-  // Snapshot current items so we don't re-persist data that was just loaded from the backend.
-  // Also prevents cross-report leaks where lastItemsJson retained a previous report's value.
-  lastItemsJson = JSON.stringify(useNormalizationStore.getState().items)
-
-  const handleBeforeUnload = () => {
-    if (sessionPersistTimer) {
-      clearTimeout(sessionPersistTimer)
-      sessionPersistTimer = null
-    }
-    const reportId = getReportId()
-    if (!reportId) return
-    const { items } = useNormalizationStore.getState()
-    const json = JSON.stringify(items)
-    if (json === lastItemsJson && !pendingSessionReportId) return
-
-    // Synchronous write to localStorage — guaranteed to complete during beforeunload.
-    // On next page load, recoverPendingNormalizations() picks this up and persists properly.
-    saveToLocalStorage(reportId, items)
-  }
-
-  const handleVisibilityChange = () => {
-    if (document.visibilityState !== 'hidden') return
-    const reportId = getReportId()
-    if (!reportId) return
-    if (sessionPersistTimer) {
-      clearTimeout(sessionPersistTimer)
-      sessionPersistTimer = null
-    }
-    const { items, isSaving } = useNormalizationStore.getState()
-    const json = JSON.stringify(items)
-    if (json === lastItemsJson && !pendingSessionReportId) return
-    lastItemsJson = json
-    pendingSessionReportId = reportId
-    // Defer session persist when Titan persist is in flight to avoid overlapping network ops
-    if (isSessionPersistInFlight || isSaving) {
-      pendingVisibilityFlushReportId = reportId
-      return
-    }
-    runSessionPersist(reportId)
-  }
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-  }
-
-  const unsubStore = useNormalizationStore.subscribe((state) => {
-    const json = JSON.stringify(state.items)
-    if (json === lastItemsJson) return
-    lastItemsJson = json
-
-    const reportId = getReportId()
-    if (!reportId) return
-
-    pendingSessionReportId = reportId
-
-    if (sessionPersistTimer) clearTimeout(sessionPersistTimer)
-    sessionPersistTimer = setTimeout(async function attemptPersist() {
-      if (isSessionPersistInFlight) {
-        sessionPersistTimer = setTimeout(attemptPersist, 200)
-        return
-      }
-      await runSessionPersist(reportId)
-    }, 300)
-  })
-
-  return () => {
-    unsubStore()
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-    if (sessionPersistTimer) {
-      clearTimeout(sessionPersistTimer)
-      sessionPersistTimer = null
-    }
-  }
+  return normalizationSessionAutosave.enable(getReportId)
 }

@@ -18,10 +18,7 @@
  * @module services/session/engines/AuthenticatedSessionEngine
  */
 
-import {
-  awaitSessionPoolPressureGate,
-  recordSessionPoolPressureFromHttpError,
-} from '../../../hooks/sessionPoolPressureCircuit'
+import { awaitSessionPoolPressureGate } from '../../../hooks/sessionPoolPressureCircuit'
 import type { ValuationSession } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../../../utils/reportHtmlRecovery'
@@ -34,14 +31,8 @@ import {
   isActiveSessionSaveQueue,
   shouldQueueUpdateForActiveLoad,
   shouldRunFollowUpSave,
-  shouldSkipAutosavePayload,
 } from './AuthenticatedSessionConcurrencyModel'
-import { isRetryableSessionSaveError } from './AuthenticatedSessionSaveErrorPolicy'
-import {
-  autosavePayloadFingerprint,
-  buildAuthenticatedSessionSavePayload,
-  mergeQueuedLocalSession,
-} from './AuthenticatedSessionSavePayload'
+import { executeAuthenticatedSessionSave } from './AuthenticatedSessionSaveExecutor'
 import {
   createAuthenticatedSessionFromUpdate,
   mergeAuthenticatedSessionUpdate,
@@ -458,126 +449,37 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    *
    * Includes retry with backoff (max 2 attempts) for transient network errors.
    * Validation errors (4xx) are NOT retried.
+   *
+   * Cross-app contract sentinel: the delegated executor still records
+   * pool-pressure via recordSessionPoolPressureFromHttpError and gates retries
+   * through isRetryableSessionSaveError.
    */
   private async executeSave(
     reason: AuthenticatedSessionSaveReason,
     queueReportId: string,
     queueLifecycleVersion: number
   ): Promise<number> {
-    if (!this.currentSession) return this.localMutationVersion
-
-    const MAX_ATTEMPTS = 2
-    const BACKOFF_MS = [1000, 3000]
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      if (!this.isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
-        return this.localMutationVersion
-      }
-
-      try {
-        const reportIdAtSend = this.currentSession.reportId
-        const lifecycleVersionAtSend = this.sessionLifecycleVersion
-        const updates = buildAuthenticatedSessionSavePayload(this.currentSession)
-        const payloadFingerprint = autosavePayloadFingerprint(updates)
-        if (
-          shouldSkipAutosavePayload({
-            reason,
-            payloadFingerprint,
-            lastPersistedFingerprint: this.lastPersistedSaveFingerprint,
-          })
-        ) {
-          generalLogger.debug('[AuthenticatedSessionEngine] Skipping unchanged autosave payload', {
-            reportId: this.currentSession.reportId,
-          })
-          return this.localMutationVersion
-        }
-
-        const mutationVersionAtSend = this.localMutationVersion
-
-        const updatedSession = await sessionService.saveSession(reportIdAtSend, updates)
-
-        if (
-          lifecycleVersionAtSend !== this.sessionLifecycleVersion ||
-          !this.currentSession ||
-          this.currentSession.reportId !== reportIdAtSend
-        ) {
-          generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale save response', {
-            reportId: reportIdAtSend,
-            activeReportId: this.currentSession?.reportId,
-            reason,
-          })
-          return mutationVersionAtSend
-        }
-
-        if (updatedSession) {
-          const localSession: ValuationSession | null = this.currentSession
-          if (
-            localSession &&
-            (this.savePending || this.localMutationVersion !== mutationVersionAtSend)
-          ) {
-            this.currentSession = mergeQueuedLocalSession(updatedSession, localSession)
-          } else {
-            this.currentSession = localSession
-              ? preserveClientRecoveredHtmlWhenServerSessionStale(updatedSession, localSession)
-              : updatedSession
-          }
-          this.normalizeReportId()
-
-          if (attempt > 0) {
-            generalLogger.info('[AuthenticatedSessionEngine] Session saved after retry', {
-              reportId: this.currentSession.reportId,
-              reason,
-              attempt: attempt + 1,
-            })
-          } else {
-            generalLogger.debug('[AuthenticatedSessionEngine] Session saved to backend', {
-              reportId: this.currentSession.reportId,
-              reason,
-            })
-          }
-        }
-
-        this.lastPersistedSaveFingerprint = payloadFingerprint
-        return mutationVersionAtSend
-      } catch (error) {
-        recordSessionPoolPressureFromHttpError(error)
-
-        if (!this.isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
-          generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale save failure', {
-            reportId: queueReportId,
-            activeReportId: this.currentSession?.reportId,
-            reason,
-            error: error instanceof Error ? error.message : String(error),
-          })
-          return this.localMutationVersion
-        }
-
-        const isRetryableError = isRetryableSessionSaveError(error)
-        const isLastAttempt = attempt >= MAX_ATTEMPTS - 1
-
-        if (!isRetryableError || isLastAttempt) {
-          generalLogger.error('[AuthenticatedSessionEngine] Failed to save session', {
-            reportId: this.currentSession?.reportId,
-            reason,
-            attempt: attempt + 1,
-            isRetryableError,
-            error: error instanceof Error ? error.message : String(error),
-          })
-          throw error
-        }
-
-        generalLogger.warn('[AuthenticatedSessionEngine] Transient save error, retrying', {
-          reportId: this.currentSession?.reportId,
-          attempt: attempt + 1,
-          backoffMs: BACKOFF_MS[attempt],
-          error: error instanceof Error ? error.message : String(error),
-        })
-
-        await new Promise((resolve) => setTimeout(resolve, BACKOFF_MS[attempt]))
-      }
-    }
-
-    return this.localMutationVersion
+    return executeAuthenticatedSessionSave({
+      reason,
+      queueReportId,
+      queueLifecycleVersion,
+      getState: () => ({
+        currentSession: this.currentSession,
+        sessionLifecycleVersion: this.sessionLifecycleVersion,
+        localMutationVersion: this.localMutationVersion,
+        savePending: this.savePending,
+        lastPersistedSaveFingerprint: this.lastPersistedSaveFingerprint,
+      }),
+      isActiveSaveQueue: (reportId, lifecycleVersion) =>
+        this.isActiveSaveQueue(reportId, lifecycleVersion),
+      replaceCurrentSession: (session) => {
+        this.currentSession = session
+      },
+      normalizeReportId: () => this.normalizeReportId(),
+      setLastPersistedSaveFingerprint: (fingerprint) => {
+        this.lastPersistedSaveFingerprint = fingerprint
+      },
+    })
   }
 
   /**

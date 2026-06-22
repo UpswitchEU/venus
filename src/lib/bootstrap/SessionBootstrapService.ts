@@ -14,17 +14,8 @@
 
 import { getIdentifierType, isUuid } from '../../utils/identifiers'
 import { getInitTraceId } from '../auth'
-import {
-  buildMercuryDelegatedHandoffSignalsFromBootstrapContext,
-  isDelegatedClientContextReadyForBootstrap,
-  isDelegatedMercuryAccountantHandoff,
-  shouldWaitForMercuryClientContextBeforeBootstrap,
-} from '../mercury/sessionReadiness'
 import { syncBootstrapClientContext } from './BootstrapClientContextSync'
-import {
-  isDelegatedBootstrapCacheAllowed,
-  waitForBootstrapAuthReadiness,
-} from './BootstrapReadinessGate'
+import { isDelegatedBootstrapCacheAllowed } from './BootstrapReadinessGate'
 import { recordBootstrapReportMode } from './bootstrapReportModeRegistry'
 import {
   type ClientSideBootstrapOptions,
@@ -46,9 +37,10 @@ import {
 } from './SessionBootstrapServiceModel'
 import { fetchTitanBootstrapPayloadWithStructuredRetry } from './TitanBootstrapClient'
 import {
-  buildTitanBootstrapRequestPolicy,
-  type TitanBootstrapClientContextSnapshot,
-} from './TitanBootstrapRequestPolicy'
+  readTitanBootstrapClientContextSnapshot,
+  waitForTitanBootstrapDelegatedReadiness,
+} from './TitanBootstrapDelegation'
+import { buildTitanBootstrapRequestPolicy } from './TitanBootstrapRequestPolicy'
 import {
   buildCreditBlockedTitanState,
   buildSuccessfulTitanState,
@@ -66,6 +58,12 @@ import { parseBootstrapHints, parseUrlToContext } from './utils'
  * BOOTSTRAP_TIMEOUT_USER_MESSAGE. AbortError also maps to
  * BOOTSTRAP_TIMEOUT_USER_MESSAGE, and malformed bodies still throw
  * "Invalid response from bootstrap service".
+ *
+ * Delegated preflight lives in `TitanBootstrapDelegation`, but this public
+ * boundary must still run shouldWaitForMercuryClientContextBeforeBootstrap,
+ * enforce isDelegatedClientContextReadyForBootstrap, and abort before Titan POST
+ * with "Aborting Titan bootstrap — delegated context required" or
+ * "Aborting Titan bootstrap — delegated context mismatch".
  */
 type BootstrapOptions = ClientSideBootstrapOptions
 
@@ -384,109 +382,13 @@ export class SessionBootstrapService {
     )
 
     try {
-      // When clientToken present, wait for client context exchange to complete (up to 5s)
-      // Otherwise wait up to 2.5s for cookie-based auth (auth/me → 401 → refresh → retry can take ~1–2s)
-      //
-      // MERCURY DELEGATED FLOW: Wait for get-client-context / AuthGate fallback before Titan POST
-      // when the URL carries advisor delegation signals (clientId, clientToken, or
-      // mode=accountant on an existing report). Owner Mercury opens without those signals
-      // must not block on isActingAsClient (was adding ~0–3s dead-air).
-      const needsClientContext = shouldWaitForMercuryClientContextBeforeBootstrap({
-        sourceApp: context.sourceApp,
-        reportId: context.reportId,
-        clientId: context.clientId,
-        clientToken: context.clientToken,
-        mercuryPersonaMode: context.mercuryPersonaMode,
-        url: context.url,
-        hasClientTokenHint: hints.hasClientToken,
+      const { authReady, authWaitMs } = await waitForTitanBootstrapDelegatedReadiness({
+        context,
+        hints,
+        logger: this.logger,
+        traceId,
       })
-
-      const delegatedHandoff = isDelegatedMercuryAccountantHandoff(
-        buildMercuryDelegatedHandoffSignalsFromBootstrapContext(context)
-      )
-
-      if (needsClientContext) {
-        this.logger.info(
-          `[Bootstrap:${traceId}] Mercury delegated flow — waiting for client context`,
-          {
-            reportId: context.reportId?.substring(0, 30),
-            hasClientId: !!context.clientId?.trim(),
-            hasClientToken: !!context.clientToken?.trim(),
-            mercuryPersonaMode: context.mercuryPersonaMode,
-            delegatedHandoff,
-          }
-        )
-      }
-
-      const authWaitStart = performance.now()
-      const authReady = await waitForBootstrapAuthReadiness({
-        maxWaitMs: 2500,
-        needsClientContext,
-        urlClientId: context.clientId,
-      })
-      const authWaitMs = Math.round(performance.now() - authWaitStart)
-      this.logger.info(`[Bootstrap:${traceId}] Auth wait complete`, {
-        durationMs: authWaitMs,
-        ready: authReady,
-        needsClientContext,
-      })
-      if (!authReady) {
-        if (needsClientContext) {
-          const { useAuthStore } = await import('../auth')
-          const authState = useAuthStore.getState()
-          const message =
-            authState.error?.trim() ||
-            'Delegated client context was not ready before valuation bootstrap'
-          this.logger.error(
-            `[Bootstrap:${traceId}] Aborting Titan bootstrap — delegated context required`,
-            { durationMs: authWaitMs, hasClientId: !!context.clientId?.trim() }
-          )
-          throw new Error(message)
-        }
-        this.logger.warn(`[Bootstrap:${traceId}] Auth not ready after timeout, proceeding anyway`)
-      }
-
-      if (needsClientContext) {
-        const { useClientContext } = await import('../../stores/clientContext')
-        const ctx = useClientContext.getState()
-        if (
-          !isDelegatedClientContextReadyForBootstrap({
-            needsMercuryClientContext: true,
-            contextGateResolved: ctx.contextGateResolved,
-            clientId: context.clientId,
-            isActingAsClient: ctx.isActingAsClient,
-            accountantId: ctx.accountant?.id ?? null,
-            relationshipId: ctx.relationshipId,
-          })
-        ) {
-          const { useAuthStore } = await import('../auth')
-          const message =
-            useAuthStore.getState().error?.trim() ||
-            'Delegated client context does not match the requested client'
-          this.logger.error(
-            `[Bootstrap:${traceId}] Aborting Titan bootstrap — delegated context mismatch`,
-            {
-              urlClientId: context.clientId?.substring(0, 8) ?? null,
-              storedRelationshipId: ctx.relationshipId?.substring(0, 8) ?? null,
-            }
-          )
-          throw new Error(message)
-        }
-      }
-
-      let clientContextSnapshot: TitanBootstrapClientContextSnapshot | null = null
-      try {
-        const { useClientContext } = await import('../../stores/clientContext')
-        const contextState = useClientContext.getState()
-        clientContextSnapshot = {
-          contextHeaders: contextState.getContextHeaders(),
-          relationshipId: contextState.relationshipId,
-        }
-      } catch (error) {
-        this.logger.warn('[Bootstrap] Failed to get client context headers (non-critical)', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
+      const clientContextSnapshot = await readTitanBootstrapClientContextSnapshot(this.logger)
 
       const titanRequest = buildTitanBootstrapRequestPolicy({
         context,

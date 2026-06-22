@@ -44,6 +44,12 @@ import {
   extractHttpResponseData,
   logValuationResponseDiagnostics,
 } from './HttpClientResponseDiagnostics'
+import {
+  calculateHttpClientRetryDelay,
+  type HttpClientRetryConfig,
+  resolveHttpClientRetryConfig,
+  shouldRetryHttpClientError,
+} from './HttpClientRetryPolicy'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -134,13 +140,7 @@ export interface APIRequestConfig {
    * the API when no report row exists yet.
    */
   bySession404Attempts?: number
-  retry?: {
-    maxRetries?: number
-    initialDelay?: number
-    maxDelay?: number
-    backoffMultiplier?: number
-    shouldRetry?: (error: unknown) => boolean
-  }
+  retry?: HttpClientRetryConfig
 }
 
 /**
@@ -384,17 +384,9 @@ export class HttpClient {
     // Default retry behavior: retry network errors and 5xx server errors
     // Only skip retry if explicitly disabled (maxRetries: 0)
     const runRequest = async (): Promise<T> => {
-      if (retryConfig?.maxRetries === 0) {
+      const effectiveRetryConfig = resolveHttpClientRetryConfig(retryConfig)
+      if (!effectiveRetryConfig) {
         return this.executeSingleRequest<T>(prepared.config, options)
-      }
-
-      // Use retry logic with default config if not provided
-      const effectiveRetryConfig = retryConfig || {
-        maxRetries: 3,
-        initialDelay: 1000,
-        maxDelay: 10000,
-        backoffMultiplier: 2,
-        shouldRetry: this.shouldRetryError.bind(this),
       }
 
       return this.executeRequestWithRetry<T>(prepared.config, {
@@ -437,7 +429,7 @@ export class HttpClient {
       initialDelay = 1000,
       maxDelay = 10000,
       backoffMultiplier = 2,
-      shouldRetry = this.shouldRetryError,
+      shouldRetry = this.shouldRetryError.bind(this),
     } = retry
 
     if (!options.idempotencyKey && !options.skipIdempotency) {
@@ -469,8 +461,12 @@ export class HttpClient {
           throw error
         }
 
-        // Calculate delay with exponential backoff
-        const delay = Math.min(initialDelay * Math.pow(backoffMultiplier, attempt), maxDelay)
+        const delay = calculateHttpClientRetryDelay({
+          attempt,
+          backoffMultiplier,
+          initialDelay,
+          maxDelay,
+        })
 
         apiLogger.warn('API request failed, retrying', {
           attempt,
@@ -488,71 +484,10 @@ export class HttpClient {
     throw lastError
   }
 
-  /**
-   * Default retry predicate - retry on network errors and 5xx server errors
-   *
-   * World-Class Retry Logic:
-   * - Uses error classification for intelligent retry decisions
-   * - Retries network and server errors
-   * - Does NOT retry auth/validation errors
-   *
-   * Retries:
-   * - Network errors (no response)
-   * - 5xx server errors
-   * - 408 timeout errors
-   * - 429 rate limit errors (HTTP status checked before classifyError so axios error messages do not block retry)
-   *
-   * Does NOT retry:
-   * - 4xx client errors (except 408, 429)
-   * - 503/504 (upstream pool pressure / gateway timeout — retry storms slow recovery)
-   * - Authentication errors (401, 403)
-   * - Validation errors (400)
-   */
   private shouldRetryError(error: unknown): boolean {
-    const status = getAxiosStatus(error)
-
-    // Pool-pressure / BFF timeout — never retry; Titan advertises Retry-After and
-    // the session circuit handles client-side backoff.
-    if (status === 503 || status === 504) {
-      return false
-    }
-
-    // Retry 429 before classifyError: message text containing "429" maps to ratelimit and would otherwise skip retry
-    if (status === 429) {
-      return true
-    }
-
-    const errorCategory = classifyError(error)
-
-    // Retry network and server errors
-    if (errorCategory === 'network' || errorCategory === 'server') {
-      return true
-    }
-
-    // Don't retry auth or validation errors
-    if (errorCategory === 'auth' || errorCategory === 'validation') {
-      return false
-    }
-
-    // Don't retry message-classified rate limit without HTTP status (avoid retry loops on user-facing text)
-    if (errorCategory === 'ratelimit') {
-      return false
-    }
-
-    if (!axios.isAxiosError(error) || !error.response) {
-      return true
-    }
-
-    // Retry on 5xx server errors
-    if (typeof status === 'number' && status >= 500 && status < 600) {
-      return true
-    }
-
-    if (status === 408) {
-      return true
-    }
-
-    return false
+    // Pool-pressure / BFF timeout responses (status === 503 || status === 504)
+    // should never retry; the tested policy module owns the full matrix.
+    return shouldRetryHttpClientError(error)
   }
 
   /**

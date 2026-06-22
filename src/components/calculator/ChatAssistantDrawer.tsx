@@ -12,23 +12,20 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { MessageCircle, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { MANUAL_LAYOUT_SCROLL_SELECTOR, useScrollLock } from '@/hooks/useScrollLock'
 import { useStickToBottom } from '@/hooks/useStickToBottom'
 import { useVisualViewportDrawerInsets } from '@/hooks/useVisualViewportDrawerInsets'
-import { trackAIAssistantMessage, trackAIAssistantOpen } from '@/lib/analytics'
-import { type AssistantIntent, resolveAssistantIntent } from '@/services/ai/local-chat-fallback'
+import { trackAIAssistantOpen } from '@/lib/analytics'
+import { resolveAssistantIntent } from '@/services/ai/local-chat-fallback'
 import { AiConsentModal } from './AiConsentModal'
 import { AttentionSummary } from './AttentionSummary'
 import { PendingFieldUpdatesCard } from './ChatAssistantAttentionRails'
 import { ChatAssistantComposer } from './ChatAssistantComposer'
 import {
   buildChatAssistantScrollTriggerKey,
-  buildChatAssistantSuggestionViews,
-  findChatAssistantSuggestionIntent,
   getVisibleChatAssistantMessages,
   resolveChatAssistantCurrencyLocale,
   resolveChatAssistantHeaderSubtitle,
@@ -41,13 +38,7 @@ import {
 } from './ChatAssistantDrawer.utils'
 import { ChatAssistantLoadingIndicator } from './ChatAssistantLoadingIndicator'
 import { EmptyState, MessageBubble } from './ChatAssistantMessageBubble'
-import {
-  type ParsedCommand,
-  type ParsedValue,
-  parseFinancialValues,
-  parseNormalizationCommands,
-} from './ChatAssistantParsing'
-import { getContextualSuggestionKeys } from './ChatAssistantSuggestions'
+import { useChatAssistantComposerController } from './useChatAssistantComposerController'
 import { useChatAssistantConsentFlow } from './useChatAssistantConsentFlow'
 import { useResizableAiDockWidth } from './useResizableAiDockWidth'
 import { useVenusAiDockFocus } from './useVenusAiDockFocus'
@@ -149,7 +140,6 @@ export function ChatAssistantDrawer({
   const locale = useLocale()
   const shouldReduceMotion = useReducedMotion()
   const currencyLocale = resolveChatAssistantCurrencyLocale(locale)
-  const [input, setInput] = useState('')
   const {
     aiConsentError,
     aiConsentStatus,
@@ -163,24 +153,6 @@ export function ChatAssistantDrawer({
     locale,
     onRetry,
   })
-
-  // Handler for inline command pill clicks in assistant replies — auto-send.
-  const handleCommandPillClick = useCallback(
-    (command: string) => {
-      if (onCommandPillClick) {
-        onCommandPillClick(command)
-        return
-      }
-      const commands = parseNormalizationCommands(command)
-      onSendMessage(command, undefined, undefined, commands.length > 0 ? commands : undefined)
-    },
-    [onCommandPillClick, onSendMessage]
-  )
-
-  const [attachments, setAttachments] = useState<File[]>([])
-  const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([])
-  const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const translateSuggestion = useCallback(
     (key: string, params?: Record<string, string>) => {
       const translationKey = key as ChatAssistantTranslationKey
@@ -190,33 +162,35 @@ export function ChatAssistantDrawer({
     },
     [ca]
   )
-  const suggestionItems = useMemo(
-    () =>
-      getContextualSuggestionKeys({
-        fieldContext,
-        hasReport,
-        hasEbitda,
-        pendingNormalizationsCount,
-        acceptedNormalizationsCount,
-        hasCapBreach,
-      }),
-    [
-      acceptedNormalizationsCount,
-      fieldContext,
-      hasCapBreach,
-      hasEbitda,
-      hasReport,
-      pendingNormalizationsCount,
-    ]
-  )
-  const suggestionViews = useMemo(
-    () => buildChatAssistantSuggestionViews(suggestionItems, translateSuggestion),
-    [suggestionItems, translateSuggestion]
-  )
-  const suggestions = useMemo(
-    () => suggestionViews.map((suggestion) => suggestion.label),
-    [suggestionViews]
-  )
+  const {
+    attachments,
+    detectedCommands,
+    detectedValues,
+    fileInputRef,
+    handleCommandPillClick,
+    handleFileChange,
+    handleKeyDown,
+    handleSubmit,
+    handleSuggestionClick,
+    input,
+    isInputFocused,
+    removeAttachment,
+    setInput,
+    setIsInputFocused,
+    suggestions,
+    textareaRef,
+  } = useChatAssistantComposerController({
+    acceptedNormalizationsCount,
+    fieldContext,
+    hasCapBreach,
+    hasEbitda,
+    hasReport,
+    isGenerating,
+    onCommandPillClick,
+    onSendMessage,
+    pendingNormalizationsCount,
+    translateSuggestion,
+  })
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesContentRef = useRef<HTMLDivElement>(null)
   const wasOpenRef = useRef(false)
@@ -232,40 +206,6 @@ export function ChatAssistantDrawer({
   const { resizeHandleProps, style: dockWidthStyle, width: dockWidth } = useResizableAiDockWidth()
   const drawerStyle = viewportStyle ? { ...dockWidthStyle, ...viewportStyle } : dockWidthStyle
   const viewportScrollKey = viewportInsets ? `${viewportInsets.top}:${viewportInsets.height}` : ''
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const pendingAssistantIntentRef = useRef<AssistantIntent | undefined>(undefined)
-
-  // Suggestion-chip insertion (paste-and-wait): seeds the draft instead of
-  // replacing it, appends a trailing space so the next keystroke is a fresh
-  // word, and parks the caret at the end so the user keeps typing without
-  // repositioning. Mirrors Mercury's AdvisorAIDockPanel.insertChipPrompt.
-  //
-  // flushSync commits the input update inside this click handler so the
-  // focus() call stays in the user-initiated event chain (iOS Safari only
-  // opens the soft keyboard for focus triggered from an interaction event)
-  // and the caret reads the up-to-date value rather than racing the render.
-  const insertSuggestion = useCallback((text: string, intent?: AssistantIntent) => {
-    pendingAssistantIntentRef.current = intent
-    let nextValue = ''
-    flushSync(() => {
-      setInput((prev) => {
-        const trimmed = prev.replace(/\s+$/, '')
-        nextValue = trimmed.length > 0 ? `${trimmed} ${text} ` : `${text} `
-        return nextValue
-      })
-    })
-    const el = textareaRef.current
-    if (!el) return
-    el.focus({ preventScroll: true })
-    el.setSelectionRange(nextValue.length, nextValue.length)
-  }, [])
-
-  const handleSuggestionClick = useCallback(
-    (label: string) => {
-      insertSuggestion(label, findChatAssistantSuggestionIntent(suggestionViews, label))
-    },
-    [insertSuggestion, suggestionViews]
-  )
 
   // Scroll to bottom on new messages and during streaming content updates.
   // Use the messages container directly — scrollIntoView can shift the document
@@ -293,35 +233,6 @@ export function ChatAssistantDrawer({
     if (!open) return
     scrollMessagesContainerToBottom(messagesContainerRef.current, { force: !wasOpen })
   }, [open, scrollTriggerKey])
-
-  // Auto-resize textarea
-  useEffect(() => {
-    void input
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px'
-    }
-  }, [input])
-
-  // Smart parsing - detect values and commands as user types
-  useEffect(() => {
-    if (input.length > 5) {
-      // Parse normalization commands first (higher priority)
-      const commands = parseNormalizationCommands(input)
-      setDetectedCommands(commands)
-
-      // Only parse values if no commands detected
-      if (commands.length === 0) {
-        const parsed = parseFinancialValues(input)
-        setDetectedValues(parsed)
-      } else {
-        setDetectedValues([])
-      }
-    } else {
-      setDetectedValues([])
-      setDetectedCommands([])
-    }
-  }, [input])
 
   useEffect(() => {
     if (!open) return
@@ -352,48 +263,6 @@ export function ChatAssistantDrawer({
     document.addEventListener('keydown', handleGlobalKeyDown)
     return () => document.removeEventListener('keydown', handleGlobalKeyDown)
   }, [open, consentModalOpen, onOpenChange, onNewConversation, setConsentModalOpen])
-
-  const handleSubmit = useCallback(
-    (e?: React.FormEvent) => {
-      e?.preventDefault()
-      if (isGenerating) return
-      if (!input.trim() && attachments.length === 0) return
-      trackAIAssistantMessage()
-      const intent = resolveAssistantIntent(input, pendingAssistantIntentRef.current)
-      pendingAssistantIntentRef.current = undefined
-      onSendMessage(
-        input,
-        attachments,
-        detectedValues.length > 0 ? detectedValues : undefined,
-        detectedCommands.length > 0 ? detectedCommands : undefined,
-        intent
-      )
-      setInput('')
-      setAttachments([])
-      setDetectedValues([])
-      setDetectedCommands([])
-    },
-    [input, attachments, detectedValues, detectedCommands, isGenerating, onSendMessage]
-  )
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files) setAttachments((prev) => [...prev, ...Array.from(files)])
-  }
-
-  const removeAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
-    }
-  }
-
-  // Track focus state for premium glow effect
-  const [isInputFocused, setIsInputFocused] = useState(false)
 
   const headerSubtitle = resolveChatAssistantHeaderSubtitle({
     fieldLabel: fieldContext?.label,
