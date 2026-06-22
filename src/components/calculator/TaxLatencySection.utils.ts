@@ -1,4 +1,8 @@
-import type { TaxLatencyCandidate, TaxLatencyItem } from '../../store/useTaxLatencyStore'
+import type {
+  TaxLatencyCandidate,
+  TaxLatencyItem,
+  TaxLatencyType,
+} from '../../store/useTaxLatencyStore'
 import { createRandomId } from '../../utils/secureRandom'
 
 export function generateTaxLatencyId(): string {
@@ -14,6 +18,87 @@ export function parseNumericInput(value: string): number {
   if (raw === '') return 0
   const parsed = Number(raw.replace(',', '.'))
   return Number.isNaN(parsed) ? 0 : parsed
+}
+
+export function clampTaxLatencyRate(value: number): number {
+  return Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0))
+}
+
+export function resolveTaxLatencyDefaultRate(
+  navTaxLatencyPct: number | null | undefined,
+  fallbackRate: number
+): { rate: number; source: 'navSchedule' | 'fallback' } {
+  if (typeof navTaxLatencyPct === 'number' && Number.isFinite(navTaxLatencyPct)) {
+    return {
+      rate: clampTaxLatencyRate(navTaxLatencyPct),
+      source: 'navSchedule',
+    }
+  }
+
+  return {
+    rate: clampTaxLatencyRate(fallbackRate),
+    source: 'fallback',
+  }
+}
+
+export function buildTaxLatencyDraftMetrics({
+  amountInput,
+  rateInput,
+  type,
+}: {
+  amountInput: string
+  rateInput: string
+  type: TaxLatencyType
+}): {
+  canSubmitAmount: boolean
+  parsedAmount: number
+  parsedRate: number
+  preview: number
+} {
+  const parsedAmount = parseNumericInput(amountInput)
+  const parsedRate = clampTaxLatencyRate(parseNumericInput(rateInput))
+  const unsignedPreview = Math.abs(parsedAmount) * (parsedRate / 100)
+
+  return {
+    canSubmitAmount: parsedAmount > 0,
+    parsedAmount,
+    parsedRate,
+    preview: type === 'active' ? unsignedPreview : -unsignedPreview,
+  }
+}
+
+export function buildTaxLatencyDraftPayload({
+  accountCode,
+  accountName,
+  amountInput,
+  description,
+  existingAccountName,
+  rateInput,
+  selectedLedgerName,
+  type,
+}: {
+  accountCode: string
+  accountName: string
+  amountInput: string
+  description: string
+  existingAccountName?: string
+  rateInput: string
+  selectedLedgerName?: string
+  type: TaxLatencyType
+}): Omit<TaxLatencyItem, 'id'> | null {
+  const metrics = buildTaxLatencyDraftMetrics({ amountInput, rateInput, type })
+  if (accountCode.length === 0 || !metrics.canSubmitAmount) {
+    return null
+  }
+
+  return {
+    type,
+    accountCode,
+    accountName: selectedLedgerName || accountName || existingAccountName || '',
+    description,
+    temporaryDifference: Math.abs(metrics.parsedAmount),
+    taxRate: metrics.parsedRate,
+  }
 }
 
 export function getLedgerDisplayLabel(code?: string, name?: string): string {

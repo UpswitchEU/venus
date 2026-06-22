@@ -5,8 +5,14 @@ import {
   createTimeoutAbortHandle,
   derivePdfPollDelay,
   derivePdfPollProgress,
+  describeInvalidPdfPayloadSnippet,
+  getPdfAccessGateMessage,
+  getPdfDownloadErrorMessage,
+  getPdfGenerationStartErrorMessage,
   PDF_STATUS_POLL_INTERVAL_MS,
   PDF_STATUS_POLL_MAX_BACKOFF_MS,
+  resolvePdfGenerationStartResult,
+  resolvePdfStatusPollResult,
 } from './pdfGenerationModel'
 
 function binaryReadableBlob(content: string): Blob {
@@ -89,6 +95,65 @@ describe('pdfGenerationModel', () => {
       required_tier: 'pro',
       upgradeRequired: true,
     })
+  })
+
+  it('normalizes PDF generation start responses into explicit outcomes', () => {
+    expect(
+      resolvePdfGenerationStartResult({ success: true, pdfUrl: 'https://cdn/report.pdf' })
+    ).toEqual({
+      status: 'ready',
+      pdfUrl: 'https://cdn/report.pdf',
+    })
+    expect(resolvePdfGenerationStartResult({ success: true, jobId: 'job-1' })).toEqual({
+      status: 'queued',
+      jobId: 'job-1',
+    })
+    expect(
+      resolvePdfGenerationStartResult({ success: false, message: 'Titan rejected it' })
+    ).toEqual({
+      status: 'failed',
+      error: 'Titan rejected it',
+    })
+    expect(resolvePdfGenerationStartResult({ success: true })).toEqual({
+      status: 'invalid',
+      error: 'No PDF URL or job ID returned — please try again',
+    })
+  })
+
+  it('normalizes PDF status poll responses into explicit outcomes', () => {
+    expect(
+      resolvePdfStatusPollResult({ status: 'completed', pdfUrl: 'https://cdn/fresh.pdf' })
+    ).toEqual({
+      status: 'ready',
+      pdfUrl: 'https://cdn/fresh.pdf',
+    })
+    expect(resolvePdfStatusPollResult({ status: 'failed', error: 'Render failed' })).toEqual({
+      status: 'failed',
+      error: 'Render failed',
+    })
+    expect(resolvePdfStatusPollResult({ status: 'completed' })).toEqual({ status: 'pending' })
+    expect(resolvePdfStatusPollResult({ status: 'processing' })).toEqual({ status: 'pending' })
+  })
+
+  it('extracts stable error messages from PDF protocol bodies', () => {
+    expect(getPdfAccessGateMessage({ message: 'Invite an advisor' })).toBe('Invite an advisor')
+    expect(getPdfAccessGateMessage({})).toBe(
+      'PDF download requires a plan that includes downloadable reports.'
+    )
+    expect(getPdfGenerationStartErrorMessage({ detail: { code: 'render_timeout' } })).toBe(
+      '{"code":"render_timeout"}'
+    )
+    expect(getPdfDownloadErrorMessage({ error: 'pooler blip' })).toBe('pooler blip')
+  })
+
+  it('describes invalid PDF payload snippets without leaking raw HTML noise', () => {
+    expect(describeInvalidPdfPayloadSnippet('{"message":"storage denied"}')).toBe('storage denied')
+    expect(describeInvalidPdfPayloadSnippet('<!doctype html><title>Forbidden</title>')).toBe(
+      'Server returned HTML instead of a PDF.'
+    )
+    expect(describeInvalidPdfPayloadSnippet('plain upstream failure text')).toBe(
+      'plain upstream failure text'
+    )
   })
 
   it('aborts timed requests and reports timeout state', async () => {

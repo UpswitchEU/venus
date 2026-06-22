@@ -11,8 +11,8 @@ import { appendBrowserRecoveryListItem } from '../../utils/browserRecoveryStorag
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
-import { getRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { backendAPI } from '../backendApi'
+import { normalizeReportListPayload } from './ReportListNormalizer'
 
 // AUTH-FIRST: guestSessionService removed - authentication is required
 
@@ -41,17 +41,6 @@ function asRecord(value: unknown): UnknownRecord | null {
 
 function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined
-}
-
-function asDate(value: unknown): Date | undefined {
-  const raw = typeof value === 'string' || typeof value === 'number' ? value : undefined
-  if (raw === undefined) return undefined
-  const date = new Date(raw)
-  return Number.isNaN(date.getTime()) ? undefined : date
-}
-
-function asSessionData(value: unknown): Partial<ValuationRequest> {
-  return (asRecord(value) ?? {}) as unknown as Partial<ValuationRequest>
 }
 
 function isPaywallError(error: unknown): error is PaywallError {
@@ -142,84 +131,7 @@ class ReportServiceImpl implements ReportService {
         throw new Error(`Failed to fetch reports: ${response.statusText}`)
       }
 
-      const json = asRecord(await response.json())
-
-      // Backend returns: { success: true, data: [...] }
-      const reportsPayload = json?.data ?? json?.sessions
-      const reports = Array.isArray(reportsPayload) ? reportsPayload : []
-
-      // Transform backend reports to ValuationSession format
-      const sessions: ValuationSession[] = reports.map((reportValue) => {
-        const report = asRecord(reportValue) ?? {}
-        // Get valuation data if available
-        // Backend returns: session_data, partial_data (both are JSONB objects)
-        const partialData = asSessionData(report.partial_data)
-        const sessionData = asSessionData(report.session_data ?? report.valuation_data)
-
-        // Ensure company_name is in sessionData if provided at top level
-        // Backend extracts company_name from session_data for convenience
-        const enrichedSessionData = {
-          ...sessionData,
-          ...(typeof report.company_name === 'string' && !sessionData.company_name
-            ? { company_name: report.company_name }
-            : {}),
-        }
-
-        // ✅ FIX: Map flow_type to currentView correctly
-        // flow_type values: 'manual', 'conversational', 'api'
-        // currentView values: 'manual', 'conversational'
-        const mapFlowTypeToCurrentView = (
-          flowType: string | null | undefined,
-          currentView?: string
-        ): 'manual' | 'conversational' => {
-          if (
-            flowType === 'conversational' ||
-            currentView === 'conversational' ||
-            currentView === 'ai-guided'
-          ) {
-            return 'conversational'
-          }
-          return 'manual'
-        }
-
-        const mapFlowTypeToDataSource = (
-          flowType: string | null | undefined,
-          dataSource?: string
-        ): 'manual' | 'conversational' | 'mixed' => {
-          if (
-            flowType === 'conversational' ||
-            dataSource === 'conversational' ||
-            dataSource === 'ai-guided'
-          ) {
-            return 'conversational'
-          }
-          return 'manual'
-        }
-
-        return {
-          reportId: asString(report.id) ?? asString(report.report_id) ?? generateReportId(),
-          currentView: mapFlowTypeToCurrentView(
-            asString(report.flow_type),
-            asString(report.current_view)
-          ),
-          dataSource: mapFlowTypeToDataSource(
-            asString(report.flow_type),
-            asString(report.data_source)
-          ),
-          name: asString(report.name), // Custom valuation name
-          createdAt: asDate(report.created_at) ?? new Date(),
-          updatedAt: asDate(report.updated_at) ?? new Date(),
-          completedAt: asDate(report.completed_at),
-          partialData,
-          sessionData: enrichedSessionData,
-          // CRITICAL: Include valuation result fields from backend
-          valuationResult:
-            (asRecord(report.valuation_result) as unknown as ValuationSession['valuationResult']) ||
-            undefined,
-          htmlReport: getRenderableReportHtml(asString(report.html_report)) || undefined,
-          calculatedAt: asDate(report.calculated_at),
-        } as ValuationSession
-      })
+      const sessions = normalizeReportListPayload(await response.json())
 
       reportLogger.info('Reports fetched successfully', {
         count: sessions.length,

@@ -1,34 +1,26 @@
 'use client'
 
-import { Download, Loader2, Pencil } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton } from '@/design-system/components/Button'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/design-system/components/Modal'
-import { SegmentedControl } from '@/design-system/components/SegmentedControl'
-import { AuroraSelect } from '@/design-system/components/Select'
-import { cn } from '@/design-system/utils'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
 import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 import { usePreparerMultipleStore } from '../../store/manual/usePreparerMultipleStore'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
-import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
+import { ValuationEditMethodSelectorPanel } from './ValuationEditMethodSelectorPanel'
 import { MethodBreakdownSection, StakeCalculatorSection } from './ValuationEditModalBreakdown'
-import { formatCurrency } from './ValuationEditModalFormatting'
+import { ValuationEditModalEmptyState } from './ValuationEditModalEmptyState'
+import {
+  getValuationEditModeForSelectedMethod,
+  sanitizeZeroDraftFilename,
+  type ValuationEditMode,
+} from './ValuationEditModalModel'
 import { buildValuationEditPreparerModel } from './ValuationEditModalPreparerModel'
 import { ValuationEditModalPreparerSection } from './ValuationEditModalPreparerSection'
-
-const METHOD_OVERRIDE_REASON_KEYS = [
-  'fiscal_compliance',
-  'asset_heavy_business',
-  'internal_transfer',
-  'conservative_anchor',
-  'client_preference',
-  'regulatory_requirement',
-  'other',
-] as const
 
 export interface ValuationEditModalProps {
   open: boolean
@@ -122,9 +114,8 @@ export function ValuationEditModal({
     [valuationResults, planAllowedMethodKeys, firmCountryCode, getMethodLabel]
   )
 
-  const adaptiveLabel = t('currentMethodAdaptive')
-  const [mode, setMode] = useState<'ai' | 'manual'>(
-    selectedMethod !== 'upswitch_adaptive' ? 'manual' : 'ai'
+  const [mode, setMode] = useState<ValuationEditMode>(() =>
+    getValuationEditModeForSelectedMethod(selectedMethod)
   )
   const [pendingMethod, setPendingMethod] = useState<string | null>(null)
   const [overrideReasonKey, setOverrideReasonKey] = useState('')
@@ -137,8 +128,7 @@ export function ValuationEditModal({
   const [suggestionDismissed, setSuggestionDismissed] = useState(false)
 
   useEffect(() => {
-    const newMode = selectedMethod === 'upswitch_adaptive' ? 'ai' : 'manual'
-    setMode(newMode)
+    setMode(getValuationEditModeForSelectedMethod(selectedMethod))
     setPendingMethod(null)
     setOverrideReasonKey('')
     setOverrideNote('')
@@ -177,22 +167,10 @@ export function ValuationEditModal({
   const panoramaEntries = Object.entries(panoramaValuationResults)
   const activeMethodKey = pendingMethod ?? selectedMethod
   const activeMethod = getValuationMethodResultForKey(valuationResults, activeMethodKey) ?? null
-  const pendingOverrideRow =
-    pendingMethod && pendingMethod !== 'upswitch_adaptive'
-      ? getValuationMethodResultForKey(valuationResults, pendingMethod)
-      : null
-
-  // Method selection helpers
-  const getSelectedMethodLabel = (method: string) =>
-    method === 'upswitch_adaptive'
-      ? adaptiveLabel
-      : getValuationMethodResultForKey(valuationResults, method)?.label || adaptiveLabel
-
-  const currentMethodLabel = getSelectedMethodLabel(selectedMethod)
 
   const methodSelectionLocked = isMethodPersisting
 
-  const handleModeChange = (newMode: 'ai' | 'manual') => {
+  const handleModeChange = (newMode: ValuationEditMode) => {
     if (methodSelectionLocked) return
     setMode(newMode)
     if (newMode === 'ai') {
@@ -222,20 +200,6 @@ export function ValuationEditModal({
     setOverrideReasonKey('')
     setOverrideNote('')
   }
-
-  const showMethodList = mode === 'manual'
-  const guidanceTone = pendingMethod
-    ? 'border-primary/20 bg-primary/[0.04] text-primary/80'
-    : mode === 'manual'
-      ? 'border-amber-300/30 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
-      : 'border-border/60 bg-background/60 text-foreground/60'
-  const guidanceText = pendingMethod
-    ? t('stepExplainReason')
-    : mode === 'manual'
-      ? t('stepChooseMethod')
-      : t('stepAiActive')
-
-  const availableCount = panoramaEntries.filter(([, m]) => m.available).length
 
   const prepModel = useMemo(
     () =>
@@ -320,76 +284,15 @@ export function ValuationEditModal({
   const previewText = livePreview ?? prepModel.savedPreview
 
   if (panoramaEntries.length === 0) {
-    const title = isHydratingMethods
-      ? tModal('loadingTitle')
-      : methodDataLoadError === 'transient'
-        ? t('transientLoadTitle')
-        : methodDataLoadError === 'report_pending'
-          ? t('unavailableTitleReportPending')
-          : t('unavailableTitleLegacy')
-    const blurb = isHydratingMethods
-      ? tModal('loadingBlurb')
-      : methodDataLoadError === 'transient'
-        ? t('transientLoadBlurb')
-        : methodDataLoadError === 'report_pending'
-          ? t('unavailableBlurbReportPending')
-          : t('unavailableBlurbLegacy')
     return (
-      <Modal open={open} onOpenChange={(v) => !v && onClose()}>
-        <ModalContent
-          size="2xl"
-          description={tModal('description')}
-          className="max-h-[92vh] flex flex-col overflow-hidden"
-        >
-          <ModalHeader className="shrink-0">
-            <ModalTitle>{tModal('title')}</ModalTitle>
-          </ModalHeader>
-          <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-4 py-5 text-center space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/60">
-              {title}
-            </p>
-            <p className="text-[11px] leading-snug text-foreground/50">{blurb}</p>
-            {methodDataLoadError === 'report_pending' && onContinueImportReview ? (
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
-                <AuroraButton
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  className="text-xs"
-                  disabled={isHydratingMethods}
-                  onClick={onContinueImportReview}
-                >
-                  {tModal('continueImportReview')}
-                </AuroraButton>
-                {onRetryMethodDataLoad ? (
-                  <AuroraButton
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="text-xs"
-                    disabled={isHydratingMethods}
-                    onClick={onRetryMethodDataLoad}
-                  >
-                    {tModal('retryMethodDataLoad')}
-                  </AuroraButton>
-                ) : null}
-              </div>
-            ) : (methodDataLoadError === 'transient' || methodDataLoadError === 'report_pending') &&
-              onRetryMethodDataLoad ? (
-              <AuroraButton
-                type="button"
-                variant="primary"
-                size="sm"
-                className="text-xs"
-                disabled={isHydratingMethods}
-                onClick={onRetryMethodDataLoad}
-              >
-                {tModal('retryMethodDataLoad')}
-              </AuroraButton>
-            ) : null}
-          </div>
-        </ModalContent>
-      </Modal>
+      <ValuationEditModalEmptyState
+        open={open}
+        onClose={onClose}
+        isHydratingMethods={isHydratingMethods}
+        methodDataLoadError={methodDataLoadError}
+        onRetryMethodDataLoad={onRetryMethodDataLoad}
+        onContinueImportReview={onContinueImportReview}
+      />
     )
   }
 
@@ -420,166 +323,28 @@ export function ValuationEditModal({
         </ModalHeader>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch lg:gap-8">
-          {/* Left: method mode, panorama selection, override */}
-          <div className="space-y-3 min-h-0 min-w-0 flex-1 lg:max-h-[min(82vh,880px)] lg:overflow-y-auto lg:pr-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1 min-w-0">
-                <h4 className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
-                  {tModal('methodSection')}
-                </h4>
-                <p className="text-[11px] leading-snug text-foreground/50">{t('subtitle')}</p>
-              </div>
-              <div className="shrink-0 text-right max-w-[55%]">
-                <span className="text-[10px] text-foreground/40 leading-tight block">
-                  {t('methodsReadyBadge', {
-                    available: availableCount,
-                    total: panoramaEntries.length,
-                  })}
-                </span>
-                <div className="mt-1 inline-flex items-center rounded-full border border-primary/15 bg-primary/[0.05] px-2 py-1 text-[10px] font-medium text-primary/80 max-w-full">
-                  <span className="truncate">
-                    {t('currentMethodLabel', { method: currentMethodLabel })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <SegmentedControl
-              options={[
-                {
-                  value: 'ai' as const,
-                  label: t('modeAi'),
-                },
-                {
-                  value: 'manual' as const,
-                  label: t('modeManual'),
-                  icon: <Pencil className="w-3 h-3" />,
-                },
-              ]}
-              value={mode}
-              onChange={handleModeChange}
-              size="sm"
-              fullWidth
-              disabled={methodSelectionLocked}
-              aria-label={t('modeLabel')}
-            />
-
-            <div
-              role="status"
-              aria-live="polite"
-              className={cn('rounded-md border px-3 py-2 text-[11px] leading-snug', guidanceTone)}
-            >
-              {guidanceText}
-            </div>
-
-            {isMethodPersisting && (
-              <p
-                className="text-[11px] text-foreground/50 mt-2 flex items-center gap-2"
-                role="status"
-                aria-live="polite"
-              >
-                <Loader2
-                  className="w-3.5 h-3.5 animate-spin shrink-0 text-primary/70"
-                  aria-hidden
-                />
-                {tModal('persistingMethod')}
-              </p>
-            )}
-
-            {showMethodList && (
-              <OmniMethodPanorama
-                valuationResults={panoramaValuationResults}
-                selectedMethod={selectedMethod}
-                pendingMethod={pendingMethod}
-                methodSelectionLocked={methodSelectionLocked}
-                onMethodClick={handleMethodClick}
-                firmCountryCode={firmCountryCode}
-                onPlanLockedMethodClick={onPlanLockedMethodClick}
-                comparablesCount={
-                  mv?.comparables_count != null ? Number(mv.comparables_count) : null
-                }
-                comparablesQuality={mv?.comparables_quality ?? null}
-              />
-            )}
-
-            {pendingMethod && pendingMethod !== 'upswitch_adaptive' && (
-              <div className="rounded-lg border border-primary/20 bg-primary/[0.03] px-3 py-3 space-y-2">
-                {pendingOverrideRow?.label && (
-                  <p className="text-[10px] font-medium text-foreground/55">
-                    {t('overrideConfirmingFor', {
-                      method: pendingOverrideRow.label,
-                    })}
-                  </p>
-                )}
-                <p className="text-[11px] font-semibold text-primary/80 uppercase tracking-wider">
-                  {t('overrideJustificationTitle')}
-                </p>
-                <p className="text-[10px] text-foreground/50 leading-snug">
-                  {t('overrideJustificationBlurb')}
-                </p>
-                <AuroraSelect
-                  size="sm"
-                  value={overrideReasonKey}
-                  onChange={(v) => setOverrideReasonKey(v)}
-                  label={t('overrideJustificationTitle')}
-                  placeholder={t('overrideReasonPlaceholder')}
-                  options={METHOD_OVERRIDE_REASON_KEYS.map((k) => ({
-                    value: k,
-                    label: t(`overrideReasons.${k}`),
-                  }))}
-                />
-                <textarea
-                  value={overrideNote}
-                  onChange={(e) => setOverrideNote(e.target.value)}
-                  rows={2}
-                  maxLength={500}
-                  placeholder={t('overrideNotePlaceholder')}
-                  aria-label={t('overrideNotePlaceholder')}
-                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs resize-none"
-                />
-                <div className="flex gap-2">
-                  <AuroraButton
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    disabled={!overrideReasonKey || methodSelectionLocked}
-                    className="flex-1 text-xs"
-                    onClick={handleConfirmOverride}
-                  >
-                    {t('overrideConfirm')}
-                  </AuroraButton>
-                  <AuroraButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={methodSelectionLocked}
-                    className="text-xs"
-                    onClick={() => setPendingMethod(null)}
-                  >
-                    {t('overrideCancel')}
-                  </AuroraButton>
-                </div>
-              </div>
-            )}
-
-            {showFiscalAnchorRow &&
-              fiscalAnchor != null &&
-              !getValuationMethodResultForKey(valuationResults, 'fiscal_4x') && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02] border border-dashed border-border/50">
-                    <span className="text-[10px] font-medium text-foreground/50 uppercase tracking-wider">
-                      {t('fiscalAnchor')}
-                    </span>
-                    <span className="text-xs font-mono font-medium text-foreground/60 tabular-nums">
-                      {formatCurrency(Number(fiscalAnchor))}
-                    </span>
-                  </div>
-                  <p className="text-[9px] text-foreground/40 leading-snug px-1">
-                    {t('fiscalAnchorFootnote')}
-                  </p>
-                </div>
-              )}
-          </div>
+          <ValuationEditMethodSelectorPanel
+            valuationResults={valuationResults}
+            panoramaValuationResults={panoramaValuationResults}
+            selectedMethod={selectedMethod}
+            pendingMethod={pendingMethod}
+            mode={mode}
+            overrideReasonKey={overrideReasonKey}
+            overrideNote={overrideNote}
+            showFiscalAnchorRow={showFiscalAnchorRow}
+            fiscalAnchor={fiscalAnchor}
+            methodSelectionLocked={methodSelectionLocked}
+            firmCountryCode={firmCountryCode}
+            comparablesCount={mv?.comparables_count != null ? Number(mv.comparables_count) : null}
+            comparablesQuality={mv?.comparables_quality ?? null}
+            onModeChange={handleModeChange}
+            onMethodClick={handleMethodClick}
+            onOverrideReasonChange={setOverrideReasonKey}
+            onOverrideNoteChange={setOverrideNote}
+            onConfirmOverride={handleConfirmOverride}
+            onCancelOverride={() => setPendingMethod(null)}
+            onPlanLockedMethodClick={onPlanLockedMethodClick}
+          />
 
           {/* Right: calculation transparency, EV/EBITDA preparer, Zero Draft */}
           <div
@@ -668,7 +433,7 @@ export function ValuationEditModal({
                         methods: valuationResults,
                       })
                       const rawName = t('zeroDraftFilename', { reportId: zeroDraftReportId })
-                      const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_')
+                      const safeName = sanitizeZeroDraftFilename(rawName)
                       downloadZeroDraftCsv(safeName, csv)
                     }}
                   >

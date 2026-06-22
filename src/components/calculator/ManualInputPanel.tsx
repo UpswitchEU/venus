@@ -21,12 +21,6 @@ import {
 } from '@/constants/accountantPlanMethods'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
 
-import {
-  type GetBonusSectionsSaasSignals,
-  getBonusSectionsSaasSignalsFromFormData,
-  getSynthesisMethodKeysForUi,
-  resolveBusinessTypeIdForBonusSections,
-} from '../../constants/methodFieldConfig'
 // Round-4 audit: `METHOD_LABEL_KEYS` was imported here to localise the
 // BelgianSmeAuditPanel title. Panel moved to the report; import dropped.
 import { useAuth } from '../../hooks/useAuth'
@@ -45,7 +39,6 @@ import type {
 } from '../../types/valuation'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { getFinancialTerm } from '../../utils/locale/financial-terms'
-import { isYearRowForecast } from '../../utils/yearData'
 import { getLatestCompleteYearlyFinancial } from '../../utils/yearlyFinancials'
 import type { FieldHelpContext } from './FieldHelpTrigger'
 import { useApplyAdvisorValuationDefaults } from './hooks/useApplyAdvisorValuationDefaults'
@@ -71,15 +64,13 @@ import {
   getSeedYearlyFinancials,
   isSessionSeedYearStale,
 } from './utils/manualFinancialSeeds'
-import {
-  buildManualInputAdaptiveHeaderSteps,
-  getManualInputBalanceSheetCarveOutStep,
-  getManualInputSynthesisStep,
-} from './utils/manualInputAdaptiveSteps'
 import { buildManualInputFieldValidation } from './utils/manualInputFieldValidation'
 import { buildManualInputInitialFormData } from './utils/manualInputInitialFormData'
-import { buildManualInputNormalizedData } from './utils/manualInputNormalizedData'
-import { deriveManualInputReadiness } from './utils/manualInputReadiness'
+import {
+  buildManualInputPresentationModel,
+  resolveManualInputSelectedBusinessCategory,
+  sortManualInputYearlyFinancials,
+} from './utils/manualInputPresentationModel'
 import { buildManualInputSubmitPayload } from './utils/manualInputSubmitPayload'
 import { shouldShowManualRealEstateCarveOut } from './utils/manualRealEstateCarveOutVisibility'
 
@@ -164,7 +155,6 @@ export function ManualInputPanel({
   const { currency: panelCurrencyFormatter } = useManualPreviewFormatters()
   const taxLatencyCount = useTaxLatencyStore((s) => s.items.length)
   const normalizationItems = useNormalizationStore((s) => s.items)
-  const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
 
   const formatCurrency = useCallback(
     (amount: number) => panelCurrencyFormatter.format(Number.isFinite(amount) ? amount : 0),
@@ -283,22 +273,6 @@ export function ManualInputPanel({
     normalizationItems,
     setFormData,
   })
-
-  const normalizedData = useMemo(
-    () =>
-      buildManualInputNormalizedData({
-        estimatedMarketRent: formData.estimated_market_rent,
-        excludeRealEstate: formData.exclude_real_estate,
-        normalizationItems,
-        yearlyFinancials: formData.yearlyFinancials,
-      }),
-    [
-      formData.estimated_market_rent,
-      formData.exclude_real_estate,
-      formData.yearlyFinancials,
-      normalizationItems,
-    ]
-  )
 
   const {
     executeClearCompany,

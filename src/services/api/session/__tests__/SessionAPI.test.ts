@@ -295,6 +295,77 @@ describe('SessionAPI', () => {
       )
     })
 
+    it('reuses the session PATCH policy for rate-limit retries', async () => {
+      vi.useFakeTimers()
+      try {
+        executeRequestSpy
+          .mockRejectedValueOnce({
+            response: { status: 429, headers: { 'retry-after': '1' } },
+          })
+          .mockResolvedValueOnce({
+            session_key: 'val_update_rate_limited',
+            session_data: { company_name: 'Updated Corp' },
+          })
+
+        const resultPromise = api.updateValuationSession('val_update_rate_limited', {
+          reportId: 'val_update_rate_limited',
+          updates: { sessionData: { company_name: 'Updated Corp' } },
+        })
+
+        await vi.advanceTimersByTimeAsync(1000)
+        const result = await resultPromise
+
+        expect(result.success).toBe(true)
+        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
+        expect(executeRequestSpy.mock.calls[1][0]).toEqual(
+          expect.objectContaining({
+            method: 'PATCH',
+            url: '/api/v2/valuations/sessions/val_update_rate_limited',
+            data: { session_data: { company_name: 'Updated Corp' } },
+          })
+        )
+        expect(executeRequestSpy.mock.calls[1][1]).toEqual(
+          expect.objectContaining({
+            retry: expect.objectContaining({ maxRetries: 0 }),
+            timeout: 20000,
+          })
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('returns optimistic success when non-critical rate-limit retries are exhausted', async () => {
+      vi.useFakeTimers()
+      try {
+        executeRequestSpy.mockRejectedValue({
+          response: { status: 429, headers: { 'retry-after': '1' } },
+        })
+
+        const resultPromise = api.updateValuationSession('val_noncritical_rate_limited', {
+          reportId: 'val_noncritical_rate_limited',
+          updates: { status: 'active' },
+        })
+
+        await vi.advanceTimersByTimeAsync(3000)
+        const result = await resultPromise
+
+        expect(result.success).toBe(true)
+        expect(result.updated).toBe(false)
+        expect(executeRequestSpy).toHaveBeenCalledTimes(3)
+        for (const [, options] of executeRequestSpy.mock.calls) {
+          expect(options).toEqual(
+            expect.objectContaining({
+              retry: expect.objectContaining({ maxRetries: 0 }),
+              timeout: 20000,
+            })
+          )
+        }
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('maps PATCH updates to Titan session_data and strips report HTML blobs', async () => {
       executeRequestSpy.mockResolvedValue({
         success: true,

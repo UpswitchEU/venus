@@ -38,13 +38,15 @@ import { TaxLatencyCandidateCard } from './TaxLatencyCandidateCard'
 import { TaxLatencyEditorForm } from './TaxLatencyEditorForm'
 import { TaxLatencyRow } from './TaxLatencyRow'
 import {
+  buildTaxLatencyDraftMetrics,
+  buildTaxLatencyDraftPayload,
   findNavTaxLatencyConflicts,
   fuzzyMatch,
   type GroupedTaxLatencyCandidate,
   generateTaxLatencyId,
   getLedgerDisplayLabel,
   groupTaxLatencyCandidates,
-  parseNumericInput,
+  resolveTaxLatencyDefaultRate,
 } from './TaxLatencySection.utils'
 
 // ─────────────────────────────────────────
@@ -72,14 +74,10 @@ export function TaxLatencySection({
   const navTaxLatencyPct = useManualFormStore(
     (s) => (s.formData as { nav_tax_latency_pct?: number }).nav_tax_latency_pct
   )
-  const effectiveDefaultRate =
-    typeof navTaxLatencyPct === 'number' && Number.isFinite(navTaxLatencyPct)
-      ? Math.min(100, Math.max(0, navTaxLatencyPct))
-      : defaultTaxRate
-  const defaultRateSource: 'navSchedule' | 'fallback' =
-    typeof navTaxLatencyPct === 'number' && Number.isFinite(navTaxLatencyPct)
-      ? 'navSchedule'
-      : 'fallback'
+  const { rate: effectiveDefaultRate, source: defaultRateSource } = resolveTaxLatencyDefaultRate(
+    navTaxLatencyPct,
+    defaultTaxRate
+  )
 
   // Pull NAV-schedule uplift fields so we can warn when a positive uplift will be
   // taxed via the NAV-% deduction at the same time as the user adds an itemised
@@ -190,16 +188,18 @@ export function TaxLatencySection({
       .map((entry) => entry.ledger)
   }, [availableLedgers, ledgerQuery])
 
-  const parsedAmount = parseNumericInput(draftAmount)
+  const {
+    canSubmitAmount,
+    parsedAmount,
+    parsedRate,
+    preview: draftPreview,
+  } = buildTaxLatencyDraftMetrics({
+    amountInput: draftAmount,
+    rateInput: draftRate,
+    type: draftType,
+  })
 
-  const parsedRate = Math.min(100, Math.max(0, parseNumericInput(draftRate)))
-
-  const draftPreview =
-    draftType === 'active'
-      ? Math.abs(parsedAmount) * (parsedRate / 100)
-      : -(Math.abs(parsedAmount) * (parsedRate / 100))
-
-  const canSubmit = draftAccountCode.length > 0 && parsedAmount > 0
+  const canSubmit = draftAccountCode.length > 0 && canSubmitAmount
 
   const resetDraft = useCallback(() => {
     setDraftType('passive')
@@ -216,30 +216,28 @@ export function TaxLatencySection({
   }, [effectiveDefaultRate])
 
   const handleSubmit = useCallback(() => {
-    if (!canSubmit) return
+    const existingAccountName = editingId
+      ? items.find((item) => item.id === editingId)?.accountName
+      : undefined
+    const payload = buildTaxLatencyDraftPayload({
+      accountCode: draftAccountCode,
+      accountName: draftAccountName,
+      amountInput: draftAmount,
+      description: draftDescription,
+      existingAccountName,
+      rateInput: draftRate,
+      selectedLedgerName: selectedLedger?.name,
+      type: draftType,
+    })
+
+    if (!payload) return
 
     if (editingId) {
-      updateItem(editingId, {
-        type: draftType,
-        accountCode: draftAccountCode,
-        accountName:
-          selectedLedger?.name ||
-          draftAccountName ||
-          items.find((item) => item.id === editingId)?.accountName ||
-          '',
-        description: draftDescription,
-        temporaryDifference: Math.abs(parsedAmount),
-        taxRate: parsedRate,
-      })
+      updateItem(editingId, payload)
     } else {
       addItem({
         id: generateTaxLatencyId(),
-        type: draftType,
-        accountCode: draftAccountCode,
-        accountName: selectedLedger?.name || draftAccountName || '',
-        description: draftDescription,
-        temporaryDifference: Math.abs(parsedAmount),
-        taxRate: parsedRate,
+        ...payload,
       })
     }
     if (draftCandidateIds.length > 0) {
@@ -250,17 +248,16 @@ export function TaxLatencySection({
     resetDraft()
   }, [
     addItem,
-    canSubmit,
     draftAccountCode,
     draftAccountName,
+    draftAmount,
     draftCandidateIds,
     draftDescription,
+    draftRate,
     draftType,
     dismissCandidate,
     editingId,
     items,
-    parsedAmount,
-    parsedRate,
     resetDraft,
     selectedLedger?.name,
     updateItem,

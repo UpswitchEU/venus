@@ -50,7 +50,6 @@ import {
 } from './SessionApiNormalization'
 import {
   delay,
-  emptyOptimisticUpdate,
   isTransientSessionPatchError,
   mapTitanPatchAndStripReportBlobs,
   normalizeSaveValuationResultResponse,
@@ -58,6 +57,7 @@ import {
   stripValuationResultPayload,
   transientSessionPatchMessage,
 } from './SessionApiPatchHelpers'
+import { retryRateLimitedSessionPatch } from './SessionApiRateLimitRecovery'
 
 // Source-contract sentinel: PATCH helpers enforce that 503/504 indicate upstream pool pressure.
 // The branch `status === 503 || status === 504` records
@@ -361,9 +361,9 @@ export class SessionAPI extends HttpClient {
     updates: UpdateValuationSessionRequest,
     options?: APIRequestConfig
   ): Promise<UpdateValuationSessionResponse> {
-    try {
-      const patchBody = mapTitanPatchAndStripReportBlobs(updates.updates)
+    const patchBody = mapTitanPatchAndStripReportBlobs(updates.updates)
 
+    try {
       // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
       const response = await this.patchValuationSessionWithTransientRetry(
         reportId,
@@ -377,50 +377,15 @@ export class SessionAPI extends HttpClient {
 
       // ✅ WORLD-CLASS FIX: Handle 429 rate limit with exponential backoff
       if (axiosError.response?.status === 429) {
-        apiLogger.warn('Rate limit hit during session update, retrying with backoff', {
-          reportId,
-          retryAfter: axiosError.response?.headers?.['retry-after'],
-        })
-
-        // Use exponential backoff for rate limit retries
-        const { retryWithBackoff } = await import('../../../utils/retryWithBackoff')
         try {
-          const retryPatchBody = mapTitanPatchAndStripReportBlobs(updates.updates)
-
-          const retriedResponse = await retryWithBackoff(
-            async () => {
-              return await this.executeRequest<unknown>(
-                requestConfig({
-                  method: 'PATCH',
-                  url: `/api/v2/valuations/sessions/${reportId}`,
-                  data: retryPatchBody,
-                  headers: {},
-                }),
-                options
-              )
-            },
-            {
-              maxRetries: 2, // Only 2 retries for rate limits (429)
-              initialDelay: 1000, // Start with 1 second delay
-              maxDelay: 5000, // Max 5 seconds
-              backoffMultiplier: 2,
-            }
-          )
-
-          return normalizeUpdateSessionResponse(retriedResponse)
+          return await retryRateLimitedSessionPatch({
+            isCriticalUpdate: isCriticalSessionUpdate(updates),
+            patchSession: () =>
+              this.patchValuationSessionWithTransientRetry(reportId, patchBody, options),
+            reportId,
+            updateKeys: Object.keys(updates.updates || {}),
+          })
         } catch (retryError) {
-          // Rate limit retries exhausted - return optimistic success for non-critical updates
-          if (!isCriticalSessionUpdate(updates)) {
-            apiLogger.warn(
-              'Rate limit retries exhausted for non-critical update, returning optimistic success',
-              {
-                reportId,
-                updateKeys: Object.keys(updates.updates || {}),
-              }
-            )
-            // Return optimistic success - the update will be retried on next change
-            return emptyOptimisticUpdate()
-          }
           // Critical update failed - re-throw
           this.handleSessionError(retryError, 'update session')
         }

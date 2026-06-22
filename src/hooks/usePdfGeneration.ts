@@ -20,10 +20,16 @@ import {
   createTimeoutAbortHandle,
   derivePdfPollDelay,
   derivePdfPollProgress,
+  describeInvalidPdfPayloadSnippet,
+  getPdfAccessGateMessage,
+  getPdfDownloadErrorMessage,
+  getPdfGenerationStartErrorMessage,
   PDF_DOWNLOAD_FETCH_MS,
   PDF_STATUS_FETCH_MS,
   PDF_STATUS_MAX_POLL_MS,
   PDF_STATUS_POLL_INTERVAL_MS,
+  resolvePdfGenerationStartResult,
+  resolvePdfStatusPollResult,
   type TimeoutAbortHandle,
 } from './pdfGenerationModel'
 
@@ -263,19 +269,20 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           const progress = derivePdfPollProgress(pollCount)
           setState((prev) => ({ ...prev, progress }))
 
-          if (data.status === 'completed' && data.pdfUrl) {
+          const pollResult = resolvePdfStatusPollResult(data)
+          if (pollResult.status === 'ready') {
             stopPollingTimer()
             isGeneratingRef.current = false
             shouldContinuePolling = false
             if (mountedRef.current) {
               setState({
                 status: 'ready',
-                url: data.pdfUrl,
+                url: pollResult.pdfUrl,
                 error: null,
                 progress: 100,
               })
             }
-          } else if (data.status === 'failed') {
+          } else if (pollResult.status === 'failed') {
             stopPollingTimer()
             isGeneratingRef.current = false
             shouldContinuePolling = false
@@ -283,7 +290,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
               setState({
                 status: 'error',
                 url: null,
-                error: data.error || 'PDF generation failed',
+                error: pollResult.error,
                 progress: 0,
               })
             }
@@ -384,10 +391,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           throw new APIError('PDF generation temporarily unavailable', response.status)
         }
         if (response.status === 402) {
-          const errMsg =
-            (typeof errBody.message === 'string' && errBody.message) ||
-            (typeof errBody.error === 'string' && errBody.error) ||
-            'PDF download requires a plan that includes downloadable reports.'
+          const errMsg = getPdfAccessGateMessage(errBody)
           if (isCurrentGeneration()) {
             isGeneratingRef.current = false
             setState({
@@ -399,9 +403,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           }
           throw new APIError(errMsg, 402, undefined, true, buildPdfAccessErrorContext(errBody))
         }
-        const errMsg =
-          errBody.message ?? errBody.error ?? errBody.detail ?? 'Failed to start PDF generation'
-        throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg))
+        throw new Error(getPdfGenerationStartErrorMessage(errBody))
       }
 
       const data = await response.json()
@@ -410,39 +412,28 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         return null
       }
 
-      // BFF forwards Titan body; tolerate `{ success: true, ... }` without pdfUrl/jobId.
-      if (data && typeof data === 'object' && data.success === false) {
-        const errMsg =
-          (typeof data.error === 'string' && data.error) ||
-          (typeof data.message === 'string' && data.message) ||
-          'PDF generation failed'
-        throw new Error(errMsg)
+      const startResult = resolvePdfGenerationStartResult(data)
+      if (startResult.status === 'failed' || startResult.status === 'invalid') {
+        throw new Error(startResult.error)
       }
 
-      if (data.pdfUrl) {
+      if (startResult.status === 'ready') {
         isGeneratingRef.current = false
         setState({
           status: 'ready',
-          url: data.pdfUrl,
+          url: startResult.pdfUrl,
           error: null,
           progress: 100,
         })
-        return data.pdfUrl
+        return startResult.pdfUrl
       }
 
-      if (data.jobId) {
+      if (startResult.status === 'queued') {
         setState((prev) => ({ ...prev, progress: 30 }))
-        startPolling(data.jobId)
+        startPolling(startResult.jobId)
         return null
       }
 
-      isGeneratingRef.current = false
-      setState({
-        status: 'error',
-        url: null,
-        error: 'No PDF URL or job ID returned — please try again',
-        progress: 0,
-      })
       return null
     } catch (error) {
       if ((error as Error).name === 'AbortError') {
@@ -551,10 +542,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
 
         if (!response.ok) {
           const errBody = await response.json().catch(() => ({}))
-          const errMsg =
-            (typeof errBody.error === 'string' && errBody.error) ||
-            (typeof errBody.message === 'string' && errBody.message) ||
-            'Failed to download PDF'
+          const errMsg = getPdfDownloadErrorMessage(errBody)
           if (response.status === 402) {
             if (mountedRef.current) {
               setState({
@@ -576,18 +564,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         if (!isCurrentDownload()) return
         if (!(await blobStartsWithPdfMagic(blob))) {
           const snippet = (await blob.slice(0, 240).text()).trim()
-          let parsed: { error?: string; message?: string } | null = null
-          try {
-            parsed = JSON.parse(snippet) as { error?: string; message?: string }
-          } catch {
-            /* not JSON — probably HTML error page */
-          }
-          const hint =
-            (parsed && (parsed.error || parsed.message)) ||
-            (snippet.startsWith('<!')
-              ? 'Server returned HTML instead of a PDF.'
-              : snippet.slice(0, 120))
-          throw new Error(hint || 'Download did not return a valid PDF file.')
+          throw new Error(describeInvalidPdfPayloadSnippet(snippet))
         }
         if (!isCurrentDownload()) return
 
