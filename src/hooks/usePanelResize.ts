@@ -10,8 +10,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { PANEL_CONSTRAINTS } from '../constants/panelConstants'
 import { chatLogger } from '../utils/logger'
-
-const STORAGE_KEY = 'upswitch-panel-width'
+import {
+  clampPanelWidth,
+  readStoredPanelWidth,
+  snapPanelWidthToDefault,
+  writeStoredPanelWidth,
+} from './panelResizeModel'
 
 export interface UsePanelResizeReturn {
   /** Current left panel width (percentage) */
@@ -45,46 +49,22 @@ export interface UsePanelResizeReturn {
  */
 export function usePanelResize(): UsePanelResizeReturn {
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed = parseFloat(saved)
-        if (
-          !isNaN(parsed) &&
-          parsed >= PANEL_CONSTRAINTS.MIN_WIDTH &&
-          parsed <= PANEL_CONSTRAINTS.MAX_WIDTH
-        ) {
-          return parsed
-        }
-      }
-    } catch (error) {
-      chatLogger.warn('Failed to load saved panel width', { error })
-    }
-    return PANEL_CONSTRAINTS.DEFAULT_WIDTH
+    return (
+      readStoredPanelWidth({
+        onError: (error) => chatLogger.warn('Failed to load saved panel width', { error }),
+      }) ?? PANEL_CONSTRAINTS.DEFAULT_WIDTH
+    )
   })
 
   // Persist to localStorage whenever width changes
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, leftPanelWidth.toString())
-    } catch (error) {
-      chatLogger.warn('Failed to save panel width', { error })
-    }
+    writeStoredPanelWidth(leftPanelWidth, {
+      onError: (error) => chatLogger.warn('Failed to save panel width', { error }),
+    })
   }, [leftPanelWidth])
 
   const handleResize = useCallback((newWidth: number) => {
-    // Enforce constraints
-    const constrainedWidth = Math.max(
-      PANEL_CONSTRAINTS.MIN_WIDTH,
-      Math.min(PANEL_CONSTRAINTS.MAX_WIDTH, newWidth)
-    )
-
-    // Snap to default if within tolerance (2%)
-    if (Math.abs(constrainedWidth - PANEL_CONSTRAINTS.DEFAULT_WIDTH) < 2) {
-      setLeftPanelWidth(PANEL_CONSTRAINTS.DEFAULT_WIDTH)
-    } else {
-      setLeftPanelWidth(constrainedWidth)
-    }
+    setLeftPanelWidth(snapPanelWidthToDefault(clampPanelWidth(newWidth)))
   }, [])
 
   return {

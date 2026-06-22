@@ -69,13 +69,6 @@ const approvedStorageWriters = {
     allowedExpressions: ['storageKey'],
     reason: 'Avoids reopening the same non-authoritative modal in one tab.',
   }),
-  'src/features/manual/hooks/useManualPanelResize.ts': reviewed({
-    classification: 'ui-preference',
-    retention: 'local',
-    allowedKeys: ['upswitch-panel-width'],
-    ttlExemption: 'Numeric UI width preference only.',
-    reason: 'Stores only a numeric panel-width preference.',
-  }),
   'src/features/startup-studio/components/PresetPicker.tsx': reviewed({
     classification: 'ui-selection',
     retention: 'session',
@@ -94,12 +87,12 @@ const approvedStorageWriters = {
     allowedKeys: ['upswitch_venus_embedded'],
     reason: 'Preserves embedded-mode routing context in one browser tab.',
   }),
-  'src/hooks/usePanelResize.ts': reviewed({
+  'src/hooks/panelResizeModel.ts': reviewed({
     classification: 'ui-preference',
     retention: 'local',
     allowedKeys: ['upswitch-panel-width'],
     ttlExemption: 'Numeric UI width preference only.',
-    reason: 'Stores only a numeric panel-width preference.',
+    reason: 'Centralizes numeric panel-width preference persistence for calculator layouts.',
   }),
   'src/hooks/useReportIdTracking.ts': reviewed({
     classification: 'navigation-context',

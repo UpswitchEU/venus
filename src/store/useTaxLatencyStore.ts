@@ -121,6 +121,16 @@ function normalizeTaxLatencyItems(input: unknown): TaxLatencyItem[] {
     .filter((item): item is TaxLatencyItem => item !== null)
 }
 
+function getTaxLatencySessionPersistDeferRemainingMs(reportId: string): number {
+  const sessionState = useSessionStore.getState()
+  return getSessionAutosaveDeferRemainingMs({
+    reportId,
+    restorationComplete: sessionState.restorationComplete,
+    sessionStatus: sessionState.status,
+    sourceApp: getMercurySourceApp(),
+  })
+}
+
 /**
  * Stable key for deduping items / promoted candidates by (accountCode, type).
  * Same MAR row showing up twice (e.g. once as a manual passive entry, once as
@@ -393,15 +403,10 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
 
       persistToSession: async (reportId) => {
         if (!reportId) return
-        const sessionState = useSessionStore.getState()
-        const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
-          reportId,
-          restorationComplete: sessionState.restorationComplete,
-          sessionStatus: sessionState.status,
-          sourceApp: getMercurySourceApp(),
-        })
+        const deferRemainingMs = getTaxLatencySessionPersistDeferRemainingMs(reportId)
         if (deferRemainingMs > 0) return
 
+        const sessionState = useSessionStore.getState()
         const { session, updateSessionData, saveSession } = sessionState
         if (!session || session.reportId !== reportId) return
 
@@ -456,6 +461,7 @@ const taxLatencySessionAutosave = new SessionJsonbAutosaveCoordinator<
   saveRecoveryBuffer: saveToLocalStorage,
   clearRecoveryBuffer: clearLocalStorage,
   resetPendingOnEnable: true,
+  getDeferRemainingMs: getTaxLatencySessionPersistDeferRemainingMs,
 })
 
 export function enableTaxLatencyAutoPersist(getReportId: () => string | undefined) {

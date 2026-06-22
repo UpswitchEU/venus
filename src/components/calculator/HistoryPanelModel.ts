@@ -8,6 +8,7 @@ import {
   getNormalizedEbitda,
   getValuationMultiple,
 } from '../../utils/valuationResultAccess'
+import { buildVersionDisplayList } from '../../utils/versionDisplayModel'
 import type { HistoryVersion } from './VersionCompareModal'
 
 export type HistoryLocale = 'nl' | 'en' | 'fr'
@@ -145,18 +146,6 @@ function createdAtDateOrFallback(createdAt: unknown, fallback: Date): Date {
   return createdAtMs === null ? new Date(fallback.getTime()) : new Date(createdAtMs)
 }
 
-function sortVersionsByNewest(versions: ValuationVersion[]): ValuationVersion[] {
-  return [...versions].sort((a, b) => {
-    const versionDelta = (b.versionNumber || 0) - (a.versionNumber || 0)
-    if (versionDelta !== 0) return versionDelta
-
-    return (
-      (dateLikeToUnixMs(b.createdAt) ?? Number.NEGATIVE_INFINITY) -
-      (dateLikeToUnixMs(a.createdAt) ?? Number.NEGATIVE_INFINITY)
-    )
-  })
-}
-
 export function buildHistoryVersions({
   activeVersionNumber,
   now = new Date(),
@@ -187,7 +176,7 @@ export function buildHistoryVersions({
     ]
   }
 
-  const sortedVersions = sortVersionsByNewest(storeVersions)
+  const sortedVersions = buildVersionDisplayList(storeVersions, { deduplicateIds: true })
   return sortedVersions.map((v, index) => {
     const valuationResult = v.valuationResult
     const authorDisplay = formatVersionAuthor(v.createdBy, user, {

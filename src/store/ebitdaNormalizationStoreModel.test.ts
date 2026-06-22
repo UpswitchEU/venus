@@ -6,6 +6,13 @@ import {
 import {
   addCustomAdjustmentToNormalization,
   createEbitdaNormalizationTemplate,
+  deriveMarketRateSuggestions,
+  getEbitdaNormalizationAdjustmentCount,
+  getEbitdaNormalizationAdjustmentPercentage,
+  getEbitdaNormalizationLastUpdated,
+  getEbitdaNormalizationNormalizedEbitda,
+  getEbitdaNormalizationTotalAdjustments,
+  hasEbitdaNormalization,
   isNormalizationSaveInFlight,
   isVirginEbitdaNormalization,
   mergeLoadedEbitdaNormalizations,
@@ -266,5 +273,105 @@ describe('ebitdaNormalizationStoreModel', () => {
     ).rejects.toThrow('Normalization mutation failed')
 
     expect(attempts).toBe(1)
+  })
+
+  it('derives market-rate suggestions from finite revenue percentages', () => {
+    expect(
+      deriveMarketRateSuggestions(
+        {
+          confidence: 'high',
+          discretionary_expenses_suggested_percentage: 2.5,
+          industry: 'software',
+          location: 'Belgium',
+          owner_compensation_market_rate: 120_000,
+          owner_compensation_percentile_50: 110_000,
+          owner_compensation_percentile_75: 140_000,
+          personal_expenses_suggested_percentage: 1.25,
+          source: 'market-db',
+        },
+        'software',
+        2_000_000
+      )
+    ).toEqual([
+      {
+        category: NormalizationCategory.OWNER_COMPENSATION,
+        confidence: 'high',
+        market_rate_50th_percentile: 110_000,
+        market_rate_75th_percentile: 140_000,
+        rationale: 'Market rate for CEO/owner in software with €2000k revenue',
+        source: 'market-db',
+        suggested_amount: 120_000,
+      },
+      {
+        category: NormalizationCategory.PERSONAL_EXPENSES,
+        confidence: 'high',
+        rationale: 'Typical personal expenses: 1.25% of revenue',
+        source: 'market-db',
+        suggested_amount: 25_000,
+        suggested_percentage: 1.25,
+      },
+      {
+        category: NormalizationCategory.DISCRETIONARY_EXPENSES,
+        confidence: 'high',
+        rationale: 'Typical discretionary expenses: 2.5% of revenue',
+        source: 'market-db',
+        suggested_amount: 50_000,
+        suggested_percentage: 2.5,
+      },
+    ])
+  })
+
+  it('does not derive percentage market-rate suggestions from invalid or zero revenue', () => {
+    expect(
+      deriveMarketRateSuggestions(
+        {
+          confidence: 'medium',
+          discretionary_expenses_suggested_percentage: 2,
+          industry: 'software',
+          location: 'Belgium',
+          personal_expenses_suggested_percentage: 1,
+        },
+        'software',
+        Number.NaN
+      )
+    ).toEqual([])
+  })
+
+  it('derives legacy-store computed values without depending on Zustand', () => {
+    const normalization = baseNormalization({
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-02T00:00:00.000Z',
+      adjustments: [
+        { category: NormalizationCategory.OWNER_COMPENSATION, amount: 15_000 },
+        { category: NormalizationCategory.PERSONAL_EXPENSES, amount: 0 },
+      ],
+      custom_adjustments: [{ id: 'custom-1', description: 'One-off', amount: -5_000 }],
+      total_adjustments: 10_000,
+      normalized_ebitda: 110_000,
+    })
+
+    expect(getEbitdaNormalizationTotalAdjustments(normalization)).toBe(10_000)
+    expect(getEbitdaNormalizationNormalizedEbitda(normalization)).toBe(110_000)
+    expect(hasEbitdaNormalization(normalization)).toBe(true)
+    expect(getEbitdaNormalizationAdjustmentPercentage(normalization)).toBe(10)
+    expect(getEbitdaNormalizationAdjustmentCount(normalization)).toBe(2)
+    expect(getEbitdaNormalizationLastUpdated(normalization).toISOString()).toBe(
+      '2026-01-02T00:00:00.000Z'
+    )
+  })
+
+  it('keeps computed values safe for empty or invalid normalization state', () => {
+    const fallback = new Date('2026-01-03T00:00:00.000Z')
+
+    expect(getEbitdaNormalizationTotalAdjustments(undefined)).toBe(0)
+    expect(getEbitdaNormalizationNormalizedEbitda(undefined)).toBe(0)
+    expect(hasEbitdaNormalization(undefined)).toBe(false)
+    expect(
+      getEbitdaNormalizationAdjustmentPercentage(baseNormalization({ reported_ebitda: 0 }))
+    ).toBe(0)
+    expect(getEbitdaNormalizationAdjustmentCount(undefined)).toBe(0)
+    expect(
+      getEbitdaNormalizationLastUpdated(baseNormalization({ updated_at: 'not-a-date' }), fallback)
+    ).toBe(fallback)
   })
 })

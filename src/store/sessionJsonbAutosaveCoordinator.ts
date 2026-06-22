@@ -1,9 +1,4 @@
-import {
-  getMercurySourceApp,
-  getSessionAutosaveDeferRemainingMs,
-} from '../hooks/formSessionAutosaveDefer'
 import { generalLogger } from '../utils/logger'
-import { useSessionStore } from './useSessionStore'
 
 type PersistTimer = ReturnType<typeof setTimeout>
 
@@ -19,7 +14,7 @@ interface SessionJsonbAutosaveCoordinatorOptions<TState, TItem> {
   resetPendingOnEnable?: boolean
   debounceMs?: number
   inFlightRetryMs?: number
-  getDeferRemainingMs?: (reportId: string) => number
+  getDeferRemainingMs: (reportId: string) => number
 }
 
 export class SessionJsonbAutosaveCoordinator<TState, TItem> {
@@ -118,7 +113,7 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
   }
 
   private async runPersist(reportId: string): Promise<void> {
-    const deferRemainingMs = this.getDeferRemainingMs(reportId)
+    const deferRemainingMs = this.options.getDeferRemainingMs(reportId)
     if (deferRemainingMs > 0) {
       if (Number.isFinite(deferRemainingMs)) {
         this.clearTimer()
@@ -151,20 +146,6 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
       this.inFlight = false
       this.flushPendingVisibilityPersist()
     }
-  }
-
-  private getDeferRemainingMs(reportId: string): number {
-    if (this.options.getDeferRemainingMs) {
-      return this.options.getDeferRemainingMs(reportId)
-    }
-
-    const sessionState = useSessionStore.getState()
-    return getSessionAutosaveDeferRemainingMs({
-      reportId,
-      restorationComplete: sessionState.restorationComplete,
-      sessionStatus: sessionState.status,
-      sourceApp: getMercurySourceApp(),
-    })
   }
 
   private clearTimer(): void {

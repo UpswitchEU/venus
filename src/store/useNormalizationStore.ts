@@ -154,6 +154,16 @@ function getToastMessage(key: ToastMessageKey, error?: unknown): string {
   return toastMessageGetter?.(key) ?? TOAST_FALLBACKS[key]
 }
 
+function getNormalizationSessionPersistDeferRemainingMs(reportId: string): number {
+  const sessionState = useSessionStore.getState()
+  return getSessionAutosaveDeferRemainingMs({
+    reportId,
+    restorationComplete: sessionState.restorationComplete,
+    sessionStatus: sessionState.status,
+    sourceApp: getMercurySourceApp(),
+  })
+}
+
 // ─────────────────────────────────────────
 // STORE
 // ─────────────────────────────────────────
@@ -226,15 +236,10 @@ export const useNormalizationStore = create<NormalizationStore>()(
 
       persistToSession: async (reportId) => {
         if (!reportId) return
-        const sessionState = useSessionStore.getState()
-        const deferRemainingMs = getSessionAutosaveDeferRemainingMs({
-          reportId,
-          restorationComplete: sessionState.restorationComplete,
-          sessionStatus: sessionState.status,
-          sourceApp: getMercurySourceApp(),
-        })
+        const deferRemainingMs = getNormalizationSessionPersistDeferRemainingMs(reportId)
         if (deferRemainingMs > 0) return
 
+        const sessionState = useSessionStore.getState()
         const { session, updateSessionData, saveSession } = sessionState
         if (!session || session.reportId !== reportId) return
 
@@ -462,6 +467,7 @@ const normalizationSessionAutosave = new SessionJsonbAutosaveCoordinator<
   saveRecoveryBuffer: saveToLocalStorage,
   clearRecoveryBuffer: clearLocalStorage,
   isVisibilityPersistBlocked: () => useNormalizationStore.getState().isSaving,
+  getDeferRemainingMs: getNormalizationSessionPersistDeferRemainingMs,
 })
 
 /**

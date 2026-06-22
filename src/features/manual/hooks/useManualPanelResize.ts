@@ -8,6 +8,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { MOBILE_BREAKPOINT, PANEL_CONSTRAINTS } from '../../../constants/panelConstants'
+import {
+  clampPanelWidth,
+  readStoredPanelWidth,
+  writeStoredPanelWidth,
+} from '../../../hooks/panelResizeModel'
 
 /**
  * Manual Panel Resize Hook Return Type
@@ -34,29 +39,12 @@ export const useManualPanelResize = (): UseManualPanelResizeReturn => {
   // Panel width state - load from localStorage or use default (30% matches pre-merge UI)
   // ✅ FIX: Ensure default is always 30% (left panel smaller), not 50%
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
-    try {
-      const saved = localStorage.getItem('upswitch-panel-width')
-      if (saved) {
-        const parsed = parseFloat(saved)
-        // ✅ FIX: Only use saved value if it's within valid range AND not 50% (which indicates a bug)
-        // If saved value is 50%, reset to default 30%
-        if (
-          !isNaN(parsed) &&
-          parsed >= PANEL_CONSTRAINTS.MIN_WIDTH &&
-          parsed <= PANEL_CONSTRAINTS.MAX_WIDTH &&
-          parsed !== 50 // Reset 50% to default (indicates previous bug)
-        ) {
-          return parsed
-        }
-        // If saved value is 50%, clear it and use default
-        if (parsed === 50) {
-          localStorage.removeItem('upswitch-panel-width')
-        }
-      }
-    } catch (_error) {
-      // Ignore localStorage errors
-    }
-    return PANEL_CONSTRAINTS.DEFAULT_WIDTH // 30% default (left panel smaller)
+    return (
+      readStoredPanelWidth({
+        clearRejectedLegacySplit: true,
+        rejectLegacyEqualSplit: true,
+      }) ?? PANEL_CONSTRAINTS.DEFAULT_WIDTH
+    )
   })
   const [isMobile, setIsMobile] = useState(false)
   const [mobileActivePanel, setMobileActivePanel] = useState<'form' | 'preview'>('form')
@@ -64,11 +52,7 @@ export const useManualPanelResize = (): UseManualPanelResizeReturn => {
   // Save panel width to localStorage
   useEffect(() => {
     if (!isMobile) {
-      try {
-        localStorage.setItem('upswitch-panel-width', leftPanelWidth.toString())
-      } catch (_error) {
-        // Ignore localStorage errors
-      }
+      writeStoredPanelWidth(leftPanelWidth)
     }
   }, [leftPanelWidth, isMobile])
 
@@ -81,23 +65,12 @@ export const useManualPanelResize = (): UseManualPanelResizeReturn => {
         setLeftPanelWidth(100)
       } else {
         // Restore saved width or use default (30%)
-        try {
-          const saved = localStorage.getItem('upswitch-panel-width')
-          if (saved) {
-            const parsed = parseFloat(saved)
-            if (
-              !isNaN(parsed) &&
-              parsed >= PANEL_CONSTRAINTS.MIN_WIDTH &&
-              parsed <= PANEL_CONSTRAINTS.MAX_WIDTH
-            ) {
-              setLeftPanelWidth(parsed)
-              return
-            }
-          }
-        } catch (_error) {
-          // Ignore localStorage errors
-        }
-        setLeftPanelWidth(PANEL_CONSTRAINTS.DEFAULT_WIDTH) // 30% default
+        setLeftPanelWidth(
+          readStoredPanelWidth({
+            clearRejectedLegacySplit: true,
+            rejectLegacyEqualSplit: true,
+          }) ?? PANEL_CONSTRAINTS.DEFAULT_WIDTH
+        )
       }
     }
 
@@ -109,10 +82,7 @@ export const useManualPanelResize = (): UseManualPanelResizeReturn => {
   // Panel resize handler
   const handleResize = useCallback(
     (newWidth: number) => {
-      const constrainedWidth = Math.max(
-        PANEL_CONSTRAINTS.MIN_WIDTH,
-        Math.min(PANEL_CONSTRAINTS.MAX_WIDTH, newWidth)
-      )
+      const constrainedWidth = clampPanelWidth(newWidth)
       if (isMobile) {
         // On mobile, switching panels
         setMobileActivePanel(newWidth > 50 ? 'preview' : 'form')

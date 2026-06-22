@@ -15,13 +15,18 @@
  */
 
 import axios, { AxiosInstance } from 'axios'
-import {
-  BUSINESS_TYPES_FALLBACK,
-  BusinessTypeOption as ConfigBusinessTypeOption,
-} from '../config/businessTypes'
-import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
+import {
+  buildBusinessTypesCacheData,
+  buildHardcodedBusinessTypes,
+  getBusinessTypesCacheDecision,
+  MAX_EXTRA_BUSINESS_TYPES_PAGES,
+  normalizeBusinessCategories,
+  normalizeBusinessTypeSearchResults,
+  normalizeBusinessTypesPage,
+  normalizeNaceBusinessTypePayload,
+} from './businessTypesCatalogModel'
 import type {
   ApiResponse,
   BusinessType,
@@ -33,16 +38,10 @@ import type {
   BusinessTypeValidationResult,
 } from './businessTypesApi.helpers'
 import {
-  asNumber,
-  asOptionalString,
-  asString,
   BUSINESS_TYPES_PAGE_LIMIT,
   businessTypesToOptions,
   extractErrorStatus,
-  getSearchCandidates,
-  isRecord,
   normalizeBusinessTypeFullMetadata,
-  normalizeBusinessTypes,
   normalizeQuestionsResponse,
   normalizeValidationResult,
 } from './businessTypesApi.helpers'
@@ -120,26 +119,20 @@ class BusinessTypesApiService {
       // If so, clear cache to force refetch with new limit (200)
       if (businessTypesCache.hasValidCache()) {
         const cachedData = await businessTypesCache.getBusinessTypes()
-        if (cachedData) {
-          // If we have fewer than 100 types cached, it's likely old data with limit=50
-          if (cachedData.businessTypes.length < 100) {
-            generalLogger.warn(
-              '[BusinessTypesAPI] Cached data appears incomplete, clearing cache',
-              {
-                cachedCount: cachedData.businessTypes.length,
-                expected: '100+ fresh catalog entries',
-              }
-            )
-            businessTypesCache.clearBusinessTypes()
-            // Continue to API fetch below
-          } else {
-            generalLogger.debug('[BusinessTypesAPI] Serving from cache', {
-              businessTypes: cachedData.businessTypes.length,
-              categories: cachedData.categories.length,
-              popularTypes: cachedData.popularTypes.length,
-            })
-            return cachedData.businessTypes
-          }
+        const cacheDecision = getBusinessTypesCacheDecision(cachedData)
+        if (cacheDecision.action === 'invalidate-incomplete') {
+          generalLogger.warn('[BusinessTypesAPI] Cached data appears incomplete, clearing cache', {
+            cachedCount: cacheDecision.cachedCount,
+            expected: cacheDecision.expected,
+          })
+          businessTypesCache.clearBusinessTypes()
+        } else if (cacheDecision.action === 'use') {
+          generalLogger.debug('[BusinessTypesAPI] Serving from cache', {
+            businessTypes: cacheDecision.data.businessTypes.length,
+            categories: cacheDecision.data.categories.length,
+            popularTypes: cacheDecision.data.popularTypes.length,
+          })
+          return cacheDecision.data.businessTypes
         }
       }
 
@@ -168,8 +161,8 @@ class BusinessTypesApiService {
         throw typesSettled.reason
       }
 
-      const typesResponse = typesSettled.value
-      if (!typesResponse.data.success || !typesResponse.data.data) {
+      const firstPage = normalizeBusinessTypesPage(typesSettled.value.data)
+      if (!firstPage) {
         throw new Error('API returned unsuccessful response')
       }
 
@@ -177,7 +170,7 @@ class BusinessTypesApiService {
       if (categoriesSettled.status === 'fulfilled') {
         const cr = categoriesSettled.value
         if (cr.data?.success && cr.data.data) {
-          categories = cr.data.data
+          categories = normalizeBusinessCategories(cr.data.data)
         }
       } else {
         generalLogger.warn(
@@ -191,14 +184,11 @@ class BusinessTypesApiService {
         )
       }
 
-      const first = typesResponse.data.data
-      const firstTypes = normalizeBusinessTypes(first.business_types)
-      const allBusinessTypes: BusinessType[] = [...firstTypes]
-      let hasMore = Boolean(first.has_more)
+      const allBusinessTypes: BusinessType[] = [...firstPage.businessTypes]
+      let hasMore = firstPage.hasMore
       let offset = BUSINESS_TYPES_PAGE_LIMIT
-      const maxExtraPages = 8
 
-      for (let p = 0; p < maxExtraPages && hasMore; p++) {
+      for (let p = 0; p < MAX_EXTRA_BUSINESS_TYPES_PAGES && hasMore; p++) {
         const next = await this.api.get('/types', {
           params: {
             limit: BUSINESS_TYPES_PAGE_LIMIT,
@@ -208,19 +198,15 @@ class BusinessTypesApiService {
           },
           signal,
         })
-        if (!next.data.success || !next.data.data) break
-        const pageTypes = normalizeBusinessTypes(next.data.data.business_types)
-        allBusinessTypes.push(...pageTypes)
-        hasMore = Boolean(next.data.data.has_more)
+        const page = normalizeBusinessTypesPage(next.data)
+        if (!page) break
+        allBusinessTypes.push(...page.businessTypes)
+        hasMore = page.hasMore
         offset += BUSINESS_TYPES_PAGE_LIMIT
       }
 
       // Cache the complete data
-      await businessTypesCache.setBusinessTypes({
-        businessTypes: allBusinessTypes,
-        categories,
-        popularTypes: allBusinessTypes.filter((bt: BusinessType) => bt.popular),
-      })
+      await businessTypesCache.setBusinessTypes(buildBusinessTypesCacheData(allBusinessTypes, categories))
 
       generalLogger.info('[BusinessTypesAPI] Fetched and cached', {
         count: allBusinessTypes.length,
@@ -236,15 +222,11 @@ class BusinessTypesApiService {
         return cachedData.businessTypes
       }
 
-      const fallbackBusinessTypes = this.getHardcodedBusinessTypes()
+      const fallbackBusinessTypes = buildHardcodedBusinessTypes()
       generalLogger.warn('[BusinessTypesAPI] Serving hardcoded business types after API failure', {
         count: fallbackBusinessTypes.length,
       })
-      await businessTypesCache.setBusinessTypes({
-        businessTypes: fallbackBusinessTypes,
-        categories: [],
-        popularTypes: fallbackBusinessTypes.filter((bt) => bt.popular),
-      })
+      await businessTypesCache.setBusinessTypes(buildBusinessTypesCacheData(fallbackBusinessTypes, []))
       return fallbackBusinessTypes
     }
   }
@@ -279,29 +261,7 @@ class BusinessTypesApiService {
         headers: { Accept: 'application/json' },
       })
 
-      const bt = isRecord(response.data?.business_type) ? response.data.business_type : null
-      const businessTypeId = normalizeBusinessTypeId(asOptionalString(bt?.id))
-      if (!bt || !businessTypeId) return null
-
-      const category = isRecord(bt.category) ? bt.category : {}
-      const categoryId = asString(bt.category_id, 'other')
-
-      return {
-        id: businessTypeId,
-        title: asString(bt.title, businessTypeId),
-        description: asString(bt.description),
-        short_description: asString(bt.description),
-        icon: asString(bt.emoji, '📦'),
-        category: asString(category.name, asString(category.title, categoryId)),
-        category_id: categoryId,
-        industryMapping: asString(bt.industry_mapping, businessTypeId),
-        industry: asString(bt.industry, categoryId),
-        keywords: [],
-        popular: false,
-        status: asString(bt.status, 'active'),
-        createdAt: asString(bt.created_at, new Date().toISOString()),
-        updatedAt: asString(bt.updated_at, new Date().toISOString()),
-      }
+      return normalizeNaceBusinessTypePayload(response.data)
     } catch (err: unknown) {
       // Only treat 404 as an expected "no mapping" response.
       // Any other status code (5xx, network timeout, parse error) is a real failure
@@ -334,39 +294,6 @@ class BusinessTypesApiService {
   async getBusinessTypeOptions(signal?: AbortSignal): Promise<BusinessTypeOption[]> {
     const businessTypes = await this.getBusinessTypes(signal)
     return businessTypesToOptions(businessTypes)
-  }
-
-  /**
-   * Minimal hardcoded fallback business types
-   * Uses the centralized fallback configuration
-   */
-  private getHardcodedBusinessTypes(): BusinessType[] {
-    return BUSINESS_TYPES_FALLBACK.map((bt: ConfigBusinessTypeOption) => {
-      const cat = typeof bt.category === 'string' ? bt.category : String(bt.category ?? '')
-      const catLower = cat.toLowerCase().replace(/\s+/g, '-')
-      return {
-        id: bt.value,
-        title: bt.label.replace(/^[^\s]+\s/, ''), // Remove emoji
-        description: `${cat} business`,
-        short_description: `${cat} business`,
-        icon: bt.icon || '📦',
-        category: cat,
-        category_id: catLower,
-        industryMapping: cat,
-        keywords: [cat.toLowerCase()],
-        popular: true,
-        // Add default preferences for fallback data
-        dcfPreference: 0.47,
-        multiplesPreference: 0.53,
-        ownerDependencyImpact: 0.5,
-        keyMetrics: ['revenue', 'ebitda', 'growth_rate'],
-        typicalEmployeeRange: { min: 1, max: 50 },
-        typicalRevenueRange: { min: 100000, max: 5000000 },
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    })
   }
 
   // ==========================================================================
@@ -582,19 +509,7 @@ class BusinessTypesApiService {
         params: { q: query, limit, locale },
       })
 
-      return getSearchCandidates(response.data?.data)
-        .map((candidate) => {
-          const item = isRecord(candidate) ? candidate : {}
-          return {
-            text: asString(item.title, asString(item.name, asString(item.label, query))),
-            confidence: asNumber(item.confidence, 0.7),
-            reason: asString(
-              item.category,
-              asString(item.industry, asString(item.description, 'Similar business type'))
-            ),
-          }
-        })
-        .filter((s) => !!s.text)
+      return normalizeBusinessTypeSearchResults(response.data?.data, query)
     } catch (error) {
       generalLogger.error('[BusinessTypesAPI] Failed to search business types', { error })
       return []

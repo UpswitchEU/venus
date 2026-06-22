@@ -9,7 +9,7 @@
  */
 
 import { generalLogger } from '../../utils/logger'
-import { BusinessType } from '../businessTypesApi'
+import type { BusinessType } from '../businessTypesApi.helpers'
 
 // Define BusinessCategory interface locally since it's not exported
 export interface BusinessCategory {

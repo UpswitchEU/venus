@@ -474,9 +474,10 @@ describe('SessionBootstrapService', () => {
       const fetchSpy = vi
         .spyOn(globalThis, 'fetch')
         .mockResolvedValue(new Response('{}', { status: 500 }))
+      const transportContext = getTransportContext(service)
 
       const requestPromise = makeBootstrapRequest({
-        ...getTransportContext(service),
+        ...transportContext,
         requestBody: {},
         headers: {},
         traceId: 'trace-backoff-clear',
@@ -485,12 +486,13 @@ describe('SessionBootstrapService', () => {
 
       await Promise.resolve()
       expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(transportContext.bootstrapAbortControllers.size).toBe(1)
 
       service.clearInflightCache()
-      await vi.advanceTimersByTimeAsync(500)
 
       await assertion
       expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(transportContext.bootstrapAbortControllers.size).toBe(0)
     })
 
     it('bounds browser-side Titan response body reads', async () => {
@@ -601,6 +603,41 @@ describe('SessionBootstrapService', () => {
       expect(result.data.success).toBe(true)
       expect(result.responseStatus).toBe(200)
       expect(fetchSpy).toHaveBeenCalledTimes(2)
+    })
+
+    it('cancels structured Titan retry backoff when explicit retry clears in-flight work', async () => {
+      vi.useFakeTimers()
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        jsonResponse({
+          success: false,
+          error: 'Database busy',
+          errorInfo: {
+            code: 'DATABASE_ERROR',
+            message: 'A database error occurred. Please try again.',
+            retryable: true,
+          },
+        })
+      )
+      const transportContext = getTransportContext(service)
+      const resultPromise = fetchTitanBootstrapPayloadWithStructuredRetry({
+        ...transportContext,
+        requestBody: {},
+        headers: {},
+        traceId: 'trace-structured-backoff-clear',
+        startTime: performance.now(),
+      })
+      const assertion = expect(resultPromise).rejects.toThrow(BOOTSTRAP_TIMEOUT_USER_MESSAGE)
+
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(transportContext.bootstrapAbortControllers.size).toBe(1)
+
+      service.clearInflightCache()
+
+      await assertion
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(transportContext.bootstrapAbortControllers.size).toBe(0)
     })
 
     it('does not retry structured missing-report errors', async () => {

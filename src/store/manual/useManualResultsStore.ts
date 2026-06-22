@@ -36,6 +36,7 @@ import {
   getRenderableReportHtml,
   getRenderableReportHtmlFromCurrentOrFallback,
 } from '../../utils/safetyNetReportHtml'
+import { setManualResultsSnapshotReader } from '../manualResultsSnapshot'
 import { useSessionStore } from '../useSessionStore'
 
 /**
@@ -549,3 +550,11 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
     })
   },
 }))
+
+setManualResultsSnapshotReader(() => {
+  const state = useManualResultsStore.getState()
+  return {
+    htmlReport: state.htmlReport,
+    valuationResult: state.result,
+  }
+})

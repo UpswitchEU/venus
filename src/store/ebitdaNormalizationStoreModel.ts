@@ -2,9 +2,12 @@ import type {
   CustomAdjustment,
   EbitdaNormalization,
   GetNormalizationResponse,
+  MarketRateSuggestion,
+  MarketRatesResponse,
   NormalizationAdjustment,
-  NormalizationCategory,
 } from '../types/ebitdaNormalization'
+import { NormalizationCategory } from '../types/ebitdaNormalization'
+import { dateLikeToUnixMs } from '../utils/date-like'
 
 const DEFAULT_CONFLICT_RETRY_DELAYS_MS = [100, 230]
 
@@ -218,4 +221,96 @@ export function normalizeEbitdaNormalizationResponse(
     created_at: response.created_at,
     updated_at: response.updated_at,
   }
+}
+
+export function deriveMarketRateSuggestions(
+  response: MarketRatesResponse,
+  industry: string,
+  revenue: number
+): MarketRateSuggestion[] {
+  const safeRevenue = safeNormalizationNumber(revenue)
+  const suggestions: MarketRateSuggestion[] = []
+
+  if (response.owner_compensation_market_rate) {
+    suggestions.push({
+      category: NormalizationCategory.OWNER_COMPENSATION,
+      suggested_amount: response.owner_compensation_market_rate,
+      market_rate_50th_percentile: response.owner_compensation_percentile_50,
+      market_rate_75th_percentile: response.owner_compensation_percentile_75,
+      rationale: `Market rate for CEO/owner in ${industry} with €${(safeRevenue / 1000).toFixed(0)}k revenue`,
+      confidence: response.confidence,
+      source: response.source,
+    })
+  }
+
+  if (safeRevenue > 0 && Number.isFinite(response.personal_expenses_suggested_percentage)) {
+    const pct = safeNormalizationNumber(response.personal_expenses_suggested_percentage)
+    suggestions.push({
+      category: NormalizationCategory.PERSONAL_EXPENSES,
+      suggested_amount: Math.round((safeRevenue * pct) / 100),
+      suggested_percentage: pct,
+      rationale: `Typical personal expenses: ${pct}% of revenue`,
+      confidence: response.confidence,
+      source: response.source,
+    })
+  }
+
+  if (safeRevenue > 0 && Number.isFinite(response.discretionary_expenses_suggested_percentage)) {
+    const pct = safeNormalizationNumber(response.discretionary_expenses_suggested_percentage)
+    suggestions.push({
+      category: NormalizationCategory.DISCRETIONARY_EXPENSES,
+      suggested_amount: Math.round((safeRevenue * pct) / 100),
+      suggested_percentage: pct,
+      rationale: `Typical discretionary expenses: ${pct}% of revenue`,
+      confidence: response.confidence,
+      source: response.source,
+    })
+  }
+
+  return suggestions
+}
+
+export function getEbitdaNormalizationTotalAdjustments(
+  normalization: EbitdaNormalization | undefined
+): number {
+  return safeNormalizationNumber(normalization?.total_adjustments)
+}
+
+export function getEbitdaNormalizationNormalizedEbitda(
+  normalization: EbitdaNormalization | undefined
+): number {
+  return safeNormalizationNumber(normalization?.normalized_ebitda)
+}
+
+export function hasEbitdaNormalization(normalization: EbitdaNormalization | undefined): boolean {
+  return !!normalization && (normalization.adjustments.length > 0 || !!normalization.id)
+}
+
+export function getEbitdaNormalizationAdjustmentPercentage(
+  normalization: EbitdaNormalization | undefined
+): number {
+  const reported = safeNormalizationNumber(normalization?.reported_ebitda)
+  if (!normalization || reported === 0) return 0
+  return (safeNormalizationNumber(normalization.total_adjustments) / reported) * 100
+}
+
+export function getEbitdaNormalizationAdjustmentCount(
+  normalization: EbitdaNormalization | undefined
+): number {
+  if (!normalization) return 0
+  const standardCount = normalization.adjustments.filter(
+    (adjustment) => safeNormalizationNumber(adjustment.amount) !== 0
+  ).length
+  const customCount = normalization.custom_adjustments?.length || 0
+  return standardCount + customCount
+}
+
+export function getEbitdaNormalizationLastUpdated(
+  normalization: EbitdaNormalization | undefined,
+  fallback = new Date()
+): Date {
+  const timestamp = normalization?.updated_at || normalization?.created_at
+  if (!timestamp) return fallback
+  const ms = dateLikeToUnixMs(timestamp)
+  return ms !== null ? new Date(ms) : fallback
 }

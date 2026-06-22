@@ -1,7 +1,7 @@
 import type { SessionDataRecord } from '../services/session/SessionEngine'
 import type { ValuationSession } from '../types/valuation'
 import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../utils/reportHtmlRecovery'
-import { useManualResultsStore } from './manual/useManualResultsStore'
+import { getManualResultsSnapshot } from './manualResultsSnapshot'
 
 export function scheduleOptionalGapFillAfterHydrate(): void {
   queueMicrotask(() => {
@@ -138,12 +138,7 @@ export function preserveRecoveredHtmlOnSessionCommit(
   return preserveClientRecoveredHtmlWhenServerSessionStale(
     incoming,
     previous,
-    previous
-      ? {
-          htmlReport: useManualResultsStore.getState().htmlReport,
-          valuationResult: useManualResultsStore.getState().result,
-        }
-      : undefined
+    previous ? getManualResultsSnapshot() : undefined
   )
 }
 

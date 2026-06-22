@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react'
+import { PANEL_WIDTH_STORAGE_KEY } from '../../../hooks/panelResizeModel'
 import {
   enableNormalizationAutoPersist,
   setNormalizationToastMessages,
@@ -21,7 +22,7 @@ export function useManualPanelStorageReset() {
       const keysToRemove = [
         'venus-calculator-layout-v2',
         'venus-calculator-panels',
-        'upswitch-panel-width',
+        PANEL_WIDTH_STORAGE_KEY,
         'react-resizable-panels:venus-calculator-layout-v2',
         'react-resizable-panels:venus-calculator-panels',
       ]

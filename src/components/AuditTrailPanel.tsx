@@ -10,12 +10,12 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
-import { dateLikeToUnixMs } from '../utils/date-like'
 import { formatVersionAuthor } from '../utils/formatters'
 import { generalLogger } from '../utils/logger'
+import { buildVersionDisplayList } from '../utils/versionDisplayModel'
 import { VersionTimeline } from './VersionTimeline'
 
 export interface AuditTrailPanelProps {
@@ -47,39 +47,10 @@ export function AuditTrailPanel({ reportId, className = '' }: AuditTrailPanelPro
 
   const [selectedVersionNumber, setSelectedVersionNumber] = useState<number | null>(null)
 
-  // ✅ FIX: Deduplicate versions to prevent duplicates from appearing
-  // Get versions for this report and deduplicate by versionNumber AND id to catch true duplicates
-  const rawVersions = allVersions[reportId] || []
-
-  // First pass: deduplicate by id (exact duplicates)
-  const idMap = new Map<string, (typeof rawVersions)[0]>()
-  rawVersions.forEach((version) => {
-    if (!idMap.has(version.id)) {
-      idMap.set(version.id, version)
-    }
-  })
-  const uniqueByIdVersions = Array.from(idMap.values())
-
-  // Second pass: deduplicate by versionNumber (keep latest createdAt)
-  const versionMap = new Map<number, (typeof uniqueByIdVersions)[0]>()
-  uniqueByIdVersions.forEach((version) => {
-    const existing = versionMap.get(version.versionNumber)
-    if (!existing) {
-      versionMap.set(version.versionNumber, version)
-    } else {
-      const versionCreatedAt = version.createdAt ? (dateLikeToUnixMs(version.createdAt) ?? 0) : 0
-      const existingCreatedAt = existing.createdAt ? (dateLikeToUnixMs(existing.createdAt) ?? 0) : 0
-
-      // Keep the version with the latest createdAt
-      if (versionCreatedAt > existingCreatedAt) {
-        versionMap.set(version.versionNumber, version)
-      } else if (versionCreatedAt === existingCreatedAt && versionCreatedAt === 0) {
-        // Both missing createdAt - keep the first one encountered
-        // (already have existing, so don't replace)
-      }
-    }
-  })
-  const versions = Array.from(versionMap.values()).sort((a, b) => b.versionNumber - a.versionNumber)
+  const versions = useMemo(
+    () => buildVersionDisplayList(allVersions[reportId] || [], { deduplicateIds: true }),
+    [allVersions, reportId]
+  )
   const activeVersion = getActiveVersion(reportId)
 
   // NOTE: Version fetching is now handled by SessionRestorationService

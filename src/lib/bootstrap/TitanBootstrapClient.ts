@@ -30,8 +30,48 @@ const CLIENT_RETRY_BASE_DELAY_MS = 500
 const STRUCTURED_ERROR_MAX_RETRIES = 1
 const STRUCTURED_ERROR_RETRY_BASE_DELAY_MS = 400
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+interface BootstrapRetryDelayInput
+  extends Pick<
+    TitanBootstrapTransportContext,
+    'bootstrapAbortControllers' | 'getCancellationEpoch'
+  > {
+  cancellationEpoch: number
+  ms: number
+}
+
+function waitForBootstrapRetryDelay({
+  bootstrapAbortControllers,
+  cancellationEpoch,
+  getCancellationEpoch,
+  ms,
+}: BootstrapRetryDelayInput): Promise<void> {
+  throwIfBootstrapRequestCancelled(getCancellationEpoch, cancellationEpoch)
+
+  const controller = new AbortController()
+  bootstrapAbortControllers.add(controller)
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let handleAbort: (() => void) | undefined
+
+  const wait = new Promise<void>((resolve, reject) => {
+    timeoutId = setTimeout(resolve, ms)
+    handleAbort = () => reject(new Error(BOOTSTRAP_TIMEOUT_USER_MESSAGE))
+    controller.signal.addEventListener('abort', handleAbort, { once: true })
+  })
+
+  return wait
+    .finally(() => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      if (handleAbort) {
+        controller.signal.removeEventListener('abort', handleAbort)
+      }
+      bootstrapAbortControllers.delete(controller)
+    })
+    .then(() => {
+      throwIfBootstrapRequestCancelled(getCancellationEpoch, cancellationEpoch)
+    })
 }
 
 function getClientBodyBudgetMs(startTime: number): number {
@@ -106,8 +146,12 @@ export async function makeBootstrapRequest({
         logger.warn(
           `[Bootstrap:${traceId}] Server error ${response.status} on attempt ${attempt + 1}/${CLIENT_MAX_RETRIES}, retrying in ${retryDelay}ms`
         )
-        await delay(retryDelay)
-        throwIfBootstrapRequestCancelled(getCancellationEpoch, cancellationEpoch)
+        await waitForBootstrapRetryDelay({
+          bootstrapAbortControllers,
+          cancellationEpoch,
+          getCancellationEpoch,
+          ms: retryDelay,
+        })
         continue
       }
 
@@ -117,8 +161,12 @@ export async function makeBootstrapRequest({
         logger.warn(
           `[Bootstrap:${traceId}] Timeout ${response.status} on attempt ${attempt + 1}/${CLIENT_MAX_RETRIES}, retrying in ${retryDelay}ms`
         )
-        await delay(retryDelay)
-        throwIfBootstrapRequestCancelled(getCancellationEpoch, cancellationEpoch)
+        await waitForBootstrapRetryDelay({
+          bootstrapAbortControllers,
+          cancellationEpoch,
+          getCancellationEpoch,
+          ms: retryDelay,
+        })
         continue
       }
 
@@ -141,8 +189,12 @@ export async function makeBootstrapRequest({
         logger.warn(
           `[Bootstrap:${traceId}] Network error on attempt ${attempt + 1}/${CLIENT_MAX_RETRIES}, retrying in ${retryDelay}ms`
         )
-        await delay(retryDelay)
-        throwIfBootstrapRequestCancelled(getCancellationEpoch, cancellationEpoch)
+        await waitForBootstrapRetryDelay({
+          bootstrapAbortControllers,
+          cancellationEpoch,
+          getCancellationEpoch,
+          ms: retryDelay,
+        })
         continue
       }
 
@@ -294,7 +346,11 @@ export async function fetchTitanBootstrapPayloadWithStructuredRetry(
       maxAttempts: STRUCTURED_ERROR_MAX_RETRIES + 1,
       delayMs,
     })
-    await delay(delayMs)
-    throwIfBootstrapRequestCancelled(request.getCancellationEpoch, cancellationEpoch)
+    await waitForBootstrapRetryDelay({
+      bootstrapAbortControllers: request.bootstrapAbortControllers,
+      cancellationEpoch,
+      getCancellationEpoch: request.getCancellationEpoch,
+      ms: delayMs,
+    })
   }
 }

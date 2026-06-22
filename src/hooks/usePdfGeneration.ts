@@ -15,21 +15,20 @@ import { APIError } from '../types/errors'
 import { generalLogger } from '../utils/logger'
 import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import {
+  requestPdfDownload,
+  requestPdfGenerationStart,
+  requestPdfStatusPoll,
+} from './pdfGenerationClient'
+import {
   blobStartsWithPdfMagic,
-  buildPdfAccessErrorContext,
   createTimeoutAbortHandle,
   derivePdfPollDelay,
   derivePdfPollProgress,
   describeInvalidPdfPayloadSnippet,
-  getPdfAccessGateMessage,
-  getPdfDownloadErrorMessage,
-  getPdfGenerationStartErrorMessage,
   PDF_DOWNLOAD_FETCH_MS,
   PDF_STATUS_FETCH_MS,
   PDF_STATUS_MAX_POLL_MS,
   PDF_STATUS_POLL_INTERVAL_MS,
-  resolvePdfGenerationStartResult,
-  resolvePdfStatusPollResult,
   type TimeoutAbortHandle,
 } from './pdfGenerationModel'
 
@@ -223,53 +222,46 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         let nextPollDelayMs = PDF_STATUS_POLL_INTERVAL_MS
 
         try {
-          const response = await fetch(`/api/valuations/pdf/status/${encodeURIComponent(jobId)}`, {
-            credentials: 'include',
+          const pollResult = await requestPdfStatusPoll({
             headers: pdfFetchHeaders(),
+            jobId,
             signal: statusAbortHandle.signal,
           })
           if (pollRunIdRef.current !== pollRunId) return
 
-          if (!response.ok) {
-            if (isPdfTransientUpstreamStatus(response.status)) {
-              consecutiveTransientErrors++
-              nextPollDelayMs = derivePdfPollDelay(consecutiveTransientErrors)
-              generalLogger.debug('[PDF] Polling status transient upstream error — will retry', {
-                jobId,
-                pollCount,
-                status: response.status,
-                nextPollDelayMs,
-              })
-              return
-            }
-            if (response.status === 402) {
-              stopPollingTimer()
-              isGeneratingRef.current = false
-              shouldContinuePolling = false
-              if (mountedRef.current) {
-                setState({
-                  status: 'none',
-                  url: null,
-                  error: null,
-                  progress: 0,
-                })
-              }
-              return
-            }
-            throw new Error('Failed to check status')
+          if (pollResult.status === 'transient') {
+            consecutiveTransientErrors++
+            nextPollDelayMs = derivePdfPollDelay(consecutiveTransientErrors)
+            generalLogger.debug('[PDF] Polling status transient upstream error — will retry', {
+              jobId,
+              nextPollDelayMs,
+              pollCount,
+              status: pollResult.httpStatus,
+            })
+            return
           }
 
-          consecutiveTransientErrors = 0
-
-          const data = await response.json()
-          if (pollRunIdRef.current !== pollRunId) return
+          if (pollResult.status === 'access-gated') {
+            stopPollingTimer()
+            isGeneratingRef.current = false
+            shouldContinuePolling = false
+            if (mountedRef.current) {
+              setState({
+                status: 'none',
+                url: null,
+                error: null,
+                progress: 0,
+              })
+            }
+            return
+          }
 
           if (!mountedRef.current) return
 
+          consecutiveTransientErrors = 0
           const progress = derivePdfPollProgress(pollCount)
           setState((prev) => ({ ...prev, progress }))
 
-          const pollResult = resolvePdfStatusPollResult(data)
           if (pollResult.status === 'ready') {
             stopPollingTimer()
             isGeneratingRef.current = false
@@ -372,12 +364,11 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       const ctrl = abortControllerRef.current
       if (!ctrl) throw new Error('PDF generation was not initialized')
       const generationAbortHandle = createTimeoutAbortHandle(PDF_DOWNLOAD_FETCH_MS, ctrl.signal)
-      let response: Response
+      let startResult: Awaited<ReturnType<typeof requestPdfGenerationStart>>
       try {
-        response = await fetch(`/api/valuations/${encodeURIComponent(targetReportId)}/pdf`, {
-          method: 'POST',
-          headers: pdfFetchHeaders({ 'Content-Type': 'application/json' }),
-          credentials: 'include',
+        startResult = await requestPdfGenerationStart({
+          headers: pdfFetchHeaders(),
+          reportId: targetReportId,
           signal: generationAbortHandle.signal,
         })
       } finally {
@@ -385,36 +376,8 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         generationAbortHandle.cleanup()
       }
 
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}))
-        if (isPdfTransientUpstreamStatus(response.status)) {
-          throw new APIError('PDF generation temporarily unavailable', response.status)
-        }
-        if (response.status === 402) {
-          const errMsg = getPdfAccessGateMessage(errBody)
-          if (isCurrentGeneration()) {
-            isGeneratingRef.current = false
-            setState({
-              status: 'none',
-              url: null,
-              error: null,
-              progress: 0,
-            })
-          }
-          throw new APIError(errMsg, 402, undefined, true, buildPdfAccessErrorContext(errBody))
-        }
-        throw new Error(getPdfGenerationStartErrorMessage(errBody))
-      }
-
-      const data = await response.json()
-
       if (!isCurrentGeneration()) {
         return null
-      }
-
-      const startResult = resolvePdfGenerationStartResult(data)
-      if (startResult.status === 'failed' || startResult.status === 'invalid') {
-        throw new Error(startResult.error)
       }
 
       if (startResult.status === 'ready') {
@@ -525,40 +488,16 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         const downloadAbortHandle = createTimeoutAbortHandle(PDF_DOWNLOAD_FETCH_MS, signal)
         let response: Response
         try {
-          response = await fetch(
-            `/api/valuations/${encodeURIComponent(targetReportId)}/pdf/download?_=${encodeURIComponent(String(Date.now()))}`,
-            {
-              credentials: 'include',
-              headers: pdfFetchHeaders(),
-              signal: downloadAbortHandle.signal,
-              cache: 'no-store',
-            }
-          )
+          response = await requestPdfDownload({
+            headers: pdfFetchHeaders(),
+            reportId: targetReportId,
+            signal: downloadAbortHandle.signal,
+          })
         } finally {
           downloadTimedOut = downloadAbortHandle.didTimeout()
           downloadAbortHandle.cleanup()
         }
         if (!isCurrentDownload()) return
-
-        if (!response.ok) {
-          const errBody = await response.json().catch(() => ({}))
-          const errMsg = getPdfDownloadErrorMessage(errBody)
-          if (response.status === 402) {
-            if (mountedRef.current) {
-              setState({
-                status: 'none',
-                url: null,
-                error: null,
-                progress: 0,
-              })
-            }
-            throw new APIError(errMsg, 402, undefined, true, buildPdfAccessErrorContext(errBody))
-          }
-          if (isPdfTransientUpstreamStatus(response.status)) {
-            throw new APIError('PDF download temporarily unavailable', response.status)
-          }
-          throw new Error(errMsg)
-        }
 
         const blob = await response.blob()
         if (!isCurrentDownload()) return

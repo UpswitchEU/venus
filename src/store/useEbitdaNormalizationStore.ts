@@ -15,20 +15,25 @@
 
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import { getCategoryDefinition } from '../config/normalizationCategories'
 import { NormalizationAPIError, normalizationService } from '../services/ebitdaNormalizationService'
 import {
   EbitdaNormalization,
   MarketRateSuggestion,
   NormalizationCategory,
 } from '../types/ebitdaNormalization'
-import { dateLikeToUnixMs } from '../utils/date-like'
 import { generalLogger } from '../utils/logger'
 import { createRandomId } from '../utils/secureRandom'
 import { isValidSessionId } from '../utils/sessionIdValidation'
 import {
   addCustomAdjustmentToNormalization,
   createEbitdaNormalizationTemplate,
+  deriveMarketRateSuggestions,
+  getEbitdaNormalizationAdjustmentCount,
+  getEbitdaNormalizationAdjustmentPercentage,
+  getEbitdaNormalizationLastUpdated,
+  getEbitdaNormalizationNormalizedEbitda,
+  getEbitdaNormalizationTotalAdjustments,
+  hasEbitdaNormalization,
   isNormalizationSaveInFlight,
   isVirginEbitdaNormalization,
   mergeLoadedEbitdaNormalizations,
@@ -504,54 +509,7 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             location,
             year
           )
-
-          // Convert market rates response to suggestions
-          const suggestions: MarketRateSuggestion[] = []
-
-          // Owner compensation suggestion
-          if (response.owner_compensation_market_rate) {
-            const _categoryDef = getCategoryDefinition(NormalizationCategory.OWNER_COMPENSATION)
-            suggestions.push({
-              category: NormalizationCategory.OWNER_COMPENSATION,
-              suggested_amount: response.owner_compensation_market_rate,
-              market_rate_50th_percentile: response.owner_compensation_percentile_50,
-              market_rate_75th_percentile: response.owner_compensation_percentile_75,
-              rationale: `Market rate for CEO/owner in ${industry} with €${(safeRevenue / 1000).toFixed(0)}k revenue`,
-              confidence: response.confidence,
-              source: response.source,
-            })
-          }
-
-          // Personal expenses suggestion (as % of revenue)
-          if (safeRevenue > 0 && Number.isFinite(response.personal_expenses_suggested_percentage)) {
-            const pct = safeNum(response.personal_expenses_suggested_percentage)
-            const suggestedAmount = (safeRevenue * pct) / 100
-            suggestions.push({
-              category: NormalizationCategory.PERSONAL_EXPENSES,
-              suggested_amount: Math.round(suggestedAmount),
-              suggested_percentage: pct,
-              rationale: `Typical personal expenses: ${pct}% of revenue`,
-              confidence: response.confidence,
-              source: response.source,
-            })
-          }
-
-          // Discretionary expenses suggestion (as % of revenue)
-          if (
-            safeRevenue > 0 &&
-            Number.isFinite(response.discretionary_expenses_suggested_percentage)
-          ) {
-            const pct = safeNum(response.discretionary_expenses_suggested_percentage)
-            const suggestedAmount = (safeRevenue * pct) / 100
-            suggestions.push({
-              category: NormalizationCategory.DISCRETIONARY_EXPENSES,
-              suggested_amount: Math.round(suggestedAmount),
-              suggested_percentage: pct,
-              rationale: `Typical discretionary expenses: ${pct}% of revenue`,
-              confidence: response.confidence,
-              source: response.source,
-            })
-          }
+          const suggestions = deriveMarketRateSuggestions(response, industry, safeRevenue)
 
           set({
             marketRateSuggestions: {
@@ -585,49 +543,32 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
       // Computed: Get total adjustments for year
       getTotalAdjustments: (year) => {
-        const normalization = get().normalizations[year]
-        return safeNum(normalization?.total_adjustments)
+        return getEbitdaNormalizationTotalAdjustments(get().normalizations[year])
       },
 
       // Computed: Get normalized EBITDA for year
       getNormalizedEbitda: (year) => {
-        const normalization = get().normalizations[year]
-        return safeNum(normalization?.normalized_ebitda)
+        return getEbitdaNormalizationNormalizedEbitda(get().normalizations[year])
       },
 
       // Computed: Check if normalization exists for year
       hasNormalization: (year) => {
-        const normalization = get().normalizations[year]
-        return !!normalization && (normalization.adjustments.length > 0 || !!normalization.id)
+        return hasEbitdaNormalization(get().normalizations[year])
       },
 
       // Computed: Get adjustment percentage
       getAdjustmentPercentage: (year) => {
-        const normalization = get().normalizations[year]
-        const reported = safeNum(normalization?.reported_ebitda)
-        const total = safeNum(normalization?.total_adjustments)
-        if (!normalization || reported === 0) return 0
-        return (total / reported) * 100
+        return getEbitdaNormalizationAdjustmentPercentage(get().normalizations[year])
       },
 
       // Computed: Get count of active adjustments
       getAdjustmentCount: (year) => {
-        const normalization = get().normalizations[year]
-        if (!normalization) return 0
-        const standardCount = normalization.adjustments.filter(
-          (a) => safeNum(a.amount) !== 0
-        ).length
-        const customCount = normalization.custom_adjustments?.length || 0
-        return standardCount + customCount
+        return getEbitdaNormalizationAdjustmentCount(get().normalizations[year])
       },
 
       // Computed: Get last updated timestamp
       getLastUpdated: (year) => {
-        const normalization = get().normalizations[year]
-        const timestamp = normalization?.updated_at || normalization?.created_at
-        if (!timestamp) return new Date()
-        const ms = dateLikeToUnixMs(timestamp)
-        return ms !== null ? new Date(ms) : new Date()
+        return getEbitdaNormalizationLastUpdated(get().normalizations[year])
       },
     }),
     {

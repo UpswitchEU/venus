@@ -11,6 +11,7 @@ import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import { createRandomId } from '../utils/secureRandom'
 import { getFinalValuation as getAccessibleFinalValuation } from '../utils/valuationResultAccess'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
+import { buildVersionDisplayList } from '../utils/versionDisplayModel'
 import { buildCurrentYearData } from '../utils/yearData'
 
 export type PersistedVersionMetadata = ValuationVersion & { _hasHtmlReport?: boolean }
@@ -26,23 +27,10 @@ export function generateLocalVersionLabel(versionNumber: number, changes?: Versi
   return `Version ${versionNumber}`
 }
 
-function versionCreatedAtMs(version: ValuationVersion): number {
-  return dateLikeToUnixMs(version.createdAt) ?? Number.NEGATIVE_INFINITY
-}
-
 export function deduplicateVersionsByNumber(
   versions: readonly ValuationVersion[]
 ): ValuationVersion[] {
-  const versionMap = new Map<number, ValuationVersion>()
-
-  versions.forEach((version) => {
-    const existing = versionMap.get(version.versionNumber)
-    if (!existing || versionCreatedAtMs(version) >= versionCreatedAtMs(existing)) {
-      versionMap.set(version.versionNumber, version)
-    }
-  })
-
-  return Array.from(versionMap.values()).sort((a, b) => a.versionNumber - b.versionNumber)
+  return buildVersionDisplayList(versions, { sort: 'asc', timestampTie: 'last' })
 }
 
 export function mergeBackendVersionsByNumber({

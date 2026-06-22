@@ -1,5 +1,4 @@
 import type { ValuationVersion } from '../types/ValuationVersion'
-import { dateLikeToUnixMs } from '../utils/date-like'
 import {
   getEquityValueHigh,
   getEquityValueLow,
@@ -7,6 +6,7 @@ import {
   getFinalValuation,
   getRecommendedAskingPrice,
 } from '../utils/valuationResultAccess'
+import { buildVersionDisplayList } from '../utils/versionDisplayModel'
 
 export const VERSION_TIMELINE_PAGE_SIZE = 10
 
@@ -43,34 +43,10 @@ export function positiveFiniteNumber(value: unknown): number | null {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null
 }
 
-function timelineCreatedAtMs(version: ValuationVersion): number {
-  return version.createdAt ? (dateLikeToUnixMs(version.createdAt) ?? 0) : 0
-}
-
 export function buildSortedTimelineVersions(
   versions: readonly ValuationVersion[]
 ): ValuationVersion[] {
-  const idMap = new Map<string, ValuationVersion>()
-  for (const version of versions) {
-    if (!idMap.has(version.id)) {
-      idMap.set(version.id, version)
-    }
-  }
-
-  const versionMap = new Map<number, ValuationVersion>()
-  for (const version of idMap.values()) {
-    const existing = versionMap.get(version.versionNumber)
-    if (!existing) {
-      versionMap.set(version.versionNumber, version)
-      continue
-    }
-
-    if (timelineCreatedAtMs(version) > timelineCreatedAtMs(existing)) {
-      versionMap.set(version.versionNumber, version)
-    }
-  }
-
-  return Array.from(versionMap.values()).sort((a, b) => b.versionNumber - a.versionNumber)
+  return buildVersionDisplayList(versions, { deduplicateIds: true, sort: 'desc' })
 }
 
 export function buildVersionTimelineListModel({

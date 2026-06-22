@@ -6,6 +6,7 @@ import {
   getEquityValueMid,
   getRecommendedAskingPrice,
 } from '../utils/valuationResultAccess'
+import { buildVersionDisplayList } from '../utils/versionDisplayModel'
 
 export type ToolbarSaveStatusKind = 'error' | 'saving' | 'dirty' | 'saved' | 'savedAged' | null
 
@@ -16,32 +17,10 @@ export interface ToolbarSaveStatusModel {
   canRetry: boolean
 }
 
-function versionCreatedAtMs(version: ValuationVersion): number {
-  return dateLikeToUnixMs(version.createdAt) ?? Number.NEGATIVE_INFINITY
-}
-
-function shouldPreferToolbarVersion(
-  candidate: ValuationVersion,
-  existing: ValuationVersion
-): boolean {
-  const candidateMs = versionCreatedAtMs(candidate)
-  const existingMs = versionCreatedAtMs(existing)
-  if (candidateMs !== existingMs) return candidateMs > existingMs
-  return candidate.id > existing.id
-}
-
 export function buildToolbarDisplayVersions(
   versions: readonly ValuationVersion[]
 ): ValuationVersion[] {
-  const versionMap = new Map<number, ValuationVersion>()
-  for (const version of versions) {
-    const existing = versionMap.get(version.versionNumber)
-    if (!existing || shouldPreferToolbarVersion(version, existing)) {
-      versionMap.set(version.versionNumber, version)
-    }
-  }
-
-  return Array.from(versionMap.values()).sort((a, b) => b.versionNumber - a.versionNumber)
+  return buildVersionDisplayList(versions, { sort: 'desc', timestampTie: 'lexicographic-id' })
 }
 
 export function resolveToolbarActiveVersion({

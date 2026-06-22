@@ -43,13 +43,11 @@ describe('manual PDF download contract', () => {
     }
   })
 
-  it('usePdfGeneration encodes report IDs for both generation and download routes', () => {
-    const source = readVenus('hooks/usePdfGeneration.ts')
+  it('PDF generation client encodes report IDs for both generation and download routes', () => {
+    const source = readVenus('hooks/pdfGenerationClient.ts')
 
-    expect(source).toMatch(/\/api\/valuations\/\$\{encodeURIComponent\(targetReportId\)\}\/pdf/)
-    expect(source).toMatch(
-      /\/api\/valuations\/\$\{encodeURIComponent\(targetReportId\)\}\/pdf\/download/
-    )
+    expect(source).toMatch(/\/api\/valuations\/\$\{encodeURIComponent\(reportId\)\}\/pdf/)
+    expect(source).toMatch(/\/api\/valuations\/\$\{encodeURIComponent\(reportId\)\}\/pdf\/download/)
   })
 
   it('usePdfGeneration forwards delegated client-context headers on PDF BFF fetches', () => {

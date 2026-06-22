@@ -55,6 +55,29 @@ describe('HistoryPanelModel', () => {
     expect(storeVersions.map((item) => item.id)).toEqual(originalOrder)
   })
 
+  it('deduplicates stale duplicate version rows before rendering history', () => {
+    const history = buildHistoryVersions({
+      report: null,
+      storeVersions: [
+        version({
+          id: 'version-2-old',
+          versionNumber: 2,
+          createdAt: new Date('2026-06-01T12:00:00.000Z'),
+        }),
+        version({ id: 'version-1', versionNumber: 1 }),
+        version({
+          id: 'version-2-new',
+          versionNumber: 2,
+          createdAt: new Date('2026-06-02T12:00:00.000Z'),
+        }),
+      ],
+      translate,
+      user: null,
+    })
+
+    expect(history.map((item) => item.id)).toEqual(['version-2-new', 'version-1'])
+  })
+
   it('synthesizes a current report version with the full live valuation range', () => {
     const history = buildHistoryVersions({
       now: new Date('2026-06-19T08:30:00.000Z'),
