@@ -292,7 +292,7 @@ export class BusinessTypesCacheService {
       const cached = localStorage.getItem(CACHE_CONFIG.KEYS.BUSINESS_TYPES)
       return cached ? new Blob([cached]).size : 0
     } catch (error) {
-      console.error('[BusinessTypesCache] Error getting cache size:', error)
+      generalLogger.error('[BusinessTypesCache] Error getting cache size', { error })
       return 0
     }
   }

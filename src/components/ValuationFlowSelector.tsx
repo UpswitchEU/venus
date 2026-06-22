@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl'
 // Dynamic imports using React.lazy for code splitting (Next.js compatible)
 import React, { lazy, Suspense, useMemo } from 'react'
 import { AuroraButton, GlassCard } from '@/design-system'
+import { generalLogger } from '@/utils/logger'
 import { useSessionStore } from '../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
 import { CalculatorShellSkeleton } from './calculator'
@@ -102,7 +103,9 @@ const ValuationFlow = lazy(() =>
       default: module.ValuationFlow,
     }))
     .catch((error) => {
-      console.error('[ValuationFlowSelector] Failed to load ValuationFlow component', error)
+      generalLogger.error('[ValuationFlowSelector] Failed to load ValuationFlow component', {
+        error,
+      })
       return { default: LoadingErrorFallback }
     })
 )

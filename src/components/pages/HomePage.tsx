@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { trackReportCreate, trackReportOpen, trackSessionStart } from '@/lib/analytics'
 import { ALL_BUSINESS_VIDEOS } from '../../constants/videos'
 import { RecentReportsSection } from '../../features/reports'
@@ -202,7 +203,7 @@ export const HomePage: React.FC = () => {
         error: error instanceof Error ? error.message : 'Unknown error',
         reportId,
       })
-      alert('Failed to delete report. Please try again.')
+      toast.error(t('valuation.deleteReportFailed'))
     }
   }
 

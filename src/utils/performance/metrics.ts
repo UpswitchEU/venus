@@ -14,6 +14,11 @@
  */
 
 import { generalLogger } from '../logger'
+import {
+  createManagedInterval,
+  type ManagedIntervalStartOptions,
+  type ManagedIntervalStopOptions,
+} from '../managedInterval'
 
 type PerformanceMetadata = Record<string, unknown>
 
@@ -83,6 +88,7 @@ const DEFAULT_THRESHOLDS: PerformanceThresholds = {
   pageLoad: 1000,
   render: 100,
 }
+const PERFORMANCE_SUMMARY_INTERVAL_MS = 5 * 60 * 1000
 
 /**
  * Performance Monitor
@@ -149,6 +155,21 @@ export class PerformanceMonitor {
 
       throw error
     }
+  }
+
+  /**
+   * Compatibility wrapper for legacy callers that pass an optional threshold
+   * before metadata. The canonical monitor owns recording and threshold logging.
+   */
+  async measure<T>(
+    name: string,
+    fn: () => Promise<T>,
+    thresholdOrMetadata?: number | PerformanceMetadata,
+    metadata?: PerformanceMetadata
+  ): Promise<T> {
+    const actualMetadata = typeof thresholdOrMetadata === 'object' ? thresholdOrMetadata : metadata
+
+    return this.trackAsync(name, fn, 'api', actualMetadata)
   }
 
   /**
@@ -431,17 +452,40 @@ export class PerformanceMonitor {
 
 // Export singleton instance
 export const performanceMonitor = new PerformanceMonitor()
+export const globalPerformanceMonitor = performanceMonitor
+
+export const performanceThresholds = {
+  slow: 1000,
+  warning: 500,
+  fast: 100,
+  sessionCreate: 3000,
+  sessionLoad: 2000,
+  sessionSave: 1000,
+  apiCall: 5000,
+}
+
+function logPerformanceSummary(): void {
+  const summary = performanceMonitor.getSummary()
+
+  if (summary.totalMetrics > 0) {
+    generalLogger.info('[PerformanceMonitor] Performance summary', summary)
+  }
+}
+
+const performanceSummaryInterval = createManagedInterval(
+  logPerformanceSummary,
+  PERFORMANCE_SUMMARY_INTERVAL_MS
+)
+
+export function startPerformanceSummaryLogging(options?: ManagedIntervalStartOptions): void {
+  performanceSummaryInterval.start(options)
+}
+
+export function stopPerformanceSummaryLogging(options?: ManagedIntervalStopOptions): void {
+  performanceSummaryInterval.stop(options)
+}
 
 // Auto-log summary every 5 minutes in development
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-  setInterval(
-    () => {
-      const summary = performanceMonitor.getSummary()
-
-      if (summary.totalMetrics > 0) {
-        generalLogger.info('[PerformanceMonitor] Performance summary', summary)
-      }
-    },
-    5 * 60 * 1000
-  )
+  startPerformanceSummaryLogging()
 }

@@ -47,7 +47,7 @@ const approvedStorageWriters = {
     allowedExpressions: ['oauthLockKey'],
     reason: 'Prevents duplicate accounting-provider OAuth launches.',
   }),
-  'src/components/calculator/useResizableAiDockWidth.ts': reviewed({
+  'src/components/calculator/venus-ai-dock-resize-model.ts': reviewed({
     classification: 'ui-preference',
     retention: 'local',
     allowedKeys: ['upswitch:venus-ai-dock-width'],

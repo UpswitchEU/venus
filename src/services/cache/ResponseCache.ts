@@ -14,6 +14,13 @@
  */
 
 import { generalLogger } from '../../utils/logger'
+import {
+  createManagedInterval,
+  type ManagedIntervalStartOptions,
+  type ManagedIntervalStopOptions,
+} from '../../utils/managedInterval'
+
+const RESPONSE_CACHE_CLEANUP_INTERVAL_MS = 5 * 60 * 1000
 
 interface CacheEntry<T> {
   data: T
@@ -278,12 +285,24 @@ export class ResponseCache {
 // Export singleton instance
 export const responseCache = new ResponseCache(100)
 
+function cleanupResponseCache(): void {
+  responseCache.cleanupExpired()
+}
+
+const responseCacheCleanupInterval = createManagedInterval(
+  cleanupResponseCache,
+  RESPONSE_CACHE_CLEANUP_INTERVAL_MS
+)
+
+export function startResponseCacheCleanup(options?: ManagedIntervalStartOptions): void {
+  responseCacheCleanupInterval.start(options)
+}
+
+export function stopResponseCacheCleanup(options?: ManagedIntervalStopOptions): void {
+  responseCacheCleanupInterval.stop(options)
+}
+
 // Auto cleanup expired entries every 5 minutes
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  setInterval(
-    () => {
-      responseCache.cleanupExpired()
-    },
-    5 * 60 * 1000
-  )
+  startResponseCacheCleanup()
 }

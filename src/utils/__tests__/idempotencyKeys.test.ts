@@ -9,14 +9,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   generateIdempotencyKey,
+  globalIdempotencyManager,
   IdempotencyKeyManager,
   isIdempotencyKeyExpired,
   parseIdempotencyKey,
+  startIdempotencyKeyCleanup,
+  stopIdempotencyKeyCleanup,
 } from '../idempotencyKeys'
 
 describe('idempotencyKeys', () => {
   afterEach(() => {
+    stopIdempotencyKeyCleanup()
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   describe('generateIdempotencyKey', () => {
@@ -191,6 +196,32 @@ describe('idempotencyKeys', () => {
         // Should clean up keys (implementation may vary)
         expect(cleaned).toBeGreaterThanOrEqual(0)
       })
+    })
+  })
+
+  describe('global cleanup lifecycle', () => {
+    it('starts one cleanup interval and can stop it explicitly', () => {
+      const intervalId = 99 as unknown as ReturnType<typeof setInterval>
+      let scheduledCallback: (() => void) | null = null
+      const setIntervalFn = vi.fn((callback: () => void) => {
+        scheduledCallback = callback
+        return intervalId
+      }) as unknown as typeof setInterval
+      const clearIntervalFn = vi.fn() as unknown as typeof clearInterval
+      const cleanupExpired = vi.spyOn(globalIdempotencyManager, 'cleanupExpired').mockReturnValue(0)
+
+      startIdempotencyKeyCleanup({ setIntervalFn })
+      startIdempotencyKeyCleanup({ setIntervalFn })
+
+      expect(setIntervalFn).toHaveBeenCalledTimes(1)
+      expect(setIntervalFn).toHaveBeenCalledWith(expect.any(Function), 60 * 60 * 1000)
+
+      scheduledCallback?.()
+      expect(cleanupExpired).toHaveBeenCalledTimes(1)
+
+      stopIdempotencyKeyCleanup({ clearIntervalFn })
+      expect(clearIntervalFn).toHaveBeenCalledTimes(1)
+      expect(clearIntervalFn).toHaveBeenCalledWith(intervalId)
     })
   })
 })

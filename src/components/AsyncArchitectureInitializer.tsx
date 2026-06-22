@@ -15,6 +15,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { generalLogger } from '@/utils/logger'
 import { registerServiceWorker } from '../utils/serviceWorkerRegistration'
 // RUM and performance monitoring auto-initialize on import
 import '../utils/performance/rum'
@@ -34,13 +35,13 @@ export function AsyncArchitectureInitializer() {
         onError: (error) => {
           // Silent error handling - only log in development
           if (process.env.NODE_ENV === 'development') {
-            console.error('[AsyncArchitecture] Service worker registration failed:', error)
+            generalLogger.error('[AsyncArchitecture] Service worker registration failed', { error })
           }
         },
       }).catch((error) => {
         // Silent error handling - only log in development
         if (process.env.NODE_ENV === 'development') {
-          console.error('[AsyncArchitecture] Failed to register service worker:', error)
+          generalLogger.error('[AsyncArchitecture] Failed to register service worker', { error })
         }
       })
     }

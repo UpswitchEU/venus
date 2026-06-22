@@ -10,6 +10,13 @@
  */
 
 import { storeLogger } from '../logger'
+import {
+  createManagedInterval,
+  type ManagedIntervalStartOptions,
+  type ManagedIntervalStopOptions,
+} from '../managedInterval'
+
+const SESSION_METRICS_SUMMARY_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
 
 export interface SessionMetrics {
   // Operation counts
@@ -301,12 +308,24 @@ Deduplication Rate: ${(metrics.deduplicationRate * 100).toFixed(1)}%
 // Global metrics collector
 export const globalSessionMetrics = new SessionMetricsCollector()
 
+function logGlobalSessionMetricsSummary(): void {
+  globalSessionMetrics.logSummary()
+}
+
+const sessionMetricsSummaryInterval = createManagedInterval(
+  logGlobalSessionMetricsSummary,
+  SESSION_METRICS_SUMMARY_INTERVAL_MS
+)
+
+export function startSessionMetricsSummaryLogging(options?: ManagedIntervalStartOptions): void {
+  sessionMetricsSummaryInterval.start(options)
+}
+
+export function stopSessionMetricsSummaryLogging(options?: ManagedIntervalStopOptions): void {
+  sessionMetricsSummaryInterval.stop(options)
+}
+
 // Auto-log summary every 5 minutes in development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  setInterval(
-    () => {
-      globalSessionMetrics.logSummary()
-    },
-    5 * 60 * 1000
-  ) // 5 minutes
+  startSessionMetricsSummaryLogging()
 }

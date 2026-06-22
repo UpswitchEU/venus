@@ -14,6 +14,7 @@ import { useState } from 'react'
 import BusinessProfileCardV4 from '../../../components/business/BusinessProfileCardV4'
 import EditChoiceModal from '../../../components/modals/EditChoiceModal'
 import type { ValuationSession } from '../../../types/valuation'
+import { generalLogger } from '../../../utils/logger'
 import {
   extractProfileData,
   extractValuationAmount,
@@ -68,7 +69,10 @@ export function RecentReportsSection({
       try {
         await onReportDelete(selectedReport.reportId)
       } catch (error) {
-        console.error('Failed to delete report:', error)
+        generalLogger.error('Failed to delete recent report', {
+          error,
+          reportId: selectedReport.reportId,
+        })
         // Error handling is done in parent component
       }
     }
@@ -165,7 +169,7 @@ export function RecentReportsSection({
 
             // Debug logging (only in development)
             if (process.env.NODE_ENV === 'development') {
-              console.debug('[RecentReportsSection] Mapping report to card:', {
+              generalLogger.debug('[RecentReportsSection] Mapping report to card', {
                 reportId: report.reportId,
                 businessInfo,
                 hasValuation: !!report.valuationResult,

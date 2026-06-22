@@ -10,7 +10,9 @@
 import { Calendar, Clock, Trash2, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React, { useState } from 'react'
+import { toast } from 'sonner'
 import { dateLikeToUnixMs, formatDateLikeToLocaleDateString } from '@/utils/date-like'
+import { generalLogger } from '@/utils/logger'
 import { getFinalValuation } from '@/utils/valuationResultAccess'
 import { formatCurrency } from '../../../config/countries'
 import type { ValuationSession } from '../../../types/valuation'
@@ -116,8 +118,11 @@ export function ReportCard({ report, onClick, onDelete }: ReportCardProps) {
     try {
       await onDelete()
     } catch (error) {
-      console.error('Failed to delete report:', error)
-      alert(t('deleteReportFailed'))
+      generalLogger.error('Failed to delete report from card', {
+        error,
+        reportId: report.reportId,
+      })
+      toast.error(t('deleteReportFailed'))
       setIsDeleting(false)
     }
   }

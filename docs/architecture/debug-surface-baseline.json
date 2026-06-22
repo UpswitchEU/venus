@@ -1,6 +1,6 @@
 {
   "owner": "Architecture",
-  "updated": "2026-06-20",
+  "updated": "2026-06-22",
   "rule": "Freeze direct console.*, alert(), and debugger usage in production paths. New or increased direct debug surfaces fail guard:debug-surface; approved reductions must update this baseline.",
   "scanRoots": [
     "app",
@@ -14,8 +14,8 @@
     "src/utils/loggers.ts"
   ],
   "totals": {
-    "console": 83,
-    "alert": 2,
+    "console": 67,
+    "alert": 0,
     "debugger": 0
   },
   "files": {
@@ -237,56 +237,9 @@
         "error": 1
       }
     },
-    "src/components/AsyncArchitectureInitializer.tsx": {
-      "console": 2,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 2
-      }
-    },
-    "src/components/ErrorBoundary.tsx": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
     "src/components/ErrorFallback.tsx": {
       "console": 1,
       "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
-    "src/components/pages/HomePage.tsx": {
-      "console": 0,
-      "alert": 1,
-      "debugger": 0,
-      "consoleMethods": {}
-    },
-    "src/components/ValuationFlowSelector.tsx": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
-    "src/features/reports/components/RecentReportsSection.tsx": {
-      "console": 2,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "debug": 1,
-        "error": 1
-      }
-    },
-    "src/features/reports/components/ReportCard.tsx": {
-      "console": 1,
-      "alert": 1,
       "debugger": 0,
       "consoleMethods": {
         "error": 1
@@ -324,14 +277,6 @@
         "log": 1
       }
     },
-    "src/services/cache/businessTypesCache.ts": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
     "src/services/ebitdaNormalizationService.ts": {
       "console": 1,
       "alert": 0,
@@ -354,15 +299,6 @@
       "alert": 0,
       "debugger": 0,
       "consoleMethods": {
-        "warn": 3
-      }
-    },
-    "src/utils/auth/sessionSync.ts": {
-      "console": 5,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 2,
         "warn": 3
       }
     },
@@ -392,24 +328,7 @@
       "consoleMethods": {
         "warn": 1
       }
-    },
-    "src/utils/performance.ts": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "warn": 1
-      }
-    },
-    "src/utils/performanceMonitor.ts": {
-      "console": 2,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1,
-        "warn": 1
-      }
     }
   },
-  "totalFiles": 48
+  "totalFiles": 38
 }

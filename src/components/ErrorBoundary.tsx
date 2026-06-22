@@ -3,6 +3,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { ErrorFallback } from '@/components/ErrorFallback'
 import { businessTypesCache } from '@/services/cache/businessTypesCache'
+import { generalLogger } from '@/utils/logger'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -65,7 +66,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           }
         : undefined
 
-    console.error('[ErrorBoundary] Caught error:', {
+    generalLogger.error('[ErrorBoundary] Caught error', {
       name: error.name,
       message: error.message,
       isMaxUpdateDepth,

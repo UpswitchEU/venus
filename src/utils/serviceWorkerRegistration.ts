@@ -7,6 +7,31 @@
  */
 
 import { generalLogger } from './logger'
+import {
+  createManagedInterval,
+  type ManagedIntervalStartOptions,
+  type ManagedIntervalStopOptions,
+} from './managedInterval'
+
+const SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
+
+let updateCheckRegistration: ServiceWorkerRegistration | null = null
+
+function checkServiceWorkerForUpdates(): void {
+  const registration = updateCheckRegistration
+  if (!registration) return
+
+  registration.update().catch((error) => {
+    generalLogger.error('[ServiceWorker] Update check failed', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  })
+}
+
+const serviceWorkerUpdateCheckInterval = createManagedInterval(
+  checkServiceWorkerForUpdates,
+  SERVICE_WORKER_UPDATE_CHECK_INTERVAL_MS
+)
 
 export interface ServiceWorkerConfig {
   /**
@@ -28,6 +53,19 @@ export interface ServiceWorkerConfig {
    * Callback when service worker registration fails
    */
   onError?: (error: Error) => void
+}
+
+export function startServiceWorkerUpdateChecks(
+  registration: ServiceWorkerRegistration,
+  options?: ManagedIntervalStartOptions
+): void {
+  updateCheckRegistration = registration
+  serviceWorkerUpdateCheckInterval.start(options)
+}
+
+export function stopServiceWorkerUpdateChecks(options?: ManagedIntervalStopOptions): void {
+  serviceWorkerUpdateCheckInterval.stop(options)
+  updateCheckRegistration = null
 }
 
 /**
@@ -103,17 +141,7 @@ export async function registerServiceWorker(config: ServiceWorkerConfig = {}): P
       })
     })
 
-    // Check for updates every hour
-    setInterval(
-      () => {
-        registration.update().catch((error) => {
-          generalLogger.error('[ServiceWorker] Update check failed', {
-            error: error.message,
-          })
-        })
-      },
-      60 * 60 * 1000
-    )
+    startServiceWorkerUpdateChecks(registration)
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error))
 
@@ -133,6 +161,8 @@ export async function unregisterServiceWorker(): Promise<void> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return
   }
+
+  stopServiceWorkerUpdateChecks()
 
   try {
     const registrations = await navigator.serviceWorker.getRegistrations()

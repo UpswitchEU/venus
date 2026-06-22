@@ -9,6 +9,11 @@ import {
 } from '../lib/auth/persistedClientContext'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
+import {
+  createManagedInterval,
+  type ManagedIntervalStartOptions,
+  type ManagedIntervalStopOptions,
+} from '../utils/managedInterval'
 
 interface ClientContextResponseDto {
   accountantUser: {
@@ -56,6 +61,7 @@ interface ClientContextState {
 }
 
 const CONTEXT_VALIDITY_TTL = 24 * 60 * 60 * 1000 // 24 hours
+const CONTEXT_VALIDATION_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
 
 export const useClientContext = create<ClientContextState>()(
   persist(
@@ -210,18 +216,29 @@ export const useClientContext = create<ClientContextState>()(
   )
 )
 
-// Auto-validate context on module load (browser only)
+export function validateActiveClientContext(): void {
+  const state = useClientContext.getState()
+  if (!state.isActingAsClient) return
+
+  state.validateContext().catch((error) => {
+    generalLogger.warn('[ClientContext] Scheduled validation failed', { error })
+  })
+}
+
+const clientContextValidationInterval = createManagedInterval(
+  validateActiveClientContext,
+  CONTEXT_VALIDATION_INTERVAL_MS
+)
+
+export function startClientContextAutoValidation(options?: ManagedIntervalStartOptions): void {
+  clientContextValidationInterval.start(options)
+}
+
+export function stopClientContextAutoValidation(options?: ManagedIntervalStopOptions): void {
+  clientContextValidationInterval.stop(options)
+}
+
+// Auto-validate context on module load (browser only).
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  // Validate context periodically (every hour)
-  setInterval(
-    () => {
-      const state = useClientContext.getState()
-      if (state.isActingAsClient) {
-        state.validateContext().catch(() => {
-          // Non-critical - validation errors are handled internally
-        })
-      }
-    },
-    60 * 60 * 1000
-  ) // 1 hour
+  startClientContextAutoValidation()
 }

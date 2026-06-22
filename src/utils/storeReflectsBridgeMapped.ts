@@ -4,7 +4,7 @@
  */
 
 import type { ValuationFormData as VenusFormData } from '../types/valuation'
-import { deepEqual } from './performance'
+import { deepEqual } from './deepEqual'
 
 export function storeReflectsBridgeMapped(
   mapped: Partial<VenusFormData>,

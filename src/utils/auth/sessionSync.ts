@@ -6,6 +6,8 @@
  * Uses localStorage events for cross-tab updates
  */
 
+import { authLogger } from '../logger'
+
 export interface SessionSyncMessage {
   type: 'SESSION_UPDATED' | 'SESSION_INVALIDATED' | 'SESSION_REFRESHED'
   domain: string
@@ -15,6 +17,26 @@ export interface SessionSyncMessage {
 
 const CHANNEL_NAME = 'upswitch_session_sync'
 const STORAGE_KEY = 'upswitch_session_sync'
+const STORAGE_SIGNAL_TTL_MS = 100
+
+const SESSION_SYNC_TYPES = new Set<SessionSyncMessage['type']>([
+  'SESSION_UPDATED',
+  'SESSION_INVALIDATED',
+  'SESSION_REFRESHED',
+])
+
+function isSessionSyncMessage(value: unknown): value is SessionSyncMessage {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<SessionSyncMessage>
+  return (
+    typeof candidate.type === 'string' &&
+    SESSION_SYNC_TYPES.has(candidate.type as SessionSyncMessage['type']) &&
+    typeof candidate.domain === 'string' &&
+    typeof candidate.timestamp === 'number' &&
+    Number.isFinite(candidate.timestamp) &&
+    (candidate.userId == null || typeof candidate.userId === 'string')
+  )
+}
 
 /**
  * Session Synchronization Manager
@@ -23,13 +45,14 @@ export class SessionSyncManager {
   private channel: BroadcastChannel | null = null
   private listeners: Set<(message: SessionSyncMessage) => void> = new Set()
   private storageListener: ((e: StorageEvent) => void) | null = null
+  private storageCleanupTimers: Set<ReturnType<typeof setTimeout>> = new Set()
 
   constructor() {
     // Initialize BroadcastChannel if available (same-origin)
     if (typeof BroadcastChannel !== 'undefined') {
       this.channel = new BroadcastChannel(CHANNEL_NAME)
       this.channel.onmessage = (event) => {
-        this.handleMessage(event.data)
+        this.handleIncomingPayload(event.data)
       }
     }
 
@@ -38,10 +61,9 @@ export class SessionSyncManager {
       this.storageListener = (e: StorageEvent) => {
         if (e.key === STORAGE_KEY && e.newValue) {
           try {
-            const message: SessionSyncMessage = JSON.parse(e.newValue)
-            this.handleMessage(message)
+            this.handleIncomingPayload(JSON.parse(e.newValue))
           } catch (error) {
-            console.error('Failed to parse session sync message:', error)
+            authLogger.warn('Failed to parse session sync message', { error })
           }
         }
       }
@@ -53,83 +75,72 @@ export class SessionSyncManager {
    * Broadcast session update to other tabs/subdomains
    */
   broadcastSessionUpdate(domain: string, userId?: string): void {
-    const message: SessionSyncMessage = {
+    this.broadcast({
       type: 'SESSION_UPDATED',
       domain,
       timestamp: Date.now(),
       userId,
-    }
-
-    // Broadcast via BroadcastChannel (same-origin)
-    if (this.channel) {
-      this.channel.postMessage(message)
-    }
-
-    // Broadcast via localStorage (cross-tab)
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(message))
-        // Remove immediately to trigger storage event in other tabs
-        setTimeout(() => {
-          localStorage.removeItem(STORAGE_KEY)
-        }, 100)
-      } catch (error) {
-        console.warn('Failed to broadcast via localStorage:', error)
-      }
-    }
+    })
   }
 
   /**
    * Broadcast session invalidation (logout)
    */
   broadcastSessionInvalidation(domain: string): void {
-    const message: SessionSyncMessage = {
+    this.broadcast({
       type: 'SESSION_INVALIDATED',
       domain,
       timestamp: Date.now(),
-    }
-
-    if (this.channel) {
-      this.channel.postMessage(message)
-    }
-
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(message))
-        setTimeout(() => {
-          localStorage.removeItem(STORAGE_KEY)
-        }, 100)
-      } catch (error) {
-        console.warn('Failed to broadcast invalidation:', error)
-      }
-    }
+    })
   }
 
   /**
    * Broadcast session refresh
    */
   broadcastSessionRefresh(domain: string, userId?: string): void {
-    const message: SessionSyncMessage = {
+    this.broadcast({
       type: 'SESSION_REFRESHED',
       domain,
       timestamp: Date.now(),
       userId,
-    }
+    })
+  }
 
-    if (this.channel) {
-      this.channel.postMessage(message)
-    }
+  private broadcast(message: SessionSyncMessage): void {
+    this.channel?.postMessage(message)
 
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(message))
-        setTimeout(() => {
-          localStorage.removeItem(STORAGE_KEY)
-        }, 100)
-      } catch (error) {
-        console.warn('Failed to broadcast refresh:', error)
-      }
+    if (typeof localStorage === 'undefined') return
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(message))
+      const cleanupTimer = setTimeout(() => {
+        this.storageCleanupTimers.delete(cleanupTimer)
+        this.removeStorageSignal()
+      }, STORAGE_SIGNAL_TTL_MS)
+      this.storageCleanupTimers.add(cleanupTimer)
+    } catch (error) {
+      authLogger.warn('Failed to broadcast session sync message via localStorage', {
+        error,
+        type: message.type,
+      })
     }
+  }
+
+  private removeStorageSignal(): void {
+    if (typeof localStorage === 'undefined') return
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch (error) {
+      authLogger.warn('Failed to clear session sync storage signal', { error })
+    }
+  }
+
+  private handleIncomingPayload(payload: unknown): void {
+    if (!isSessionSyncMessage(payload)) {
+      authLogger.warn('Ignored malformed session sync message')
+      return
+    }
+    this.handleMessage(payload)
   }
 
   /**
@@ -137,7 +148,7 @@ export class SessionSyncManager {
    */
   private handleMessage(message: SessionSyncMessage): void {
     // Ignore messages from same domain (avoid loops)
-    if (message.domain === window.location.hostname) {
+    if (typeof window !== 'undefined' && message.domain === window.location.hostname) {
       return
     }
 
@@ -146,7 +157,7 @@ export class SessionSyncManager {
       try {
         listener(message)
       } catch (error) {
-        console.error('Error in session sync listener:', error)
+        authLogger.warn('Session sync listener failed', { error })
       }
     })
   }
@@ -175,6 +186,9 @@ export class SessionSyncManager {
       this.storageListener = null
     }
 
+    this.storageCleanupTimers.forEach((timer) => clearTimeout(timer))
+    this.storageCleanupTimers.clear()
+    this.removeStorageSignal()
     this.listeners.clear()
   }
 }

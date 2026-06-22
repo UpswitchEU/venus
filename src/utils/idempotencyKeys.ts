@@ -8,9 +8,15 @@
  */
 
 import { storeLogger } from './logger'
+import {
+  createManagedInterval,
+  type ManagedIntervalStartOptions,
+  type ManagedIntervalStopOptions,
+} from './managedInterval'
 import { createRandomToken } from './secureRandom'
 
 const NONCE_PREFIX = 'n'
+const IDEMPOTENCY_KEY_CLEANUP_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
 
 /**
  * Generate idempotency key for operation
@@ -244,12 +250,24 @@ export class IdempotencyKeyManager {
 // Global idempotency key manager
 export const globalIdempotencyManager = new IdempotencyKeyManager()
 
+function cleanupGlobalIdempotencyKeys(): void {
+  globalIdempotencyManager.cleanupExpired()
+}
+
+const idempotencyKeyCleanupInterval = createManagedInterval(
+  cleanupGlobalIdempotencyKeys,
+  IDEMPOTENCY_KEY_CLEANUP_INTERVAL_MS
+)
+
+export function startIdempotencyKeyCleanup(options?: ManagedIntervalStartOptions): void {
+  idempotencyKeyCleanupInterval.start(options)
+}
+
+export function stopIdempotencyKeyCleanup(options?: ManagedIntervalStopOptions): void {
+  idempotencyKeyCleanupInterval.stop(options)
+}
+
 // Cleanup expired keys every hour
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  setInterval(
-    () => {
-      globalIdempotencyManager.cleanupExpired()
-    },
-    60 * 60 * 1000
-  ) // 1 hour
+  startIdempotencyKeyCleanup()
 }

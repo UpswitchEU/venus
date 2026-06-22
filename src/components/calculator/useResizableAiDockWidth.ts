@@ -3,61 +3,38 @@
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  clampVenusAiDockWidth,
   VENUS_AI_DOCK_DEFAULT_WIDTH,
   VENUS_AI_DOCK_MAX_WIDTH,
   VENUS_AI_DOCK_MIN_WIDTH,
-  VENUS_AI_DOCK_STORAGE_KEY,
   VENUS_AI_DOCK_WIDTH_CSS_VAR,
 } from './venus-ai-dock-layout'
+import {
+  readStoredVenusAiDockWidth,
+  resolveVenusAiDockKeyboardWidth,
+  resolveVenusAiDockPointerWidth,
+  resolveVenusAiDockWidth,
+  writeStoredVenusAiDockWidth,
+} from './venus-ai-dock-resize-model'
 
 type DockWidthStyle = React.CSSProperties & {
   [VENUS_AI_DOCK_WIDTH_CSS_VAR]?: string
 }
 
-function getViewportWidth(): number {
-  if (typeof window === 'undefined') return 0
-  return window.innerWidth || document.documentElement.clientWidth || 0
-}
-
-function readStoredDockWidth(): number {
-  if (typeof window === 'undefined') return VENUS_AI_DOCK_DEFAULT_WIDTH
-  let stored: string | null = null
-  try {
-    stored = window.localStorage.getItem(VENUS_AI_DOCK_STORAGE_KEY)
-  } catch {
-    stored = null
-  }
-  const parsed = stored ? Number.parseInt(stored, 10) : Number.NaN
-  return clampVenusAiDockWidth(
-    Number.isFinite(parsed) ? parsed : VENUS_AI_DOCK_DEFAULT_WIDTH,
-    getViewportWidth()
-  )
-}
-
-function persistDockWidth(width: number) {
-  try {
-    window.localStorage.setItem(VENUS_AI_DOCK_STORAGE_KEY, String(width))
-  } catch {
-    // Storage can be unavailable in restricted browser modes; resizing should still work.
-  }
-}
-
 export function useResizableAiDockWidth() {
-  const [width, setWidth] = useState(readStoredDockWidth)
+  const [width, setWidth] = useState(readStoredVenusAiDockWidth)
   const activeDragRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    const clamped = clampVenusAiDockWidth(width, getViewportWidth())
+    const clamped = resolveVenusAiDockWidth(width)
     document.documentElement.style.setProperty(VENUS_AI_DOCK_WIDTH_CSS_VAR, `${clamped}px`)
-    persistDockWidth(clamped)
+    writeStoredVenusAiDockWidth(clamped)
   }, [width])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const handleResize = () => {
-      setWidth((current) => clampVenusAiDockWidth(current, getViewportWidth()))
+      setWidth((current) => resolveVenusAiDockWidth(current))
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -71,52 +48,50 @@ export function useResizableAiDockWidth() {
   )
 
   const setClampedWidth = useCallback((nextWidth: number) => {
-    setWidth(clampVenusAiDockWidth(nextWidth, getViewportWidth()))
+    setWidth(resolveVenusAiDockWidth(nextWidth))
   }, [])
 
-  const beginResize = useCallback(
-    (event: React.PointerEvent<HTMLElement>) => {
-      if (event.button !== undefined && event.button !== 0) return
-      event.preventDefault()
-      activeDragRef.current?.()
+  const beginResize = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    if (event.button !== undefined && event.button !== 0) return
+    event.preventDefault()
+    activeDragRef.current?.()
 
-      const previousCursor = document.body.style.cursor
-      const previousUserSelect = document.body.style.userSelect
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
 
-      const handlePointerMove = (moveEvent: PointerEvent) => {
-        if (!Number.isFinite(moveEvent.clientX)) return
-        setClampedWidth(getViewportWidth() - moveEvent.clientX)
-      }
-      const handleTarget = event.currentTarget
-      const pointerId = event.pointerId
-      const cleanup = () => {
-        window.removeEventListener('pointermove', handlePointerMove)
-        window.removeEventListener('pointerup', cleanup)
-        window.removeEventListener('pointercancel', cleanup)
-        try {
-          handleTarget.releasePointerCapture?.(pointerId)
-        } catch {
-          // The pointer may already be released if the gesture was cancelled by the browser.
-        }
-        document.body.style.cursor = previousCursor
-        document.body.style.userSelect = previousUserSelect
-        activeDragRef.current = null
-      }
-
-      activeDragRef.current = cleanup
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const nextWidth = resolveVenusAiDockPointerWidth(moveEvent.clientX)
+      if (nextWidth == null) return
+      setWidth(nextWidth)
+    }
+    const handleTarget = event.currentTarget
+    const pointerId = event.pointerId
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', cleanup)
+      window.removeEventListener('pointercancel', cleanup)
       try {
-        handleTarget.setPointerCapture?.(pointerId)
+        handleTarget.releasePointerCapture?.(pointerId)
       } catch {
-        // Window-level listeners still keep the resize interaction working.
+        // The pointer may already be released if the gesture was cancelled by the browser.
       }
-      window.addEventListener('pointermove', handlePointerMove)
-      window.addEventListener('pointerup', cleanup)
-      window.addEventListener('pointercancel', cleanup)
-    },
-    [setClampedWidth]
-  )
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+      activeDragRef.current = null
+    }
+
+    activeDragRef.current = cleanup
+    try {
+      handleTarget.setPointerCapture?.(pointerId)
+    } catch {
+      // Window-level listeners still keep the resize interaction working.
+    }
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', cleanup)
+    window.addEventListener('pointercancel', cleanup)
+  }, [])
 
   const resetWidth = useCallback(() => {
     setClampedWidth(VENUS_AI_DOCK_DEFAULT_WIDTH)
@@ -124,24 +99,12 @@ export function useResizableAiDockWidth() {
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>) => {
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault()
-        setClampedWidth(width + 24)
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault()
-        setClampedWidth(width - 24)
-      } else if (event.key === 'Home') {
-        event.preventDefault()
-        setClampedWidth(VENUS_AI_DOCK_MIN_WIDTH)
-      } else if (event.key === 'End') {
-        event.preventDefault()
-        setClampedWidth(VENUS_AI_DOCK_MAX_WIDTH)
-      } else if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault()
-        resetWidth()
-      }
+      const nextWidth = resolveVenusAiDockKeyboardWidth({ currentWidth: width, key: event.key })
+      if (nextWidth == null) return
+      event.preventDefault()
+      setWidth(nextWidth)
     },
-    [resetWidth, setClampedWidth, width]
+    [width]
   )
 
   const style = useMemo<DockWidthStyle>(
