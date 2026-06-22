@@ -8,13 +8,10 @@
   ],
   "allowlistedFiles": [
     "src/lib/authLogger.ts",
-    "src/utils/auth/authLogger.ts",
-    "src/utils/debugLogger.ts",
-    "src/utils/logger.ts",
-    "src/utils/loggers.ts"
+    "src/utils/logger.ts"
   ],
   "totals": {
-    "console": 67,
+    "console": 52,
     "alert": 0,
     "debugger": 0
   },
@@ -245,14 +242,6 @@
         "error": 1
       }
     },
-    "src/features/shared/components/ErrorBoundary.tsx": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 1
-      }
-    },
     "src/hooks/useCredits.ts": {
       "console": 1,
       "alert": 0,
@@ -302,17 +291,6 @@
         "warn": 3
       }
     },
-    "src/utils/browserCompat.ts": {
-      "console": 14,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "error": 2,
-        "group": 1,
-        "groupEnd": 1,
-        "log": 10
-      }
-    },
     "src/utils/decimal.ts": {
       "console": 3,
       "alert": 0,
@@ -330,5 +308,5 @@
       }
     }
   },
-  "totalFiles": 38
+  "totalFiles": 36
 }

@@ -4,7 +4,8 @@ import { motion } from 'framer-motion'
 import { Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type React from 'react'
-import { AuroraButton } from '@/design-system/components/Button'
+import { useEffect, useRef } from 'react'
+import { trackFinancialsStepViewed } from '@/lib/analytics'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
 import {
@@ -18,6 +19,7 @@ import { FilingYearPrompt } from '../FilingYearPrompt'
 import type { ManualInputFieldValidation } from '../utils/manualInputFieldValidation'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 import type { UpdateManualYearlyFinancials } from '../utils/manualYearlyFinancialUpdates'
+import { ConnectAccountingInline } from './ConnectAccountingInline'
 import type { DcfInputMode } from './DcfForecastWorkspace'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
@@ -27,6 +29,7 @@ import { HistoricalYearCard } from './HistoricalYearCard'
 import { InviteAccountantInline } from './InviteAccountantInline'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 import { NormalizedEbitdaSummary } from './NormalizedEbitdaSummary'
+import { RegistryEstimateInline } from './RegistryEstimateInline'
 
 interface AccountingImportState {
   isImporting: boolean
@@ -58,6 +61,7 @@ interface FinancialHistorySectionProps {
   hasDcfSelected: boolean
   hasEbitdaValue: boolean
   hasFinancials: boolean
+  hasImportedAccountingData: boolean
   historicalCardRows: YearlyFinancials[]
   importAccountingError: string | null
   integrationDerivedCapexPct: number | null
@@ -109,6 +113,7 @@ export function FinancialHistorySection({
   hasDcfSelected,
   hasEbitdaValue,
   hasFinancials,
+  hasImportedAccountingData,
   historicalCardRows,
   importAccountingError,
   integrationDerivedCapexPct,
@@ -133,8 +138,19 @@ export function FinancialHistorySection({
   updateYearlyFinancials,
   waccSectorBand,
 }: FinancialHistorySectionProps) {
-  const t = useTranslations()
   const mi = useTranslations('manualInput')
+
+  // BET-315 — financials-step funnel impression (entry → here → submit). Fire
+  // once per mount, only when the step is actually shown (past the guard below).
+  const viewedRef = useRef(false)
+  useEffect(() => {
+    if (viewedRef.current || !selectedCompany || !hasBusinessType) return
+    viewedRef.current = true
+    trackFinancialsStepViewed({
+      hasFinancials,
+      hasConnectedProvider: liveImportProviderName != null,
+    })
+  }, [selectedCompany, hasBusinessType, hasFinancials, liveImportProviderName])
 
   if (!selectedCompany || !hasBusinessType) return null
 
@@ -153,33 +169,6 @@ export function FinancialHistorySection({
       {importAccountingError && (
         <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
       )}
-
-      {liveImportProviderName ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2.5 sm:px-4">
-          <p className="min-w-0 flex-1 text-xs text-foreground/75 leading-snug">
-            {mi('liveAccountingImportHint', {
-              provider: liveImportProviderName,
-            })}
-          </p>
-          <AuroraButton
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="shrink-0"
-            loading={openingLiveAccountingImport}
-            loadingScreenReaderLabel={t('common.states.loading')}
-            disabled={bizzcontrolImport.isImporting || octopusImport.isImporting}
-            onClick={() => void handleOpenLiveAccountingImport()}
-            aria-label={mi('importFromAccountingAria', {
-              provider: liveImportProviderName,
-            })}
-          >
-            {mi('importFromAccounting', {
-              provider: liveImportProviderName,
-            })}
-          </AuroraButton>
-        </div>
-      ) : null}
 
       <FilingYearPrompt
         defaultYear={currentFilingYear}
@@ -201,8 +190,21 @@ export function FinancialHistorySection({
         totalYearsWithEbitda={totalYearsWithEbitda}
       />
 
+      {/* BET-312 autofill doors — pull from accounting (Door 1) → invite accountant (Door 2). */}
+      <ConnectAccountingInline
+        liveImportProviderName={liveImportProviderName}
+        imported={hasImportedAccountingData}
+        importBusy={bizzcontrolImport.isImporting || octopusImport.isImporting}
+        openingImport={openingLiveAccountingImport}
+        onImport={handleOpenLiveAccountingImport}
+      />
       {/* BET-317 — in-form "invite my accountant" so the owner stays in the funnel. */}
       <InviteAccountantInline />
+      {/* BET-318 — Door 3: registry-derived provisional band when figures are unknown. */}
+      <RegistryEstimateInline
+        company={selectedCompany}
+        fallbackCountry={formData.country ?? null}
+      />
 
       <div className="space-y-3">
         {historicalCardRows.map((yearData) => {

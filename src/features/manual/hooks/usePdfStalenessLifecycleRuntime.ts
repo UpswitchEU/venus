@@ -28,7 +28,25 @@ export function usePdfStalenessLifecycleRuntime({
   const isMountedRef = useIsMountedRef()
   const lookupIdRef = useLatestRef(persistedReportLookupId)
   const isPdfGeneratingRef = useRef(isPdfGenerating)
+  const pollLockTokenRef = useRef(0)
   isPdfGeneratingRef.current = isPdfGenerating
+
+  const acquirePollLock = useCallback(() => {
+    if (pollInFlightRef.current) return null
+    pollLockTokenRef.current += 1
+    pollInFlightRef.current = true
+    return pollLockTokenRef.current
+  }, [])
+
+  const releasePollLock = useCallback((token: number) => {
+    if (pollLockTokenRef.current !== token) return
+    pollInFlightRef.current = false
+  }, [])
+
+  const cancelPollLock = useCallback(() => {
+    pollLockTokenRef.current += 1
+    pollInFlightRef.current = false
+  }, [])
 
   const resetTransientBackoff = useCallback(() => {
     transientBackoffUntilRef.current = 0
@@ -67,8 +85,8 @@ export function usePdfStalenessLifecycleRuntime({
     lastPolledPdfGeneratedAtMsRef.current = null
     waitExtensionMsRef.current = 0
     resetTransientBackoff()
-    pollInFlightRef.current = false
-  }, [resetTransientBackoff])
+    cancelPollLock()
+  }, [cancelPollLock, resetTransientBackoff])
 
   const resetFreshCycle = useCallback(() => {
     setPdfWaitTimedOut(false)
@@ -121,6 +139,8 @@ export function usePdfStalenessLifecycleRuntime({
   return {
     bySession404StreakRef,
     bySessionBackoffUntilRef,
+    acquirePollLock,
+    cancelPollLock,
     clearWaitTimer,
     effectivePdfWaitTimedOut,
     extendWaitTimeoutForTransientError,
@@ -132,7 +152,7 @@ export function usePdfStalenessLifecycleRuntime({
     pdfPollErrorCount,
     pdfPollTransientCount,
     pdfWaitTimedOut,
-    pollInFlightRef,
+    releasePollLock,
     resetFreshCycle,
     resetPostGenerationSync,
     resetReportScopedPolling,

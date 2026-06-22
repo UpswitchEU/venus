@@ -301,7 +301,7 @@ describe('Valuation Restoration', () => {
       // Set session in store (simulating successful load)
       useSessionStore.setState({ session: mockSession })
 
-      // Simulate restoration logic (what ManualLayout.tsx does)
+      // Simulate restoration logic (what ManualValuationWorkspace.tsx does)
       const { setResult } = useManualResultsStore.getState()
 
       // Merge HTML from session into result (this is the fix!)

@@ -60,10 +60,13 @@ export function useManualNormalizationReviewActions({
         )
         return true
       } catch (error) {
-        generalLogger.warn(`[ManualLayout] Titan persist failed after ${action} - rolling back`, {
-          id,
-          error: error instanceof Error ? error.message : String(error),
-        })
+        generalLogger.warn(
+          `[ManualValuationWorkspace] Titan persist failed after ${action} - rolling back`,
+          {
+            id,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        )
         normalizationActions.updateItem(id, { status: 'pending' })
         setSuggestedNormalisations((prev) =>
           updateSuggestedNormalisationStatus(prev, id, 'pending')

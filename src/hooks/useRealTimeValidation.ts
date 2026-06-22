@@ -16,7 +16,7 @@ import {
   type BusinessTypeValidationWarning,
   businessTypesApiService,
 } from '../services/businessTypesApi'
-import { logger as generalLogger } from '../utils/loggers'
+import { generalLogger } from '../utils/logger'
 
 // ============================================================================
 // TYPES
@@ -54,6 +54,8 @@ export function useRealTimeValidation(
   const [error, setError] = useState<string | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
+  const validationTokenRef = useRef(0)
 
   const validate = useCallback(
     async (data: Record<string, unknown>) => {
@@ -70,6 +72,8 @@ export function useRealTimeValidation(
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
+      const validationToken = validationTokenRef.current + 1
+      validationTokenRef.current = validationToken
 
       // Debounce validation
       timeoutRef.current = setTimeout(async () => {
@@ -89,6 +93,8 @@ export function useRealTimeValidation(
             data
           )
 
+          if (!mountedRef.current || validationTokenRef.current !== validationToken) return
+
           if (result) {
             setValidation(result)
 
@@ -101,6 +107,7 @@ export function useRealTimeValidation(
             })
           }
         } catch (err) {
+          if (!mountedRef.current || validationTokenRef.current !== validationToken) return
           // Ignore abort errors
           if (err instanceof Error && err.name === 'AbortError') {
             return
@@ -113,7 +120,10 @@ export function useRealTimeValidation(
             error: errorMessage,
           })
         } finally {
-          setValidating(false)
+          if (mountedRef.current && validationTokenRef.current === validationToken) {
+            setValidating(false)
+            abortControllerRef.current = null
+          }
         }
       }, debounceMs)
     },
@@ -121,8 +131,10 @@ export function useRealTimeValidation(
   )
 
   const clearValidation = useCallback(() => {
+    validationTokenRef.current += 1
     setValidation(null)
     setError(null)
+    setValidating(false)
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
@@ -135,7 +147,10 @@ export function useRealTimeValidation(
 
   // Cleanup on unmount
   useEffect(() => {
+    mountedRef.current = true
     return () => {
+      mountedRef.current = false
+      validationTokenRef.current += 1
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }

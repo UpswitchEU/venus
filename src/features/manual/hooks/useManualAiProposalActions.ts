@@ -140,7 +140,7 @@ export function useManualAiProposalActions({
           markManualChatProposalDecision(prev, 'reportGenerationRequests', proposalId, 'approved')
         )
         handlePdfExport().catch((err: unknown) => {
-          generalLogger.warn('[ManualLayout] AI-approved PDF export failed', {
+          generalLogger.warn('[ManualValuationWorkspace] AI-approved PDF export failed', {
             error: err instanceof Error ? err.message : String(err),
           })
           toast.error(
@@ -190,7 +190,7 @@ export function useManualAiProposalActions({
           toast.info(/* TODO i18n */ 'Sellability berekend.')
         }
       } catch (err) {
-        generalLogger.warn('[ManualLayout] AI-approved sellability compute failed', {
+        generalLogger.warn('[ManualValuationWorkspace] AI-approved sellability compute failed', {
           error: err instanceof Error ? err.message : String(err),
         })
         toast.error(

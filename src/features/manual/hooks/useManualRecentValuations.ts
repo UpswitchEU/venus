@@ -75,7 +75,7 @@ export function useManualRecentValuations({
         setRawRecentValuations(mapReportsResponseToRecentValuations(data, { unnamedLabel }))
       })
       .catch((err) => {
-        generalLogger.warn('[ManualLayout] Failed to load recent valuations', {
+        generalLogger.warn('[ManualValuationWorkspace] Failed to load recent valuations', {
           error: err instanceof Error ? err.message : String(err),
         })
       })

@@ -237,7 +237,7 @@ export default function ValuationReportClient({
   // bootstrap's POST takes ~1–3s. Without a seed, the user stares at the
   // skeleton the whole time without confirmation that they're looking at the
   // right company. Running here, BEFORE any descendant mounts, lets the first
-  // paint of ManualLayoutLoaded already show the company name from the URL.
+  // paint of ManualValuationWorkspaceLoaded already shows the company name from the URL.
   // Bootstrap prefill overrides with the canonical registry record when Titan returns.
   //
   // Two responsibilities, both keyed on reportId (so SPA nav re-fires):

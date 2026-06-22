@@ -134,6 +134,10 @@ describe('SessionJsonbAutosaveCoordinator', () => {
 
     expect(harness.persistToSession).not.toHaveBeenCalled()
 
+    harness.coordinator.flushPendingVisibilityPersist()
+    await Promise.resolve()
+    expect(harness.persistToSession).not.toHaveBeenCalled()
+
     blocked = false
     harness.coordinator.flushPendingVisibilityPersist()
     await Promise.resolve()

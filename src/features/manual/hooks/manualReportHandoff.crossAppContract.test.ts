@@ -181,18 +181,18 @@ describe('manual report handoff load contract', () => {
     expect(source).not.toMatch(/generatePdf,\n {4}isMobile/)
   })
 
-  it('ManualLayout wires report readiness through the PDF lifecycle controller', () => {
-    const layoutSource = readFileSync(
-      join(__dirname, manualComponentsRoot, 'ManualLayout.tsx'),
+  it('ManualValuationWorkspace wires report readiness through the PDF lifecycle controller', () => {
+    const workspaceSource = readFileSync(
+      join(__dirname, manualComponentsRoot, 'ManualValuationWorkspace.tsx'),
       'utf8'
     )
     const controllerSource = readFileSync(
       join(__dirname, manualHooksRoot, 'useManualReportReadinessController.ts'),
       'utf8'
     )
-    expect(layoutSource).toMatch(/useManualReportReadinessController/)
-    expect(layoutSource).toMatch(/isPdfGenerating/)
-    expect(layoutSource).toMatch(/pdfStalePollLookupId/)
+    expect(workspaceSource).toMatch(/useManualReportReadinessController/)
+    expect(workspaceSource).toMatch(/isPdfGenerating/)
+    expect(workspaceSource).toMatch(/pdfStalePollLookupId/)
     expect(controllerSource).toMatch(/usePdfStalenessLifecycle/)
     expect(controllerSource).toMatch(/isPdfReady/)
     expect(controllerSource).toMatch(/persistedReportLookupId: pdfStalePollLookupId \?\? null/)

@@ -1,6 +1,11 @@
 import type { ChatMessage } from '@/components/calculator'
 import type { AIChatRequest, AIChatResponse } from '@/services/ai/AIChatService'
 import { isOfflineFallbackContent } from '@/services/ai/local-chat-fallback'
+import { resolveReturnedConversationIdUpdate } from './manualChatConversationId'
+import {
+  type PollHistoryForPersistedAnswerParams,
+  pollHistoryForPersistedAnswer,
+} from './manualChatPersistedAnswerRecovery'
 import {
   buildManualChatTerminalErrorPatch,
   buildManualChatTerminalErrorPatchFromAIResponse,
@@ -28,6 +33,12 @@ export type ManualChatNonStreamingRecoveryOutcome =
     }
   | { status: 'terminal_error'; patch: ManualChatTerminalErrorPatch }
   | { status: 'miss' }
+
+type ManualChatRecoveredOutcome = Extract<
+  ManualChatNonStreamingRecoveryOutcome,
+  { status: 'recovered' }
+>
+type PollPersistedAnswer = typeof pollHistoryForPersistedAnswer
 
 export type ManualChatBffStreamRecoverySource =
   | 'bff-fallback'
@@ -112,6 +123,108 @@ export async function requestManualChatNonStreamingRecovery({
     return {
       status: 'terminal_error',
       patch: buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate),
+    }
+  }
+}
+
+export interface RunManualChatNonStreamingRecoveryParams {
+  aiRequest: AIChatRequest
+  sendMessage: (request: AIChatRequest) => Promise<AIChatResponse>
+  loadHistory: PollHistoryForPersistedAnswerParams['loadHistory']
+  translate: ManualChatMessageTranslator
+  createId: () => string
+  isCancelled: () => boolean
+  currentConversationId?: string | null
+  fallbackHistoryReportId?: string | null
+  setConversationId: (conversationId: string) => void
+  cancelAssistantContentFrame: () => void
+  patchAssistantMessage: (patch: Partial<ChatMessage>) => void
+  markReceivedContent?: () => void
+  showAiUnavailableToast?: () => void
+  pollPersistedAnswer?: PollPersistedAnswer
+  onFieldUpdates?: (fieldUpdates: NonNullable<ManualChatRecoveredOutcome['fieldUpdates']>) => void
+  onNormalisationSuggestions?: (
+    suggestions: NonNullable<ManualChatRecoveredOutcome['normalisationSuggestions']>
+  ) => void
+}
+
+/**
+ * Applies layer-3 recovery outcomes for one active manual-chat turn.
+ *
+ * The hook owns turn lifecycle and transport cleanup; this function owns the
+ * recovered/missed/terminal semantics so empty-stream recovery stays testable
+ * outside the large React hook.
+ */
+export async function runManualChatNonStreamingRecovery({
+  aiRequest,
+  sendMessage,
+  loadHistory,
+  translate,
+  createId,
+  isCancelled,
+  currentConversationId,
+  fallbackHistoryReportId,
+  setConversationId,
+  cancelAssistantContentFrame,
+  patchAssistantMessage,
+  markReceivedContent,
+  showAiUnavailableToast,
+  pollPersistedAnswer = pollHistoryForPersistedAnswer,
+  onFieldUpdates,
+  onNormalisationSuggestions,
+}: RunManualChatNonStreamingRecoveryParams): Promise<void> {
+  const outcome = await requestManualChatNonStreamingRecovery({
+    aiRequest,
+    sendMessage,
+    translate,
+    createId,
+  })
+  if (isCancelled()) return
+
+  switch (outcome.status) {
+    case 'terminal_error':
+    case 'miss': {
+      const persisted = await pollPersistedAnswer({
+        loadHistory,
+        reportId: aiRequest.sessionId || fallbackHistoryReportId || '',
+        userContent: aiRequest.message,
+        isCancelled,
+      })
+      if (isCancelled()) return
+      if (persisted) {
+        markReceivedContent?.()
+        cancelAssistantContentFrame()
+        patchAssistantMessage({ content: persisted.content })
+        return
+      }
+
+      patchAssistantMessage(
+        outcome.status === 'terminal_error'
+          ? outcome.patch
+          : buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
+      )
+      return
+    }
+    case 'recovered': {
+      const nextConversationId = resolveReturnedConversationIdUpdate(
+        currentConversationId,
+        outcome.conversationId
+      )
+      if (nextConversationId) {
+        setConversationId(nextConversationId)
+      }
+      cancelAssistantContentFrame()
+      patchAssistantMessage(outcome.patch)
+      if (outcome.showAiUnavailableToast) {
+        showAiUnavailableToast?.()
+      }
+      if (outcome.fieldUpdates) {
+        onFieldUpdates?.(outcome.fieldUpdates)
+      }
+      if (outcome.normalisationSuggestions) {
+        onNormalisationSuggestions?.(outcome.normalisationSuggestions)
+      }
+      return
     }
   }
 }

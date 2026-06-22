@@ -134,7 +134,7 @@ export function useManualReportHtmlRecovery({
         if (recovery.status === 'recovered' && recovery.result) {
           passRef.current = 0
           setIsRecoveringReportHtml(false)
-          generalLogger.info('[ManualLayout] Report HTML recovered via ensure-html', {
+          generalLogger.info('[ManualValuationWorkspace] Report HTML recovered via ensure-html', {
             reportId,
             htmlLength: recovery.html?.length ?? 0,
             pass,
@@ -146,7 +146,7 @@ export function useManualReportHtmlRecovery({
           const nextPass = pass + 1
           passRef.current = nextPass
           generalLogger.warn(
-            '[ManualLayout] Report HTML ensure-html recovery did not return renderable HTML',
+            '[ManualValuationWorkspace] Report HTML ensure-html recovery did not return renderable HTML',
             { reportId, pass, nextPass }
           )
           if (nextPass >= HOOK_RECOVERY_MAX_PASSES && stillNeedsRecovery()) {

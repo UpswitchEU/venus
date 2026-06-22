@@ -167,7 +167,7 @@ await saveCompleteSession({
 **What's restored**: Form fields + Results + HTML + Versions
 
 ```typescript
-// ManualLayout.tsx
+// ManualValuationWorkspace.tsx
 useSessionRestoration() // Automatic restoration
 
 // Restores:
@@ -335,7 +335,7 @@ syncFromManualForm: () => Promise<void>
 
 **Usage**:
 ```typescript
-// ManualLayout.tsx
+// ManualValuationWorkspace.tsx
 useSessionRestoration()
 
 // ConversationalLayout.tsx

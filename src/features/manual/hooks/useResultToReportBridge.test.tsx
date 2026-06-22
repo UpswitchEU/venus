@@ -2,7 +2,7 @@
  * useResultToReportBridge — behaviour pins for the full Result→Report
  * bridge effect. Asserts every one of the 7 documented side effects fires
  * (or doesn't fire) under the right conditions. Before Phase 4c.2 Hook 2
- * this effect lived inline in `ManualLayout.tsx` (~110 lines) with no
+ * this effect lived inline in `ManualValuationWorkspace.tsx` (~110 lines) with no
  * isolated test coverage.
  */
 

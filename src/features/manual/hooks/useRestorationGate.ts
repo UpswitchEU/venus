@@ -10,7 +10,7 @@
  *
  * The boolean returned (`effectiveIsRestoringExistingReport`) is the value
  * the panel actually renders against. Before Phase 4c.2 this was an inline
- * derivation of three flags scattered across `ManualLayout.tsx`; the hook
+ * derivation of three flags scattered across `ManualValuationWorkspace.tsx`; the hook
  * consolidates the 5s timer state + the AND-chain into one named seam.
  */
 

@@ -815,7 +815,8 @@ WHERE status IS NULL;
 ## Frontend Integration Status
 
 ### ✅ Complete
-- ReportService (with placeholders for pending endpoints)
+- Report lifecycle service (`src/services/reports/ReportService`)
+- Report asset persistence service (`src/services/report/ReportAssetService`)
 - BusinessCardService (with placeholder fetch method)
 - useReportsStore
 - ReportCard component

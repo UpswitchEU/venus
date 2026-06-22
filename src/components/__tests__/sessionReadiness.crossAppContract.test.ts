@@ -168,15 +168,18 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(persistSource).toMatch(/looksLikeExistingReportId/)
   })
 
-  it('useBootstrapSync dedupes across hook instances (ValuationReport + ManualLayout)', () => {
+  it('useBootstrapSync dedupes across hook instances (ValuationReport + ManualValuationWorkspace)', () => {
     const syncPath = join(__dirname, '../../hooks/useBootstrapSync.ts')
     const source = readFileSync(syncPath, 'utf8')
     expect(source).toMatch(/globalBootstrapSyncScheduledKey/)
     expect(source).toMatch(/globalBootstrapSyncSignature/)
 
-    const manualLayoutPath = join(__dirname, '../../features/manual/components/ManualLayout.tsx')
-    const manualSource = readFileSync(manualLayoutPath, 'utf8')
-    expect(manualSource).not.toMatch(/useBootstrapSync\(/)
+    const workspacePath = join(
+      __dirname,
+      '../../features/manual/components/ManualValuationWorkspace.tsx'
+    )
+    const workspaceSource = readFileSync(workspacePath, 'utf8')
+    expect(workspaceSource).not.toMatch(/useBootstrapSync\(/)
   })
 
   it('useValuationSessionLoader defers loadSession until bootstrap sync writes session', () => {

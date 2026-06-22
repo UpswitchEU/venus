@@ -485,24 +485,23 @@ return res.json({
 ### Phase 6: Report Saving
 
 #### Step 6.1: Save Completed Report
-**Location**: `apps/upswitch-valuation-tester/src/components/ValuationReport.tsx`
+**Location**: `apps/venus/src/features/manual/hooks/useManualCalculationCompletion.ts`
 
 **Trigger**: After valuation completes successfully
 
 **Process**:
 ```typescript
-const handleValuationComplete = async (result: ValuationResponse) => {
-  try {
-    await reportApiService.completeReport(reportId, result)
-  } catch (error) {
-    // Don't block user - report already displayed locally
-  }
-}
+await reportAssetService.saveReportAssets(reportId, {
+  sessionData,
+  valuationResult,
+  htmlReport,
+  name,
+})
 ```
 
 **Files Involved**:
-- `src/components/ValuationReport.tsx` (lines 41-49)
-- `src/services/reportApi.ts` (lines 93-115)
+- `src/features/manual/hooks/useManualCalculationCompletion.ts`
+- `src/services/report/ReportAssetService.ts`
 
 ---
 
@@ -776,18 +775,17 @@ URL.revokeObjectURL(blobUrl)
 
 7. REPORT SAVING
    │
-   ├─ ValuationReport.tsx
-   │  └─ handleValuationComplete(result)
-   │     └─ reportApiService.completeReport(reportId, result)
+   ├─ useManualCalculationCompletion.ts
+   │  └─ saveManualCalculationReportAssets(...)
    │
-   ├─ reportApi.ts
-   │  └─ backendAPI.saveValuation(result, reportId)
+   ├─ ReportAssetService.ts
+   │  └─ reportAssetService.saveReportAssets(reportId, assets)
    │
-   ├─ BackendAPI.ts
-   │  └─ POST /api/valuations/save
+   ├─ SessionAPI.ts
+   │  └─ PUT /api/v2/valuations/sessions/:id/result
    │
-   └─ ValuationController.saveValuation()
-      └─ Save to database
+   └─ Titan valuation session result endpoint
+      └─ Save valuation result, report HTML, and session data
 
 8. PDF DOWNLOAD
    │
@@ -844,8 +842,8 @@ URL.revokeObjectURL(blobUrl)
 - `src/hooks/valuationToolbar/useValuationToolbarDownload.ts` - Download hook
 
 **Report Saving**:
-- `src/services/reportApi.ts` - Report persistence API
-- `src/components/ValuationReport.tsx` - Report completion handler
+- `src/services/report/ReportAssetService.ts` - Serialized report asset persistence
+- `src/features/manual/utils/manualReportAssetSave.ts` - Manual-flow asset save coordinator
 
 ---
 

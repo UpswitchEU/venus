@@ -45,7 +45,7 @@
  *
  * The helper deliberately lives outside React state so it can be unit-tested
  * with plain Vitest fakes (no jsdom render cycle required) and reused by both
- * `ManualLayout.tsx` (write-side) and `useBootstrapSync.ts` (read-side)
+ * `ManualValuationWorkspace.tsx` (write-side) and `useBootstrapSync.ts` (read-side)
  * without circular imports.
  *
  * @module utils/newValuationPrefillStorage
@@ -53,7 +53,7 @@
 
 const STORAGE_KEY = 'venus_new_valuation_prefill'
 
-/** Soft cap mirroring the original ManualLayout guard against huge payloads. */
+/** Soft cap mirroring the original manual workspace guard against huge payloads. */
 const MAX_PAYLOAD_BYTES = 500_000
 
 /**

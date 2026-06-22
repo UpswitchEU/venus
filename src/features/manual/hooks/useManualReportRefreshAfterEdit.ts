@@ -146,7 +146,7 @@ export function useManualReportRefreshAfterEdit({
 
         return true
       } catch (refreshErr) {
-        generalLogger.warn('[ManualLayout] getReport after valuation edit failed', {
+        generalLogger.warn('[ManualValuationWorkspace] getReport after valuation edit failed', {
           error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
         })
 
@@ -193,7 +193,7 @@ function regeneratePdfAfterValuationEdit({
 
   generatePdf().catch((err: unknown) => {
     if (err instanceof APIError && err.statusCode === 402) return
-    generalLogger.warn('[ManualLayout] PDF re-generation after valuation edit failed', {
+    generalLogger.warn('[ManualValuationWorkspace] PDF re-generation after valuation edit failed', {
       error: err instanceof Error ? err.message : String(err),
     })
   })

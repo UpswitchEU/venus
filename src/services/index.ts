@@ -7,7 +7,7 @@
  * @module services
  */
 
-export { ReportService, reportService } from './report/ReportService'
+export { ReportAssetService, reportAssetService } from './report/ReportAssetService'
 export { SessionService, sessionService } from './session/SessionService'
 export { ValuationService, valuationService } from './valuation/ValuationService'
 export { VersionService, versionService } from './version/VersionService'

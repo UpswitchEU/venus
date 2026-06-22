@@ -10,14 +10,19 @@
 import { useTranslations } from 'next-intl'
 import { useCallback } from 'react'
 import { toast } from 'sonner'
-import { trackValuationCalculate, trackValuationResult } from '@/lib/analytics'
+import {
+  trackFinancialsStepSubmitted,
+  trackValuationCalculate,
+  trackValuationResult,
+} from '@/lib/analytics'
+import type { YearDataInput } from '@/types/valuation'
 import {
   buildManualCalculationRequest,
   type ManualCalculationRequest,
 } from '../../../features/manual/utils/manualValuationRequest'
 import { isSessionPoolPressureCircuitOpen } from '../../../hooks/sessionPoolPressureCircuit'
 import { useCanSave } from '../../../hooks/useCanSave'
-import { reportService, sessionService, valuationService } from '../../../services'
+import { reportAssetService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
@@ -271,6 +276,24 @@ export const useValuationFormSubmission = (
         let result
         const calculationStart = performance.now()
         trackValuationCalculate(!!previousVersion)
+        // BET-315 — financials-step funnel: baseline the null-EBITDA submission
+        // rate (revenue given, EBITDA left at 0 = "I don't know my EBITDA").
+        {
+          const yearRows = [
+            request.current_year_data,
+            ...(request.historical_years_data ?? []),
+          ].filter((row): row is YearDataInput => row != null)
+          const hasRevenue = (row: YearDataInput) => Number.isFinite(row.revenue) && row.revenue > 0
+          const missingEbitda = (row: YearDataInput) =>
+            !Number.isFinite(row.ebitda) || row.ebitda === 0
+          const revenueRows = yearRows.filter(hasRevenue)
+          trackFinancialsStepSubmitted({
+            totalYears: yearRows.length,
+            revenueYears: revenueRows.length,
+            zeroEbitdaYears: yearRows.filter(missingEbitda).length,
+            revenueNoEbitdaYears: revenueRows.filter(missingEbitda).length,
+          })
+        }
         try {
           generalLogger.info('[Manual] Calling valuation service', {
             requestKeys: Object.keys(request),
@@ -357,7 +380,7 @@ export const useValuationFormSubmission = (
             try {
               generalLogger.debug('[Manual] Saving report assets', { reportId })
 
-              await reportService.saveReportAssets(reportId, {
+              await reportAssetService.saveReportAssets(reportId, {
                 sessionData: mergeSessionDataForReportAssets(
                   formData as unknown as Record<string, unknown>,
                   request as unknown as Record<string, unknown>,

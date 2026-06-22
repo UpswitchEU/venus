@@ -107,6 +107,8 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
 
   flushPendingVisibilityPersist(): void {
     if (!this.pendingVisibilityFlushReportId) return
+    if (this.inFlight || this.options.isVisibilityPersistBlocked?.()) return
+
     const reportId = this.pendingVisibilityFlushReportId
     this.pendingVisibilityFlushReportId = null
     void this.runPersist(reportId)

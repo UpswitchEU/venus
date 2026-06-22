@@ -127,7 +127,7 @@ export function useManualNormalizationImportActions<
           },
         ])
       } catch (error) {
-        generalLogger.error('[ManualLayout] CSV import analysis failed', {
+        generalLogger.error('[ManualValuationWorkspace] CSV import analysis failed', {
           error: error instanceof Error ? error.message : String(error),
         })
         toast.error(translate('importAnalysisFailed'), {

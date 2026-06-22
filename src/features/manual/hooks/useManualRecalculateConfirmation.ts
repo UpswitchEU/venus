@@ -81,11 +81,14 @@ export function useManualRecalculateConfirmation({
 
   const openRecalculateConfirmation = useCallback(
     (data: ValuationFormData, flags: ManualRecalculatePopupFlags, versionNumber: number) => {
-      generalLogger.info('[ManualLayout] Changes detected, showing recalculation confirmation', {
-        hasFormChanges: flags.hasFormChanges,
-        hasNormalizations: flags.hasNormalizations,
-        currentVersionNumber: versionNumber,
-      })
+      generalLogger.info(
+        '[ManualValuationWorkspace] Changes detected, showing recalculation confirmation',
+        {
+          hasFormChanges: flags.hasFormChanges,
+          hasNormalizations: flags.hasNormalizations,
+          currentVersionNumber: versionNumber,
+        }
+      )
       pendingSubmitDataRef.current = data
       pendingPopupFlagsRef.current = flags
       recalculateConfirmationOpenRef.current = true
@@ -231,7 +234,7 @@ async function fetchVersionsForConfirmation(
     .getState()
     .fetchVersions(reportId)
     .catch((err) => {
-      generalLogger.warn('[ManualLayout] Pre-submit fetchVersions failed', {
+      generalLogger.warn('[ManualValuationWorkspace] Pre-submit fetchVersions failed', {
         error: err instanceof Error ? err.message : String(err),
       })
       toast.warning(translateHistory('loadError'), {

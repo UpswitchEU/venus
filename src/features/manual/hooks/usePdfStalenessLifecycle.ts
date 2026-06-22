@@ -1,7 +1,7 @@
 /**
  * usePdfStalenessLifecycle — owns the entire "is the PDF fresh enough to
  * download?" lifecycle. Before Phase 4c.2 Hook 3, this was 3 effects, 4 refs,
- * 4 useState slots, and 1 retry callback scattered across `ManualLayout.tsx`
+ * 4 useState slots, and 1 retry callback scattered across `ManualValuationWorkspace.tsx`
  * (~250 lines) with `pdfWaitTimedOut` having **three** producers — the classic
  * "shared boolean from multiple sources" smell flagged in the Phase 4c.2 audit.
  *
@@ -35,14 +35,8 @@ import type { ValuationReportData } from '@/components/calculator'
 import { useManualResultsStore } from '@/store/manual'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
-import { hydrateClientValuationResultsMap } from '@/utils/extractValuationResultsMap'
 import { isSessionKey } from '@/utils/identifiers'
 import { generalLogger } from '@/utils/logger'
-import { getRenderableReportHtmlFromCurrentOrFallback } from '@/utils/safetyNetReportHtml'
-import {
-  resolveSynthesisAwarePresentation,
-  shouldAlignRecommendedAskingWithSynthesis,
-} from '../components/manualReportPresentation'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import {
   derivePdfStale,
@@ -53,6 +47,10 @@ import {
   PDF_STALE_POLL_MAX_MS,
   PDF_STALE_UNCHANGED_STREAK_THRESHOLD,
 } from './usePdfStalenessLifecycleModel'
+import {
+  mergePolledResultWithExisting,
+  reportPatchFromFreshResponse,
+} from './usePdfStalenessLifecycleReportPatch'
 import { usePdfStalenessLifecycleRuntime } from './usePdfStalenessLifecycleRuntime'
 
 /** Narrow signature for `t` from `useTranslations('toast')` (or equivalent). */
@@ -111,77 +109,6 @@ export interface UsePdfStalenessLifecycleResult {
   retry: () => Promise<void>
 }
 
-function mergePolledResultWithExisting(
-  fresh: ValuationResponse,
-  latestExistingResult: ValuationResponse | null | undefined
-): ValuationResponse {
-  const nextValuationResults =
-    hydrateClientValuationResultsMap(fresh) ??
-    hydrateClientValuationResultsMap(latestExistingResult ?? null)
-  return {
-    ...(latestExistingResult || {}),
-    ...fresh,
-    html_report: getRenderableReportHtmlFromCurrentOrFallback(
-      [fresh.html_report],
-      [latestExistingResult?.html_report],
-      {
-        currentRenderFingerprint: fresh.render_fingerprint,
-        fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
-      }
-    ),
-    valuation_results: nextValuationResults ?? undefined,
-    fiscal_4x_anchor: fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
-    multiple_adjustment_summary:
-      fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
-  } as ValuationResponse
-}
-
-function reportPatchFromFreshResponse(
-  fresh: ValuationResponse,
-  canDownloadPdf: boolean
-): Pick<
-  ValuationReportData,
-  | 'reportUpdatedAt'
-  | 'pdfGeneratedAt'
-  | 'pdfUrl'
-  | 'renderFingerprint'
-  | 'pdfRenderFingerprint'
-  | 'pdfCoherent'
-  | 'valuation'
-  | 'valuationLow'
-  | 'valuationHigh'
-  | 'recommendedAskingPrice'
-> {
-  const storeSnap = useManualResultsStore.getState()
-  const presentation = resolveSynthesisAwarePresentation(fresh, storeSnap.selectedMethod, {
-    preSelectedMethods: storeSnap.preSelectedMethods,
-    userWeights: storeSnap.userWeights,
-  })
-
-  return {
-    reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : undefined,
-    pdfGeneratedAt:
-      fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
-        ? new Date(String(fresh.pdf_generated_at))
-        : null,
-    pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
-    renderFingerprint:
-      typeof fresh.render_fingerprint === 'string' ? fresh.render_fingerprint : null,
-    pdfRenderFingerprint:
-      typeof fresh.pdf_render_fingerprint === 'string' ? fresh.pdf_render_fingerprint : null,
-    pdfCoherent: typeof fresh.pdf_coherent === 'boolean' ? fresh.pdf_coherent : null,
-    valuation: presentation.valuation,
-    valuationLow: presentation.valuationLow,
-    valuationHigh: presentation.valuationHigh,
-    ...(shouldAlignRecommendedAskingWithSynthesis(fresh, {
-      preSelectedMethods: storeSnap.preSelectedMethods,
-      userWeights: storeSnap.userWeights,
-    })
-      ? { recommendedAskingPrice: presentation.valuation }
-      : {}),
-  }
-}
-
 export function usePdfStalenessLifecycle(
   params: UsePdfStalenessLifecycleParams
 ): UsePdfStalenessLifecycleResult {
@@ -202,8 +129,10 @@ export function usePdfStalenessLifecycle(
   } = params
 
   const {
+    acquirePollLock,
     bySession404StreakRef,
     bySessionBackoffUntilRef,
+    cancelPollLock,
     clearWaitTimer,
     effectivePdfWaitTimedOut,
     extendWaitTimeoutForTransientError,
@@ -215,7 +144,7 @@ export function usePdfStalenessLifecycle(
     pdfPollErrorCount,
     pdfPollTransientCount,
     pdfWaitTimedOut,
-    pollInFlightRef,
+    releasePollLock,
     resetFreshCycle,
     resetPostGenerationSync,
     resetReportScopedPolling,
@@ -269,8 +198,9 @@ export function usePdfStalenessLifecycle(
 
   const applyPolledReport = useCallback(
     (fresh: ValuationResponse) => {
-      const patch = reportPatchFromFreshResponse(fresh, canDownloadPdf)
-      const latestExistingResult = useManualResultsStore.getState().result
+      const storeSnap = useManualResultsStore.getState()
+      const patch = reportPatchFromFreshResponse(fresh, canDownloadPdf, storeSnap)
+      const latestExistingResult = storeSnap.result
       const mergedResult = mergePolledResultWithExisting(fresh, latestExistingResult)
       setResult(mergedResult)
       setReport((prev) => (prev ? { ...prev, ...patch } : prev))
@@ -290,7 +220,7 @@ export function usePdfStalenessLifecycle(
         unchangedStreakRef.current = 0
         setPdfWaitTimedOut(false)
         clearWaitTimer()
-        return
+        return patch
       }
 
       const pdfGenMs = patch.pdfGeneratedAt instanceof Date ? patch.pdfGeneratedAt.getTime() : null
@@ -302,7 +232,7 @@ export function usePdfStalenessLifecycle(
         if (streak >= PDF_STALE_UNCHANGED_STREAK_THRESHOLD && !isPdfGeneratingRef.current) {
           setPdfWaitTimedOut(true)
         }
-        return
+        return patch
       }
 
       if (lastPolledPdfGeneratedAtMsRef.current === pdfGenMs) {
@@ -314,6 +244,7 @@ export function usePdfStalenessLifecycle(
         lastPolledPdfGeneratedAtMsRef.current = pdfGenMs
         unchangedStreakRef.current = 0
       }
+      return patch
     },
     [
       canDownloadPdf,
@@ -330,7 +261,6 @@ export function usePdfStalenessLifecycle(
 
   const runStalePollOnce = useCallback(
     async (lookupId: string, isActive?: () => boolean): Promise<boolean> => {
-      if (pollInFlightRef.current) return false
       if (isActive && !isActive()) return false
       if (isSessionKey(lookupId) && Date.now() < bySessionBackoffUntilRef.current) {
         return false
@@ -338,7 +268,8 @@ export function usePdfStalenessLifecycle(
       if (Date.now() < transientBackoffUntilRef.current) {
         return false
       }
-      pollInFlightRef.current = true
+      const pollLockToken = acquirePollLock()
+      if (pollLockToken === null) return false
       try {
         const fresh = await getReport(
           lookupId,
@@ -387,16 +318,17 @@ export function usePdfStalenessLifecycle(
         }
         return false
       } finally {
-        pollInFlightRef.current = false
+        releasePollLock(pollLockToken)
       }
     },
     [
+      acquirePollLock,
       applyPolledReport,
       extendWaitTimeoutForTransientError,
       getReport,
       bySession404StreakRef,
       bySessionBackoffUntilRef,
-      pollInFlightRef,
+      releasePollLock,
       setPdfPollErrorCount,
       setPdfPollTransientCount,
       transientBackoffUntilRef,
@@ -463,7 +395,7 @@ export function usePdfStalenessLifecycle(
       cancelled = true
       clearInterval(id)
       clearTimeout(max)
-      pollInFlightRef.current = false
+      cancelPollLock()
     }
   }, [
     pdfStale,
@@ -471,7 +403,7 @@ export function usePdfStalenessLifecycle(
     pdfWaitTimedOut,
     isPdfGenerating,
     runStalePollOnce,
-    pollInFlightRef,
+    cancelPollLock,
   ])
 
   // ─── Effect G — sync Titan row immediately after generation finishes ───
@@ -523,8 +455,7 @@ export function usePdfStalenessLifecycle(
       if (!isStillRelevant()) return
       const fresh = await getReport(startLookupId)
       if (!isStillRelevant()) return
-      applyPolledReport(fresh)
-      const patch = reportPatchFromFreshResponse(fresh, canDownloadPdf)
+      const patch = applyPolledReport(fresh)
       const pdfStillStaleAfterRetry =
         patch.reportUpdatedAt != null &&
         isPdfLikelyStaleVenus({

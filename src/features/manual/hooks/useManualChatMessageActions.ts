@@ -35,8 +35,7 @@ import {
   buildManualUserChatMessage,
   patchManualChatMessage,
 } from '../utils/manualChatMessages'
-import { requestManualChatNonStreamingRecovery } from '../utils/manualChatNonStreamingRecovery'
-import { pollHistoryForPersistedAnswer } from '../utils/manualChatPersistedAnswerRecovery'
+import { runManualChatNonStreamingRecovery } from '../utils/manualChatNonStreamingRecovery'
 import {
   buildManualAIChatRequest,
   getManualChatVersionCount,
@@ -362,80 +361,37 @@ export function useManualChatMessageActions<TCollectedData extends object>({
           // the offline template. Let the stream request finish; abort only after recovery.
           setIsChatGenerating(true)
           generalLogger.warn('Streaming produced no visible content, falling back to non-streaming')
-          void requestManualChatNonStreamingRecovery({
+          void runManualChatNonStreamingRecovery({
             aiRequest,
             sendMessage: aiChatService.sendMessage.bind(aiChatService),
+            loadHistory: aiChatService.loadHistory.bind(aiChatService),
             translate,
             createId: () => crypto.randomUUID(),
+            isCancelled: () => activeChatTurnIdRef.current !== turnId,
+            currentConversationId: conversationId,
+            fallbackHistoryReportId: manualChatReportId || resolvedReportId || reportId || '',
+            setConversationId,
+            cancelAssistantContentFrame,
+            patchAssistantMessage,
+            markReceivedContent: () => {
+              hasReceivedAnyContent = true
+            },
+            showAiUnavailableToast: () => {
+              toast.info(translate('aiUnavailable'), {
+                description: translate('aiUnavailableDesc'),
+                duration: 4000,
+              })
+            },
+            onFieldUpdates: (fieldUpdates) => {
+              setPendingUpdates((prev) => [...prev, ...fieldUpdates])
+            },
+            onNormalisationSuggestions: handleNormalisationSuggestions,
+          }).finally(() => {
+            if (activeChatTurnIdRef.current !== turnId) return
+            clearActiveStream()
+            setIsChatGenerating(false)
+            releaseTurn()
           })
-            .then(async (outcome) => {
-              if (activeChatTurnIdRef.current !== turnId) return
-              switch (outcome.status) {
-                case 'terminal_error':
-                case 'miss': {
-                  // Self-healing last resort. Titan runs the Claude turn on an
-                  // internal timeout (not the inbound request signal), so it
-                  // finishes and PERSISTS the answer even when the stream +
-                  // /chat connections both died ~100ms in (the staging
-                  // client/edge disconnect). Poll conversation history for that
-                  // persisted answer before surfacing a dead "verbinding
-                  // verbroken" — the answer simply landed a few seconds late.
-                  const persisted = await pollHistoryForPersistedAnswer({
-                    loadHistory: aiChatService.loadHistory.bind(aiChatService),
-                    reportId:
-                      aiRequest.sessionId ||
-                      manualChatReportId ||
-                      resolvedReportId ||
-                      reportId ||
-                      '',
-                    userContent: aiRequest.message,
-                    isCancelled: () => activeChatTurnIdRef.current !== turnId,
-                  })
-                  if (activeChatTurnIdRef.current !== turnId) return
-                  if (persisted) {
-                    hasReceivedAnyContent = true
-                    cancelAssistantContentFrame()
-                    patchAssistantMessage({ content: persisted.content })
-                    return
-                  }
-                  patchAssistantMessage(
-                    outcome.status === 'terminal_error'
-                      ? outcome.patch
-                      : buildManualChatTerminalErrorPatch({ kind: 'generic' }, translate)
-                  )
-                  return
-                }
-                case 'recovered': {
-                  const nextConversationId = resolveReturnedConversationIdUpdate(
-                    conversationId,
-                    outcome.conversationId
-                  )
-                  if (nextConversationId) {
-                    setConversationId(nextConversationId)
-                  }
-                  cancelAssistantContentFrame()
-                  patchAssistantMessage(outcome.patch)
-                  if (outcome.showAiUnavailableToast) {
-                    toast.info(translate('aiUnavailable'), {
-                      description: translate('aiUnavailableDesc'),
-                      duration: 4000,
-                    })
-                  }
-                  const recoveredFieldUpdates = outcome.fieldUpdates
-                  if (recoveredFieldUpdates) {
-                    setPendingUpdates((prev) => [...prev, ...recoveredFieldUpdates])
-                  }
-                  handleNormalisationSuggestions(outcome.normalisationSuggestions)
-                  return
-                }
-              }
-            })
-            .finally(() => {
-              if (activeChatTurnIdRef.current !== turnId) return
-              clearActiveStream()
-              setIsChatGenerating(false)
-              releaseTurn()
-            })
           return true
         }
 

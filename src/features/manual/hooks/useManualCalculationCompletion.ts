@@ -1,6 +1,6 @@
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react'
 import { toast } from 'sonner'
-import { reportService } from '../../../services'
+import { reportAssetService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
@@ -137,7 +137,8 @@ export function useManualCalculationCompletion({
         dirtyVersion: useSessionStore.getState().dirtyVersion,
         isStillTarget: submitRun.isStillTarget,
         deps: {
-          saveReportAssets: (reportId, assets) => reportService.saveReportAssets(reportId, assets),
+          saveReportAssets: (reportId, assets) =>
+            reportAssetService.saveReportAssets(reportId, assets),
           markSaved: (dirtyVersion) => useSessionStore.getState().markSaved(dirtyVersion),
         },
       })
@@ -148,7 +149,7 @@ export function useManualCalculationCompletion({
       }
 
       if (saveResult.saveError) {
-        generalLogger.error('[ManualLayout] Failed to save report assets', {
+        generalLogger.error('[ManualValuationWorkspace] Failed to save report assets', {
           reportId: idForApi,
           error:
             saveResult.saveError instanceof Error
@@ -278,9 +279,12 @@ async function completeManualVersioning({
   if (!idForApi) return { aborted: false, versionCreationFailed: false }
 
   if (!durableSaveSucceeded) {
-    generalLogger.warn('[ManualLayout] Skipping version sync until report save succeeds', {
-      reportId: idForApi,
-    })
+    generalLogger.warn(
+      '[ManualValuationWorkspace] Skipping version sync until report save succeeds',
+      {
+        reportId: idForApi,
+      }
+    )
     return { aborted: false, versionCreationFailed: false }
   }
 
@@ -308,7 +312,7 @@ async function completeManualVersioning({
       versioningResult.fetchError instanceof Error
         ? versioningResult.fetchError.message
         : String(versioningResult.fetchError)
-    generalLogger.warn('[ManualLayout] fetchVersions failed', {
+    generalLogger.warn('[ManualValuationWorkspace] fetchVersions failed', {
       reportId: idForApi,
       error: fetchMsg,
     })
@@ -336,7 +340,7 @@ async function completeManualVersioning({
     fetchVersions: (reportId) => useVersionHistoryStore.getState().fetchVersions(reportId),
     isStillTarget: submitRun.isStillTarget,
     onError: (err) => {
-      generalLogger.warn('[ManualLayout] Version history sync failed', {
+      generalLogger.warn('[ManualValuationWorkspace] Version history sync failed', {
         error: err instanceof Error ? err.message : String(err),
       })
       toast.warning(translateHistory('loadError'), {

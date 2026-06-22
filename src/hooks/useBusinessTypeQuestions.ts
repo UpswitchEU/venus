@@ -8,9 +8,10 @@
  * @version 2.0.0
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type BusinessTypeQuestionsOptions,
+  type BusinessTypeQuestionsResponse,
   businessTypesApiService,
 } from '../services/businessTypesApi'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
@@ -72,6 +73,29 @@ export interface UseBusinessTypeQuestionsState {
   getRequiredQuestions: () => BusinessTypeQuestion[]
 }
 
+function toQuestionsMetadata(
+  result: BusinessTypeQuestionsResponse,
+  canonicalBusinessTypeId: string
+): QuestionsMetadata {
+  return {
+    questions:
+      result.questions?.map((q) => ({
+        id: q.id,
+        business_type_id: canonicalBusinessTypeId,
+        question_id: q.id,
+        question_text: q.text,
+        question_type: 'text',
+        priority: 0,
+        phase: result.phase,
+        required: q.required,
+        impacts_valuation: false,
+        status: 'active',
+      })) || [],
+    total_required: result.total_required,
+    estimated_time: result.estimated_time.toString(),
+  }
+}
+
 // ============================================================================
 // HOOK
 // ============================================================================
@@ -83,15 +107,40 @@ export function useBusinessTypeQuestions(
   const [metadata, setMetadata] = useState<QuestionsMetadata | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
+  const requestTokenRef = useRef(0)
+  const flowType = options?.flow_type
+  const phase = options?.phase
+  const existingData = options?.existing_data
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      requestTokenRef.current += 1
+    }
+  }, [])
 
   const fetchQuestions = useCallback(async () => {
+    const requestToken = requestTokenRef.current + 1
+    requestTokenRef.current = requestToken
     const canonicalBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
     if (!canonicalBusinessTypeId) {
-      setMetadata(null)
-      setLoading(false)
-      setError(null)
+      if (mountedRef.current) {
+        setMetadata(null)
+        setLoading(false)
+        setError(null)
+      }
       return
     }
+    const requestOptions =
+      flowType || phase || existingData
+        ? {
+            existing_data: existingData,
+            flow_type: flowType,
+            phase,
+          }
+        : undefined
 
     try {
       setLoading(true)
@@ -99,33 +148,18 @@ export function useBusinessTypeQuestions(
 
       generalLogger.debug('[useBusinessTypeQuestions] Fetching questions', {
         businessTypeId: canonicalBusinessTypeId,
-        options,
+        options: requestOptions,
       })
 
       const result = await businessTypesApiService.getBusinessTypeQuestions(
         canonicalBusinessTypeId,
-        options
+        requestOptions
       )
 
+      if (!mountedRef.current || requestTokenRef.current !== requestToken) return
+
       if (result) {
-        // Ensure questions array exists and matches expected type
-        const metadata: QuestionsMetadata = {
-          questions:
-            result.questions?.map((q) => ({
-              id: q.id,
-              business_type_id: canonicalBusinessTypeId,
-              question_id: q.id,
-              question_text: q.text,
-              question_type: 'text',
-              priority: 0,
-              phase: result.phase,
-              required: q.required,
-              impacts_valuation: false,
-              status: 'active',
-            })) || [],
-          total_required: result.total_required,
-          estimated_time: result.estimated_time.toString(),
-        }
+        const metadata = toQuestionsMetadata(result, canonicalBusinessTypeId)
         setMetadata(metadata)
         generalLogger.info('[useBusinessTypeQuestions] Questions loaded', {
           businessTypeId: canonicalBusinessTypeId,
@@ -134,12 +168,14 @@ export function useBusinessTypeQuestions(
           estimatedTime: result.estimated_time,
         })
       } else {
+        setMetadata(null)
         setError('No questions found')
         generalLogger.error('[useBusinessTypeQuestions] No questions found', {
           businessTypeId: canonicalBusinessTypeId,
         })
       }
     } catch (err) {
+      if (!mountedRef.current || requestTokenRef.current !== requestToken) return
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch questions'
       setError(errorMessage)
       generalLogger.error('[useBusinessTypeQuestions] Error:', {
@@ -147,9 +183,11 @@ export function useBusinessTypeQuestions(
         error: errorMessage,
       })
     } finally {
-      setLoading(false)
+      if (mountedRef.current && requestTokenRef.current === requestToken) {
+        setLoading(false)
+      }
     }
-  }, [businessTypeId, options?.flow_type, options?.phase, options?.existing_data, options])
+  }, [businessTypeId, flowType, phase, existingData])
 
   const refetch = useCallback(async () => {
     await fetchQuestions()

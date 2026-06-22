@@ -197,7 +197,7 @@ export function useManualMethodPersistenceController({
       onError: (intent, error) => {
         if (intent.kind === 'method') {
           const errMsg = error instanceof Error ? error.message : String(error)
-          generalLogger.error('[ManualLayout] Method persist failed', {
+          generalLogger.error('[ManualValuationWorkspace] Method persist failed', {
             error: errMsg,
             selectedMethod: intent.method,
           })
@@ -211,7 +211,7 @@ export function useManualMethodPersistenceController({
             toast.error(translate('persistFailed'), { description: translate('persistFailedDesc') })
           }
         } else {
-          generalLogger.error('[ManualLayout] Preparer multiple persist failed', {
+          generalLogger.error('[ManualValuationWorkspace] Preparer multiple persist failed', {
             error: error instanceof Error ? error.message : String(error),
             selectedMethod: intent.method,
           })

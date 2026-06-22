@@ -114,7 +114,7 @@ handleQuerySubmit() {
 
 #### Step 5: Manual Layout Setup
 
-**File**: `features/manual/components/ManualLayout.tsx`
+**File**: `features/manual/components/ManualValuationWorkspace.tsx`
 
 **Layout Structure**:
 - **Left Panel** (50% width): `ValuationForm`

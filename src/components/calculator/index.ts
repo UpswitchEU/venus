@@ -9,8 +9,6 @@
 export { isValuationActiveWorkspacePath } from './advisorLifecycleWorkspace'
 export type { CalculationBreakdownModalProps } from './CalculationBreakdownModal'
 export { CalculationBreakdownModal } from './CalculationBreakdownModal'
-export type { CalculationBreakdownPanelProps } from './CalculationBreakdownPanel'
-export { CalculationBreakdownPanel } from './CalculationBreakdownPanel'
 export type {
   CalculatorNavProps,
   DownloadHistoryItem,

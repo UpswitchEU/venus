@@ -30,7 +30,7 @@
 
 ### 5. Receive Report & Assets
 - **Response:** `ValuationResponse` with `valuation`, `html_report`, `info_tab_html`, etc.
-- **Save:** `reportService.saveReportAssets()` — atomic save of sessionData, valuationResult, htmlReport, infoTabHtml
+- **Save:** `reportAssetService.saveReportAssets()` — serialized atomic save of sessionData, valuationResult, and htmlReport
 - **Display:** ValuationReportPanel renders HTML report; version history stored
 
 ### 6. PDF Export

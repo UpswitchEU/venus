@@ -10,10 +10,7 @@ const codeExtensions = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx']);
 const skipFiles = new Set([
 	// Logging adapters are the approved sink for direct console calls.
 	'src/lib/authLogger.ts',
-	'src/utils/auth/authLogger.ts',
-	'src/utils/debugLogger.ts',
 	'src/utils/logger.ts',
-	'src/utils/loggers.ts',
 ]);
 const skipDirs = new Set([
 	'.git',

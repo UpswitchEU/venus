@@ -552,6 +552,7 @@ export function ManualInputPanel({
               hasDcfSelected={hasDcfSelected}
               hasEbitdaValue={hasEbitdaValue}
               hasFinancials={hasFinancials}
+              hasImportedAccountingData={importBatchData != null}
               historicalCardRows={historicalCardRows}
               importAccountingError={importAccountingError}
               integrationDerivedCapexPct={integrationDerivedCapexPct}

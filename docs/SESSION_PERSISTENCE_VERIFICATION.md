@@ -96,7 +96,7 @@ saveCompleteSession: (data: {
 
 ### Layout Components ✅
 
-#### ManualLayout.tsx
+#### ManualValuationWorkspace.tsx
 ```typescript
 // Line 63
 useSessionRestoration()

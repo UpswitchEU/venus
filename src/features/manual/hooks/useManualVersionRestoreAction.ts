@@ -75,7 +75,7 @@ export function useManualVersionRestoreAction({
         setRightPanelView('preview')
         toast.success(translate('versionRestored', { version: versionNumber ?? '' }))
       } catch (error) {
-        generalLogger.warn('[ManualLayout] Version restore failed', {
+        generalLogger.warn('[ManualValuationWorkspace] Version restore failed', {
           error: error instanceof Error ? error.message : String(error),
         })
         toast.error(translate('versionRestoreFailed'))
@@ -102,11 +102,13 @@ function notifyBackendVersionRestore(reportId?: string | null, versionNumber?: n
     .then(({ VersionAPI }) => {
       const api = new VersionAPI()
       api.restoreVersion(reportId, versionNumber).catch(() => {
-        generalLogger.warn('[ManualLayout] Backend restore notification failed (non-blocking)')
+        generalLogger.warn(
+          '[ManualValuationWorkspace] Backend restore notification failed (non-blocking)'
+        )
       })
     })
     .catch((err: unknown) => {
-      generalLogger.warn('[ManualLayout] VersionAPI import failed', {
+      generalLogger.warn('[ManualValuationWorkspace] VersionAPI import failed', {
         error: err instanceof Error ? err.message : String(err),
       })
     })

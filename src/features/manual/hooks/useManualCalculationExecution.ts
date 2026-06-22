@@ -45,14 +45,19 @@ export function useManualCalculationExecution({
         const persistOk = await persistNormalizationsBeforeCalculate(idForApi, request)
         if (!submitRun.isStillTarget()) {
           submitRun.endLoading()
-          generalLogger.info('[ManualLayout] Dropping stale manual calculation before submit', {
-            ...submitRun.staleContext(),
-          })
+          generalLogger.info(
+            '[ManualValuationWorkspace] Dropping stale manual calculation before submit',
+            {
+              ...submitRun.staleContext(),
+            }
+          )
           return { aborted: true, calculationDurationMs: 0, valuationResult: null }
         }
         if (!persistOk) {
           submitRun.endLoading()
-          generalLogger.warn('[ManualLayout] Pre-calculate normalization persist failed')
+          generalLogger.warn(
+            '[ManualValuationWorkspace] Pre-calculate normalization persist failed'
+          )
           toast.error(translate('persistFailed'), {
             description: translate('persistFailedDesc'),
             action: {
@@ -70,7 +75,7 @@ export function useManualCalculationExecution({
       // Titan/python multiples preflight to attach a Delphi benchmark
       // contract. Without these we can't distinguish a missing-on-FE bug
       // from a Titan enrichment lookup miss.
-      generalLogger.info('[ManualLayout] Calling valuationService.calculateValuation', {
+      generalLogger.info('[ManualValuationWorkspace] Calling valuationService.calculateValuation', {
         companyName: request.company_name,
         industry: request.industry,
         businessTypeId: request.business_type_id ?? null,
@@ -83,7 +88,7 @@ export function useManualCalculationExecution({
 
       if (!submitRun.isStillTarget()) {
         submitRun.endLoading()
-        generalLogger.info('[ManualLayout] Dropping stale manual calculation result', {
+        generalLogger.info('[ManualValuationWorkspace] Dropping stale manual calculation result', {
           ...submitRun.staleContext(),
         })
         return { aborted: true, calculationDurationMs, valuationResult: null }

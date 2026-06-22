@@ -35,9 +35,9 @@ interface ValuationFlowProps {
   initialSelectedMethodsFromUrl?: string
 }
 
-const ManualLayout = lazy(() =>
-  import('../../manual/components/ManualLayout').then((module) => ({
-    default: module.ManualLayout,
+const ManualValuationWorkspace = lazy(() =>
+  import('../../manual/components/ManualValuationWorkspace').then((module) => ({
+    default: module.ManualValuationWorkspace,
   }))
 )
 
@@ -55,7 +55,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   initialSelectedMethodsFromUrl,
 }) => {
   return (
-    <ManualLayout
+    <ManualValuationWorkspace
       reportId={reportId}
       onComplete={onComplete}
       initialVersion={initialVersion}

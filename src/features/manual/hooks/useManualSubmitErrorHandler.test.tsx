@@ -127,7 +127,7 @@ describe('useManualSubmitErrorHandler', () => {
       )
       // Log carries the via503 flag so post-mortems can tell which layer caught it
       expect(generalLogger.warn).toHaveBeenCalledWith(
-        '[ManualLayout] BENCHMARK_CONTRACT_REQUIRED',
+        '[ManualValuationWorkspace] BENCHMARK_CONTRACT_REQUIRED',
         expect.objectContaining({ via503: true })
       )
     })
@@ -143,7 +143,7 @@ describe('useManualSubmitErrorHandler', () => {
       callHandler(error)
 
       expect(generalLogger.warn).toHaveBeenCalledWith(
-        '[ManualLayout] BENCHMARK_CONTRACT_REQUIRED',
+        '[ManualValuationWorkspace] BENCHMARK_CONTRACT_REQUIRED',
         expect.objectContaining({ via503: false })
       )
     })

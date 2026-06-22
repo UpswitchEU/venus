@@ -1445,6 +1445,24 @@
 			"sentBody": "Nous vous préviendrons dès que {email} se connecte ou remplit vos chiffres.",
 			"genericError": "L'invitation n'a pas pu être envoyée. Réessayez."
 		},
+		"connectAccounting": {
+			"descriptionConnected": "{provider} est connecté — importez vos 3 dernières années de chiffre d'affaires et d'EBITDA, vérifiés.",
+			"descriptionDisconnected": "Connectez Yuki, Exact, Silverfin et plus — nous récupérons 3 ans de chiffre d'affaires et d'EBITDA pour vous. Vérifiés, sans saisie.",
+			"connectCta": "Connecter la comptabilité",
+			"autofillReassurance": "Une fois connecté, vos chiffres se remplissent ici automatiquement — revenez simplement à cette étape.",
+			"verifiedTitle": "Vérifié depuis votre comptabilité",
+			"verifiedBody": "Vos chiffres proviennent directement de {provider} — aucune saisie manuelle.",
+			"genericProvider": "votre logiciel comptable"
+		},
+		"registryEstimate": {
+			"prompt": "Vous ne connaissez pas vos chiffres ? Obtenez une fourchette à partir des données publiques du registre.",
+			"cta": "Estimez-le pour moi",
+			"loading": "Estimation à partir des données publiques…",
+			"bandTitle": "Estimation provisoire (données publiques)",
+			"bandCaveat": "Une fourchette approximative basée sur les données du registre — faible confiance. Connectez votre comptabilité ou invitez votre comptable ci-dessus pour un chiffre précis.",
+			"unavailableTitle": "Aucune estimation publique disponible",
+			"unavailableBody": "Nous n'avons pas pu déduire de fourchette à partir des données publiques pour cette entreprise. Connectez votre comptabilité ou invitez votre comptable ci-dessus pour obtenir votre chiffre."
+		},
 		"silverfin": {
 			"importBatchSuccessTitle": "Exercices fiscaux {years} importés à partir de {provider}",
 			"importBatchSuccessDescription": "Balance de vérification cartographiée : {score}% correspond au MAR belge"

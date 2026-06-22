@@ -23,15 +23,22 @@ export function useReducedMotion(): boolean {
     // Set initial value
     setPrefersReducedMotion(mediaQuery.matches)
 
-    // Listen for changes
     const handleChange = (event: MediaQueryListEvent) => {
       setPrefersReducedMotion(event.matches)
     }
 
-    mediaQuery.addEventListener('change', handleChange)
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => {
+        mediaQuery.removeEventListener('change', handleChange)
+      }
+    }
 
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange)
+    if (mediaQuery.addListener) {
+      mediaQuery.addListener(handleChange)
+      return () => {
+        mediaQuery.removeListener(handleChange)
+      }
     }
   }, [])
 

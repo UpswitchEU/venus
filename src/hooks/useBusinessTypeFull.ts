@@ -11,13 +11,13 @@
  * @version 2.0.0
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type BusinessTypeFullMetadata,
   businessTypesApiService,
 } from '../services/businessTypesApi'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
-import { logger as generalLogger } from '../utils/loggers'
+import { generalLogger } from '../utils/logger'
 
 // ============================================================================
 // TYPES
@@ -42,13 +42,27 @@ export function useBusinessTypeFull(
   const [businessType, setBusinessType] = useState<BusinessTypeFull | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
+  const requestTokenRef = useRef(0)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      requestTokenRef.current += 1
+    }
+  }, [])
 
   const fetchBusinessTypeFull = useCallback(async () => {
+    const requestToken = requestTokenRef.current + 1
+    requestTokenRef.current = requestToken
     const canonicalBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
     if (!canonicalBusinessTypeId) {
-      setBusinessType(null)
-      setLoading(false)
-      setError(null)
+      if (mountedRef.current) {
+        setBusinessType(null)
+        setLoading(false)
+        setError(null)
+      }
       return
     }
 
@@ -62,6 +76,8 @@ export function useBusinessTypeFull(
 
       const result = await businessTypesApiService.getBusinessTypeFull(canonicalBusinessTypeId)
 
+      if (!mountedRef.current || requestTokenRef.current !== requestToken) return
+
       if (result) {
         setBusinessType(result)
         generalLogger.info('[useBusinessTypeFull] Loaded successfully', {
@@ -71,12 +87,14 @@ export function useBusinessTypeFull(
           benchmarksCount: result.benchmarks?.length || 0,
         })
       } else {
+        setBusinessType(null)
         setError('Business type not found')
         generalLogger.error('[useBusinessTypeFull] Not found', {
           businessTypeId: canonicalBusinessTypeId,
         })
       }
     } catch (err) {
+      if (!mountedRef.current || requestTokenRef.current !== requestToken) return
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch business type'
       setError(errorMessage)
       generalLogger.error('[useBusinessTypeFull] Error:', {
@@ -84,7 +102,9 @@ export function useBusinessTypeFull(
         error: errorMessage,
       })
     } finally {
-      setLoading(false)
+      if (mountedRef.current && requestTokenRef.current === requestToken) {
+        setLoading(false)
+      }
     }
   }, [businessTypeId])
 

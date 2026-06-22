@@ -4,7 +4,7 @@
  * right panel and assistant render against.
  *
  * Extracted in Phase 4c.2 Hook 2 from the 110-line "Bridge: Result → Report"
- * effect in `ManualLayout.tsx`. Pure: no setState, no stores, no toasts,
+ * effect in `ManualValuationWorkspace.tsx`. Pure: no setState, no stores, no toasts,
  * no fetches. Side effects (preparer store sync, `onComplete`, panel-view
  * switch, auto-PDF-gen) live in the consuming hook
  * (`useResultToReportBridge`). The pure mapper is testable in isolation.

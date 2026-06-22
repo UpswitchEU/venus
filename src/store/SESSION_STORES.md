@@ -1,241 +1,77 @@
-# Venus Session Stores Architecture
+# Venus Session Store Architecture
 
-This document explains the relationship between the session-related stores in Venus and when to use each one.
+Venus has one canonical valuation session store: `useSessionStore`.
 
-## AUTH-FIRST Architecture
+## Auth-First Model
 
-**Important:** Guest sessions have been removed. All users must authenticate before accessing valuation features. Session initialization is handled by `BootstrapProvider`.
+Guest sessions have been removed. `BootstrapProvider` resolves authenticated identity and report context before the report UI mounts, then `useSessionStore` owns valuation session state for the active report.
 
-## Overview
-
-Venus uses a multi-store architecture for session management to handle different aspects of the user experience:
+## Canonical Store
 
 | Store | Purpose | Scope |
-|-------|---------|-------|
-| `useSessionStore` | Main valuation session state | Per-report session data |
-| `useUnifiedSessionStore` | Simplified session API (newer) | Backend session sync |
+| --- | --- | --- |
+| `useSessionStore` | Main valuation session state | Per-report session data, save state, restoration, and paywall state |
 
----
+## When To Use `useSessionStore`
 
-## Store Details
+- Loading and saving valuation sessions.
+- Reading current report/session data such as company name, financials, valuation result, and HTML report.
+- Tracking save state and unsaved changes.
+- Coordinating bootstrap/restoration readiness.
+- Handling valuation-session paywall state.
 
-### 1. `useSessionStore` (Primary - Use This)
-
-**File**: `useSessionStore.ts`
-
-**Purpose**: Main store for valuation session state. This is the primary store that components should use.
-
-**When to Use**:
-- Loading/saving valuation sessions
-- Accessing current session data (company_name, financials, etc.)
-- Tracking save state (isSaving, hasUnsavedChanges)
-- Checking initialization status
-- Plan enforcement (paywall handling)
-
-**Key Features**:
-- Promise cache prevents duplicate load calls
-- Optimistic updates with localStorage cache
-- Restoration progress tracking
-- Debounced auto-save support
-- Session data validation
-
-**Example Usage**:
+Subscribe to specific values instead of the whole store object:
 
 ```typescript
 import { useSessionStore } from '../store/useSessionStore'
 
-function MyComponent() {
-  // Subscribe to specific values (recommended)
+function MyComponent({ reportId }: { reportId: string }) {
   const session = useSessionStore((state) => state.session)
   const isLoading = useSessionStore((state) => state.isLoading)
   const loadSession = useSessionStore((state) => state.loadSession)
-  
+
   useEffect(() => {
     if (reportId) {
-      loadSession(reportId)
+      void loadSession(reportId)
     }
-  }, [reportId])
+  }, [loadSession, reportId])
+
+  return null
 }
 ```
 
-**State Shape**:
-```typescript
-interface SessionStore {
-  session: ValuationSession | null
-  isLoading: boolean
-  error: string | null
-  isSaving: boolean
-  lastSaved: Date | null
-  hasUnsavedChanges: boolean
-  isInitializing: boolean
-  restorationProgress: RestorationProgress | null
-  paywallData: { current: number; limit: number; message: string } | null
-}
-```
-
----
-
-### 2. `useUnifiedSessionStore` (Backend API Layer)
-
-**File**: `useUnifiedSessionStore.ts`
-
-**Purpose**: Simpler, more modern session store designed for direct backend API interaction. Uses the unified session API from Titan.
-
-**When to Use**:
-- Direct backend session CRUD operations
-- When you need a simpler API without form-specific features
-- Future features that need clean session management
-
-**Key Features**:
-- Persisted to localStorage via Zustand middleware
-- Optimistic updates with rollback
-- Cleaner, simpler API
-- Type-safe session model
-
-**Example Usage**:
-
-```typescript
-import { useUnifiedSessionStore, useSession } from '../store/useUnifiedSessionStore'
-
-function MyComponent() {
-  // Convenience hook
-  const session = useSession()
-  
-  // Or full store access
-  const { createSession, updateSession } = useUnifiedSessionStore()
-  
-  const handleCreate = async () => {
-    const session = await createSession('valuation', { company_name: 'Test' })
-  }
-}
-```
-
-**State Shape**:
-```typescript
-interface SessionStore {
-  session: Session | null
-  isLoading: boolean
-  error: string | null
-  
-  loadSession: (sessionKey: string) => Promise<void>
-  createSession: (type?: string, data?: Record<string, any>) => Promise<Session>
-  updateSession: (updates: Partial<Session>) => Promise<void>
-  clearSession: () => void
-}
-```
-
-**Relationship with `useSessionStore`**:
-- `useUnifiedSessionStore` was designed as a simpler replacement
-- Currently, `useSessionStore` is actively used by all components
-- Future migration path: gradually move to `useUnifiedSessionStore`
-
----
-
-## How They Work Together
+## Data Flow
 
 ```mermaid
 graph TD
-    subgraph Bootstrap
-        BP[BootstrapProvider]
-        AR[AuthResolver]
-    end
-    
-    subgraph Session Layer
-        SS[useSessionStore]
-        US[useUnifiedSessionStore]
-    end
-    
-    subgraph Components
-        VM[ValuationSessionManager]
-        VF[ValuationForm]
-        BS[BootstrapSync]
-    end
-    
-    subgraph Backend
-        T[Titan API]
-    end
-    
-    BP -->|resolves identity| AR
-    AR -->|auth required| T
-    SS -->|CRUD operations| T
-    US -->|CRUD operations| T
-    
-    VM -->|loads session| SS
-    BS -->|syncs bootstrap| SS
-    VF -->|reads/updates| SS
+    BP[BootstrapProvider] --> AR[AuthResolver]
+    AR --> Titan[Titan API]
+    VSM[ValuationSessionManager] --> Store[useSessionStore]
+    BS[useBootstrapSync] --> Store
+    Manual[ManualLayout and manual hooks] --> Store
+    Store --> Titan
 ```
 
-### Flow for Different User Types
+## Boundaries
 
-#### Authenticated User (Seller/Accountant)
-1. `BootstrapProvider` resolves authentication via `AuthResolver`
-2. Auth cookies sent with all requests
-3. `useSessionStore` loads session by reportId
-4. Session owned by `user_id`
+- `BootstrapProvider` resolves identity and report bootstrap state.
+- `ValuationSessionManager` controls report/session loading.
+- `useSessionStore` owns the active valuation session state.
+- `SessionService` and `SessionAPI` perform persistence.
+- `useClientContext` carries accountant/client context separately from session state.
 
-#### Accountant for Client (Mercury Flow)
-1. `clientToken` exchanged for client context
-2. Client context stored in `useClientContext` (separate store)
-3. Headers include `X-Client-User-Id`, `X-Accountant-User-Id`
-4. `useSessionStore` loads session owned by client's user_id
+## Avoid
 
----
-
-## Best Practices
-
-### DO:
-- Use `useSessionStore` for all valuation session operations
-- Subscribe to specific values, not the entire store
-- Check `isInitializing` before showing forms
-- Let `BootstrapProvider` handle authentication and session initialization
-
-### DON'T:
-- Mix `useSessionStore` and `useUnifiedSessionStore` in the same component
-- Store UI state in session stores (use local state instead)
-- Subscribe to entire store object (causes excessive re-renders)
-
----
-
-## Migration Path
-
-Currently, `useSessionStore` is the primary store. Future work may consolidate to `useUnifiedSessionStore`:
-
-| Phase | Action |
-|-------|--------|
-| Now | Use `useSessionStore` for all session operations |
-| Future | Gradually migrate features to `useUnifiedSessionStore` |
-| Final | Deprecate `useSessionStore`, use `useUnifiedSessionStore` only |
-
----
+- Introducing a second session store.
+- Persisting UI-only state in the session store.
+- Calling session APIs directly from product components when a store/service boundary already exists.
+- Subscribing to the entire store object in components.
 
 ## Related Files
 
-- `src/services/session/SessionService.ts` - Service layer for session CRUD
-- `src/lib/bootstrap/SessionBootstrapService.ts` - Bootstrap initialization
-- `src/hooks/useBootstrapSync.ts` - Bridge between bootstrap and stores
-- `src/stores/clientContext.ts` - Client context for accountant flow
-
----
-
-## Troubleshooting
-
-### Session not loading
-1. Check if bootstrap completed (`useBootstrap().isBootstrapping`)
-2. Check for errors in `useSessionStore().error`
-3. Verify reportId matches session in store
-4. Ensure user is authenticated (auth-first architecture)
-
-### Duplicate API calls
-1. Ensure components subscribe to specific values
-2. Check that promise cache is working (logs show "reusing promise")
-3. Verify `BootstrapSync` isn't triggering redundant loads
-
-### Authentication issues
-1. Check if `BootstrapProvider` completed initialization
-2. Verify auth cookies are being sent with requests
-3. Check `AuthResolver` logs for authentication failures
-
----
-
-**Last Updated**: January 2026
-**Architecture Version**: 3.0 (Auth-First Bootstrap)
+- `src/store/useSessionStore.ts`
+- `src/services/session/SessionService.ts`
+- `src/services/api/session/SessionAPI.ts`
+- `src/lib/bootstrap/SessionBootstrapService.ts`
+- `src/hooks/useBootstrapSync.ts`
+- `src/stores/clientContext.ts`

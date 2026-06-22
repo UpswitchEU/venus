@@ -53,10 +53,13 @@ export async function restoreManualWorkspaceAfterDeleteFailure(params: {
         session = useSessionStore.getState().session
         break
       } catch (error) {
-        generalLogger.warn('[ManualLayout] Failed to refetch session after delete failure', {
-          lookupId: id,
-          error: error instanceof Error ? error.message : String(error),
-        })
+        generalLogger.warn(
+          '[ManualValuationWorkspace] Failed to refetch session after delete failure',
+          {
+            lookupId: id,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        )
       }
     }
   }
@@ -78,7 +81,7 @@ export async function restoreManualWorkspaceAfterDeleteFailure(params: {
     useManualResultsStore.getState().setResult(result)
   }
 
-  generalLogger.info('[ManualLayout] Restored workspace after failed report delete', {
+  generalLogger.info('[ManualValuationWorkspace] Restored workspace after failed report delete', {
     reportId: reportId?.substring(0, 24),
   })
   return true

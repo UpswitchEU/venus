@@ -38,8 +38,8 @@ export async function saveValuationSession(
   const startTime = performance.now()
 
   try {
-    const { pendingAssetSaves } = await import('../report/ReportService')
-    const pendingSave = pendingAssetSaves.get(reportId)
+    const { pendingReportAssetSaves } = await import('../report/ReportAssetService')
+    const pendingSave = pendingReportAssetSaves.get(reportId)
     if (pendingSave) {
       logger.debug('Waiting for pending asset save before reloading session', {
         reportId,

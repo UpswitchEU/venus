@@ -63,9 +63,10 @@ export function useBusinessTypes(): UseBusinessTypesState {
       timeoutId = setTimeout(() => controller.abort(), 6000)
 
       const types = await businessTypesApiService.getBusinessTypes(controller.signal)
-      if (timeoutId) clearTimeout(timeoutId)
 
-      if (!mountedRef.current || controller.signal.aborted) return
+      if (!mountedRef.current || controller.signal.aborted || inFlightRef.current !== controller) {
+        return
+      }
 
       const options = businessTypesToOptions(types)
 
@@ -77,19 +78,22 @@ export function useBusinessTypes(): UseBusinessTypesState {
       setBusinessTypes(types)
       setBusinessTypeOptions(options)
     } catch (err) {
-      if (timeoutId) clearTimeout(timeoutId)
       if (isAbortLike(err)) return
       const errorMessage =
         err instanceof Error
           ? err.message
           : 'Bedrijfstypes laden mislukt. Probeer het later opnieuw.'
-      if (mountedRef.current) {
+      if (mountedRef.current && inFlightRef.current === controller) {
         setError(errorMessage)
       }
       logger.error('Failed to fetch business types', { error: errorMessage })
     } finally {
-      if (mountedRef.current) {
-        setLoading(false)
+      if (timeoutId) clearTimeout(timeoutId)
+      if (inFlightRef.current === controller) {
+        inFlightRef.current = null
+        if (mountedRef.current) {
+          setLoading(false)
+        }
       }
     }
   }, [mountedRef])

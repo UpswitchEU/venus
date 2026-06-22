@@ -5,7 +5,7 @@
  *
  * Before this extraction, ~80 lines of useStartupValuationStore selectors +
  * useStartupBenchmark/useStudioIssues calls + three useMemo blocks lived
- * inline in `ManualLayout.tsx`. Consolidating them here keeps the panel
+ * inline in `ManualValuationWorkspace.tsx`. Consolidating them here keeps the panel
  * thin and gives the venture path a dedicated home for future expansion
  * (Inception Lens, oversubscription flags, etc. all flow through the same
  * `StudioIssue` pipeline).

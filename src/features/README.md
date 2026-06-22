@@ -130,7 +130,7 @@ import { ConversationalLayout } from '@/features/conversational/components/Conve
 - ✅ Version history
 
 **Files Modified**:
-- `manual/components/ManualLayout.tsx` - HTML merging fix
+- `manual/components/ManualValuationWorkspace.tsx` - HTML merging fix
 - `conversational/components/ConversationalLayout.tsx` - HTML merging fix
 - `config/features.ts` - Restoration feature flag
 

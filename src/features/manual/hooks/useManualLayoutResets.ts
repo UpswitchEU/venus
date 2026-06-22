@@ -2,7 +2,7 @@
  * useManualLayoutResets — single home for the panel-wide "reset this state when
  * identity changes" effects.
  *
- * Before Phase 4c.1, these 6 resets were scattered across `ManualLayout.tsx`
+ * Before Phase 4c.1, these 6 resets were scattered across `ManualValuationWorkspace.tsx`
  * over ~5,000 lines. A future engineer trying to answer "what gets reset when
  * the reportId changes?" had to grep for each `setX`/`refX.current = ...`
  * pattern. Consolidating them here gives the panel one named hook to call and

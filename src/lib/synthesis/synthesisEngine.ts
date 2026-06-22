@@ -2,7 +2,7 @@
  * SynthesisEngine — pure evaluation of the multi-method client-side blend.
  *
  * Replaces two near-identical copies of the same logic that lived inline in
- * `features/manual/components/ManualLayout.tsx` (the `navValuationSummary`
+ * `features/manual/components/ManualValuationWorkspace.tsx` (the `navValuationSummary`
  * memo and the "blend skipped" toast effect).
  *
  * The function is pure: no React, no side effects, no toasts. Callers decide

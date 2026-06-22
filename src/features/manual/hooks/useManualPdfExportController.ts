@@ -163,7 +163,7 @@ export function useManualPdfExportController({
         return
       }
       if (!isCurrentRun()) return
-      generalLogger.error('[ManualLayout] PDF export failed', {
+      generalLogger.error('[ManualValuationWorkspace] PDF export failed', {
         error: error instanceof Error ? error.message : String(error),
       })
       toast.error(exportFailedTitle, { description: exportFailedDescription })

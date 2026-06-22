@@ -30,8 +30,8 @@ const performBackgroundKboVerification = async (companyName: string, country: st
   console.log('🔍 Starting background KBO verification for:', companyName);
   
   try {
-    const { searchCompanies } = await import('../../services/registryService');
-    const searchResults = await searchCompanies(companyName, country);
+    const { registryService } = await import('../../services/registry/registryService');
+    const searchResults = (await registryService.searchCompanies(companyName, country)).results;
     
     if (searchResults.length > 0) {
       const searchResult = searchResults[0];

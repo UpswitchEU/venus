@@ -6,8 +6,8 @@ import type {
   ValuationReportData,
 } from '../../../components/calculator'
 import { EMBEDDED_STORAGE_KEY } from '../../../hooks/useEmbeddedMode'
-import { reportService } from '../../../services'
 import { backendAPI } from '../../../services/backendApi'
+import { reportService } from '../../../services/reports'
 import { useManualFormStore } from '../../../store/manual'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useClientContext } from '../../../stores/clientContext'
@@ -141,10 +141,13 @@ export function useManualRecentValuationDeletion({
               currentSearch,
             })
           } catch (snapshotErr) {
-            generalLogger.warn('[ManualLayout] Failed to snapshot current report before delete', {
-              reportId: id,
-              error: snapshotErr instanceof Error ? snapshotErr.message : String(snapshotErr),
-            })
+            generalLogger.warn(
+              '[ManualValuationWorkspace] Failed to snapshot current report before delete',
+              {
+                reportId: id,
+                error: snapshotErr instanceof Error ? snapshotErr.message : String(snapshotErr),
+              }
+            )
           }
         }
 

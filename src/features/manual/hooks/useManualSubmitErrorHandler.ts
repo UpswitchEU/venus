@@ -39,7 +39,7 @@ export function useManualSubmitErrorHandler({
     ({ error, retrySubmit, submitRun }: HandleManualSubmitErrorParams) => {
       if (!submitRun.isStillTarget()) {
         submitRun.endLoading()
-        generalLogger.info('[ManualLayout] Dropping stale manual calculation error', {
+        generalLogger.info('[ManualValuationWorkspace] Dropping stale manual calculation error', {
           ...submitRun.staleContext(),
         })
         return
@@ -51,7 +51,7 @@ export function useManualSubmitErrorHandler({
         toast.error(translatePreparer('extremeServerToast'), {
           description: error.message,
         })
-        generalLogger.warn('[ManualLayout] EXTREME_MULTIPLE rejected by Titan', {
+        generalLogger.warn('[ManualValuationWorkspace] EXTREME_MULTIPLE rejected by Titan', {
           message: error.message,
         })
         return
@@ -74,7 +74,7 @@ export function useManualSubmitErrorHandler({
             onClick: retrySubmit,
           },
         })
-        generalLogger.warn('[ManualLayout] BENCHMARK_CONTRACT_REQUIRED', {
+        generalLogger.warn('[ManualValuationWorkspace] BENCHMARK_CONTRACT_REQUIRED', {
           // Keep the server message in logs (English, useful for support /
           // Cowork sessions) even though we show a localized toast.
           serverMessage: error.message,
@@ -89,7 +89,7 @@ export function useManualSubmitErrorHandler({
         toast.error(translateErrors('calculation.insufficientCredits'), {
           description: error.message,
         })
-        generalLogger.warn('[ManualLayout] Insufficient credits for calculation', {
+        generalLogger.warn('[ManualValuationWorkspace] Insufficient credits for calculation', {
           message: error.message,
         })
         return
@@ -99,7 +99,7 @@ export function useManualSubmitErrorHandler({
         toast.error(translateErrors('rateLimit.title'), {
           description: error.message || translateErrors('rateLimit.description'),
         })
-        generalLogger.warn('[ManualLayout] Rate limited during calculation', {
+        generalLogger.warn('[ManualValuationWorkspace] Rate limited during calculation', {
           message: error.message,
         })
         return
@@ -130,7 +130,7 @@ export function useManualSubmitErrorHandler({
               onClick: retrySubmit,
             },
       })
-      generalLogger.error('[ManualLayout] Form submission failed', {
+      generalLogger.error('[ManualValuationWorkspace] Form submission failed', {
         error: description,
         isSessionExpired,
       })

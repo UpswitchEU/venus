@@ -76,7 +76,7 @@ export function useManualMercuryNavigationActions({
       try {
         clearDelegatedClientContext(() => useClientContext.getState().clearClientContext())
       } catch (err) {
-        generalLogger.warn('[ManualLayout] Client context cleanup failed', {
+        generalLogger.warn('[ManualValuationWorkspace] Client context cleanup failed', {
           error: err instanceof Error ? err.message : String(err),
         })
       }
@@ -89,7 +89,7 @@ export function useManualMercuryNavigationActions({
         reportId: resolveManualMercuryReportId(report, session, resolvedReportId),
       })
     } catch (error) {
-      generalLogger.error('[ManualLayout] handleExitClientView failed', {
+      generalLogger.error('[ManualValuationWorkspace] handleExitClientView failed', {
         error: error instanceof Error ? error.message : String(error),
       })
       try {
@@ -181,7 +181,7 @@ export function useManualMercuryNavigationActions({
       })
       performManualMercuryNavigation({ targetUrl, postEngineCloseOnEmbedFailure: true })
     } catch (error) {
-      generalLogger.error('[ManualLayout] handleContinueToListing failed', {
+      generalLogger.error('[ManualValuationWorkspace] handleContinueToListing failed', {
         error: error instanceof Error ? error.message : String(error),
       })
       try {
@@ -230,7 +230,7 @@ export function useManualMercuryNavigationActions({
         }
       } catch (error) {
         generalLogger.warn(
-          '[ManualLayout] handleSwitchWorkspace: sessionStorage unavailable, falling back to Venus home',
+          '[ManualValuationWorkspace] handleSwitchWorkspace: sessionStorage unavailable, falling back to Venus home',
           {
             error: error instanceof Error ? error.message : String(error),
           }

@@ -235,7 +235,7 @@ export const useManualSessionStore = create<ManualSessionStore>((set, get) => ({
       // Step 2: Parallel loading (all assets at once)
       const [sessionResult, resultResult, versionsResult] = await Promise.allSettled([
         SessionService.loadSession(reportId),
-        ReportService.loadResult(reportId),
+        backendAPI.getReport(reportId),
         VersionService.listVersions(reportId),
       ])
       
@@ -444,7 +444,7 @@ const useAutoSave = (reportId: string) => {
 
 - [x] `ValuationService` - async calculation
 - [x] `SessionService` - parallel asset loading
-- [x] `ReportService` - background saving
+- [x] `ReportAssetService` - serialized background asset saving
 - [x] `VersionService` - optimistic version creation
 
 ---
@@ -537,4 +537,3 @@ This optimization guide ensures:
 
 **Last Updated**: December 16, 2025  
 **Performance**: < 16ms UI response, < 2s background operations
-

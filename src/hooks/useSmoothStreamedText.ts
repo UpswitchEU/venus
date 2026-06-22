@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useReducedMotion } from '@/design-system/hooks/useReducedMotion'
 
 export interface SmoothStreamedText {
   /** The text to render right now — always a prefix of `fullText`. */

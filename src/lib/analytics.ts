@@ -413,3 +413,45 @@ export function trackOwnerProfilingCapBindRendered(payload: {
     raw_pct: payload.rawPct,
   })
 }
+
+// ── Owner financials autofill funnel (BET-315 / BET-312) ─────────────
+//
+// Quantifies the revenue/EBITDA churn cliff that the three-door financials
+// step (connect / invite / estimate) is built to fix. The funnel is
+// entry (`venus_session_start`) → financials-step `viewed` → `submitted`.
+// `submitted` carries the per-year completeness so we can baseline the
+// "owner doesn't know their EBITDA" rate and watch it fall as the doors land.
+// Enrichment (`user_role`, `current_plan`, `is_internal`) is added by
+// `trackEvent`, so owner/free segmentation comes for free.
+
+/** The financials step (revenue/EBITDA + the autofill doors) became visible. */
+export function trackFinancialsStepViewed(payload: {
+  hasFinancials: boolean
+  hasConnectedProvider: boolean
+}): void {
+  trackEvent('venus_financials_step_viewed', {
+    has_financials: payload.hasFinancials,
+    has_connected_provider: payload.hasConnectedProvider,
+  })
+}
+
+/**
+ * A valuation was submitted, with per-year revenue/EBITDA completeness.
+ * `revenue_no_ebitda_years` is the load-bearing metric: years where the owner
+ * gave revenue but left EBITDA at zero ("I don't know my EBITDA") — the exact
+ * degradation BET-312's autofill doors target. Compare against the door
+ * adoption events to confirm the null-EBITDA rate drops post-launch.
+ */
+export function trackFinancialsStepSubmitted(payload: {
+  totalYears: number
+  revenueYears: number
+  zeroEbitdaYears: number
+  revenueNoEbitdaYears: number
+}): void {
+  trackEvent('venus_financials_step_submitted', {
+    total_years: payload.totalYears,
+    revenue_years: payload.revenueYears,
+    zero_ebitda_years: payload.zeroEbitdaYears,
+    revenue_no_ebitda_years: payload.revenueNoEbitdaYears,
+  })
+}

@@ -127,13 +127,13 @@ ReportPanel ← ValuationResponse (HTML report)
 ### Basic Usage
 
 ```typescript
-import { ManualLayout } from '@/features/manual'
+import { ManualValuationWorkspace } from '@/features/manual'
 
 function ValuationPage() {
   const reportId = useParams().id
   
   return (
-    <ManualLayout
+    <ManualValuationWorkspace
       reportId={reportId}
       onComplete={(result) => {
         console.log('Valuation completed:', result)
@@ -147,14 +147,14 @@ function ValuationPage() {
 ### With Custom Handlers
 
 ```typescript
-import { ManualLayout } from '@/features/manual'
+import { ManualValuationWorkspace } from '@/features/manual'
 import { useValuationSessionStore } from '@/store/useValuationSessionStore'
 
 function CustomManualFlow() {
   const { syncFromManualForm, syncToManualForm } = useValuationSessionStore()
   
   return (
-    <ManualLayout
+    <ManualValuationWorkspace
       reportId="val_123"
       onComplete={(result) => {
         // Custom completion handler
@@ -198,7 +198,8 @@ function CustomForm() {
 ```
 features/manual/
 ├── components/
-│   ├── ManualLayout.tsx    # Main layout orchestrator
+│   ├── ManualValuationWorkspace.tsx # Route-level manual valuation workspace
+│   ├── ManualLayout.tsx             # Compatibility alias
 │   └── index.ts            # Component exports
 ├── index.ts                # Feature exports
 └── README.md               # This file
@@ -295,4 +296,3 @@ catch (error) {
 **Last Updated**: January 2025  
 **Status**: Production  
 **Maintainer**: Frontend Team
-

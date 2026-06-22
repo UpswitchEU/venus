@@ -147,11 +147,11 @@ interface ResultsStore {
 
 **Root Cause**: 
 - Session has 4 separate fields: `sessionData`, `valuationResult`, `htmlReport`, `infoTabHtml`
-- ManualLayout restoration only copied `valuationResult` to results store
+- ManualValuationWorkspace restoration only copied `valuationResult` to results store
 - ReportPanel expects `result.html_report` (inside the result object)
 - **Missing step**: Merge `session.htmlReport` → `result.html_report`
 
-**Fix Applied**: `ManualLayout.tsx` (Lines 158-198)
+**Fix Applied**: `ManualValuationWorkspace.tsx` (Lines 158-198)
 
 ```typescript
 // BEFORE (Broken):
@@ -247,7 +247,7 @@ useEffect(() => {
    - Caches session locally
    - Updates store state
 
-4. **ManualLayout restoration** (Lines 115-203):
+4. **ManualValuationWorkspace restoration** (Lines 115-203):
    - Triggered by `useEffect` when `reportId` prop changes
    - Checks feature flag
    - Reads current session from store
@@ -329,7 +329,7 @@ useEffect(() => {
 
 **Success Metrics**:
 ```typescript
-logger.info('[ManualLayout] RESTORATION SUCCESS', {
+logger.info('[ManualValuationWorkspace] RESTORATION SUCCESS', {
   reportId,
   valuationId: result.valuation_id,
   htmlReportLength: result.html_report.length,
@@ -340,7 +340,7 @@ logger.info('[ManualLayout] RESTORATION SUCCESS', {
 
 **Failure Metrics**:
 ```typescript
-logger.error('[ManualLayout] RESTORATION FAILED', {
+logger.error('[ManualValuationWorkspace] RESTORATION FAILED', {
   reportId,
   valuationId: result.valuation_id,
   sessionHadHtmlReport: !!session.htmlReport,
@@ -580,7 +580,7 @@ HTML reports are large - load only when needed:
 ### Bundle Optimization
 
 Restoration logic is code-split:
-- ManualLayout loaded lazily (only for manual flow)
+- ManualValuationWorkspace loaded lazily (only for manual flow)
 - ConversationalLayout loaded lazily (only for conversational flow)
 - Restoration code included only when needed
 
@@ -595,7 +595,7 @@ Restoration logic is code-split:
 **Diagnosis**:
 ```typescript
 // Check browser console for these logs:
-'[ManualLayout] Restoring result with HTML assets' // Should appear
+'[ManualValuationWorkspace] Restoring result with HTML assets' // Should appear
 'RESTORATION SUCCESS' // Should appear
 
 // Check Network tab:
@@ -746,7 +746,7 @@ setHtmlReport(decompressedHtml)
 **Frontend**:
 - `src/store/useSessionStore.ts` - Session state management
 - `src/services/session/SessionService.ts` - Session API client
-- `src/features/manual/components/ManualLayout.tsx` - Manual flow restoration
+- `src/features/manual/components/ManualValuationWorkspace.tsx` - Manual flow restoration
 - `src/features/conversational/components/ConversationalLayout.tsx` - Conversational restoration
 - `src/components/ValuationSessionManager.tsx` - Session initialization
 - `src/config/features.ts` - Feature flags
@@ -778,7 +778,7 @@ setHtmlReport(decompressedHtml)
 - Performance metrics tracking
 
 **Changed**:
-- ManualLayout: Merge HTML from session into result object
+- ManualValuationWorkspace: Merge HTML from session into result object
 - ConversationalLayout: Same HTML merging fix
 - Restoration now checks feature flag before executing
 

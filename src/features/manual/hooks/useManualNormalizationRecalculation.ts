@@ -3,7 +3,7 @@ import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { NormalizationItem, ValuationReportData } from '../../../components/calculator'
 import type { SynthesisWeightSelection } from '../../../lib/synthesis/synthesisWeights'
-import { reportService, valuationService } from '../../../services'
+import { reportAssetService, valuationService } from '../../../services'
 import {
   mergePreparerMultipleIntoRequest,
   usePreparerMultipleStore,
@@ -148,7 +148,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         setResult(calcResult)
         let durableSaveSucceeded = true
         try {
-          await reportService.saveReportAssets(
+          await reportAssetService.saveReportAssets(
             idForApi,
             buildManualReportAssets({
               sessionData: requestSource as unknown as Record<string, unknown>,
@@ -161,7 +161,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         } catch (saveError) {
           durableSaveSucceeded = false
           generalLogger.warn(
-            '[ManualLayout] Failed to sync recalculated normalization report assets',
+            '[ManualValuationWorkspace] Failed to sync recalculated normalization report assets',
             {
               reportId: idForApi,
               error: saveError instanceof Error ? saveError.message : String(saveError),
@@ -194,9 +194,12 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         durableSaveInFlightRef.current = false
       } catch (error) {
         if (!isStillRelevant()) return
-        generalLogger.warn('[ManualLayout] Normalization recalculation failed (non-blocking)', {
-          error: error instanceof Error ? error.message : String(error),
-        })
+        generalLogger.warn(
+          '[ManualValuationWorkspace] Normalization recalculation failed (non-blocking)',
+          {
+            error: error instanceof Error ? error.message : String(error),
+          }
+        )
         toast.error(translate('normRecalcFailed'), {
           description: translate('normRecalcFailedDesc'),
         })
@@ -252,7 +255,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       try {
         await persistOrDeleteNormalizationsForYears(idForApi, allYears, originalEBITDAByYear, norms)
       } catch (error) {
-        generalLogger.warn('[ManualLayout] Sync after normalization edit failed', {
+        generalLogger.warn('[ManualValuationWorkspace] Sync after normalization edit failed', {
           error: error instanceof Error ? error.message : String(error),
         })
       }

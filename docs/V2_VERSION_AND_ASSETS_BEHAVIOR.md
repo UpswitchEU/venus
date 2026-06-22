@@ -48,10 +48,10 @@ The **current** session state and cache for that report are updated to V2's data
 
 1. After calculation, `saveReportAssets()` is called with the new result (V2).
 2. **Backend**: `PUT /api/v2/valuations/sessions/:id/result` updates the session with V2's valuation result, HTML report, and session data.
-3. **Cache update** (see [ReportService.ts](../../src/services/report/ReportService.ts) lines 209–244):
-   - `globalSessionCache.remove(reportId)` clears the cache for that report.
-   - Session is reloaded from the backend.
-   - Fresh session (with V2 data) is stored in the cache and session store.
+3. **Cache update** (see [ReportAssetService.ts](../../src/services/report/ReportAssetService.ts)):
+   - The authoritative `PUT /result` session is written directly into the cache when Titan returns it.
+   - If a reload is needed, the previous cache entry is kept until a fresh replacement is available.
+   - Fresh session data (with V2 data) is stored in the cache and session store.
 
 So the **current** session and cache are replaced with V2's data.
 

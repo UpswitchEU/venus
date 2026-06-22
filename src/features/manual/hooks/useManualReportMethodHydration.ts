@@ -110,11 +110,14 @@ export function useManualReportMethodHydration({
       const status = getHttpStatusFromError(lastError)
 
       if (transient) {
-        generalLogger.warn('[ManualLayout] Report method hydration failed after retries', {
-          reportHydrationLookupId: id,
-          status,
-          errorName: lastError instanceof Error ? lastError.name : typeof lastError,
-        })
+        generalLogger.warn(
+          '[ManualValuationWorkspace] Report method hydration failed after retries',
+          {
+            reportHydrationLookupId: id,
+            status,
+            errorName: lastError instanceof Error ? lastError.name : typeof lastError,
+          }
+        )
         setReportMethodHydrationError('transient')
       } else if (stillMissingMethods && isSessionKey(id) && status === 404) {
         setReportMethodHydrationError('report_pending')

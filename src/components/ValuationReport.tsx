@@ -7,7 +7,6 @@ import { useBootstrapSync } from '../hooks/useBootstrapSync'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import { useUrlState } from '../hooks/useUrlState'
 import { trackReportOpen, trackSessionStart } from '../lib/analytics'
-import { reportService } from '../services'
 import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
@@ -146,12 +145,10 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     // This callback only handles report API completion for credit tracking
     const handleValuationComplete = async (result: ValuationResponse) => {
       try {
-        // Complete report via service layer (for credit tracking and persistence)
-        // NOTE: Session save is already handled by sessionService in useValuationFormSubmission
-        const sessionId = result.valuation_id // Use valuation_id as session identifier
-        await reportService.completeReport(reportId, sessionId, result)
-
-        generalLogger.info('Valuation report completed successfully', {
+        // Credit tracking and durable persistence are handled by the calculation
+        // and report asset save paths; this callback only triggers local
+        // post-completion effects.
+        generalLogger.info('Valuation report completion acknowledged', {
           reportId,
           valuationId: result.valuation_id,
         })
@@ -277,8 +274,8 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       >
         <Suspense
           fallback={null}
-          // ✅ WORLD CLASS: Remove Suspense fallback - loading handled by ValuationSessionManager
-          // This eliminates duplicate loading states and ensures single unified loading experience
+          // Loading is handled by ValuationSessionManager so the route has one
+          // unified loading surface.
         >
           <ValuationSessionManager
             reportId={reportId}

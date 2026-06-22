@@ -8,7 +8,6 @@ import { TooltipProvider } from '../src/design-system'
 import { ToastProvider } from '../src/hooks/useToast'
 import { ScrollToTop } from '../src/utils'
 import { generalLogger } from '../src/utils/logger'
-import { registerServiceWorker } from '../src/utils/serviceWorkerRegistration'
 // RUM is auto-initialized on import
 import '../src/utils/performance/rum'
 // Auth is auto-initialized on import
@@ -31,7 +30,6 @@ if (typeof window !== 'undefined') {
  * - ToastProvider for notifications
  * - Auth initialized on module import
  * - LogoutListener for cross-subdomain sync
- * - Service Worker registration
  * - RUM for performance monitoring
  */
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -47,28 +45,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener('unhandledrejection', handler)
     return () => window.removeEventListener('unhandledrejection', handler)
-  }, [])
-
-  useEffect(() => {
-    // TEMPORARILY DISABLED: Service worker registration
-    // The service worker was causing infinite reload loops and fetch failures.
-    // Re-enable after fixing the SW implementation.
-    // if (process.env.NODE_ENV === 'production') {
-    //   registerServiceWorker({
-    //     onUpdate: (registration) => {
-    //       // Silent update notification
-    //     },
-    //     onSuccess: () => {
-    //       // Silent success
-    //     },
-    //     onError: (error) => {
-    //       // Silent error handling - only log in development
-    //       if (process.env.NODE_ENV === 'development') {
-    //         console.error('[ServiceWorker] Registration failed:', error)
-    //       }
-    //     },
-    //   })
-    // }
   }, [])
 
   return (

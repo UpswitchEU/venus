@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   requestManualChatNonStreamingRecovery,
+  runManualChatNonStreamingRecovery,
   shouldAttemptManualChatNonStreamingRecovery,
 } from './manualChatNonStreamingRecovery'
 
@@ -226,5 +227,90 @@ describe('requestManualChatNonStreamingRecovery', () => {
     if (outcome.status === 'terminal_error') {
       expect(outcome.patch.content).toBe('chatError')
     }
+  })
+})
+
+describe('runManualChatNonStreamingRecovery', () => {
+  it('applies recovered content, cards, conversation id, and offline toast', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({
+      success: true,
+      content: '> **AI tijdelijk niet beschikbaar**\n\nRecovered answer',
+      conversationId: 'conv-next',
+      fallback: true,
+      fieldUpdates: [{ field: 'revenue', value: 100000, label: 'Revenue' }],
+      normalisationSuggestions: [{ description: 'Owner salary addback' }],
+    })
+    const patchAssistantMessage = vi.fn()
+    const setConversationId = vi.fn()
+    const cancelAssistantContentFrame = vi.fn()
+    const showAiUnavailableToast = vi.fn()
+    const onFieldUpdates = vi.fn()
+    const onNormalisationSuggestions = vi.fn()
+
+    await runManualChatNonStreamingRecovery({
+      aiRequest: { message: 'Recover please', sessionId: 'sess-1' },
+      sendMessage,
+      loadHistory: vi.fn(),
+      translate,
+      createId: () => 'card-1',
+      isCancelled: () => false,
+      currentConversationId: 'conv-old',
+      setConversationId,
+      cancelAssistantContentFrame,
+      patchAssistantMessage,
+      showAiUnavailableToast,
+      onFieldUpdates,
+      onNormalisationSuggestions,
+    })
+
+    expect(setConversationId).toHaveBeenCalledWith('conv-next')
+    expect(cancelAssistantContentFrame).toHaveBeenCalledTimes(1)
+    expect(patchAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('Recovered answer'),
+        isOfflineFallback: true,
+      })
+    )
+    expect(showAiUnavailableToast).toHaveBeenCalledTimes(1)
+    expect(onFieldUpdates).toHaveBeenCalledWith([
+      expect.objectContaining({ field: 'revenue', label: 'Revenue' }),
+    ])
+    expect(onNormalisationSuggestions).toHaveBeenCalledWith([
+      expect.objectContaining({ description: 'Owner salary addback' }),
+    ])
+  })
+
+  it('self-heals from persisted history when non-streaming recovery misses', async () => {
+    const patchAssistantMessage = vi.fn()
+    const markReceivedContent = vi.fn()
+    const cancelAssistantContentFrame = vi.fn()
+    const pollPersistedAnswer = vi.fn().mockResolvedValue({
+      content: 'Late persisted answer',
+    })
+
+    await runManualChatNonStreamingRecovery({
+      aiRequest: { message: 'Original user turn', sessionId: 'client_client-1' },
+      sendMessage: vi.fn().mockResolvedValue({ success: true, content: '   ' }),
+      loadHistory: vi.fn(),
+      translate,
+      createId: () => 'card-1',
+      isCancelled: () => false,
+      fallbackHistoryReportId: 'route-report-id',
+      setConversationId: vi.fn(),
+      cancelAssistantContentFrame,
+      patchAssistantMessage,
+      markReceivedContent,
+      pollPersistedAnswer,
+    })
+
+    expect(pollPersistedAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reportId: 'client_client-1',
+        userContent: 'Original user turn',
+      })
+    )
+    expect(markReceivedContent).toHaveBeenCalledTimes(1)
+    expect(cancelAssistantContentFrame).toHaveBeenCalledTimes(1)
+    expect(patchAssistantMessage).toHaveBeenCalledWith({ content: 'Late persisted answer' })
   })
 })

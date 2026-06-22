@@ -1445,6 +1445,24 @@
 			"sentBody": "We laten het je weten zodra {email} koppelt of je cijfers invult.",
 			"genericError": "Uitnodiging kon niet worden verzonden. Probeer opnieuw."
 		},
+		"connectAccounting": {
+			"descriptionConnected": "{provider} is gekoppeld — importeer je laatste 3 jaar omzet en EBITDA, geverifieerd.",
+			"descriptionDisconnected": "Koppel Yuki, Exact, Silverfin en meer — we halen 3 jaar omzet en EBITDA voor je op. Geverifieerd, zonder typen.",
+			"connectCta": "Boekhouding koppelen",
+			"autofillReassurance": "Eens gekoppeld vullen je cijfers zich hier automatisch in — kom gewoon terug naar deze stap.",
+			"verifiedTitle": "Geverifieerd uit je boekhouding",
+			"verifiedBody": "Je cijfers komen rechtstreeks uit {provider} — geen handmatige invoer.",
+			"genericProvider": "je boekhoudsoftware"
+		},
+		"registryEstimate": {
+			"prompt": "Ken je je cijfers niet? Krijg een richtbedrag op basis van publieke registergegevens.",
+			"cta": "Schat het voor mij",
+			"loading": "Schatten op basis van publieke data…",
+			"bandTitle": "Voorlopige schatting (publieke data)",
+			"bandCaveat": "Een ruwe band op basis van registergegevens — lage betrouwbaarheid. Koppel je boekhouding of nodig je boekhouder hierboven uit voor een nauwkeurig getal.",
+			"unavailableTitle": "Geen publieke schatting beschikbaar",
+			"unavailableBody": "We konden geen band afleiden uit publieke data voor dit bedrijf. Koppel je boekhouding of nodig je boekhouder hierboven uit om je getal te krijgen."
+		},
 		"silverfin": {
 			"importBatchSuccessTitle": "{years} boekjaren geïmporteerd uit {provider}",
 			"importBatchSuccessDescription": "Grootboek gemapt: {score}% overeenstemming met Belgische MAR"

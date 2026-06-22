@@ -45,7 +45,7 @@ flowchart TD
     end
     
     subgraph LayoutComponents[Layout Components]
-        ML[ManualLayout]
+        ML[ManualValuationWorkspace]
         CL[ConversationalLayout]
         ML -->|Left Panel| VF
         ML -->|Right Panel| RP

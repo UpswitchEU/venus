@@ -147,13 +147,6 @@ const approvedStorageWriters = {
     migrationTarget: 'Move to server-backed draft persistence or a TTL recovery envelope.',
     reason: 'Zustand startup valuation draft; must remain free of auth secrets.',
   }),
-  'src/store/useUnifiedSessionStore.ts': reviewed({
-    classification: 'workflow-session-cache',
-    retention: 'local',
-    allowedKeys: ['unified-session-storage'],
-    migrationTarget: 'Move remaining workflow cache to server-first session hydration.',
-    reason: 'Legacy Zustand session cache pending server-first split.',
-  }),
   'src/store/useVersionHistoryStore.ts': reviewed({
     classification: 'workflow-version-cache',
     retention: 'local',
@@ -189,13 +182,6 @@ const approvedStorageWriters = {
     allowedKeys: ['upswitch_session_sync'],
     reason: 'Uses localStorage events as a broadcast bus, then removes the payload.',
   }),
-  'src/utils/browserCompat.ts': reviewed({
-    classification: 'storage-capability-probe',
-    retention: 'ephemeral',
-    allowedKeys: ['__localStorage_test__', '__sessionStorage_test__'],
-    allowedExpressions: ['test'],
-    reason: 'Writes and removes a probe key to detect storage support.',
-  }),
   'src/utils/browserRecoveryStorage.ts': reviewed({
     classification: 'workflow-recovery-helper',
     retention: 'ttl-24h',
@@ -210,13 +196,6 @@ const approvedStorageWriters = {
     retention: 'session-one-shot',
     allowedKeys: ['venus_studio_to_saas_capital_prefill'],
     reason: 'One-shot in-tab handoff for non-credential capital-history fields.',
-  }),
-  'src/utils/debugLogger.ts': reviewed({
-    classification: 'developer-toggle',
-    retention: 'local',
-    allowedKeys: ['DEBUG_CONVERSATION'],
-    ttlExemption: 'Developer-only boolean toggle.',
-    reason: 'Local debug flag only.',
   }),
   'src/utils/landingStudioHandoff.ts': reviewed({
     classification: 'workflow-handoff',

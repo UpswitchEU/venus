@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useSmoothStreamedText } from './useSmoothStreamedText'
 
 // Force motion on; the reveal logic under test only runs when animation is allowed.
-vi.mock('@/hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
+vi.mock('@/design-system/hooks/useReducedMotion', () => ({ useReducedMotion: () => false }))
 
 // Manual requestAnimationFrame queue so frames can be stepped deterministically.
 let rafCallbacks: Array<(ts: number) => void> = []
