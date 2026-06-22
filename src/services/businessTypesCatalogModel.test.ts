@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { BusinessType } from './businessTypesApi.helpers'
 import {
   buildBusinessTypesCacheData,
   buildHardcodedBusinessTypes,
@@ -9,7 +10,6 @@ import {
   normalizeBusinessTypesPage,
   normalizeNaceBusinessTypePayload,
 } from './businessTypesCatalogModel'
-import type { BusinessType } from './businessTypesApi.helpers'
 
 function makeBusinessType(id: string, popular = false): BusinessType {
   return {

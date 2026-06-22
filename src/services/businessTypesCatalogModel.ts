@@ -3,7 +3,6 @@ import {
   type BusinessTypeOption as ConfigBusinessTypeOption,
 } from '../config/businessTypes'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
-import type { BusinessCategory, BusinessTypesCacheData } from './cache/businessTypesCache'
 import type { BusinessType } from './businessTypesApi.helpers'
 import {
   asNumber,
@@ -13,6 +12,7 @@ import {
   isRecord,
   normalizeBusinessTypes,
 } from './businessTypesApi.helpers'
+import type { BusinessCategory, BusinessTypesCacheData } from './cache/businessTypesCache'
 
 export const MIN_COMPLETE_BUSINESS_TYPES_CACHE_COUNT = 100
 export const MAX_EXTRA_BUSINESS_TYPES_PAGES = 8

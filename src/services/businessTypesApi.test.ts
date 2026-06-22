@@ -110,6 +110,72 @@ describe('businessTypesApiService', () => {
     expect(cached.data.businessTypes).toEqual(result)
   })
 
+  it('loads additional catalog pages only when Titan reports has_more', async () => {
+    const { businessTypesApiService } = await import('./businessTypesApi')
+    mockApiGet
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: {
+            business_types: [
+              {
+                id: 'consulting',
+                title: 'Consulting',
+                category_id: 'professional',
+                category: { title: 'Professional' },
+              },
+            ],
+            has_more: true,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: [{ id: 'professional', title: 'Professional Services' }],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: {
+            business_types: [
+              {
+                id: 'software',
+                title: 'Software Development',
+                category_id: 'technology',
+                category: { title: 'Technology' },
+                popular: true,
+              },
+            ],
+            has_more: false,
+          },
+        },
+      })
+
+    const result = await businessTypesApiService.getBusinessTypes()
+
+    expect(result.map((businessType) => businessType.id)).toEqual(['consulting', 'software'])
+    expect(mockApiGet).toHaveBeenNthCalledWith(
+      3,
+      '/types',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          limit: 200,
+          offset: 200,
+          locale: 'nl',
+        }),
+      })
+    )
+    const cached = JSON.parse(
+      localStorage.getItem('upswitch_valuation_tester_business_types_cache') ?? '{}'
+    )
+    expect(cached.data.categories).toEqual([
+      { id: 'professional', name: 'Professional Services', icon: '🏢' },
+    ])
+    expect(cached.data.popularTypes).toEqual([result[1]])
+  })
+
   it('serves hardcoded fallback business types when the catalog endpoint is unavailable', async () => {
     const { businessTypesApiService } = await import('./businessTypesApi')
     mockApiGet.mockRejectedValue(new Error('backend offline'))

@@ -17,16 +17,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
-import {
-  buildBusinessTypesCacheData,
-  buildHardcodedBusinessTypes,
-  getBusinessTypesCacheDecision,
-  MAX_EXTRA_BUSINESS_TYPES_PAGES,
-  normalizeBusinessCategories,
-  normalizeBusinessTypeSearchResults,
-  normalizeBusinessTypesPage,
-  normalizeNaceBusinessTypePayload,
-} from './businessTypesCatalogModel'
 import type {
   ApiResponse,
   BusinessType,
@@ -45,6 +35,16 @@ import {
   normalizeQuestionsResponse,
   normalizeValidationResult,
 } from './businessTypesApi.helpers'
+import {
+  buildBusinessTypesCacheData,
+  buildHardcodedBusinessTypes,
+  getBusinessTypesCacheDecision,
+  MAX_EXTRA_BUSINESS_TYPES_PAGES,
+  normalizeBusinessCategories,
+  normalizeBusinessTypeSearchResults,
+  normalizeBusinessTypesPage,
+  normalizeNaceBusinessTypePayload,
+} from './businessTypesCatalogModel'
 import { businessTypesCache } from './cache/businessTypesCache'
 
 export type {
@@ -206,7 +206,9 @@ class BusinessTypesApiService {
       }
 
       // Cache the complete data
-      await businessTypesCache.setBusinessTypes(buildBusinessTypesCacheData(allBusinessTypes, categories))
+      await businessTypesCache.setBusinessTypes(
+        buildBusinessTypesCacheData(allBusinessTypes, categories)
+      )
 
       generalLogger.info('[BusinessTypesAPI] Fetched and cached', {
         count: allBusinessTypes.length,
@@ -226,7 +228,9 @@ class BusinessTypesApiService {
       generalLogger.warn('[BusinessTypesAPI] Serving hardcoded business types after API failure', {
         count: fallbackBusinessTypes.length,
       })
-      await businessTypesCache.setBusinessTypes(buildBusinessTypesCacheData(fallbackBusinessTypes, []))
+      await businessTypesCache.setBusinessTypes(
+        buildBusinessTypesCacheData(fallbackBusinessTypes, [])
+      )
       return fallbackBusinessTypes
     }
   }
