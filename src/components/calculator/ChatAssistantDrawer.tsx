@@ -10,9 +10,9 @@
  */
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Loader2, MessageCircle, X } from 'lucide-react'
+import { MessageCircle, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
@@ -25,12 +25,21 @@ import { AiConsentModal } from './AiConsentModal'
 import { AttentionSummary } from './AttentionSummary'
 import { PendingFieldUpdatesCard } from './ChatAssistantAttentionRails'
 import { ChatAssistantComposer } from './ChatAssistantComposer'
+import {
+  buildChatAssistantScrollTriggerKey,
+  buildChatAssistantSuggestionViews,
+  findChatAssistantSuggestionIntent,
+  getVisibleChatAssistantMessages,
+  resolveChatAssistantCurrencyLocale,
+  resolveChatAssistantHeaderSubtitle,
+  shouldShowChatAssistantLoadingSkeleton,
+} from './ChatAssistantDrawer.model'
 import type { ChatAssistantDrawerProps } from './ChatAssistantDrawer.types'
 import {
   getChatAssistantMessageRenderKey,
-  hasAssistantRenderableContent,
   scrollMessagesContainerToBottom,
 } from './ChatAssistantDrawer.utils'
+import { ChatAssistantLoadingIndicator } from './ChatAssistantLoadingIndicator'
 import { EmptyState, MessageBubble } from './ChatAssistantMessageBubble'
 import {
   type ParsedCommand,
@@ -139,7 +148,7 @@ export function ChatAssistantDrawer({
   type ChatAssistantTranslationValues = NonNullable<Parameters<typeof ca>[1]>
   const locale = useLocale()
   const shouldReduceMotion = useReducedMotion()
-  const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
+  const currencyLocale = resolveChatAssistantCurrencyLocale(locale)
   const [input, setInput] = useState('')
   const {
     aiConsentError,
@@ -172,18 +181,42 @@ export function ChatAssistantDrawer({
   const [detectedValues, setDetectedValues] = useState<ParsedValue[]>([])
   const [detectedCommands, setDetectedCommands] = useState<ParsedCommand[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const suggestionItems = getContextualSuggestionKeys({
-    fieldContext,
-    hasReport,
-    hasEbitda,
-    pendingNormalizationsCount,
-    acceptedNormalizationsCount,
-    hasCapBreach,
-  })
-  const suggestions = suggestionItems.map((item) => {
-    const key = item.key as ChatAssistantTranslationKey
-    return item.params ? ca(key, item.params as ChatAssistantTranslationValues) : ca(key)
-  })
+  const translateSuggestion = useCallback(
+    (key: string, params?: Record<string, string>) => {
+      const translationKey = key as ChatAssistantTranslationKey
+      return params
+        ? ca(translationKey, params as ChatAssistantTranslationValues)
+        : ca(translationKey)
+    },
+    [ca]
+  )
+  const suggestionItems = useMemo(
+    () =>
+      getContextualSuggestionKeys({
+        fieldContext,
+        hasReport,
+        hasEbitda,
+        pendingNormalizationsCount,
+        acceptedNormalizationsCount,
+        hasCapBreach,
+      }),
+    [
+      acceptedNormalizationsCount,
+      fieldContext,
+      hasCapBreach,
+      hasEbitda,
+      hasReport,
+      pendingNormalizationsCount,
+    ]
+  )
+  const suggestionViews = useMemo(
+    () => buildChatAssistantSuggestionViews(suggestionItems, translateSuggestion),
+    [suggestionItems, translateSuggestion]
+  )
+  const suggestions = useMemo(
+    () => suggestionViews.map((suggestion) => suggestion.label),
+    [suggestionViews]
+  )
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesContentRef = useRef<HTMLDivElement>(null)
   const wasOpenRef = useRef(false)
@@ -229,28 +262,29 @@ export function ChatAssistantDrawer({
 
   const handleSuggestionClick = useCallback(
     (label: string) => {
-      const item = suggestionItems.find((entry) => {
-        const key = entry.key as ChatAssistantTranslationKey
-        const translated = entry.params
-          ? ca(key, entry.params as ChatAssistantTranslationValues)
-          : ca(key)
-        return translated === label
-      })
-      insertSuggestion(label, item?.intent)
+      insertSuggestion(label, findChatAssistantSuggestionIntent(suggestionViews, label))
     },
-    [ca, insertSuggestion, suggestionItems]
+    [insertSuggestion, suggestionViews]
   )
 
   // Scroll to bottom on new messages and during streaming content updates.
   // Use the messages container directly — scrollIntoView can shift the document
   // viewport when body scroll lock is active (Mercury AI dock pattern).
   const messageRenderKey = getChatAssistantMessageRenderKey(messages)
-  const visibleMessages = messages.filter(hasAssistantRenderableContent)
+  const visibleMessages = getVisibleChatAssistantMessages(messages)
   const isEmpty = visibleMessages.length === 0
   const lastVisible = visibleMessages[visibleMessages.length - 1]
-  const showLoadingSkeleton = isGenerating && (!lastVisible || lastVisible.role !== 'assistant')
+  const showLoadingSkeleton = shouldShowChatAssistantLoadingSkeleton({
+    isGenerating,
+    lastVisibleRole: lastVisible?.role,
+  })
   const attentionRailsKey = `${pendingUpdates.length}:${startupIssues.length}:${qualityWarnings.length}`
-  const scrollTriggerKey = `${messageRenderKey}:${showLoadingSkeleton ? '1' : '0'}:${attentionRailsKey}:${viewportScrollKey}`
+  const scrollTriggerKey = buildChatAssistantScrollTriggerKey({
+    attentionRailsKey,
+    messageRenderKey,
+    showLoadingSkeleton,
+    viewportScrollKey,
+  })
 
   useEffect(() => {
     void scrollTriggerKey
@@ -361,11 +395,11 @@ export function ChatAssistantDrawer({
   // Track focus state for premium glow effect
   const [isInputFocused, setIsInputFocused] = useState(false)
 
-  const headerSubtitle = fieldContext
-    ? fieldContext.label || ''
-    : companyName
-      ? ca('analysisFor', { company: companyName })
-      : null
+  const headerSubtitle = resolveChatAssistantHeaderSubtitle({
+    fieldLabel: fieldContext?.label,
+    companyName,
+    translateAnalysisFor: (company) => ca('analysisFor', { company }),
+  })
 
   return (
     <VenusAiDockPortal>
@@ -572,49 +606,11 @@ export function ChatAssistantDrawer({
                   </AnimatePresence>
 
                   {showLoadingSkeleton && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center gap-2 px-1 py-2 text-foreground/55"
-                    >
-                      {/* Inline thinking indicator — no bubble, no skeleton bars.
-                          Three dots + a one-word label, mirroring Cursor's "Thinking…". */}
-                      {toolInProgress ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span className="text-xs">
-                            {(() => {
-                              const toolLabelKey =
-                                `tools.${toolInProgress}` as ChatAssistantTranslationKey
-
-                              return ca.has(toolLabelKey) ? ca(toolLabelKey) : ca('tools.default')
-                            })()}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="inline-flex gap-0.5 items-center">
-                            <motion.span
-                              className="w-1 h-1 rounded-full bg-foreground/50"
-                              animate={{ opacity: [0.3, 1, 0.3] }}
-                              transition={{ duration: 1.1, repeat: Infinity }}
-                            />
-                            <motion.span
-                              className="w-1 h-1 rounded-full bg-foreground/50"
-                              animate={{ opacity: [0.3, 1, 0.3] }}
-                              transition={{ duration: 1.1, repeat: Infinity, delay: 0.18 }}
-                            />
-                            <motion.span
-                              className="w-1 h-1 rounded-full bg-foreground/50"
-                              animate={{ opacity: [0.3, 1, 0.3] }}
-                              transition={{ duration: 1.1, repeat: Infinity, delay: 0.36 }}
-                            />
-                          </span>
-                          <span className="text-xs">{ca('typing')}</span>
-                        </>
-                      )}
-                    </motion.div>
+                    <ChatAssistantLoadingIndicator
+                      toolInProgress={toolInProgress}
+                      hasTranslation={(key) => ca.has(key as ChatAssistantTranslationKey)}
+                      t={(key) => ca(key as ChatAssistantTranslationKey)}
+                    />
                   )}
                 </div>
               )}

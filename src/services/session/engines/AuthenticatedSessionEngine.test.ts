@@ -150,6 +150,56 @@ describe('AuthenticatedSessionEngine', () => {
     expect(engine.getSession()?.sessionData).not.toHaveProperty('oldQueuedEdit')
   })
 
+  it('queues updates for the loading report when a previous report is still current', async () => {
+    const createdAt = new Date('2026-06-04T08:50:00.000Z')
+    const nextLoad = deferred<{
+      reportId: string
+      currentView: 'manual'
+      dataSource: 'manual'
+      createdAt: Date
+      updatedAt: Date
+      sessionData: Record<string, unknown>
+      partialData: Record<string, unknown>
+    }>()
+
+    sessionServiceMocks.loadSession.mockReturnValueOnce(nextLoad.promise)
+
+    const engine = new AuthenticatedSessionEngine()
+    engine.hydrateSession({
+      reportId: 'val_previous_report',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Previous Co' },
+      partialData: {},
+    })
+
+    const nextPromise = engine.loadSession('val_next_report')
+    engine.updateSession({ sessionData: { queuedForNextReport: true } })
+
+    nextLoad.resolve({
+      reportId: 'val_next_report',
+      currentView: 'manual',
+      dataSource: 'manual',
+      createdAt,
+      updatedAt: createdAt,
+      sessionData: { company_name: 'Next Co' },
+      partialData: {},
+    })
+
+    await nextPromise
+
+    expect(engine.getSession()?.reportId).toBe('val_next_report')
+    expect(engine.getSession()?.sessionData).toMatchObject({
+      company_name: 'Next Co',
+      queuedForNextReport: true,
+    })
+    expect(engine.getSession()?.sessionData).not.toMatchObject({
+      company_name: 'Previous Co',
+    })
+  })
+
   it('does not hydrate a stale load after the session is cleared', async () => {
     const createdAt = new Date('2026-06-04T09:00:00.000Z')
     const load = deferred<{

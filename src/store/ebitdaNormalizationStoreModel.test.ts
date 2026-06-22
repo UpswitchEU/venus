@@ -6,10 +6,13 @@ import {
 import {
   addCustomAdjustmentToNormalization,
   createEbitdaNormalizationTemplate,
+  isNormalizationSaveInFlight,
   isVirginEbitdaNormalization,
   mergeLoadedEbitdaNormalizations,
+  nextPendingNormalizationSaveCount,
   normalizeEbitdaNormalizationResponse,
   removeCustomAdjustmentFromNormalization,
+  runWithNormalizationConflictRetry,
   safeNormalizationNumber,
   updateCustomAdjustmentInNormalization,
   upsertStandardAdjustment,
@@ -201,5 +204,67 @@ describe('ebitdaNormalizationStoreModel', () => {
       2024: localEdited,
       2023: loaded2023,
     })
+  })
+
+  it('tracks overlapping save operations without dropping the saving flag early', () => {
+    let pendingCount = 0
+
+    pendingCount = nextPendingNormalizationSaveCount(pendingCount, 1)
+    expect(isNormalizationSaveInFlight(pendingCount)).toBe(true)
+
+    pendingCount = nextPendingNormalizationSaveCount(pendingCount, 1)
+    expect(isNormalizationSaveInFlight(pendingCount)).toBe(true)
+
+    pendingCount = nextPendingNormalizationSaveCount(pendingCount, -1)
+    expect(pendingCount).toBe(1)
+    expect(isNormalizationSaveInFlight(pendingCount)).toBe(true)
+
+    pendingCount = nextPendingNormalizationSaveCount(pendingCount, -1)
+    expect(pendingCount).toBe(0)
+    expect(isNormalizationSaveInFlight(pendingCount)).toBe(false)
+  })
+
+  it('retries normalization mutations on 409 conflicts only', async () => {
+    const sleeps: number[] = []
+    let attempts = 0
+
+    await expect(
+      runWithNormalizationConflictRetry(
+        async () => {
+          attempts += 1
+          if (attempts < 3) {
+            throw { status: 409 }
+          }
+          return 'ok'
+        },
+        {
+          retryDelaysMs: [5, 10],
+          sleep: async (delayMs) => {
+            sleeps.push(delayMs)
+          },
+        }
+      )
+    ).resolves.toBe('ok')
+
+    expect(attempts).toBe(3)
+    expect(sleeps).toEqual([5, 10])
+  })
+
+  it('does not retry non-conflict normalization mutation failures', async () => {
+    let attempts = 0
+    await expect(
+      runWithNormalizationConflictRetry(
+        async () => {
+          attempts += 1
+          throw { status: 500 }
+        },
+        {
+          retryDelaysMs: [5, 10],
+          sleep: async () => undefined,
+        }
+      )
+    ).rejects.toThrow('Normalization mutation failed')
+
+    expect(attempts).toBe(1)
   })
 })

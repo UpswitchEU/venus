@@ -19,30 +19,28 @@ import { isSessionPoolPressureCircuitOpen } from '../../../hooks/sessionPoolPres
 import { useCanSave } from '../../../hooks/useCanSave'
 import { reportService, sessionService, valuationService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
-import type { SaveSessionUpdates } from '../../../services/session/SessionSaveService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { ValidationError } from '../../../types/errors'
 import type { ValuationVersion, VersionChanges } from '../../../types/ValuationVersion'
-import {
-  normalizeCurrentYearForFiling,
-  normalizeHistoricalYearsForFiling,
-} from '../../../utils/fiscalYear'
-import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import { toastSaveFailure } from '../../../utils/saveErrorHandling'
 import { mergeSessionDataForReportAssets } from '../../../utils/sessionPackageHelpers'
-import { validateBusinessTypeSelection } from '../../../utils/validateBusinessTypeSelection'
 import {
   areChangesSignificant,
   detectVersionChanges,
   generateAutoLabel,
 } from '../../../utils/versionDiffDetection'
+import {
+  buildCalculationRequestIdentifiers,
+  buildPreCalculationSessionUpdate,
+  validateValuationFormSubmission,
+} from './ValuationFormSubmissionModel'
 
 interface UseValuationFormSubmissionReturn {
   handleSubmit: (e?: React.FormEvent) => Promise<void>
@@ -148,68 +146,27 @@ export const useValuationFormSubmission = (
           number_of_employees: formData?.number_of_employees,
         })
 
-        // Validate employee count when owner count is provided
-        // NOTE: 0 employees is valid when there are only owner-managers (no other staff)
-        if (
-          formData.business_type === 'company' &&
-          formData.number_of_owners &&
-          formData.number_of_owners > 0 &&
-          formData.number_of_employees === undefined
-        ) {
-          const errorMsg =
-            'Employee count is required when owner count is provided to calculate owner concentration risk. Enter 0 if there are no employees besides the owner-managers.'
-          generalLogger.warn('Form validation failed: employee count required', {
-            business_type: formData.business_type,
-            number_of_owners: formData.number_of_owners,
-            number_of_employees: formData.number_of_employees,
-          })
-          setEmployeeCountError(errorMsg)
-          setCalculating(false) // Reset loading state on validation error
+        const validation = validateValuationFormSubmission(formData)
+        if (!validation.ok) {
+          if (validation.reason === 'employee_count_required') {
+            generalLogger.warn('Form validation failed: employee count required', {
+              business_type: formData.business_type,
+              number_of_owners: formData.number_of_owners,
+              number_of_employees: formData.number_of_employees,
+            })
+          } else if (validation.reason === 'missing_required_fields') {
+            generalLogger.warn('Form validation failed: missing required fields', {
+              missingFields: validation.missingFields,
+              formDataKeys: Object.keys(formData),
+            })
+          }
+          setEmployeeCountError(validation.message)
+          setCalculating(false)
           return
         }
 
         // Clear validation error
         setEmployeeCountError(null)
-
-        if (formData.business_type_id) {
-          const businessTypeMismatch = validateBusinessTypeSelection({
-            businessTypeId: formData.business_type_id,
-            businessTypeTitle: formData.business_type_title ?? null,
-            industry: formData.industry,
-          })
-          if (businessTypeMismatch) {
-            setEmployeeCountError(businessTypeMismatch)
-            setCalculating(false)
-            return
-          }
-        }
-
-        // Validate required fields.
-        // Use explicit null/undefined checks for numeric fields (revenue, ebitda) so that
-        // legitimate zero values (pre-revenue startups, break-even businesses) are not
-        // incorrectly rejected by a falsy check.
-        if (
-          formData.revenue == null ||
-          formData.ebitda == null ||
-          !formData.industry ||
-          !formData.country_code ||
-          !formData.business_type_id
-        ) {
-          const missingFields = []
-          if (formData.revenue == null) missingFields.push('revenue')
-          if (formData.ebitda == null) missingFields.push('ebitda')
-          if (!formData.industry) missingFields.push('industry')
-          if (!formData.country_code) missingFields.push('country_code')
-          if (!formData.business_type_id) missingFields.push('business_type_id')
-
-          generalLogger.warn('Form validation failed: missing required fields', {
-            missingFields,
-            formDataKeys: Object.keys(formData),
-          })
-          setEmployeeCountError(`Please fill in all required fields: ${missingFields.join(', ')}`)
-          setCalculating(false) // Reset loading state on validation error
-          return
-        }
 
         generalLogger.info('Form validation passed, proceeding with calculation', {
           revenue: formData.revenue,
@@ -223,46 +180,7 @@ export const useValuationFormSubmission = (
         // NOTE: We use fire-and-forget to avoid blocking calculation if backend is slow
         if (reportId) {
           try {
-            const currentYear = normalizeCurrentYearForFiling(
-              formData.current_year_data?.year,
-              formData.filing_year_confirmed
-            )
-            const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(
-              formData.historical_years_data,
-              formData.filing_year_confirmed
-            )
-            // Convert formData to session format
-            const sessionUpdate: SaveSessionUpdates = {
-              company_name: formData.company_name,
-              country_code: formData.country_code,
-              industry: formData.industry,
-              business_model: formData.business_model,
-              founding_year: formData.founding_year,
-              current_year_data: {
-                year: currentYear,
-                revenue: formData.revenue ?? formData.current_year_data?.revenue ?? 0,
-                ebitda: formData.ebitda ?? formData.current_year_data?.ebitda ?? 0,
-                ...(formData.current_year_data?.total_assets != null && {
-                  total_assets: formData.current_year_data.total_assets,
-                }),
-                ...(formData.current_year_data?.total_debt != null && {
-                  total_debt: formData.current_year_data.total_debt,
-                }),
-                ...(formData.current_year_data?.cash != null && {
-                  cash: formData.current_year_data.cash,
-                }),
-              },
-              historical_years_data: normalizedHistoricalYears,
-              number_of_employees: formData.number_of_employees,
-              number_of_owners: formData.number_of_owners,
-              recurring_revenue_percentage: formData.recurring_revenue_percentage,
-              comparables: formData.comparables,
-              business_type_id: formData.business_type_id,
-              business_type_segments: formData.business_type_segments,
-              business_type: formData.business_type,
-              shares_for_sale: 100,
-              business_context: formData.business_context,
-            }
+            const sessionUpdate = buildPreCalculationSessionUpdate(formData)
 
             // Fire-and-forget: Don't await to avoid blocking calculation
             // Skip during pool-pressure cooldown to avoid amplifying DB checkout storms.
@@ -300,10 +218,7 @@ export const useValuationFormSubmission = (
           }
         }
 
-        const calculationRequestIdentifiers = {
-          reportId: reportId && (isUuid(reportId) || isSessionKey(reportId)) ? reportId : undefined,
-          sessionKey: reportId && isSessionKey(reportId) ? reportId : undefined,
-        }
+        const calculationRequestIdentifiers = buildCalculationRequestIdentifiers(reportId)
 
         const methodSnap = useManualResultsStore.getState()
         const request: ManualCalculationRequest = buildManualCalculationRequest({

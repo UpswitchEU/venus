@@ -15,14 +15,13 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
-import { toast } from 'sonner'
 import { Tooltip } from '@/design-system'
-import { dateLikeToUnixMs } from '@/utils/date-like'
 import { generalLogger } from '@/utils/logger'
 import { navigateToMercuryFromManualHandoff } from '../features/manual/utils/manualMercuryNavigate'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
 import {
   useValuationToolbarAuth,
+  useValuationToolbarDownload,
   useValuationToolbarFullscreen,
   useValuationToolbarName,
   useValuationToolbarRefresh,
@@ -31,11 +30,17 @@ import {
 } from '../hooks/valuationToolbar'
 import { useSessionStore } from '../store/useSessionStore'
 import { useVersionHistoryStore } from '../store/useVersionHistoryStore'
-import { APIError } from '../types/errors'
 import { ValuationToolbarProps } from '../types/valuation'
 import { formatVersionLabel } from '../utils/formatters'
-import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import { UserDropdown } from './UserDropdown'
+import {
+  buildToolbarDisplayVersions,
+  buildToolbarSaveStatusModel,
+  hasToolbarValuationPrice,
+  resolveToolbarActiveVersion,
+  resolveToolbarSelectedVersionNumber,
+  type ToolbarSaveStatusKind,
+} from './ValuationToolbarModel'
 
 export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   onRefresh,
@@ -67,29 +72,20 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
     // NOTE: fetchVersions removed - now handled by SessionRestorationService
   } = useVersionHistoryStore()
 
-  // ✅ FIX: Deduplicate versions when combining props and store versions
-  // Use props if provided, otherwise use store, but ensure no duplicates
   const rawDisplayVersions = versions || (reportId ? storeVersions[reportId] || [] : [])
-
-  // Deduplicate by versionNumber (keep the latest one if duplicates exist)
-  const versionMap = new Map<number, (typeof rawDisplayVersions)[0]>()
-  rawDisplayVersions.forEach((version) => {
-    const existing = versionMap.get(version.versionNumber)
-    // Keep the version with the latest createdAt or id if duplicates exist
-    if (
-      !existing ||
-      (version.createdAt && existing.createdAt && version.createdAt > existing.createdAt) ||
-      (!version.createdAt && !existing.createdAt && version.id > existing.id)
-    ) {
-      versionMap.set(version.versionNumber, version)
-    }
-  })
-  const displayVersions = Array.from(versionMap.values()).sort(
-    (a, b) => b.versionNumber - a.versionNumber
+  const displayVersions = React.useMemo(
+    () => buildToolbarDisplayVersions(rawDisplayVersions),
+    [rawDisplayVersions]
   )
-
   const storeActiveVersion = reportId ? getActiveVersion(reportId) : null
-  const displayActiveVersion = activeVersion ?? storeActiveVersion?.versionNumber
+  const displayActiveVersion = resolveToolbarActiveVersion({
+    activeVersion,
+    storeActiveVersionNumber: storeActiveVersion?.versionNumber,
+  })
+  const selectedVersionNumber = resolveToolbarSelectedVersionNumber({
+    activeVersion: displayActiveVersion,
+    displayVersions,
+  })
 
   const handleVersionSelect =
     onVersionSelect ||
@@ -103,43 +99,29 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   // when the session is loaded. No need to fetch here - versions will be
   // in the store once the session is fully restored.
 
-  // Save status icon (minimalist - just icon with tooltip)
-  // Aurora design system: primary, destructive, secondary (Burnt Clay)
-  const getSaveStatusIcon = () => {
-    if (syncError) {
-      return <AlertCircle className="w-4 h-4 text-destructive" />
-    }
-    if (isSaving) {
-      return <Loader2 className="w-4 h-4 animate-spin text-primary" />
-    }
-    if (hasUnsavedChanges) {
-      return <Save className="w-4 h-4 text-secondary" />
-    }
-    if (lastSaved) {
-      const savedMs = dateLikeToUnixMs(lastSaved)
-      const timeAgo = savedMs === null ? 0 : Math.floor((Date.now() - savedMs) / 1000 / 60)
-      if (timeAgo < 1) return <Check className="w-4 h-4 text-primary" />
-      return <Check className="w-4 h-4 text-primary opacity-70" />
-    }
-    return null
-  }
-
   const t = useTranslations()
   const tToast = useTranslations('toast')
-  const getSaveStatusTooltip = () => {
-    if (syncError) return t('report.saveStatus.saveFailed')
-    if (isSaving) return t('report.saveStatus.saving')
-    // ✅ FIX: Only show "Auto-saving soon..." when there are actual unsaved changes
-    if (hasUnsavedChanges) return t('report.saveStatus.savingSoon')
-    if (lastSaved) {
-      const savedMs = dateLikeToUnixMs(lastSaved)
-      const timeAgo = savedMs === null ? 0 : Math.floor((Date.now() - savedMs) / 1000 / 60)
-      if (timeAgo < 1) return t('report.saveStatus.saved')
-      if (timeAgo < 60) return t('report.saveStatus.savedAgo', { minutes: timeAgo })
-      return t('report.saveStatus.savedHoursAgo', { hours: Math.floor(timeAgo / 60) })
+  const saveStatus = buildToolbarSaveStatusModel({
+    syncError,
+    isSaving,
+    hasUnsavedChanges,
+    lastSaved,
+  })
+  const renderSaveStatusIcon = (kind: ToolbarSaveStatusKind) => {
+    switch (kind) {
+      case 'error':
+        return <AlertCircle className="w-4 h-4 text-destructive" />
+      case 'saving':
+        return <Loader2 className="w-4 h-4 animate-spin text-primary" />
+      case 'dirty':
+        return <Save className="w-4 h-4 text-secondary" />
+      case 'saved':
+        return <Check className="w-4 h-4 text-primary" />
+      case 'savedAged':
+        return <Check className="w-4 h-4 text-primary opacity-70" />
+      default:
+        return null
     }
-    // ✅ FIX: Don't show "Saved" for new reports - return null to hide tooltip
-    return null
   }
 
   // Handle retry save when error icon is clicked
@@ -192,91 +174,11 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const { handleRefresh: handleHookRefresh } = useValuationToolbarRefresh()
   const handleRefresh = onRefresh ?? handleHookRefresh
 
-  // WORLD-CLASS: PDF Generation with Titan API integration
-  // Uses usePdfGeneration for server-side Puppeteer PDF generation
-  const { usePdfGeneration } = React.useMemo(() => {
-    // Lazy load to avoid circular dependencies
-    return { usePdfGeneration: require('../hooks/usePdfGeneration').usePdfGeneration }
-  }, [])
-
-  const {
-    state: pdfState,
-    downloadPdf,
-    isReady: isPdfReady,
-    isGenerating: isPdfGenerating,
-  } = usePdfGeneration(reportId || null)
-  const [isPdfDownloading, setIsPdfDownloading] = React.useState(false)
-  const pdfDownloadInFlightRef = React.useRef(false)
-  const pdfDownloadAbortRef = React.useRef<AbortController | null>(null)
-  const pdfDownloadRunIdRef = React.useRef(0)
-
-  React.useEffect(() => {
-    void reportId
-    pdfDownloadRunIdRef.current++
-    pdfDownloadInFlightRef.current = false
-    pdfDownloadAbortRef.current?.abort()
-    pdfDownloadAbortRef.current = null
-    setIsPdfDownloading(false)
-    return () => {
-      pdfDownloadRunIdRef.current++
-      pdfDownloadInFlightRef.current = false
-      pdfDownloadAbortRef.current?.abort()
-      pdfDownloadAbortRef.current = null
-    }
-  }, [reportId])
-
-  const isDownloading = isPdfGenerating || isPdfDownloading
-
-  const handleDownload = React.useCallback(async () => {
-    if (onDownload) {
-      onDownload()
-    } else {
-      if (pdfDownloadInFlightRef.current) return
-      pdfDownloadInFlightRef.current = true
-      const runId = ++pdfDownloadRunIdRef.current
-      const activeReportId = reportId || null
-      const isCurrentRun = () =>
-        pdfDownloadRunIdRef.current === runId && (reportId || null) === activeReportId
-      const abortController = new AbortController()
-      pdfDownloadAbortRef.current = abortController
-      setIsPdfDownloading(true)
-      try {
-        await downloadPdf(undefined, undefined, abortController.signal)
-        if (!isCurrentRun()) return
-      } catch (err) {
-        if (err instanceof APIError && err.statusCode === 402) {
-          if (isCurrentRun()) {
-            toast.error(tToast('pdfDownloadPlanBlocked'), {
-              description: tToast('pdfDownloadPlanBlockedDesc'),
-            })
-          }
-          return
-        }
-        if (err instanceof APIError && isPdfTransientUpstreamStatus(err.statusCode)) {
-          if (isCurrentRun()) {
-            toast.warning(tToast('pdfPollDegradedHint'))
-          }
-          return
-        }
-        if (err instanceof Error && err.name === 'AbortError') return
-        if (!isCurrentRun()) return
-        generalLogger.error('[ValuationToolbar] PDF download failed', {
-          error: err instanceof Error ? err.message : String(err),
-        })
-        toast.error(tToast('pdfExportFailed'), {
-          description: err instanceof Error ? err.message : tToast('pdfExportFailedDesc'),
-        })
-      } finally {
-        if (isCurrentRun()) {
-          pdfDownloadInFlightRef.current = false
-          setIsPdfDownloading(false)
-          if (pdfDownloadAbortRef.current === abortController) {
-            pdfDownloadAbortRef.current = null
-          }
-        }
-      }
-    }
-  }, [onDownload, downloadPdf, tToast, reportId])
+  const { pdfState, isPdfReady, isDownloading, handleDownload } = useValuationToolbarDownload({
+    reportId: reportId || null,
+    onDownload,
+    translateToast: tToast,
+  })
 
   // Fullscreen hook - use prop if provided, otherwise use hook
   const { handleOpenFullscreen: handleHookFullscreen } = useValuationToolbarFullscreen()
@@ -301,16 +203,10 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
 
   // Check if valuation result has price data available
   // Button should only appear when price is available
-  const hasValuationPrice = React.useMemo(() => {
-    if (!valuationResult) return false
-
-    return !!(
-      valuationResult.equity_value_mid ||
-      valuationResult.recommended_asking_price ||
-      valuationResult.equity_value_low ||
-      valuationResult.equity_value_high
-    )
-  }, [valuationResult])
+  const hasValuationPrice = React.useMemo(
+    () => hasToolbarValuationPrice(valuationResult),
+    [valuationResult]
+  )
 
   const handleReturnToMercury = () => {
     // Broadcast report update before leaving
@@ -404,23 +300,24 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   </div>
                 </div>
                 {/* Save Status Icon (M&A Workflow) - Minimalist inline indicator */}
-                {getSaveStatusIcon() &&
+                {saveStatus.kind &&
                   (() => {
-                    const tooltipContent = getSaveStatusTooltip()
-                    const iconContent = syncError ? (
+                    const tooltipContent = saveStatus.tooltipKey
+                      ? t(saveStatus.tooltipKey, saveStatus.tooltipValues)
+                      : null
+                    const saveStatusIcon = renderSaveStatusIcon(saveStatus.kind)
+                    const iconContent = saveStatus.canRetry ? (
                       // Clickable only when there's an error (manual retry)
                       <button
                         onClick={handleRetrySave}
                         className="flex items-center justify-center p-1 rounded hover:bg-foreground/[0.04] transition-colors cursor-pointer"
                         aria-label={t('common.actions.retry')}
                       >
-                        {getSaveStatusIcon()}
+                        {saveStatusIcon}
                       </button>
                     ) : (
                       // Non-clickable for normal states (autosave)
-                      <div className="flex items-center justify-center p-1">
-                        {getSaveStatusIcon()}
-                      </div>
+                      <div className="flex items-center justify-center p-1">{saveStatusIcon}</div>
                     )
 
                     // Only wrap in Tooltip if there's tooltip content (hide for new reports)
@@ -538,10 +435,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                     >
                       <div className="relative">
                         <select
-                          value={
-                            displayActiveVersion ||
-                            displayVersions[displayVersions.length - 1].versionNumber
-                          }
+                          value={selectedVersionNumber}
                           onChange={(e) => handleVersionSelect(parseInt(e.target.value))}
                           className="
                             px-2 py-1.5 pr-6 rounded-lg border border-foreground/[0.08]
@@ -551,17 +445,15 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                             appearance-none
                           "
                         >
-                          {displayVersions
-                            .sort((a, b) => b.versionNumber - a.versionNumber)
-                            .map((version) => (
-                              <option
-                                key={version.id}
-                                value={version.versionNumber}
-                                className="bg-card text-foreground"
-                              >
-                                {formatVersionLabel(version)}
-                              </option>
-                            ))}
+                          {displayVersions.map((version) => (
+                            <option
+                              key={version.id}
+                              value={version.versionNumber}
+                              className="bg-card text-foreground"
+                            >
+                              {formatVersionLabel(version)}
+                            </option>
+                          ))}
                         </select>
                         <GitBranch className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-foreground/40 pointer-events-none" />
                       </div>

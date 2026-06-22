@@ -43,12 +43,11 @@ import { HistoricalDataSection } from './sections/HistoricalDataSection'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
 import { buildBusinessTypeFormData } from './utils/businessTypeFormData'
 import { getHttpStatus, matchBusinessType } from './utils/businessTypeMatching'
+import { getPrefilledQuery, getStringRecordValue } from './utils/recordAccess'
 import {
-  getNumberRecordValue,
-  getPrefilledQuery,
-  getStringRecordValue,
-  getYearlyFinancials,
-} from './utils/recordAccess'
+  hasRecentAcceptedNormalizations,
+  hasValuationFormChangesSinceVersion,
+} from './ValuationFormModel'
 
 export interface ValuationFormProps {
   /** Initial version to load (for M&A workflow - edit previous versions) */
@@ -437,18 +436,11 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   // Check if any normalizations exist
   const hasAnyNormalization = useMemo(
     () =>
-      normalizationItems.some((item) => {
-        if (item.status !== 'accepted') return false
-        const years = item.applyAllYears
-          ? [lastFullYear, lastFullYear - 1, lastFullYear - 2]
-          : item.applyYears && item.applyYears.length > 0
-            ? item.applyYears
-            : [item.year]
-        return years.some((year) => year >= lastFullYear - 2 && year <= lastFullYear)
-      }) ||
-      [lastFullYear, lastFullYear - 1, lastFullYear - 2].some((year) =>
-        hasLegacyNormalization(year)
-      ),
+      hasRecentAcceptedNormalizations({
+        normalizationItems,
+        lastFullYear,
+        hasLegacyNormalization,
+      }),
     [normalizationItems, lastFullYear, hasLegacyNormalization]
   )
 
@@ -462,33 +454,14 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
   // Check if form data has changed from the last version
   // This compares the current form data with the version's form data
-  const hasFormChanges = useMemo(() => {
-    if (!currentVersion?.formData) return false
-    const versionFormData = currentVersion.formData
-
-    // Compare key fields that affect valuation
-    const changedFields = []
-    if (formData.company_name !== versionFormData.company_name) changedFields.push('company_name')
-    if (formData.revenue !== versionFormData.revenue) changedFields.push('revenue')
-    if (formData.ebitda !== getNumberRecordValue(versionFormData, 'ebitda')) {
-      changedFields.push('ebitda')
-    }
-    if (formData.industry !== versionFormData.industry) changedFields.push('industry')
-    if (formData.founding_year !== versionFormData.founding_year)
-      changedFields.push('founding_year')
-    if (formData.number_of_employees !== versionFormData.number_of_employees)
-      changedFields.push('employees')
-    if (formData.number_of_owners !== versionFormData.number_of_owners) changedFields.push('owners')
-
-    // Include yearly financials (revenue, ebitda per year) - critical for EBITDA change detection
-    const formYearly = getYearlyFinancials(formData)
-    const versionYearly = getYearlyFinancials(versionFormData)
-    if (JSON.stringify(formYearly) !== JSON.stringify(versionYearly)) {
-      changedFields.push('yearlyFinancials')
-    }
-
-    return changedFields.length > 0
-  }, [currentVersion?.formData, formData])
+  const hasFormChanges = useMemo(
+    () =>
+      hasValuationFormChangesSinceVersion({
+        formData,
+        versionFormData: currentVersion?.formData,
+      }),
+    [currentVersion?.formData, formData]
+  )
 
   // Only show the version confirmation for an existing valuation when the form changed
   // or accepted normalizations would materially change the next calculation.

@@ -7,76 +7,25 @@
  * Range slider with spring animations and track fill visualization.
  */
 
-import { cva, type VariantProps } from 'class-variance-authority'
 import { motion } from 'framer-motion'
 import * as React from 'react'
 import { cn } from '../utils'
 import { springSnappy } from './motion'
-
-// ─────────────────────────────────────────
-// STYLE VARIANTS
-// ─────────────────────────────────────────
-
-const sliderTrackVariants = cva(
-  ['relative w-full rounded-full', 'bg-foreground/[0.10]', 'cursor-pointer'],
-  {
-    variants: {
-      size: {
-        sm: 'h-1.5',
-        md: 'h-2',
-        lg: 'h-2.5',
-      },
-      disabled: {
-        true: 'opacity-50 cursor-not-allowed',
-        false: '',
-      },
-    },
-    defaultVariants: {
-      size: 'md',
-      disabled: false,
-    },
-  }
-)
-
-const sliderThumbVariants = cva(
-  [
-    'absolute top-1/2 -translate-y-1/2 z-10',
-    'rounded-full bg-background',
-    'border-2 border-primary',
-    'shadow-md cursor-grab active:cursor-grabbing',
-    'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background',
-    'transition-shadow',
-  ],
-  {
-    variants: {
-      size: {
-        sm: 'w-4 h-4',
-        md: 'w-5 h-5',
-        lg: 'w-6 h-6',
-      },
-      variant: {
-        default: 'border-primary',
-        success: 'border-success',
-        accent: 'border-accent',
-      },
-      disabled: {
-        true: 'cursor-not-allowed',
-        false: '',
-      },
-    },
-    defaultVariants: {
-      size: 'md',
-      variant: 'default',
-      disabled: false,
-    },
-  }
-)
-
-function sliderThumbVisualSize(size: SliderProps['size']): string {
-  if (size === 'sm') return 'h-4 w-4'
-  if (size === 'lg') return 'h-6 w-6'
-  return 'h-5 w-5'
-}
+import {
+  clampSliderValue,
+  getSliderPercentage,
+  updateRangeSliderValue,
+  valueFromSliderClientX,
+} from './Slider.model'
+import {
+  type SliderSize,
+  type SliderVariant,
+  sliderFillClassByVariant,
+  sliderThumbVariants,
+  sliderTrackHitAreaSize,
+  sliderTrackVariants,
+} from './Slider.styles'
+import { SliderThumb } from './SliderThumb'
 
 // ─────────────────────────────────────────
 // TYPES
@@ -98,9 +47,9 @@ export interface SliderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 
   /** Callback when sliding ends */
   onChangeEnd?: (value: number) => void
   /** Size variant */
-  size?: 'sm' | 'md' | 'lg'
+  size?: SliderSize
   /** Color variant */
-  variant?: 'default' | 'success' | 'accent'
+  variant?: SliderVariant
   /** Disabled state */
   disabled?: boolean
   /** Show value tooltip while dragging */
@@ -159,20 +108,27 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
 
     const isControlled = controlledValue !== undefined
     const value = isControlled ? controlledValue : internalValue
+    const latestValueRef = React.useRef(value)
 
-    const clampedValue = Math.min(max, Math.max(min, value))
-    const percentage = ((clampedValue - min) / (max - min)) * 100
+    const clampedValue = clampSliderValue(value, min, max)
+    const percentage = getSliderPercentage(clampedValue, min, max)
+
+    React.useEffect(() => {
+      latestValueRef.current = value
+    }, [value])
 
     const updateValue = React.useCallback(
       (clientX: number) => {
         if (disabled || !trackRef.current) return
 
         const rect = trackRef.current.getBoundingClientRect()
-        const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-        const rawValue = min + percent * (max - min)
-        const steppedValue = Math.round(rawValue / step) * step
-        const newValue = Math.min(max, Math.max(min, steppedValue))
+        const newValue = valueFromSliderClientX(
+          clientX,
+          { left: rect.left, width: rect.width },
+          { min, max, step }
+        )
 
+        latestValueRef.current = newValue
         if (!isControlled) {
           setInternalValue(newValue)
         }
@@ -202,7 +158,7 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
 
       const handleEnd = () => {
         setIsDragging(false)
-        onChangeEnd?.(isControlled ? controlledValue : internalValue)
+        onChangeEnd?.(latestValueRef.current)
       }
 
       window.addEventListener('mousemove', handleMouseMove)
@@ -216,7 +172,7 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
         window.removeEventListener('touchmove', handleTouchMove)
         window.removeEventListener('touchend', handleEnd)
       }
-    }, [isDragging, isControlled, controlledValue, internalValue, onChangeEnd, updateValue])
+    }, [isDragging, onChangeEnd, updateValue])
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (disabled) return
@@ -242,17 +198,12 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
       }
 
       e.preventDefault()
+      latestValueRef.current = newValue
       if (!isControlled) {
         setInternalValue(newValue)
       }
       onChange?.(newValue)
       onChangeEnd?.(newValue)
-    }
-
-    const fillColor = {
-      default: 'bg-primary',
-      success: 'bg-success',
-      accent: 'bg-accent',
     }
 
     // ARIA labelling props belong on the role="slider" element — NOT on the
@@ -281,11 +232,7 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
           ref={trackRef}
           className={cn(
             'relative flex items-center cursor-pointer',
-            size === 'sm'
-              ? 'min-h-11 sm:h-5'
-              : size === 'lg'
-                ? 'min-h-11 sm:h-7'
-                : 'min-h-11 sm:h-6',
+            sliderTrackHitAreaSize(size),
             disabled && 'opacity-50 cursor-not-allowed'
           )}
           onMouseDown={handleMouseDown}
@@ -308,57 +255,25 @@ const Slider = React.forwardRef<HTMLDivElement, SliderProps>(
             )}
           >
             <motion.div
-              className={cn('absolute left-0 top-0 h-full rounded-full', fillColor[variant])}
+              className={cn(
+                'absolute left-0 top-0 h-full rounded-full',
+                sliderFillClassByVariant[variant]
+              )}
               initial={false}
               animate={{ width: `${percentage}%` }}
               transition={springSnappy}
             />
           </div>
 
-          <motion.div
-            className={cn(
-              'absolute top-1/2 z-10 flex h-11 w-11 items-center justify-center',
-              'cursor-grab active:cursor-grabbing touch-manipulation',
-              disabled && 'cursor-not-allowed'
-            )}
-            initial={false}
-            animate={{
-              left: `${percentage}%`,
-              x: '-50%',
-              y: '-50%',
-            }}
-            transition={springSnappy}
-            whileHover={!disabled ? { scale: 1.1 } : undefined}
-            whileTap={!disabled ? { scale: 0.95 } : undefined}
-          >
-            <span
-              className={cn(
-                'block rounded-full border-2 bg-background shadow-md pointer-events-none',
-                sliderThumbVisualSize(size),
-                variant === 'success'
-                  ? 'border-success'
-                  : variant === 'accent'
-                    ? 'border-accent'
-                    : 'border-primary'
-              )}
-              aria-hidden="true"
-            />
-            {showTooltip && isDragging && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                className={cn(
-                  'absolute -top-8 left-1/2 -translate-x-1/2',
-                  'px-2 py-1 rounded-md',
-                  'bg-foreground text-background',
-                  'text-xs font-medium whitespace-nowrap'
-                )}
-              >
-                {formatValue(clampedValue)}
-              </motion.div>
-            )}
-          </motion.div>
+          <SliderThumb
+            percentage={percentage}
+            value={clampedValue}
+            size={size}
+            variant={variant}
+            disabled={disabled}
+            showTooltip={showTooltip && isDragging}
+            formatValue={formatValue}
+          />
         </div>
 
         {showLabels && (
@@ -406,30 +321,36 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
 
     const isControlled = controlledValue !== undefined
     const value = isControlled ? controlledValue : internalValue
+    const latestValueRef = React.useRef(value)
 
     const [minVal, maxVal] = value
-    const minPercent = ((minVal - min) / (max - min)) * 100
-    const maxPercent = ((maxVal - min) / (max - min)) * 100
+    const minPercent = getSliderPercentage(minVal, min, max)
+    const maxPercent = getSliderPercentage(maxVal, min, max)
+
+    React.useEffect(() => {
+      latestValueRef.current = value
+    }, [value])
 
     const updateValue = React.useCallback(
       (clientX: number, thumbIndex: 0 | 1) => {
         if (disabled || !trackRef.current) return
 
         const rect = trackRef.current.getBoundingClientRect()
-        const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-        const rawValue = min + percent * (max - min)
-        const steppedValue = Math.round(rawValue / step) * step
+        const steppedValue = valueFromSliderClientX(
+          clientX,
+          { left: rect.left, width: rect.width },
+          { min, max, step }
+        )
+        const newValue = updateRangeSliderValue({
+          currentValue: value,
+          nextThumbValue: steppedValue,
+          thumbIndex,
+          min,
+          max,
+          minDistance,
+        })
 
-        let newValue: [number, number] = [...value] as [number, number]
-
-        if (thumbIndex === 0) {
-          newValue[0] = Math.min(steppedValue, value[1] - minDistance)
-          newValue[0] = Math.max(min, newValue[0])
-        } else {
-          newValue[1] = Math.max(steppedValue, value[0] + minDistance)
-          newValue[1] = Math.min(max, newValue[1])
-        }
-
+        latestValueRef.current = newValue
         if (!isControlled) {
           setInternalValue(newValue)
         }
@@ -466,7 +387,7 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
 
       const handleEnd = () => {
         setActiveThumb(null)
-        onChangeEnd?.(isControlled ? controlledValue : internalValue)
+        onChangeEnd?.(latestValueRef.current)
       }
 
       window.addEventListener('mousemove', handleMouseMove)
@@ -480,13 +401,7 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
         window.removeEventListener('touchmove', handleTouchMove)
         window.removeEventListener('touchend', handleEnd)
       }
-    }, [activeThumb, isControlled, controlledValue, internalValue, onChangeEnd, updateValue])
-
-    const fillColor = {
-      default: 'bg-primary',
-      success: 'bg-success',
-      accent: 'bg-accent',
-    }
+    }, [activeThumb, onChangeEnd, updateValue])
 
     return (
       <div ref={ref} className={cn('w-full', className)} {...props}>
@@ -503,11 +418,7 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
           ref={trackRef}
           className={cn(
             'relative flex items-center cursor-pointer',
-            size === 'sm'
-              ? 'min-h-11 sm:h-5'
-              : size === 'lg'
-                ? 'min-h-11 sm:h-7'
-                : 'min-h-11 sm:h-6',
+            sliderTrackHitAreaSize(size),
             disabled && 'opacity-50 cursor-not-allowed'
           )}
         >
@@ -518,7 +429,10 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
             )}
           >
             <motion.div
-              className={cn('absolute top-0 h-full rounded-full', fillColor[variant])}
+              className={cn(
+                'absolute top-0 h-full rounded-full',
+                sliderFillClassByVariant[variant]
+              )}
               initial={false}
               animate={{
                 left: `${minPercent}%`,
@@ -528,99 +442,29 @@ const RangeSlider = React.forwardRef<HTMLDivElement, RangeSliderProps>(
             />
           </div>
 
-          {/* Min Thumb */}
-          <motion.div
-            className={cn(
-              'absolute top-1/2 z-10 flex h-11 w-11 items-center justify-center',
-              'cursor-grab active:cursor-grabbing touch-manipulation',
-              disabled && 'cursor-not-allowed'
-            )}
-            initial={false}
-            animate={{
-              left: `${minPercent}%`,
-              x: '-50%',
-              y: '-50%',
-            }}
-            transition={springSnappy}
-            whileHover={!disabled ? { scale: 1.1 } : undefined}
-            whileTap={!disabled ? { scale: 0.95 } : undefined}
+          <SliderThumb
+            percentage={minPercent}
+            value={minVal}
+            size={size}
+            variant={variant}
+            disabled={disabled}
+            showTooltip={showTooltip && activeThumb === 0}
+            formatValue={formatValue}
             onMouseDown={(e) => handleThumbMouseDown(e, 0)}
             onTouchStart={(e) => handleThumbTouchStart(e, 0)}
-          >
-            <span
-              className={cn(
-                'block rounded-full border-2 bg-background shadow-md pointer-events-none',
-                sliderThumbVisualSize(size),
-                variant === 'success'
-                  ? 'border-success'
-                  : variant === 'accent'
-                    ? 'border-accent'
-                    : 'border-primary'
-              )}
-              aria-hidden="true"
-            />
-            {showTooltip && activeThumb === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  'absolute -top-8 left-1/2 -translate-x-1/2',
-                  'px-2 py-1 rounded-md',
-                  'bg-foreground text-background',
-                  'text-xs font-medium whitespace-nowrap'
-                )}
-              >
-                {formatValue(minVal)}
-              </motion.div>
-            )}
-          </motion.div>
+          />
 
-          {/* Max Thumb */}
-          <motion.div
-            className={cn(
-              'absolute top-1/2 z-10 flex h-11 w-11 items-center justify-center',
-              'cursor-grab active:cursor-grabbing touch-manipulation',
-              disabled && 'cursor-not-allowed'
-            )}
-            initial={false}
-            animate={{
-              left: `${maxPercent}%`,
-              x: '-50%',
-              y: '-50%',
-            }}
-            transition={springSnappy}
-            whileHover={!disabled ? { scale: 1.1 } : undefined}
-            whileTap={!disabled ? { scale: 0.95 } : undefined}
+          <SliderThumb
+            percentage={maxPercent}
+            value={maxVal}
+            size={size}
+            variant={variant}
+            disabled={disabled}
+            showTooltip={showTooltip && activeThumb === 1}
+            formatValue={formatValue}
             onMouseDown={(e) => handleThumbMouseDown(e, 1)}
             onTouchStart={(e) => handleThumbTouchStart(e, 1)}
-          >
-            <span
-              className={cn(
-                'block rounded-full border-2 bg-background shadow-md pointer-events-none',
-                sliderThumbVisualSize(size),
-                variant === 'success'
-                  ? 'border-success'
-                  : variant === 'accent'
-                    ? 'border-accent'
-                    : 'border-primary'
-              )}
-              aria-hidden="true"
-            />
-            {showTooltip && activeThumb === 1 && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  'absolute -top-8 left-1/2 -translate-x-1/2',
-                  'px-2 py-1 rounded-md',
-                  'bg-foreground text-background',
-                  'text-xs font-medium whitespace-nowrap'
-                )}
-              >
-                {formatValue(maxVal)}
-              </motion.div>
-            )}
-          </motion.div>
+          />
         </div>
 
         {showLabels && (
@@ -639,4 +483,4 @@ RangeSlider.displayName = 'RangeSlider'
 // EXPORTS
 // ─────────────────────────────────────────
 
-export { Slider, RangeSlider, sliderTrackVariants, sliderThumbVariants }
+export { RangeSlider, Slider, sliderThumbVariants, sliderTrackVariants }

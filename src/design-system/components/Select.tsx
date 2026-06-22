@@ -8,116 +8,34 @@
  * Compatible with existing Venus CustomDropdown props.
  */
 
-import { cva, type VariantProps } from 'class-variance-authority'
-import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, Check, ChevronDown, Search, X } from 'lucide-react'
+import { type VariantProps } from 'class-variance-authority'
+import { motion } from 'framer-motion'
+import { AlertCircle, ChevronDown, Search, X } from 'lucide-react'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { scrollElementIntoContainer } from '@/utils/scrollContainer'
 import { cn } from '../../lib/utils'
-import { springDefault } from './motion'
+import {
+  createSelectFocusIndexMap,
+  filterSelectOptions,
+  flattenEnabledSelectOptions,
+  flattenSelectOptions,
+  isGroupedOptions,
+} from './Select.model'
+import {
+  dropdownVariants,
+  selectDropdownClassName,
+  selectLabelVariants,
+  selectSearchInputClassName,
+  selectTriggerVariants,
+} from './Select.styles'
+import type { SelectOptions } from './Select.types'
+import { SelectOptionItem } from './SelectOptionItem'
 
 // ─────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────
-
-export interface SelectOption {
-  value: string
-  label: string
-  disabled?: boolean
-  description?: string
-  icon?: React.ReactNode
-}
-
-export interface SelectGroup {
-  label: string
-  options: SelectOption[]
-}
-
-export type SelectOptions = SelectOption[] | SelectGroup[]
-
-function isGroupedOptions(options: SelectOptions): options is SelectGroup[] {
-  return options.length > 0 && 'options' in options[0]
-}
-
-// ─────────────────────────────────────────
-// ANIMATION VARIANTS
-// ─────────────────────────────────────────
-
-const dropdownVariants = {
-  hidden: {
-    opacity: 0,
-    y: -8,
-    scale: 0.98,
-  },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: springDefault,
-  },
-  exit: {
-    opacity: 0,
-    y: -8,
-    scale: 0.98,
-    transition: { duration: 0.15 },
-  },
-}
-
-// ─────────────────────────────────────────
-// STYLE VARIANTS
-// ─────────────────────────────────────────
-
-const selectTriggerVariants = cva(
-  [
-    'relative w-full flex items-center justify-between',
-    'border rounded-xl shadow-sm transition-all duration-200',
-    'bg-foreground/[0.04]',
-    'cursor-pointer select-none',
-  ],
-  {
-    variants: {
-      state: {
-        default: 'border-foreground/[0.10] hover:border-foreground/[0.20]',
-        focus: 'border-primary ring-2 ring-primary/20 ring-offset-0',
-        error: 'border-destructive',
-        disabled: 'border-foreground/[0.05] opacity-60 cursor-not-allowed',
-      },
-      size: {
-        sm: 'h-14 px-4',
-        md: 'h-16 px-4',
-        lg: 'h-[72px] px-4',
-      },
-    },
-    defaultVariants: {
-      state: 'default',
-      size: 'md',
-    },
-  }
-)
-
-const labelVariants = cva(
-  [
-    'absolute left-4 transition-all duration-200 ease-in-out pointer-events-none',
-    'text-foreground/60',
-  ],
-  {
-    variants: {
-      state: {
-        idle: 'top-1/2 -translate-y-1/2 text-base',
-        floated: 'top-2 translate-y-0 text-xs font-medium',
-      },
-      error: {
-        true: 'text-destructive',
-        false: '',
-      },
-    },
-    defaultVariants: {
-      state: 'idle',
-      error: false,
-    },
-  }
-)
+export type { SelectGroup, SelectOption, SelectOptions } from './Select.types'
 
 // ─────────────────────────────────────────
 // SELECT COMPONENT
@@ -188,42 +106,26 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
     const portalDropdownRef = React.useRef<HTMLDivElement>(null)
 
     // Combine refs
-    React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement)
+    React.useImperativeHandle(ref, () => containerRef.current as HTMLDivElement, [containerRef])
 
     const value = controlledValue !== undefined ? controlledValue : internalValue
 
     // Get flat options list for keyboard navigation
-    const flatOptions = React.useMemo(() => {
-      if (isGroupedOptions(options)) {
-        return options.flatMap((group) => group.options)
-      }
-      return options
-    }, [options])
+    const flatOptions = React.useMemo(() => flattenSelectOptions(options), [options])
 
     // Filter options based on search
-    const filteredOptions = React.useMemo(() => {
-      if (!searchQuery) return options
-
-      const query = searchQuery.toLowerCase()
-
-      if (isGroupedOptions(options)) {
-        return options
-          .map((group) => ({
-            ...group,
-            options: group.options.filter(
-              (opt) =>
-                opt.label.toLowerCase().includes(query) ||
-                opt.description?.toLowerCase().includes(query)
-            ),
-          }))
-          .filter((group) => group.options.length > 0)
-      }
-
-      return options.filter(
-        (opt) =>
-          opt.label.toLowerCase().includes(query) || opt.description?.toLowerCase().includes(query)
-      )
-    }, [options, searchQuery])
+    const filteredOptions = React.useMemo(
+      () => filterSelectOptions(options, searchQuery),
+      [options, searchQuery]
+    )
+    const enabledFilteredOptions = React.useMemo(
+      () => flattenEnabledSelectOptions(filteredOptions),
+      [filteredOptions]
+    )
+    const focusIndexByOption = React.useMemo(
+      () => createSelectFocusIndexMap(filteredOptions),
+      [filteredOptions]
+    )
 
     // Get selected option
     const selectedOption = React.useMemo(() => {
@@ -254,18 +156,14 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (disabled) return
 
-      const filteredFlat = isGroupedOptions(filteredOptions)
-        ? filteredOptions.flatMap((g) => g.options).filter((o) => !o.disabled)
-        : filteredOptions.filter((o) => !o.disabled)
-
       switch (e.key) {
         case 'Enter':
         case ' ':
           e.preventDefault()
           if (!isOpen) {
             setIsOpen(true)
-          } else if (focusedIndex >= 0 && filteredFlat[focusedIndex]) {
-            handleSelect(filteredFlat[focusedIndex].value)
+          } else if (focusedIndex >= 0 && enabledFilteredOptions[focusedIndex]) {
+            handleSelect(enabledFilteredOptions[focusedIndex].value)
           }
           break
         case 'ArrowDown':
@@ -273,13 +171,13 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
           if (!isOpen) {
             setIsOpen(true)
           } else {
-            setFocusedIndex((prev) => (prev < filteredFlat.length - 1 ? prev + 1 : 0))
+            setFocusedIndex((prev) => (prev < enabledFilteredOptions.length - 1 ? prev + 1 : 0))
           }
           break
         case 'ArrowUp':
           e.preventDefault()
           if (isOpen) {
-            setFocusedIndex((prev) => (prev > 0 ? prev - 1 : filteredFlat.length - 1))
+            setFocusedIndex((prev) => (prev > 0 ? prev - 1 : enabledFilteredOptions.length - 1))
           }
           break
         case 'Escape':
@@ -296,11 +194,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
       }
     }
 
-    // Update dropdown position when open (for Portal). `containerRef.current`
-    // is intentionally NOT a dep — refs don't notify React on change and
-    // listing `.current` re-fired the effect every render. The body reads the
-    // current value lazily, which is the correct pattern.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: ref reads are deliberate, not reactive
+    // Update dropdown position when open (for Portal).
     React.useLayoutEffect(() => {
       if (isOpen && containerRef.current) {
         const updateRect = () => {
@@ -319,11 +213,12 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
       } else {
         setDropdownRect(null)
       }
-    }, [isOpen])
+    }, [isOpen, containerRef])
 
     // Close on outside click (Portal: check both container and dropdown)
-    // biome-ignore lint/correctness/useExhaustiveDependencies: refs read inside handler are not reactive
     React.useEffect(() => {
+      if (!isOpen) return
+
       const handleClickOutside = (e: MouseEvent) => {
         const target = e.target as Node
         const inContainer = containerRef.current?.contains(target)
@@ -337,7 +232,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
 
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    }, [isOpen, containerRef])
 
     // Focus search input when opened
     React.useEffect(() => {
@@ -364,7 +259,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
     const hasValue = !!value
 
     return (
-      <div ref={ref} className={cn('relative', className)}>
+      <div className={cn('relative', className)}>
         <div
           ref={containerRef}
           className="relative"
@@ -384,7 +279,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
             {label && (
               <span
                 className={cn(
-                  labelVariants({
+                  selectLabelVariants({
                     state: hasValue || isOpen ? 'floated' : 'idle',
                     error: !!hasError,
                   })
@@ -445,12 +340,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                 initial="hidden"
                 animate="visible"
                 exit="exit"
-                className={cn(
-                  'fixed z-[9999]',
-                  'bg-background border border-foreground/[0.10] rounded-xl',
-                  'shadow-2xl shadow-black/20',
-                  'overflow-hidden'
-                )}
+                className={cn(selectDropdownClassName)}
                 style={{
                   top: dropdownRect.top,
                   left: dropdownRect.left,
@@ -471,12 +361,7 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                           setFocusedIndex(-1)
                         }}
                         placeholder={searchPlaceholder}
-                        className={cn(
-                          'w-full h-10 pl-9 pr-4 text-sm',
-                          'bg-foreground/[0.04] border border-foreground/[0.08] rounded-lg',
-                          'text-foreground placeholder:text-foreground/40',
-                          'focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20'
-                        )}
+                        className={cn(selectSearchInputClassName)}
                       />
                       {searchQuery && (
                         <button
@@ -505,19 +390,15 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                           {group.label}
                         </div>
                         {group.options.map((option) => {
-                          const flatIndex =
-                            filteredOptions
-                              .slice(0, groupIndex)
-                              .reduce((acc, g) => acc + g.options.length, 0) +
-                            group.options.indexOf(option)
+                          const focusIndex = focusIndexByOption.get(option)
 
                           return (
                             <SelectOptionItem
                               key={option.value}
                               option={option}
                               isSelected={option.value === value}
-                              isFocused={focusedIndex === flatIndex}
-                              dataIndex={flatIndex}
+                              isFocused={focusIndex !== undefined && focusedIndex === focusIndex}
+                              dataIndex={focusIndex}
                               onSelect={handleSelect}
                               onDisabledOptionInteract={onDisabledOptionInteract}
                             />
@@ -527,13 +408,16 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
                     ))
                   ) : (
                     // Flat options
-                    filteredOptions.map((option, index) => (
+                    filteredOptions.map((option) => (
                       <SelectOptionItem
                         key={option.value}
                         option={option}
                         isSelected={option.value === value}
-                        isFocused={focusedIndex === index}
-                        dataIndex={index}
+                        isFocused={
+                          focusIndexByOption.has(option) &&
+                          focusedIndex === focusIndexByOption.get(option)
+                        }
+                        dataIndex={focusIndexByOption.get(option)}
                         onSelect={handleSelect}
                         onDisabledOptionInteract={onDisabledOptionInteract}
                       />
@@ -564,85 +448,10 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
 AuroraSelect.displayName = 'AuroraSelect'
 
 // ─────────────────────────────────────────
-// OPTION ITEM
-// ─────────────────────────────────────────
-
-const HOVER_DEBOUNCE_MS = 5000
-
-interface SelectOptionItemProps {
-  option: SelectOption
-  isSelected: boolean
-  isFocused: boolean
-  dataIndex: number
-  onSelect: (value: string) => void
-  onDisabledOptionInteract?: (value: string, action: 'click' | 'hover') => void
-}
-
-const SelectOptionItem: React.FC<SelectOptionItemProps> = ({
-  option,
-  isSelected,
-  isFocused,
-  dataIndex,
-  onSelect,
-  onDisabledOptionInteract,
-}) => {
-  const lastHoverRef = React.useRef<Record<string, number>>({})
-  const descId = React.useId()
-
-  const handleClick = () => {
-    if (option.disabled) {
-      onDisabledOptionInteract?.(option.value, 'click')
-    } else {
-      onSelect(option.value)
-    }
-  }
-
-  const handleMouseEnter = () => {
-    if (option.disabled && onDisabledOptionInteract) {
-      const now = Date.now()
-      const last = lastHoverRef.current[option.value] ?? 0
-      if (now - last >= HOVER_DEBOUNCE_MS) {
-        lastHoverRef.current[option.value] = now
-        onDisabledOptionInteract(option.value, 'hover')
-      }
-    }
-  }
-
-  const hasDescription = option.disabled && option.description
-
-  return (
-    <div
-      data-index={dataIndex}
-      role="option"
-      aria-selected={isSelected}
-      aria-disabled={option.disabled}
-      aria-describedby={hasDescription ? descId : undefined}
-      className={cn(
-        'px-4 py-2.5 cursor-pointer transition-colors',
-        'flex items-center gap-3',
-        option.disabled && 'opacity-50 cursor-not-allowed',
-        !option.disabled && (isFocused || isSelected) && 'bg-primary/10',
-        !option.disabled && !isFocused && !isSelected && 'hover:bg-foreground/[0.04]'
-      )}
-      onClick={handleClick}
-      onMouseEnter={handleMouseEnter}
-    >
-      {option.icon && <span className="shrink-0 text-foreground/60">{option.icon}</span>}
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-foreground truncate">{option.label}</div>
-        {option.description && (
-          <div id={descId} className="text-xs text-foreground/50 truncate">
-            {option.description}
-          </div>
-        )}
-      </div>
-      {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────
 
-export type { SelectOption as SelectOptionType, SelectGroup as SelectGroupType }
+export type {
+  SelectGroup as SelectGroupType,
+  SelectOption as SelectOptionType,
+} from './Select.types'

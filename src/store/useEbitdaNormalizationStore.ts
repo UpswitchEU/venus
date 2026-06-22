@@ -29,15 +29,30 @@ import { isValidSessionId } from '../utils/sessionIdValidation'
 import {
   addCustomAdjustmentToNormalization,
   createEbitdaNormalizationTemplate,
+  isNormalizationSaveInFlight,
   isVirginEbitdaNormalization,
   mergeLoadedEbitdaNormalizations,
+  nextPendingNormalizationSaveCount,
   normalizeEbitdaNormalizationResponse,
   removeCustomAdjustmentFromNormalization,
+  runWithNormalizationConflictRetry,
   safeNormalizationNumber as safeNum,
   updateCustomAdjustmentInNormalization,
   upsertStandardAdjustment,
 } from './ebitdaNormalizationStoreModel'
 import { enqueueEbitdaNormalizationLoad } from './useEbitdaNormalizationStore.loadQueue'
+
+let pendingNormalizationSaves = 0
+
+function beginNormalizationSave(set: (state: Partial<EbitdaNormalizationStore>) => void) {
+  pendingNormalizationSaves = nextPendingNormalizationSaveCount(pendingNormalizationSaves, 1)
+  set({ isSaving: true })
+}
+
+function finishNormalizationSave(set: (state: Partial<EbitdaNormalizationStore>) => void) {
+  pendingNormalizationSaves = nextPendingNormalizationSaveCount(pendingNormalizationSaves, -1)
+  set({ isSaving: isNormalizationSaveInFlight(pendingNormalizationSaves) })
+}
 
 interface EbitdaNormalizationStore {
   // State
@@ -248,13 +263,12 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           throw new NormalizationAPIError(400, 'session_id must be 8–128 characters')
         }
 
-        set({ isSaving: true })
+        beginNormalizationSave(set)
 
         try {
           const { normalizations } = get()
           const normalization = normalizations[year]
           if (!normalization) {
-            set({ isSaving: false })
             throw new Error(`No normalization found for year ${year}`)
           }
 
@@ -269,28 +283,9 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
             confidence_score: normalization.confidence_score,
             market_rate_source: normalization.market_rate_source || undefined,
           }
-          const saveWithRetry = async () => {
-            const maxAttempts = 3
-            let lastErr: unknown
-            for (let attempt = 0; attempt < maxAttempts; attempt++) {
-              try {
-                return await normalizationService.saveNormalization(payload)
-              } catch (err) {
-                lastErr = err
-                if (
-                  err instanceof NormalizationAPIError &&
-                  err.status === 409 &&
-                  attempt < maxAttempts - 1
-                ) {
-                  await new Promise((r) => setTimeout(r, 100 + 130 * attempt))
-                  continue
-                }
-                throw err
-              }
-            }
-            throw lastErr instanceof Error ? lastErr : new Error('Normalization save failed')
-          }
-          const response = await saveWithRetry()
+          const response = await runWithNormalizationConflictRetry(() =>
+            normalizationService.saveNormalization(payload)
+          )
 
           // API call succeeded - log diagnostic info
           generalLogger.debug('[Normalization] Save succeeded', {
@@ -314,7 +309,6 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
                   updated_at: response?.updated_at,
                 },
               },
-              isSaving: false,
             })
 
             generalLogger.debug('Normalization saved successfully', {
@@ -331,8 +325,6 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
               sessionId,
               note: 'Data was saved to database successfully',
             })
-
-            set({ isSaving: false })
           }
 
           // Clear any previous errors for this year
@@ -345,7 +337,6 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
           generalLogger.error('API error saving normalization', { error: apiError })
 
           set({
-            isSaving: false,
             errors: {
               ...get().errors,
               [`save-${year}`]:
@@ -357,6 +348,8 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
 
           // Only throw if it's an actual API error (4xx, 5xx)
           throw apiError
+        } finally {
+          finishNormalizationSave(set)
         }
       },
 
@@ -472,31 +465,11 @@ export const useEbitdaNormalizationStore = create<EbitdaNormalizationStore>()(
         const { [year]: removed, ...remaining } = normalizations
         set({ normalizations: remaining })
 
-        const deleteWithRetry = async () => {
-          const maxAttempts = 3
-          let lastErr: unknown
-          for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            try {
-              return await normalizationService.deleteNormalization(sessionId, year)
-            } catch (err) {
-              lastErr = err
-              if (
-                err instanceof NormalizationAPIError &&
-                err.status === 409 &&
-                attempt < maxAttempts - 1
-              ) {
-                await new Promise((r) => setTimeout(r, 100 + 130 * attempt))
-                continue
-              }
-              throw err
-            }
-          }
-          throw lastErr instanceof Error ? lastErr : new Error('Normalization delete failed')
-        }
-
         try {
           if (isValidSessionId(sessionId)) {
-            await deleteWithRetry()
+            await runWithNormalizationConflictRetry(() =>
+              normalizationService.deleteNormalization(sessionId, year)
+            )
           }
           generalLogger.debug('Normalization removed successfully', { year })
         } catch (error) {

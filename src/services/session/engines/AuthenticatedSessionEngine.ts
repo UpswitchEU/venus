@@ -27,13 +27,26 @@ import { generalLogger } from '../../../utils/logger'
 import { preserveClientRecoveredHtmlWhenServerSessionStale } from '../../../utils/reportHtmlRecovery'
 import { sessionService } from '../../index'
 import type { FlowType, ISessionEngine, SessionDataRecord } from '../SessionEngine'
+import {
+  type AuthenticatedSessionSaveReason,
+  classifySessionSaveQueueRequest,
+  isActiveSessionLoad,
+  isActiveSessionSaveQueue,
+  shouldQueueUpdateForActiveLoad,
+  shouldRunFollowUpSave,
+  shouldSkipAutosavePayload,
+} from './AuthenticatedSessionConcurrencyModel'
 import { isRetryableSessionSaveError } from './AuthenticatedSessionSaveErrorPolicy'
 import {
   autosavePayloadFingerprint,
   buildAuthenticatedSessionSavePayload,
   mergeQueuedLocalSession,
 } from './AuthenticatedSessionSavePayload'
-import { createAuthenticatedSessionFromUpdate } from './AuthenticatedSessionState'
+import {
+  createAuthenticatedSessionFromUpdate,
+  mergeAuthenticatedSessionUpdate,
+  normalizeAuthenticatedSessionReportId,
+} from './AuthenticatedSessionState'
 
 const AUTOSAVE_SETTLE_MS = 750
 
@@ -109,7 +122,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   ): Promise<ValuationSession | null> {
     try {
       const session = await sessionService.loadSession(reportId, flow, prefilledQuery)
-      if (loadToken !== this.loadSequence || this.loadingReportId !== reportId) {
+      if (!this.isActiveLoad(loadToken, reportId)) {
         generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale load response', {
           reportId,
           activeReportId: this.loadingReportId,
@@ -143,7 +156,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
 
       return this.currentSession
     } catch (error) {
-      if (loadToken !== this.loadSequence || this.loadingReportId !== reportId) {
+      if (!this.isActiveLoad(loadToken, reportId)) {
         generalLogger.debug('[AuthenticatedSessionEngine] Ignoring stale load failure', {
           reportId,
           activeReportId: this.loadingReportId,
@@ -159,11 +172,20 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       })
       return null
     } finally {
-      if (loadToken === this.loadSequence && this.loadingReportId === reportId) {
+      if (this.isActiveLoad(loadToken, reportId)) {
         this.loadingPromise = null
         this.loadingReportId = null
       }
     }
+  }
+
+  private isActiveLoad(loadToken: number, reportId: string): boolean {
+    return isActiveSessionLoad({
+      loadToken,
+      activeLoadSequence: this.loadSequence,
+      reportId,
+      loadingReportId: this.loadingReportId,
+    })
   }
 
   /**
@@ -172,31 +194,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   private applyUpdate(updates: Partial<ValuationSession>): void {
     if (!this.currentSession) return
 
-    const previousSessionData = this.currentSession.sessionData
-    const previousPartialData = this.currentSession.partialData
-
-    this.currentSession = {
-      ...this.currentSession,
-      ...updates,
-      updatedAt: new Date(),
-    }
-
-    // Merge sessionData if provided
-    if (updates.sessionData) {
-      this.currentSession.sessionData = {
-        ...(previousSessionData || {}),
-        ...updates.sessionData,
-      }
-    }
-
-    // Merge partialData if provided
-    if (updates.partialData) {
-      this.currentSession.partialData = {
-        ...(previousPartialData || {}),
-        ...updates.partialData,
-      }
-    }
-
+    this.currentSession = mergeAuthenticatedSessionUpdate(this.currentSession, updates, new Date())
     this.localMutationVersion += 1
   }
 
@@ -244,17 +242,24 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * queues local updates while an active load is still resolving.
    */
   updateSession(updates: Partial<ValuationSession>): void {
+    if (
+      shouldQueueUpdateForActiveLoad({
+        isLoading: !!this.loadingPromise,
+        loadingReportId: this.loadingReportId,
+        currentReportId: this.currentSession?.reportId ?? null,
+      })
+    ) {
+      generalLogger.debug('[AuthenticatedSessionEngine] Queueing update during load', {
+        loadingReportId: this.loadingReportId?.substring(0, 30),
+        currentReportId: this.currentSession?.reportId,
+        updateKeys: Object.keys(updates),
+      })
+      this.pendingUpdates.push(updates)
+      return
+    }
+
     // Handle case where session is being set for the first time (bootstrap flow)
     if (!this.currentSession) {
-      if (this.loadingPromise && this.loadingReportId) {
-        generalLogger.debug('[AuthenticatedSessionEngine] Queueing update during load', {
-          loadingReportId: this.loadingReportId.substring(0, 30),
-          updateKeys: Object.keys(updates),
-        })
-        this.pendingUpdates.push(updates)
-        return
-      }
-
       const initialSession = createAuthenticatedSessionFromUpdate(updates, new Date())
       if (initialSession) {
         // Bootstrap is setting initial session - accept it
@@ -309,7 +314,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * Waits for a pending load when needed, then serializes saves for the active
    * report. A stale save queue from a previous report or lifecycle is ignored.
    */
-  async saveSession(reason: 'user' | 'autosave' | 'system' = 'autosave'): Promise<void> {
+  async saveSession(reason: AuthenticatedSessionSaveReason = 'autosave'): Promise<void> {
     // If we're loading, wait for it to complete first
     if (this.loadingPromise) {
       generalLogger.debug('[AuthenticatedSessionEngine] Waiting for load to complete before saving')
@@ -330,10 +335,15 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     // same queue. If teardown or navigation detached the old queue, this save
     // starts a fresh one for the current session.
     if (this.savePromise) {
-      const canJoinActiveQueue =
-        this.saveReportId === activeReportId && this.saveLifecycleVersion === activeLifecycleVersion
+      const queueDisposition = classifySessionSaveQueueRequest({
+        hasSavePromise: true,
+        saveReportId: this.saveReportId,
+        saveLifecycleVersion: this.saveLifecycleVersion,
+        activeReportId,
+        activeLifecycleVersion,
+      })
 
-      if (canJoinActiveQueue) {
+      if (queueDisposition === 'join') {
         this.savePending = true
         generalLogger.debug('[AuthenticatedSessionEngine] Save already in progress, queuing', {
           reportId: this.currentSession.reportId,
@@ -381,14 +391,16 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   }
 
   private isActiveSaveQueue(reportId: string, lifecycleVersion: number): boolean {
-    return (
-      this.sessionLifecycleVersion === lifecycleVersion &&
-      this.currentSession?.reportId === reportId
-    )
+    return isActiveSessionSaveQueue({
+      queueReportId: reportId,
+      queueLifecycleVersion: lifecycleVersion,
+      currentReportId: this.currentSession?.reportId ?? null,
+      sessionLifecycleVersion: this.sessionLifecycleVersion,
+    })
   }
 
   private async drainSaveQueue(
-    reason: 'user' | 'autosave' | 'system',
+    reason: AuthenticatedSessionSaveReason,
     queueReportId: string,
     queueLifecycleVersion: number
   ): Promise<void> {
@@ -427,17 +439,11 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         return
       }
 
-      if (this.currentSession && this.localMutationVersion > savedMutationVersion) {
-        this.savePending = true
-      }
-
-      if (
-        this.savePending &&
-        this.currentSession &&
-        this.localMutationVersion <= savedMutationVersion
-      ) {
-        this.savePending = false
-      }
+      this.savePending = shouldRunFollowUpSave({
+        hasCurrentSession: !!this.currentSession,
+        currentMutationVersion: this.localMutationVersion,
+        savedMutationVersion,
+      })
 
       if (this.savePending && this.currentSession) {
         generalLogger.debug('[AuthenticatedSessionEngine] Processing queued save', {
@@ -454,7 +460,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * Validation errors (4xx) are NOT retried.
    */
   private async executeSave(
-    reason: 'user' | 'autosave' | 'system',
+    reason: AuthenticatedSessionSaveReason,
     queueReportId: string,
     queueLifecycleVersion: number
   ): Promise<number> {
@@ -473,7 +479,13 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
         const lifecycleVersionAtSend = this.sessionLifecycleVersion
         const updates = buildAuthenticatedSessionSavePayload(this.currentSession)
         const payloadFingerprint = autosavePayloadFingerprint(updates)
-        if (reason === 'autosave' && payloadFingerprint === this.lastPersistedSaveFingerprint) {
+        if (
+          shouldSkipAutosavePayload({
+            reason,
+            payloadFingerprint,
+            lastPersistedFingerprint: this.lastPersistedSaveFingerprint,
+          })
+        ) {
           generalLogger.debug('[AuthenticatedSessionEngine] Skipping unchanged autosave payload', {
             reportId: this.currentSession.reportId,
           })
@@ -578,12 +590,11 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * every operation that replaces this.currentSession.
    */
   private normalizeReportId(): void {
-    if (
-      this.currentSession &&
-      this.requestedReportId &&
-      this.currentSession.reportId !== this.requestedReportId
-    ) {
-      this.currentSession = { ...this.currentSession, reportId: this.requestedReportId }
+    if (this.currentSession) {
+      this.currentSession = normalizeAuthenticatedSessionReportId(
+        this.currentSession,
+        this.requestedReportId
+      )
     }
   }
 

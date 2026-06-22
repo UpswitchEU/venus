@@ -30,10 +30,20 @@ import {
   type ClientSideBootstrapOptions,
   executeClientSideBootstrapPipeline,
 } from './ClientSideBootstrapPipeline'
-import { getBootstrapCacheLookupKey, getBootstrapContextCacheKey } from './contextCacheKey'
+import { getBootstrapContextCacheKey } from './contextCacheKey'
 import { AuthenticationRequiredError, AuthResolver, authResolver } from './resolvers/AuthResolver'
 import { PrefillResolver, prefillResolver } from './resolvers/PrefillResolver'
 import { SessionResolver, sessionResolver } from './resolvers/SessionResolver'
+import {
+  buildBootstrapCircuitBreakerMessage,
+  buildTitanBootstrapCacheKey,
+  buildTitanBootstrapFailureError,
+  getScopedBootstrapCachedResult,
+  getTitanBootstrapFailureDiagnostic,
+  hasCompletedBootstrapFor,
+  pruneBootstrapCallTimestamps,
+  shouldTripBootstrapCircuitBreaker,
+} from './SessionBootstrapServiceModel'
 import { fetchTitanBootstrapPayloadWithStructuredRetry } from './TitanBootstrapClient'
 import {
   buildTitanBootstrapRequestPolicy,
@@ -44,7 +54,7 @@ import {
   buildSuccessfulTitanState,
   type SuccessfulTitanBootstrapData,
 } from './TitanBootstrapResponseMapper'
-import type { BootstrapContext, BootstrapErrorInfo, SessionBootstrapState } from './types'
+import type { BootstrapContext, SessionBootstrapState } from './types'
 import { parseBootstrapHints, parseUrlToContext } from './utils'
 
 /**
@@ -126,10 +136,17 @@ export class SessionBootstrapService {
 
     // Guard 1: Sliding-window circuit breaker (shared with bootstrapViaTitan)
     const now = Date.now()
-    this.callTimestamps = this.callTimestamps.filter(
-      (t) => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
+    this.callTimestamps = pruneBootstrapCallTimestamps(
+      this.callTimestamps,
+      now,
+      SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
     )
-    if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
+    if (
+      shouldTripBootstrapCircuitBreaker(
+        this.callTimestamps,
+        SessionBootstrapService.MAX_CALLS_IN_WINDOW
+      )
+    ) {
       const cachedResult = this.getCachedResult(context)
       if (cachedResult && (await isDelegatedBootstrapCacheAllowed(context))) {
         recordBootstrapReportMode(cachedResult.report.reportId, cachedResult.report.mode)
@@ -211,12 +228,15 @@ export class SessionBootstrapService {
    * Used by BootstrapProvider to avoid re-triggering bootstrap after remounts.
    */
   hasCompletedFor(contextOrReportId: BootstrapContext | string | undefined): boolean {
-    const effectiveKey = getBootstrapCacheLookupKey(contextOrReportId)
-    return (
-      this.lastSuccessfulResult !== null &&
-      this.lastSuccessfulCacheKey === effectiveKey &&
-      Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
-    )
+    return hasCompletedBootstrapFor({
+      contextOrReportId,
+      lastSuccessfulAt: this.lastSuccessfulAt,
+      lastSuccessfulCacheKey: this.lastSuccessfulCacheKey,
+      lastSuccessfulResult: this.lastSuccessfulResult,
+      now: Date.now(),
+      scopeProvided: true,
+      ttlMs: SessionBootstrapService.RESULT_CACHE_TTL_MS,
+    })
   }
 
   /**
@@ -253,26 +273,15 @@ export class SessionBootstrapService {
    * so a rapid SPA navigation cannot hydrate another report's payload.
    */
   getCachedResult(contextOrReportId?: BootstrapContext | string): SessionBootstrapState | null {
-    const hasFreshResult =
-      this.lastSuccessfulResult !== null &&
-      Date.now() - this.lastSuccessfulAt < SessionBootstrapService.RESULT_CACHE_TTL_MS
-
-    if (!hasFreshResult) {
-      return null
-    }
-
-    if (
-      arguments.length > 0 &&
-      this.lastSuccessfulCacheKey !== getBootstrapCacheLookupKey(contextOrReportId)
-    ) {
-      return null
-    }
-
-    if (this.lastSuccessfulResult) {
-      return this.lastSuccessfulResult
-    }
-
-    return null
+    return getScopedBootstrapCachedResult({
+      contextOrReportId,
+      lastSuccessfulAt: this.lastSuccessfulAt,
+      lastSuccessfulCacheKey: this.lastSuccessfulCacheKey,
+      lastSuccessfulResult: this.lastSuccessfulResult,
+      now: Date.now(),
+      scopeProvided: arguments.length > 0,
+      ttlMs: SessionBootstrapService.RESULT_CACHE_TTL_MS,
+    })
   }
 
   /**
@@ -292,11 +301,21 @@ export class SessionBootstrapService {
 
     // Guard 1: Sliding-window circuit breaker — blocks rapid-fire calls
     const now = Date.now()
-    this.callTimestamps = this.callTimestamps.filter(
-      (t) => now - t < SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
+    this.callTimestamps = pruneBootstrapCallTimestamps(
+      this.callTimestamps,
+      now,
+      SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
     )
-    if (this.callTimestamps.length >= SessionBootstrapService.MAX_CALLS_IN_WINDOW) {
-      const msg = `[Bootstrap] Circuit breaker: ${this.callTimestamps.length} calls in ${SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS / 1000}s window — refusing further calls`
+    if (
+      shouldTripBootstrapCircuitBreaker(
+        this.callTimestamps,
+        SessionBootstrapService.MAX_CALLS_IN_WINDOW
+      )
+    ) {
+      const msg = buildBootstrapCircuitBreakerMessage(
+        this.callTimestamps.length,
+        SessionBootstrapService.CIRCUIT_BREAKER_WINDOW_MS
+      )
       this.logger.error(msg)
       const cachedResult = this.getCachedResult(context)
       if (cachedResult && (await isDelegatedBootstrapCacheAllowed(context, hints.hasClientToken))) {
@@ -324,7 +343,7 @@ export class SessionBootstrapService {
       }
     }
 
-    const titanCacheKey = `titan:${cacheKey}`
+    const titanCacheKey = buildTitanBootstrapCacheKey(cacheKey)
 
     // Guard 3: Dedup in-flight request (only while delegated gate still matches the URL)
     const inflight = this.bootstrapPromiseCache.get(titanCacheKey)
@@ -544,16 +563,9 @@ export class SessionBootstrapService {
 
       // ✅ STRUCTURED ERROR HANDLING: Check errorInfo for smarter error handling
       if (!data.success) {
-        // Extract structured error info if available
-        const errorInfo: BootstrapErrorInfo | undefined = data.errorInfo
-
-        // Log structured error details for debugging
-        if (errorInfo) {
-          this.logger.warn(`[Bootstrap:${traceId}] Received structured error`, {
-            code: errorInfo.code,
-            message: errorInfo.message,
-            retryable: errorInfo.retryable,
-          })
+        const diagnostic = getTitanBootstrapFailureDiagnostic(data)
+        if (diagnostic) {
+          this.logger.warn(`[Bootstrap:${traceId}] Received structured error`, diagnostic)
         }
 
         // Check if this is a credit error (allow viewing with limited data)
@@ -561,22 +573,7 @@ export class SessionBootstrapService {
           return buildCreditBlockedTitanState(data.data, context, startTime)
         }
 
-        // Check if error is retryable based on structured error info
-        const isRetryableError = errorInfo?.retryable ?? false
-        const errorCode = errorInfo?.code || 'UNKNOWN'
-
-        // Create rich error message
-        const errorMessage = errorInfo
-          ? `[${errorCode}] ${errorInfo.message}${isRetryableError ? ' (retryable)' : ''}`
-          : data.error || 'Bootstrap returned no data'
-
-        const error = new Error(errorMessage) as Error & {
-          code?: string
-          retryable?: boolean
-        }
-        error.code = errorCode
-        error.retryable = isRetryableError
-        throw error
+        throw buildTitanBootstrapFailureError(data)
       }
 
       if (!data.data) {

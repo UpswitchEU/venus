@@ -30,7 +30,7 @@
  *      402 paywall → starter modal; other errors → toast.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { ValuationReportData } from '@/components/calculator'
 import { useManualResultsStore } from '@/store/manual'
 import { APIError } from '@/types/errors'
@@ -38,26 +38,22 @@ import type { ValuationResponse } from '@/types/valuation'
 import { hydrateClientValuationResultsMap } from '@/utils/extractValuationResultsMap'
 import { isSessionKey } from '@/utils/identifiers'
 import { generalLogger } from '@/utils/logger'
-import { isPdfTransientUpstreamStatus } from '@/utils/pdfTransientUpstream'
 import { getRenderableReportHtmlFromCurrentOrFallback } from '@/utils/safetyNetReportHtml'
 import {
   resolveSynthesisAwarePresentation,
   shouldAlignRecommendedAskingWithSynthesis,
 } from '../components/manualReportPresentation'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
-import { useIsMountedRef, useLatestRef } from './useNavigationCancellation'
-
-const PDF_STALE_POLL_INTERVAL_MS = 2_500
-const PDF_STALE_POLL_MAX_MS = 120_000
-const PDF_STALE_WAIT_TIMEOUT_MS = 60_000
-/** Extend the stall deadline when Titan is transiently unavailable (503 pooler blips). */
-const PDF_STALE_WAIT_EXTENSION_MS = 20_000
-const PDF_STALE_WAIT_MAX_MS = 180_000
-/** 12 polls × 2.5s = 30s of unchanged pdf_generated_at before surfacing the stalled banner. */
-const PDF_STALE_UNCHANGED_STREAK_THRESHOLD = 12
-function isTransientPollError(err: unknown): boolean {
-  return err instanceof APIError && isPdfTransientUpstreamStatus(err.statusCode)
-}
+import {
+  derivePdfStale,
+  getBySession404BackoffDelayMs,
+  getTransientPollBackoffDelayMs,
+  isTransientPollError,
+  PDF_STALE_POLL_INTERVAL_MS,
+  PDF_STALE_POLL_MAX_MS,
+  PDF_STALE_UNCHANGED_STREAK_THRESHOLD,
+} from './usePdfStalenessLifecycleModel'
+import { usePdfStalenessLifecycleRuntime } from './usePdfStalenessLifecycleRuntime'
 
 /** Narrow signature for `t` from `useTranslations('toast')` (or equivalent). */
 export type PdfLifecycleTranslator = (key: 'pdfExportFailed' | 'pdfExportFailedDesc') => string
@@ -205,77 +201,49 @@ export function usePdfStalenessLifecycle(
     translate,
   } = params
 
-  const [pdfWaitTimedOut, setPdfWaitTimedOut] = useState(false)
-  const [isPdfRetrying, setIsPdfRetrying] = useState(false)
-  const [pdfPollErrorCount, setPdfPollErrorCount] = useState(0)
-  const [pdfPollTransientCount, setPdfPollTransientCount] = useState(0)
+  const {
+    bySession404StreakRef,
+    bySessionBackoffUntilRef,
+    clearWaitTimer,
+    effectivePdfWaitTimedOut,
+    extendWaitTimeoutForTransientError,
+    isMountedRef,
+    isPdfGeneratingRef,
+    isPdfRetrying,
+    lastPolledPdfGeneratedAtMsRef,
+    lookupIdRef,
+    pdfPollErrorCount,
+    pdfPollTransientCount,
+    pdfWaitTimedOut,
+    pollInFlightRef,
+    resetFreshCycle,
+    resetPostGenerationSync,
+    resetReportScopedPolling,
+    resetStaleCycle,
+    resetSuccessfulPollBackoff,
+    scheduleWaitTimeout,
+    setIsPdfRetrying,
+    setPdfPollErrorCount,
+    setPdfPollTransientCount,
+    setPdfWaitTimedOut,
+    startRetryCycle,
+    transientBackoffUntilRef,
+    transientErrorStreakRef,
+    unchangedStreakRef,
+  } = usePdfStalenessLifecycleRuntime({
+    isPdfGenerating,
+    persistedReportLookupId,
+  })
 
-  /** Avoid overlapping getReport calls from the PDF-stale poll interval. */
-  const pollInFlightRef = useRef(false)
-  /** Back off polling while report row is not linked for val_* session keys (expected 404). */
-  const bySessionBackoffUntilRef = useRef(0)
-  const bySession404StreakRef = useRef(0)
-  /**
-   * Count of consecutive polls where Titan returned no PDF or the same stale
-   * `pdf_generated_at` as the prior poll. At 12 (~30s) we surface the
-   * stalled banner so the user can act and we stop hammering the backend.
-   */
-  const unchangedStreakRef = useRef(0)
-  /** Last seen `pdf_generated_at` ms from a successful poll (stale-row dedup). */
-  const lastPolledPdfGeneratedAtMsRef = useRef<number | null>(null)
-  /** Sliding extension added to the base wait timeout after transient poll errors. */
-  const waitExtensionMsRef = useRef(0)
-  const waitTimerIdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** Back off report polls while Titan returns transient 5xx (pooler / deploy blips). */
-  const transientBackoffUntilRef = useRef(0)
-  const transientErrorStreakRef = useRef(0)
-  /**
-   * Cancellation primitives — the retry handler captures these at start of
-   * each async call and bails before writing to the global store if the
-   * component has unmounted or `persistedReportLookupId` has changed
-   * mid-flight. The poll effect uses an in-effect `cancelled` flag (see
-   * below) since its cleanup runs on every dep change.
-   */
-  const isMountedRef = useIsMountedRef()
-  const lookupIdRef = useLatestRef(persistedReportLookupId)
-  const isPdfGeneratingRef = useRef(isPdfGenerating)
-  isPdfGeneratingRef.current = isPdfGenerating
-
-  const clearWaitTimer = useCallback(() => {
-    if (waitTimerIdRef.current) {
-      clearTimeout(waitTimerIdRef.current)
-      waitTimerIdRef.current = null
-    }
-  }, [])
-
-  const scheduleWaitTimeout = useCallback(() => {
-    clearWaitTimer()
-    const delayMs = Math.min(
-      PDF_STALE_WAIT_MAX_MS,
-      PDF_STALE_WAIT_TIMEOUT_MS + waitExtensionMsRef.current
-    )
-    waitTimerIdRef.current = setTimeout(() => {
-      if (!isPdfGeneratingRef.current) setPdfWaitTimedOut(true)
-    }, delayMs)
-  }, [clearWaitTimer])
-
-  const extendWaitTimeoutForTransientError = useCallback(() => {
-    waitExtensionMsRef.current = Math.min(
-      PDF_STALE_WAIT_MAX_MS - PDF_STALE_WAIT_TIMEOUT_MS,
-      waitExtensionMsRef.current + PDF_STALE_WAIT_EXTENSION_MS
-    )
-    scheduleWaitTimeout()
-  }, [scheduleWaitTimeout])
-
-  const pdfStale = useMemo(() => {
-    if (!report) return false
-    const stale = isPdfLikelyStaleVenus(report)
-    if (!stale) return false
-    // Local PDF hook finished — trust the client render until Titan row catches up.
-    if (isPdfReady && pdfGenerationState.url) return false
-    if (isPdfReady && report.pdfGeneratedAt == null) return false
-    return true
-  }, [report, isPdfReady, pdfGenerationState.url])
+  const pdfStale = useMemo(
+    () =>
+      derivePdfStale({
+        report,
+        isPdfReady,
+        pdfGenerationUrl: pdfGenerationState.url,
+      }),
+    [report, isPdfReady, pdfGenerationState.url]
+  )
 
   // ─── Effect A — mirror client-generated PDF URL into `report` ──────────
   useEffect(() => {
@@ -306,11 +274,7 @@ export function usePdfStalenessLifecycle(
       const mergedResult = mergePolledResultWithExisting(fresh, latestExistingResult)
       setResult(mergedResult)
       setReport((prev) => (prev ? { ...prev, ...patch } : prev))
-      bySession404StreakRef.current = 0
-      transientErrorStreakRef.current = 0
-      transientBackoffUntilRef.current = 0
-      setPdfPollErrorCount(0)
-      setPdfPollTransientCount(0)
+      resetSuccessfulPollBackoff()
 
       const pdfIsFresh =
         patch.reportUpdatedAt != null &&
@@ -351,7 +315,17 @@ export function usePdfStalenessLifecycle(
         unchangedStreakRef.current = 0
       }
     },
-    [canDownloadPdf, setResult, setReport, clearWaitTimer]
+    [
+      canDownloadPdf,
+      setResult,
+      setReport,
+      resetSuccessfulPollBackoff,
+      clearWaitTimer,
+      isPdfGeneratingRef,
+      lastPolledPdfGeneratedAtMsRef,
+      setPdfWaitTimedOut,
+      unchangedStreakRef,
+    ]
   )
 
   const runStalePollOnce = useCallback(
@@ -379,10 +353,7 @@ export function usePdfStalenessLifecycle(
           err instanceof APIError && err.statusCode === 404 && isSessionKey(lookupId)
         if (isSession404) {
           const streak = ++bySession404StreakRef.current
-          const delayMs = Math.min(
-            60_000,
-            PDF_STALE_POLL_INTERVAL_MS * 2 ** Math.min(streak - 1, 5)
-          )
+          const delayMs = getBySession404BackoffDelayMs(streak)
           bySessionBackoffUntilRef.current = Date.now() + delayMs
           generalLogger.debug(
             '[usePdfStalenessLifecycle] PDF stale poll skipped backoff after by-session 404',
@@ -394,10 +365,7 @@ export function usePdfStalenessLifecycle(
           )
         } else if (isTransientPollError(err)) {
           const streak = ++transientErrorStreakRef.current
-          const delayMs = Math.min(
-            30_000,
-            PDF_STALE_POLL_INTERVAL_MS * 2 ** Math.min(streak - 1, 4)
-          )
+          const delayMs = getTransientPollBackoffDelayMs(streak)
           transientBackoffUntilRef.current = Date.now() + delayMs
           setPdfPollTransientCount((c) => c + 1)
           extendWaitTimeoutForTransientError()
@@ -422,21 +390,25 @@ export function usePdfStalenessLifecycle(
         pollInFlightRef.current = false
       }
     },
-    [applyPolledReport, extendWaitTimeoutForTransientError, getReport]
+    [
+      applyPolledReport,
+      extendWaitTimeoutForTransientError,
+      getReport,
+      bySession404StreakRef,
+      bySessionBackoffUntilRef,
+      pollInFlightRef,
+      setPdfPollErrorCount,
+      setPdfPollTransientCount,
+      transientBackoffUntilRef,
+      transientErrorStreakRef,
+    ]
   )
 
   // ─── Defense — reset per-report poll backoff on lookup-id change ───────
   useEffect(() => {
     void persistedReportLookupId
-    bySessionBackoffUntilRef.current = 0
-    bySession404StreakRef.current = 0
-    unchangedStreakRef.current = 0
-    lastPolledPdfGeneratedAtMsRef.current = null
-    waitExtensionMsRef.current = 0
-    transientBackoffUntilRef.current = 0
-    transientErrorStreakRef.current = 0
-    pollInFlightRef.current = false
-  }, [persistedReportLookupId])
+    resetReportScopedPolling()
+  }, [persistedReportLookupId, resetReportScopedPolling])
 
   // ─── Effect E — wait timer + per-cycle reset ───────────────────────────
   useEffect(() => {
@@ -444,32 +416,27 @@ export function usePdfStalenessLifecycle(
       setPdfWaitTimedOut(false)
       clearWaitTimer()
       if (!pdfStale) {
-        setPdfPollErrorCount(0)
-        setPdfPollTransientCount(0)
-        bySessionBackoffUntilRef.current = 0
-        bySession404StreakRef.current = 0
-        unchangedStreakRef.current = 0
-        lastPolledPdfGeneratedAtMsRef.current = null
-        waitExtensionMsRef.current = 0
-        transientBackoffUntilRef.current = 0
-        transientErrorStreakRef.current = 0
+        resetFreshCycle()
       }
       return
     }
-    setPdfWaitTimedOut(false)
     // Reset the unchanged-response streak whenever a new stale cycle begins
     // (a fresh edit bumps `reportUpdatedAt`, this effect re-runs). Without
     // this reset, a streak that accumulated against a prior edit's failed
     // job would carry into the new cycle and prematurely surface "stalled".
-    unchangedStreakRef.current = 0
-    lastPolledPdfGeneratedAtMsRef.current =
+    const lastPdfGeneratedAtMs =
       report?.pdfGeneratedAt instanceof Date ? report.pdfGeneratedAt.getTime() : null
-    waitExtensionMsRef.current = 0
-    transientBackoffUntilRef.current = 0
-    transientErrorStreakRef.current = 0
-    scheduleWaitTimeout()
+    resetStaleCycle(lastPdfGeneratedAtMs)
     return () => clearWaitTimer()
-  }, [pdfStale, isPdfGenerating, report?.pdfGeneratedAt, clearWaitTimer, scheduleWaitTimeout])
+  }, [
+    pdfStale,
+    isPdfGenerating,
+    report?.pdfGeneratedAt,
+    clearWaitTimer,
+    resetFreshCycle,
+    resetStaleCycle,
+    setPdfWaitTimedOut,
+  ])
 
   // ─── Effect F — 2.5s poll interval while stale-not-yet-stalled ────────
   useEffect(() => {
@@ -498,7 +465,14 @@ export function usePdfStalenessLifecycle(
       clearTimeout(max)
       pollInFlightRef.current = false
     }
-  }, [pdfStale, persistedReportLookupId, pdfWaitTimedOut, isPdfGenerating, runStalePollOnce])
+  }, [
+    pdfStale,
+    persistedReportLookupId,
+    pdfWaitTimedOut,
+    isPdfGenerating,
+    runStalePollOnce,
+    pollInFlightRef,
+  ])
 
   // ─── Effect G — sync Titan row immediately after generation finishes ───
   const wasPdfGeneratingRef = useRef(false)
@@ -509,15 +483,7 @@ export function usePdfStalenessLifecycle(
     if (!persistedReportLookupId) return
     // A background job may finish after the stalled banner latched — reopen the
     // wait window and sync Titan before the user has to click retry.
-    setPdfWaitTimedOut(false)
-    clearWaitTimer()
-    unchangedStreakRef.current = 0
-    lastPolledPdfGeneratedAtMsRef.current = null
-    waitExtensionMsRef.current = 0
-    transientBackoffUntilRef.current = 0
-    transientErrorStreakRef.current = 0
-    setPdfPollErrorCount(0)
-    setPdfPollTransientCount(0)
+    resetPostGenerationSync()
     if (!pdfStale) return
     scheduleWaitTimeout()
     void runStalePollOnce(
@@ -530,7 +496,7 @@ export function usePdfStalenessLifecycle(
     persistedReportLookupId,
     runStalePollOnce,
     lookupIdRef,
-    clearWaitTimer,
+    resetPostGenerationSync,
     scheduleWaitTimeout,
   ])
 
@@ -547,20 +513,11 @@ export function usePdfStalenessLifecycle(
     const startLookupId = persistedReportLookupId
     const isStillRelevant = () => isMountedRef.current && lookupIdRef.current === startLookupId
 
-    setIsPdfRetrying(true)
     // Reset streak + wait state so the poll loop re-arms if the retry kicks
     // off a successful job. Without this reset, the user clicks retry, a
     // fresh PDF job runs, but Venus stays in the stalled state and never
     // polls for the new pdf_generated_at.
-    unchangedStreakRef.current = 0
-    lastPolledPdfGeneratedAtMsRef.current = null
-    waitExtensionMsRef.current = 0
-    transientBackoffUntilRef.current = 0
-    transientErrorStreakRef.current = 0
-    setPdfPollErrorCount(0)
-    setPdfPollTransientCount(0)
-    setPdfWaitTimedOut(false)
-    clearWaitTimer()
+    startRetryCycle()
     try {
       if (generatePdf) await generatePdf()
       if (!isStillRelevant()) return
@@ -609,15 +566,15 @@ export function usePdfStalenessLifecycle(
     openStarterPaywall,
     showRetryFailureToast,
     translate,
-    clearWaitTimer,
     applyPolledReport,
     scheduleWaitTimeout,
     extendWaitTimeoutForTransientError,
     isMountedRef,
+    isPdfGeneratingRef,
     lookupIdRef,
+    setIsPdfRetrying,
+    startRetryCycle,
   ])
-
-  const effectivePdfWaitTimedOut = pdfWaitTimedOut && !isPdfGenerating
 
   return {
     pdfStale,

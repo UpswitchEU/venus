@@ -71,8 +71,11 @@ describe('manual PDF download contract', () => {
       /isPdfTransientUpstreamStatus\(status: number \| undefined\)/
     )
     expect(readVenus('hooks/usePdfGeneration.ts')).toMatch(/isPdfTransientUpstreamStatus/)
-    expect(readVenus('features/manual/hooks/usePdfStalenessLifecycle.ts')).toMatch(
+    expect(readVenus('features/manual/hooks/usePdfStalenessLifecycleModel.ts')).toMatch(
       /isPdfTransientUpstreamStatus/
+    )
+    expect(readVenus('features/manual/hooks/usePdfStalenessLifecycle.ts')).toMatch(
+      /isTransientPollError/
     )
     expect(readVenus('features/manual/hooks/useManualPdfExportController.ts')).toMatch(
       /isPdfTransientUpstreamStatus/
@@ -83,7 +86,9 @@ describe('manual PDF download contract', () => {
     expect(readVenus('features/manual/hooks/useManualReportApproval.ts')).toMatch(
       /isTransientUpstreamFailure/
     )
-    expect(readVenus('components/ValuationToolbar.tsx')).toMatch(/isPdfTransientUpstreamStatus/)
+    expect(readVenus('hooks/valuationToolbar/useValuationToolbarDownload.ts')).toMatch(
+      /isPdfTransientUpstreamStatus/
+    )
   })
 
   it('PDF BFF routes forward client-context headers to Titan', () => {

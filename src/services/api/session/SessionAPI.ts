@@ -37,7 +37,14 @@ import {
   buildCreateValuationSessionRequest,
   normalizeCreateValuationSessionResponse,
 } from './SessionApiCreateHelpers'
-import { isTimeoutLikeError, requestConfig, toAxiosLikeError } from './SessionApiHttp'
+import {
+  buildGetValuationSessionOptions,
+  getValuationSessionRetryDelay,
+  requestConfig,
+  SESSION_GET_MAX_RETRIES,
+  shouldRetryGetValuationSession,
+  toAxiosLikeError,
+} from './SessionApiHttp'
 import {
   isCriticalSessionUpdate,
   recoverMissingSessionUpdate,
@@ -58,6 +65,10 @@ import {
   transientSessionPatchMessage,
 } from './SessionApiPatchHelpers'
 import { retryRateLimitedSessionPatch } from './SessionApiRateLimitRecovery'
+import {
+  SESSION_DELETION_TOMBSTONE_TTL_MS,
+  SessionDeletionTombstoneStore,
+} from './SessionDeletionTombstoneStore'
 
 // Source-contract sentinel: PATCH helpers enforce that 503/504 indicate upstream pool pressure.
 // The branch `status === 503 || status === 504` records
@@ -79,35 +90,13 @@ type SaveValuationResultPayload = {
 }
 
 export class SessionAPI extends HttpClient {
-  private static deletedSessionTombstones = new Map<string, number>()
-  private static readonly DELETION_TOMBSTONE_TTL_MS = 120000
+  private static readonly DELETION_TOMBSTONE_TTL_MS = SESSION_DELETION_TOMBSTONE_TTL_MS
+  private static readonly deletedSessionTombstones = new SessionDeletionTombstoneStore({
+    ttlMs: SessionAPI.DELETION_TOMBSTONE_TTL_MS,
+  })
   /** Align with Titan/Supabase pool checkout (~15s) plus network margin. */
   static readonly SESSION_PATCH_TIMEOUT_MS = 20_000
   private static readonly TRANSIENT_PATCH_RETRY_DELAYS_MS = [500, 1500]
-
-  private static markSessionDeleted(reportId: string): void {
-    SessionAPI.deletedSessionTombstones.set(reportId, Date.now())
-  }
-
-  private static clearDeletedSessionMarker(reportId?: string): void {
-    if (!reportId) return
-    SessionAPI.deletedSessionTombstones.delete(reportId)
-  }
-
-  private static hasRecentDeletedSession(reportId: string): boolean {
-    const deletedAt = SessionAPI.deletedSessionTombstones.get(reportId)
-    if (!deletedAt) {
-      return false
-    }
-
-    const age = Date.now() - deletedAt
-    if (age >= SessionAPI.DELETION_TOMBSTONE_TTL_MS) {
-      SessionAPI.deletedSessionTombstones.delete(reportId)
-      return false
-    }
-
-    return true
-  }
 
   private async patchValuationSessionWithTransientRetry(
     reportId: string,
@@ -180,9 +169,6 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig,
     attempt = 0
   ): Promise<ValuationSessionResponse | null> {
-    const maxRetries = 3
-    const baseDelay = 1000 // 1 second
-
     try {
       // 30-second timeout per attempt: the response body can be multi-MB once
       // valuation_reports.valuation_result is joined in, and slow staging DB
@@ -190,11 +176,7 @@ export class SessionAPI extends HttpClient {
       // The original 10s ceiling caused AbortController cancels mid-flight
       // (see the "canceled" / "Request timeout, aborting" trail in staging logs).
       // Matches the HttpClient default (HttpClient.ts:639).
-      const timeoutOptions = {
-        ...options,
-        timeout: 30000,
-        retry: options?.retry ?? { maxRetries: 0 },
-      }
+      const timeoutOptions = buildGetValuationSessionOptions(options)
 
       // ✅ FIX: HttpClient unwraps response.data?.data || response.data
       // Backend returns: res.json({ success: true, data: sessionObject })
@@ -244,14 +226,12 @@ export class SessionAPI extends HttpClient {
       }
 
       // Retry logic with exponential backoff (network / timeout only)
-      const isRetryable = isNetworkError(error) || isTimeoutLikeError(error)
-
-      if (isRetryable && attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt)
+      if (shouldRetryGetValuationSession(error, attempt)) {
+        const delay = getValuationSessionRetryDelay(attempt)
         apiLogger.warn('Session load failed, retrying', {
           reportId,
           attempt: attempt + 1,
-          maxRetries,
+          maxRetries: SESSION_GET_MAX_RETRIES,
           delay,
           error: error instanceof Error ? error.message : String(error),
         })
@@ -304,7 +284,7 @@ export class SessionAPI extends HttpClient {
       // AUTH-FIRST: Guest session handling removed - authentication is required
       // Backend will extract userId from JWT token (req.user)
       const createRequest = buildCreateValuationSessionRequest(session)
-      SessionAPI.clearDeletedSessionMarker(createRequest.sessionKey)
+      SessionAPI.deletedSessionTombstones.clear(createRequest.sessionKey)
 
       // ✅ VERIFICATION: HttpClient interceptor automatically adds client context headers via getOwnerHeaders()
       // Headers are added in HttpClient.setupInterceptors() -> getOwnerHeaders()
@@ -397,7 +377,7 @@ export class SessionAPI extends HttpClient {
             this.createValuationSession(sessionToCreate, requestOptions),
           errorCooldownMs: SessionAPI.ERROR_COOLDOWN_MS,
           hasRecentDeletedSession: (candidateReportId) =>
-            SessionAPI.hasRecentDeletedSession(candidateReportId),
+            SessionAPI.deletedSessionTombstones.hasRecent(candidateReportId),
           originalError: axiosError,
           requestOptions: options,
           reportId,
@@ -498,7 +478,7 @@ export class SessionAPI extends HttpClient {
     reportId: string,
     options?: APIRequestConfig
   ): Promise<{ success: boolean; message?: string }> {
-    SessionAPI.markSessionDeleted(reportId)
+    SessionAPI.deletedSessionTombstones.mark(reportId)
     SessionAPI.sessionCreationPromises.delete(reportId)
     SessionAPI.sessionCreationErrors.delete(reportId)
 
@@ -527,7 +507,7 @@ export class SessionAPI extends HttpClient {
           message: 'Session already deleted',
         }
       }
-      SessionAPI.clearDeletedSessionMarker(reportId)
+      SessionAPI.deletedSessionTombstones.clear(reportId)
       this.handleSessionError(error, 'delete session')
     }
   }

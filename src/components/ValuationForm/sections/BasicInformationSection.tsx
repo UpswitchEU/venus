@@ -8,7 +8,7 @@
  */
 
 import { useTranslations } from 'next-intl'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TARGET_COUNTRIES } from '../../../config/countries'
 import { showAdvisorCalculatorSurface } from '../../../constants/accountantPlanMethods'
 import {
@@ -44,6 +44,7 @@ import {
   removeRegistryContextFields,
   selectedCompanySyncKey,
 } from './BasicInformationRegistryModel'
+import { BasicInformationSegmentWeightingPanel } from './BasicInformationSegmentWeightingPanel'
 
 interface BasicInformationSectionProps {
   formData: ValuationFormData
@@ -85,6 +86,8 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
     companyKey: string
     businessTypeId: string | null
   } | null>(null)
+  const selectedCompanySaveRunIdRef = useRef(0)
+  const autoFilledFieldsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // LinkedIn pattern: Form owns selected company state
   const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null)
@@ -120,43 +123,30 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
   const selectedSegments = formData.business_type_segments ?? []
 
-  const updateSegmentEarnings = (index: number, earnings: string) => {
-    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
-      segmentIndex === index
-        ? {
-            ...segment,
-            earnings: earnings.trim() ? earnings : null,
-          }
-        : segment
-    )
-    updateFormData({ business_type_segments: nextSegments })
-  }
+  const clearAutoFilledFieldsTimer = useCallback(() => {
+    if (autoFilledFieldsTimerRef.current) {
+      clearTimeout(autoFilledFieldsTimerRef.current)
+      autoFilledFieldsTimerRef.current = null
+    }
+  }, [])
 
-  const updateSegmentWeight = (index: number, weight: string) => {
-    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
-      segmentIndex === index
-        ? {
-            ...segment,
-            weight: weight.trim() ? weight : null,
-          }
-        : segment
-    )
-    updateFormData({ business_type_segments: nextSegments })
-  }
+  const showAutoFilledFields = useCallback(
+    (filledFields: string[]) => {
+      clearAutoFilledFieldsTimer()
+      setAutoFilledFields(filledFields)
+      autoFilledFieldsTimerRef.current = setTimeout(() => {
+        autoFilledFieldsTimerRef.current = null
+        setAutoFilledFields([])
+      }, 5000)
+    },
+    [clearAutoFilledFieldsTimer]
+  )
 
-  // Advisor override: set the EBITDA/EV multiple for a specific segment. Empty
-  // reverts to the benchmark default (shown as the input placeholder).
-  const updateSegmentMultiple = (index: number, multiple: string) => {
-    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
-      segmentIndex === index
-        ? {
-            ...segment,
-            multiple: multiple.trim() ? multiple : null,
-          }
-        : segment
-    )
-    updateFormData({ business_type_segments: nextSegments })
-  }
+  useEffect(() => {
+    return () => {
+      clearAutoFilledFieldsTimer()
+    }
+  }, [clearAutoFilledFieldsTimer])
 
   const handleBusinessTypeSelectionChange = (
     businessTypeIds: string[],
@@ -299,6 +289,11 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   useEffect(() => {
     if (!selectedCompany) return
 
+    const runId = selectedCompanySaveRunIdRef.current + 1
+    selectedCompanySaveRunIdRef.current = runId
+    let cancelled = false
+    const isCurrentRun = () => !cancelled && selectedCompanySaveRunIdRef.current === runId
+
     const saveCompanyData = async () => {
       generalLogger.info('[BasicInfo] Saving company data', {
         company_name: selectedCompany.company_name,
@@ -331,6 +326,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
 
       if (shouldSyncRegistryBusinessType && selectedBusinessTypeId) {
         const enriched = await fetchBusinessTypeById(selectedBusinessTypeId)
+        if (!isCurrentRun()) return
         if (enriched) {
           Object.assign(updates, buildBusinessTypeFormData(enriched))
         } else {
@@ -354,10 +350,12 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
       if (selectedCompany.company_id && selectedCompany.company_id.length > 3) {
         try {
           const { registryService } = await import('../../../services/registry/registryService')
+          if (!isCurrentRun()) return
           const financialData = await registryService.getCompanyFinancials(
             selectedCompany.company_id,
             currentFormData.country_code || selectedCompany.country_code || 'BE'
           )
+          if (!isCurrentRun()) return
 
           // Auto-fill founding_year if available and not already set
           if (financialData.founding_year && !currentFormData.founding_year) {
@@ -385,8 +383,7 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           if (updates.number_of_employees) filledFields.push('Employees')
 
           if (filledFields.length > 0) {
-            setAutoFilledFields(filledFields)
-            setTimeout(() => setAutoFilledFields([]), 5000)
+            showAutoFilledFields(filledFields)
 
             generalLogger.info('[BasicInfo] Auto-filled fields from KBO', {
               filledFields,
@@ -394,17 +391,23 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
             })
           }
         } catch (error) {
+          if (!isCurrentRun()) return
           generalLogger.warn('[BasicInfo] Failed to fetch financial data', {
             error: error instanceof Error ? error.message : 'Unknown error',
           })
         }
       }
 
+      if (!isCurrentRun()) return
       updateFormData(updates)
     }
 
     saveCompanyData()
-  }, [selectedCompany, formData, updateFormData, effectiveCountryCode])
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedCompany, formData, updateFormData, effectiveCountryCode, showAutoFilledFields])
 
   return (
     <AuroraFormSection title={t('forms.sections.basicInformation')}>
@@ -452,83 +455,10 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
           )}
         </AuroraFullWidthField>
 
-        {selectedSegments.length > 1 && (
-          <AuroraFullWidthField>
-            <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-4">
-              <div className="mb-3 text-sm font-semibold text-foreground">Segment weighting</div>
-              <div className="space-y-3">
-                {selectedSegments.map((segment, index) => {
-                  const basis = segment.basis ?? segment.earnings_basis
-                  const multiple =
-                    typeof segment.multiple === 'number' || typeof segment.multiple === 'string'
-                      ? segment.multiple
-                      : segment.applied_multiple
-                  const multipleNumber = Number(multiple)
-                  const weightValue =
-                    segment.weight != null
-                      ? segment.weight
-                      : Number((100 / selectedSegments.length).toFixed(2))
-
-                  return (
-                    <div
-                      key={`${segment.business_type_id}-${index}`}
-                      className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_110px_110px_200px]"
-                    >
-                      <div className="min-w-0 self-center">
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {segment.business_type_title ?? segment.business_type_id}
-                        </div>
-                        {basis && (
-                          <div className="mt-1 flex flex-wrap gap-2 text-xs text-foreground/60">
-                            <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
-                              {basis}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <AuroraNumberInput
-                        label="Multiple"
-                        placeholder={
-                          Number.isFinite(multipleNumber) ? multipleNumber.toFixed(1) : 'Auto'
-                        }
-                        name={`business_type_segments.${index}.multiple`}
-                        value={segment.multiple ?? ''}
-                        onChange={(event) => updateSegmentMultiple(index, event.target.value)}
-                        min={0}
-                        step={0.1}
-                        suffix="x"
-                        allowDecimals
-                      />
-                      <AuroraNumberInput
-                        label="Weight"
-                        placeholder="Auto"
-                        name={`business_type_segments.${index}.weight`}
-                        value={weightValue}
-                        onChange={(event) => updateSegmentWeight(index, event.target.value)}
-                        min={0}
-                        max={100}
-                        step={5}
-                        suffix="%"
-                        allowDecimals
-                      />
-                      <AuroraNumberInput
-                        label={basis ? `${basis} earnings` : 'Segment earnings'}
-                        placeholder="0"
-                        name={`business_type_segments.${index}.earnings`}
-                        value={segment.earnings ?? ''}
-                        onChange={(event) => updateSegmentEarnings(index, event.target.value)}
-                        min={0}
-                        step={1000}
-                        prefix="EUR"
-                        formatAsCurrency
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </AuroraFullWidthField>
-        )}
+        <BasicInformationSegmentWeightingPanel
+          segments={selectedSegments}
+          onChange={(segments) => updateFormData({ business_type_segments: segments })}
+        />
 
         {/* Company Name with KBO Registry Check */}
         {/* MOVED AFTER BUSINESS TYPE: Enables context-aware KBO validation */}

@@ -21,3 +21,40 @@ export function createAuthenticatedSessionFromUpdate(
     ...(updates.htmlReport && { htmlReport: updates.htmlReport }),
   } as ValuationSession
 }
+
+export function mergeAuthenticatedSessionUpdate(
+  currentSession: ValuationSession,
+  updates: Partial<ValuationSession>,
+  updatedAt: Date
+): ValuationSession {
+  const mergedSession = {
+    ...currentSession,
+    ...updates,
+    updatedAt,
+  }
+
+  if (updates.sessionData) {
+    mergedSession.sessionData = {
+      ...(currentSession.sessionData || {}),
+      ...updates.sessionData,
+    }
+  }
+
+  if (updates.partialData) {
+    mergedSession.partialData = {
+      ...(currentSession.partialData || {}),
+      ...updates.partialData,
+    }
+  }
+
+  return mergedSession
+}
+
+export function normalizeAuthenticatedSessionReportId(
+  session: ValuationSession,
+  requestedReportId: string | null
+): ValuationSession {
+  if (!requestedReportId || session.reportId === requestedReportId) return session
+
+  return { ...session, reportId: requestedReportId }
+}

@@ -35,8 +35,9 @@ import {
 } from '../../store/useTaxLatencyStore'
 import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
 import { TaxLatencyCandidateCard } from './TaxLatencyCandidateCard'
+import { TaxLatencyConflictBanner } from './TaxLatencyConflictBanner'
 import { TaxLatencyEditorForm } from './TaxLatencyEditorForm'
-import { TaxLatencyRow } from './TaxLatencyRow'
+import { TaxLatencyItemsList } from './TaxLatencyItemsList'
 import {
   buildTaxLatencyDraftMetrics,
   buildTaxLatencyDraftPayload,
@@ -405,60 +406,14 @@ export function TaxLatencySection({
   )
 
   const itemsList = (
-    <div className="space-y-1.5 mt-4">
-      {hasItems && (
-        <div className="hidden sm:grid sm:grid-cols-[120px_minmax(0,1.4fr)_minmax(0,1fr)_110px_70px_110px_72px] items-center gap-3 px-3 h-8 text-[10px] font-semibold text-foreground/40 uppercase tracking-wider">
-          <span className="min-w-[120px] flex-shrink-0">{t('type')}</span>
-          <span className="min-w-0">{t('account')}</span>
-          <span className="flex-1 min-w-0">{t('description')}</span>
-          <span className="flex-shrink-0">{t('grossSurplusValue')}</span>
-          <span className="w-12 text-right flex-shrink-0">{t('taxRate')}</span>
-          <span className="min-w-[80px] text-right flex-shrink-0">{t('latencyAmount')}</span>
-          <span className="w-[72px] flex-shrink-0" />
-        </div>
-      )}
-
-      <AnimatePresence mode="popLayout">
-        {items.map((item) => (
-          <TaxLatencyRow
-            key={item.id}
-            item={item}
-            currencyLocale={currencyLocale}
-            onEdit={handleEdit}
-            onRemove={handleRemove}
-            t={t}
-          />
-        ))}
-      </AnimatePresence>
-
-      {!hasItems && (
-        <div className="py-12 text-center">
-          <p className="text-sm text-foreground/50 mb-1">{t('noItems')}</p>
-          <p className="text-xs text-foreground/35">{t('noItemsDesc')}</p>
-        </div>
-      )}
-
-      {hasItems && (
-        <div className="flex items-center justify-between pt-3 mt-2 border-t border-foreground/[0.06]">
-          <span className="text-[11px] font-medium text-foreground/50 uppercase tracking-wide">
-            {t('netImpact')}
-          </span>
-          <span
-            className={cn(
-              'text-sm font-bold tabular-nums',
-              netImpact > 0
-                ? 'text-moss-600 dark:text-moss-400'
-                : netImpact < 0
-                  ? 'text-rust-600 dark:text-rust-400'
-                  : 'text-foreground/50'
-            )}
-          >
-            {netImpact > 0 ? '+' : ''}
-            {formatCurrencyTaxLatency(netImpact, currencyLocale)}
-          </span>
-        </div>
-      )}
-    </div>
+    <TaxLatencyItemsList
+      currencyLocale={currencyLocale}
+      items={items}
+      netImpact={netImpact}
+      onEdit={handleEdit}
+      onRemove={handleRemove}
+      t={t}
+    />
   )
 
   const candidateCards =
@@ -481,31 +436,13 @@ export function TaxLatencySection({
       </div>
     ) : null
 
-  // Non-blocking warning shown when an itemised passive latency overlaps with a
-  // positive NAV-schedule revaluation that is already being taxed via
-  // `nav_tax_latency_pct`. Both channels would otherwise reduce equity for the
-  // same latent gain (double-count in the EV→Equity bridge).
-  const conflictBanner =
-    conflictingLatencyItems.length > 0 ? (
-      <div className="rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/15 dark:border-amber-700/40 p-3 mb-3">
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-          <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1 min-w-0">
-            <p className="font-semibold">{t('navConflictTitle')}</p>
-            <p className="text-amber-900/80 dark:text-amber-200/80">
-              {t('navConflictBodyPrefix', { rate: navTaxLatencyPct ?? 0 })}
-              <span className="font-medium">
-                {conflictingLatencyItems
-                  .map((item) => item.accountCode || item.description)
-                  .filter(Boolean)
-                  .join(', ')}
-              </span>
-              {t('navConflictBodySuffix')}
-            </p>
-          </div>
-        </div>
-      </div>
-    ) : null
+  const conflictBanner = (
+    <TaxLatencyConflictBanner
+      conflictingLatencyItems={conflictingLatencyItems}
+      navTaxLatencyPct={navTaxLatencyPct}
+      t={t}
+    />
+  )
 
   if (alwaysExpanded) {
     const editorToggle = (

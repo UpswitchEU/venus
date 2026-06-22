@@ -6,8 +6,51 @@ import type {
   NormalizationCategory,
 } from '../types/ebitdaNormalization'
 
+const DEFAULT_CONFLICT_RETRY_DELAYS_MS = [100, 230]
+
 export function safeNormalizationNumber(n: number | undefined | null): number {
   return Number.isFinite(n) ? (n as number) : 0
+}
+
+export function nextPendingNormalizationSaveCount(currentCount: number, delta: 1 | -1): number {
+  const safeCurrent = Number.isFinite(currentCount) ? Math.max(0, currentCount) : 0
+  return Math.max(0, safeCurrent + delta)
+}
+
+export function isNormalizationSaveInFlight(pendingCount: number): boolean {
+  return Number.isFinite(pendingCount) && pendingCount > 0
+}
+
+export async function runWithNormalizationConflictRetry<T>(
+  operation: () => Promise<T>,
+  options: {
+    retryDelaysMs?: number[]
+    sleep?: (delayMs: number) => Promise<void>
+  } = {}
+): Promise<T> {
+  const retryDelaysMs = options.retryDelaysMs ?? DEFAULT_CONFLICT_RETRY_DELAYS_MS
+  const sleep = options.sleep ?? ((delayMs: number) => new Promise((r) => setTimeout(r, delayMs)))
+  let lastError: unknown
+
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error
+      const shouldRetry =
+        getNormalizationErrorStatus(error) === 409 && attempt < retryDelaysMs.length
+      if (!shouldRetry) break
+      await sleep(retryDelaysMs[attempt])
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Normalization mutation failed')
+}
+
+function getNormalizationErrorStatus(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return null
+  const status = (error as { status: unknown }).status
+  return typeof status === 'number' ? status : null
 }
 
 function sumStandardAdjustments(adjustments: NormalizationAdjustment[] | undefined): number {

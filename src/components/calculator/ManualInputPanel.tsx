@@ -58,7 +58,6 @@ import { CompanyIdentificationSection } from './sections/CompanyIdentificationSe
 import { FinancialHistorySection } from './sections/FinancialHistorySection'
 import { ManualInputMethodSections } from './sections/ManualInputMethodSections'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
-import { applyManualFinancialYearSelection } from './utils/manualFinancialRowMutations'
 import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
@@ -314,11 +313,6 @@ export function ManualInputPanel({
   const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
   // BET-325 — agent's per-method data-input plan (null unless ADAPTIVE_METHOD_AGENT_MODE on + proposed).
   const methodDataPlan = useManualResultsStore((s) => s.methodDataPlan)
-  /** Combinable methods for synthesis weging — derived from store (nav/Titan). */
-  const synthesisMethodsForPanel = useMemo(
-    () => getSynthesisMethodKeysForUi(effectiveMethods),
-    [effectiveMethods]
-  )
   const hasDcfSelected = selectionRequiresForecastYears(effectiveMethods)
   /**
    * Whether the real-estate carve-out toggle should be rendered.
@@ -355,20 +349,11 @@ export function ManualInputPanel({
   )
 
   const sortedYearlyFinancials = useMemo(
-    () => [...formData.yearlyFinancials].sort((a, b) => Number(b.year) - Number(a.year)),
+    () => sortManualInputYearlyFinancials(formData.yearlyFinancials),
     [formData.yearlyFinancials]
   )
-  const historicalCardRows = useMemo(
-    () =>
-      hasDcfSelected
-        ? sortedYearlyFinancials.filter((year) => !isYearRowForecast(year))
-        : sortedYearlyFinancials,
-    [hasDcfSelected, sortedYearlyFinancials]
-  )
-  const baseFilingYearForLabels = useMemo(() => getSeedBaseFilingYear(formData), [formData])
-  const selectedBusinessCategoryForMethodInputs = useMemo(() => {
-    return selectedBusinessType?.category ?? null
-  }, [selectedBusinessType?.category])
+  const selectedBusinessCategoryForMethodInputs =
+    resolveManualInputSelectedBusinessCategory(selectedBusinessType)
 
   const {
     canApplyDcfProjectionAutofill,
@@ -396,62 +381,6 @@ export function ManualInputPanel({
     sortedYearlyFinancials,
     translate: mi,
   })
-
-  const saasSignalsForBonusSections: GetBonusSectionsSaasSignals = useMemo(() => {
-    const business_model =
-      formData.business_model ??
-      (typeof storeBusinessModel === 'string' ? storeBusinessModel : undefined)
-    const business_context =
-      formData.business_context ??
-      (storeBusinessContext && typeof storeBusinessContext === 'object'
-        ? (storeBusinessContext as Record<string, unknown>)
-        : undefined)
-    return getBonusSectionsSaasSignalsFromFormData({ business_model, business_context })
-  }, [formData.business_model, formData.business_context, storeBusinessModel, storeBusinessContext])
-
-  /** Prefer picker object; fall back to session `businessType` id before sync completes. */
-  const resolvedBusinessCategoryForBonusSections = useMemo(
-    () => selectedBusinessCategoryForMethodInputs,
-    [selectedBusinessCategoryForMethodInputs]
-  )
-  const resolvedBusinessTypeIdForBonusSections = useMemo(
-    () =>
-      resolveBusinessTypeIdForBonusSections(
-        selectedBusinessType?.id,
-        formData.businessType,
-        storeBusinessTypeId
-      ),
-    [selectedBusinessType?.id, formData.businessType, storeBusinessTypeId]
-  )
-
-  const adaptiveHeaderSteps = useMemo(() => {
-    return buildManualInputAdaptiveHeaderSteps({
-      effectiveMethod,
-      effectiveMethods,
-      hasDcfForecastWorkspace,
-      resolvedBusinessCategory: resolvedBusinessCategoryForBonusSections,
-      resolvedBusinessTypeId: resolvedBusinessTypeIdForBonusSections,
-      saasSignals: saasSignalsForBonusSections,
-    })
-  }, [
-    effectiveMethod,
-    effectiveMethods,
-    hasDcfForecastWorkspace,
-    resolvedBusinessCategoryForBonusSections,
-    resolvedBusinessTypeIdForBonusSections,
-    saasSignalsForBonusSections,
-  ])
-
-  /** After WACC & terminal (step 6) when DCF forecast exists; else step 4. */
-  const balanceSheetCarveOutStep = useMemo(
-    () => getManualInputBalanceSheetCarveOutStep(hasDcfForecastWorkspace),
-    [hasDcfForecastWorkspace]
-  )
-
-  const synthesisStep = useMemo(
-    () => getManualInputSynthesisStep(balanceSheetCarveOutStep, adaptiveHeaderSteps),
-    [balanceSheetCarveOutStep, adaptiveHeaderSteps]
-  )
 
   const dcfForecastDefaultsStep = 4
   const dcfForecastWorkspaceStep = 5
@@ -487,20 +416,62 @@ export function ManualInputPanel({
 
   const { canSave, reason: canSaveReason } = useCanSave()
   const {
-    canSubmit,
-    hasBusinessType,
-    hasCompanyInfo,
-    hasEbitdaValue,
-    hasFinancials,
-    totalYearsWithEbitda,
-  } = deriveManualInputReadiness({
-    canSave,
-    formData,
-    hasSelectedBusinessType: Boolean(selectedBusinessType),
-    hasSelectedCompany: Boolean(selectedCompany),
-    latestCompleteYearlyFinancial,
-    resolvedBusinessTypeId: resolvedBusinessTypeIdForBonusSections,
-  })
+    acceptedNormCount,
+    adaptiveHeaderSteps,
+    balanceSheetCarveOutStep,
+    baseFilingYearForLabels,
+    historicalCardRows,
+    normalizedData,
+    readiness: {
+      canSubmit,
+      hasBusinessType,
+      hasCompanyInfo,
+      hasEbitdaValue,
+      hasFinancials,
+      totalYearsWithEbitda,
+    },
+    resolvedBusinessCategoryForBonusSections,
+    resolvedBusinessTypeIdForBonusSections,
+    saasSignalsForBonusSections,
+    synthesisMethodsForPanel,
+    synthesisStep,
+  } = useMemo(
+    () =>
+      buildManualInputPresentationModel({
+        canSave,
+        effectiveMethod,
+        effectiveMethods,
+        formData,
+        hasDcfForecastWorkspace,
+        hasDcfSelected,
+        latestCompleteYearlyFinancial,
+        normalizationItems,
+        selectedBusinessCategoryForMethodInputs,
+        selectedBusinessType,
+        selectedCompanyPresent: Boolean(selectedCompany),
+        sortedYearlyFinancials,
+        storeBusinessContext,
+        storeBusinessModel,
+        storeBusinessTypeId,
+      }),
+    [
+      canSave,
+      effectiveMethod,
+      effectiveMethods,
+      formData,
+      hasDcfForecastWorkspace,
+      hasDcfSelected,
+      latestCompleteYearlyFinancial,
+      normalizationItems,
+      selectedBusinessCategoryForMethodInputs,
+      selectedBusinessType,
+      selectedCompany,
+      sortedYearlyFinancials,
+      storeBusinessContext,
+      storeBusinessModel,
+      storeBusinessTypeId,
+    ]
+  )
 
   // Round-4 audit: `selectedBelgianAuditEntries` was used to drive the
   // BelgianSmeAuditPanel mount in this component. That panel was

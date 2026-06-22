@@ -1,11 +1,12 @@
 import {
+  type GetBonusSectionsSaasSignals,
   getBonusSectionsSaasSignalsFromFormData,
   getSynthesisMethodKeysForUi,
   resolveBusinessTypeIdForBonusSections,
-  type GetBonusSectionsSaasSignals,
 } from '../../../constants/methodFieldConfig'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { isYearRowForecast } from '../../../utils/yearData'
+import type { NormalizationItem } from '../UnifiedNormalizationModal'
 import { getSeedBaseFilingYear } from './manualFinancialSeeds'
 import {
   buildManualInputAdaptiveHeaderSteps,
@@ -18,7 +19,6 @@ import {
   type ManualInputNormalizedData,
 } from './manualInputNormalizedData'
 import { deriveManualInputReadiness, type ManualInputReadiness } from './manualInputReadiness'
-import type { NormalizationItem } from '../UnifiedNormalizationModal'
 
 export interface ManualInputBusinessTypeProjection {
   category?: unknown
