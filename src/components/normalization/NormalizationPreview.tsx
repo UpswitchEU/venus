@@ -87,7 +87,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                 return (
                   <div
                     key={adj.category}
-                    className="flex items-start justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
+                    className="flex items-start justify-between gap-2 p-2 bg-foreground/[0.04] rounded-lg border border-foreground/10"
                   >
                     <div className="flex-1 min-w-0">
                       <p
@@ -114,7 +114,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-sm font-semibold whitespace-nowrap ${
-                          adj.amount > 0 ? 'text-success' : 'text-rust-600'
+                          adj.amount > 0 ? 'text-success' : 'text-destructive'
                         }`}
                       >
                         {adj.amount > 0 ? '+' : ''}
@@ -124,7 +124,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                         <button
                           type="button"
                           onClick={() => onRemoveAdjustment(adj.category)}
-                          className="p-1 text-muted-foreground hover:text-rust-600 transition-colors"
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors"
                           title={t('actions.removeAdjustment')}
                         >
                           <svg
@@ -153,7 +153,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
               .map((adj) => (
                 <div
                   key={adj.id}
-                  className="flex items-start justify-between gap-2 p-2 bg-card rounded-lg border border-foreground/10"
+                  className="flex items-start justify-between gap-2 p-2 bg-foreground/[0.04] rounded-lg border border-foreground/10"
                 >
                   <div className="flex-1 min-w-0">
                     <p
@@ -180,7 +180,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                   <div className="flex items-center gap-2">
                     <span
                       className={`text-sm font-semibold whitespace-nowrap ${
-                        adj.amount > 0 ? 'text-success' : 'text-rust-600'
+                        adj.amount > 0 ? 'text-success' : 'text-destructive'
                       }`}
                     >
                       {adj.amount > 0 ? '+' : ''}
@@ -192,7 +192,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                         onClick={() => {
                           if (adj.id) onRemoveCustomAdjustment(adj.id)
                         }}
-                        className="p-1 text-muted-foreground hover:text-rust-600 transition-colors"
+                        className="p-1 text-muted-foreground hover:text-destructive transition-colors"
                         title={t('actions.removeAdjustment')}
                       >
                         <svg
@@ -224,7 +224,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                   totalAdjustments > 0
                     ? 'text-success'
                     : totalAdjustments < 0
-                      ? 'text-rust-600'
+                      ? 'text-destructive'
                       : 'text-foreground'
                 }`}
               >
@@ -248,7 +248,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
               totalAdjustments > 0
                 ? 'text-success'
                 : totalAdjustments < 0
-                  ? 'text-rust-600'
+                  ? 'text-destructive'
                   : 'text-foreground'
             }`}
           >
