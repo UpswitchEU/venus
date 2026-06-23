@@ -80,6 +80,12 @@ interface FinancialHistorySectionProps {
   selectedCompany: unknown
   setFormData: React.Dispatch<React.SetStateAction<ManualValuationFormData>>
   setShowForecastRemovalConfirm: (open: boolean) => void
+  /**
+   * Owner self-serve autofill doors (connect accounting / invite accountant /
+   * registry estimate). These are an owner funnel — hidden when a professional
+   * (accountant / advisor acting for a client) is entering the figures directly.
+   */
+  showOwnerAutofillDoors: boolean
   taxLatencyCount: number
   terminalValueMethod: TerminalValueMethod
   totalYearsWithEbitda: number
@@ -132,6 +138,7 @@ export function FinancialHistorySection({
   selectedCompany,
   setFormData,
   setShowForecastRemovalConfirm,
+  showOwnerAutofillDoors,
   taxLatencyCount,
   terminalValueMethod,
   totalYearsWithEbitda,
@@ -190,21 +197,25 @@ export function FinancialHistorySection({
         totalYearsWithEbitda={totalYearsWithEbitda}
       />
 
-      {/* BET-312 autofill doors — pull from accounting (Door 1) → invite accountant (Door 2). */}
-      <ConnectAccountingInline
-        liveImportProviderName={liveImportProviderName}
-        imported={hasImportedAccountingData}
-        importBusy={bizzcontrolImport.isImporting || octopusImport.isImporting}
-        openingImport={openingLiveAccountingImport}
-        onImport={handleOpenLiveAccountingImport}
-      />
-      {/* BET-317 — in-form "invite my accountant" so the owner stays in the funnel. */}
-      <InviteAccountantInline />
-      {/* BET-318 — Door 3: registry-derived provisional band when figures are unknown. */}
-      <RegistryEstimateInline
-        company={selectedCompany}
-        fallbackCountry={formData.country ?? null}
-      />
+      {/* BET-312/317/318 autofill doors — an OWNER funnel (pull from accounting →
+          invite accountant → registry estimate). Hidden for professionals, who
+          enter the figures directly rather than self-serving through a door. */}
+      {showOwnerAutofillDoors && (
+        <>
+          <ConnectAccountingInline
+            liveImportProviderName={liveImportProviderName}
+            imported={hasImportedAccountingData}
+            importBusy={bizzcontrolImport.isImporting || octopusImport.isImporting}
+            openingImport={openingLiveAccountingImport}
+            onImport={handleOpenLiveAccountingImport}
+          />
+          <InviteAccountantInline />
+          <RegistryEstimateInline
+            company={selectedCompany}
+            fallbackCountry={formData.country ?? null}
+          />
+        </>
+      )}
 
       <div className="space-y-3">
         {historicalCardRows.map((yearData) => {

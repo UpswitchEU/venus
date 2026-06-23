@@ -32,6 +32,7 @@ import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../store/manual/useManualResultsStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
 import { useTaxLatencyStore } from '../../store/useTaxLatencyStore'
+import { useClientContext } from '../../stores/clientContext'
 import type {
   ManualValuationFormData,
   ValuationMethodResult,
@@ -147,6 +148,11 @@ export function ManualInputPanel({
   integrationsEnabled = false,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
+  // A professional operator (accountant/advisor acting for a client, or an
+  // accountant-tier role) enters figures directly: hide the owner self-serve
+  // autofill doors and surface the preparer multiple override instead.
+  const isActingAsClient = useClientContext((s) => s.isActingAsClient && Boolean(s.relationshipId))
+  const isProfessionalOperator = isActingAsClient || isAccountantTierRole(user?.role)
   const t = useTranslations()
   const mi = useTranslations('manualInput')
   const tKbo = useTranslations('forms.kboLookup')
@@ -311,6 +317,9 @@ export function ManualInputPanel({
   // Also handles initial mount (e.g. page reload with DCF pre-selected).
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
   const effectiveMethods = useManualResultsStore((s) => s.preSelectedMethods)
+  // A stored result means we are refining a valuation already on the value
+  // curve (recalc), not producing a first estimate — switches the CTA copy.
+  const hasExistingValuation = useManualResultsStore((s) => s.result != null)
   // BET-325 — agent's per-method data-input plan (null unless ADAPTIVE_METHOD_AGENT_MODE on + proposed).
   const methodDataPlan = useManualResultsStore((s) => s.methodDataPlan)
   const hasDcfSelected = selectionRequiresForecastYears(effectiveMethods)
@@ -515,6 +524,7 @@ export function ManualInputPanel({
               selectedBusinessTypeIds={selectedBusinessTypeIds}
               effectiveMethods={effectiveMethods}
               handleBusinessTypeSelectionChange={handleBusinessTypeSelectionChange}
+              allowMultipleOverride={isProfessionalOperator}
             />
 
             <OwnershipStructureSection
@@ -571,6 +581,7 @@ export function ManualInputPanel({
               selectedCompany={selectedCompany}
               setFormData={setFormData}
               setShowForecastRemovalConfirm={setShowForecastRemovalConfirm}
+              showOwnerAutofillDoors={!isProfessionalOperator}
               taxLatencyCount={taxLatencyCount}
               terminalValueMethod={terminalValueMethod}
               totalYearsWithEbitda={totalYearsWithEbitda}
@@ -626,6 +637,7 @@ export function ManualInputPanel({
               hasBusinessType={hasBusinessType}
               hasCompanyInfo={hasCompanyInfo}
               isCalculating={isCalculating}
+              hasExistingValuation={hasExistingValuation}
             />
           </form>
         </div>

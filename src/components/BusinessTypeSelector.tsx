@@ -27,6 +27,13 @@ interface BusinessTypeSelectorProps {
   fallbackOptions?: SharedBusinessTypeOption[]
   selectionMode?: 'single' | 'multiple'
   showPreview?: boolean
+  /**
+   * Render the standalone "* Required" hint line below the field. Off by default
+   * in dense input panels where sibling fields carry no required line, so the
+   * lone hint doesn't read as orphaned validation text. Submit-time validation
+   * still enforces the selection regardless of this flag.
+   */
+  showRequiredHint?: boolean
   className?: string
 }
 
@@ -166,6 +173,7 @@ export function BusinessTypeSelector({
   fallbackOptions = [],
   selectionMode = 'multiple',
   showPreview = true,
+  showRequiredHint = true,
   className = '',
 }: BusinessTypeSelectorProps) {
   const t = useTranslations('common')
@@ -267,7 +275,7 @@ export function BusinessTypeSelector({
         copy={selectorCopy(locale, t)}
         loading={loadingTypes}
         error={loadingError}
-        required
+        required={showRequiredHint}
         showCategories={false}
       />
 

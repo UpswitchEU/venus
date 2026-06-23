@@ -84,6 +84,11 @@ interface CompanyIdentificationSectionProps {
     businessTypeIds: string[],
     selectedBusinessTypes: ApiBusinessType[]
   ) => void
+  /**
+   * Surface the inline benchmark-multiple override (single business type). This
+   * is a preparer control — shown to accountants/advisors, hidden from owners.
+   */
+  allowMultipleOverride?: boolean
 }
 
 export function CompanyIdentificationSection({
@@ -113,6 +118,7 @@ export function CompanyIdentificationSection({
   selectedBusinessTypeIds,
   effectiveMethods,
   handleBusinessTypeSelectionChange,
+  allowMultipleOverride = false,
 }: CompanyIdentificationSectionProps) {
   const mi = useTranslations('manualInput')
   const tKbo = useTranslations('forms.kboLookup')
@@ -388,7 +394,8 @@ export function CompanyIdentificationSection({
                     onSelectionChange={handleBusinessTypeSelectionChange}
                     fallbackOptions={selectedBusinessTypeFallbackOptions}
                     selectionMode="multiple"
-                    showPreview={selectedBusinessTypeIds.length <= 1}
+                    showPreview={false}
+                    showRequiredHint={false}
                     className={isCalculating ? 'pointer-events-none opacity-60' : ''}
                   />
                 </div>
@@ -416,6 +423,41 @@ export function CompanyIdentificationSection({
                 ) : null}
               </div>
             )}
+            {/* Preparer override for the single-business-type case. The segment
+                multiple is seeded with the sector benchmark, so the field shows
+                the default pre-filled; editing it overrides via the same
+                business_type_segments path used by the multi-segment panel. */}
+            {allowMultipleOverride &&
+              selectedSegments.length === 1 &&
+              (() => {
+                const segment = selectedSegments[0]
+                const basis = segment.basis ?? segment.earnings_basis
+                const metricLabel = multipleLabelForBasis(basis) ?? mi('appliedMultipleLabel')
+                const benchmarkNumber =
+                  finiteNumber(segment.multiple) ?? finiteNumber(segment.applied_multiple)
+                if (benchmarkNumber === undefined && segment.multiple == null) return null
+                return (
+                  <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
+                    <AuroraNumberInput
+                      label={metricLabel}
+                      placeholder={
+                        benchmarkNumber !== undefined ? benchmarkNumber.toFixed(1) : 'Auto'
+                      }
+                      name="business_type_segments.0.multiple"
+                      value={segment.multiple ?? ''}
+                      onChange={(event) => updateSegmentMultiple(0, event.target.value)}
+                      min={0}
+                      step={0.1}
+                      suffix="x"
+                      allowDecimals
+                      disabled={isCalculating}
+                    />
+                    <p className="mt-2 text-[11px] text-foreground/45">
+                      {mi('appliedMultipleHint')}
+                    </p>
+                  </div>
+                )
+              })()}
             {selectedSegments.length > 1 && (
               <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
                 <div className="mb-2 text-xs font-semibold text-foreground">Segment weighting</div>
