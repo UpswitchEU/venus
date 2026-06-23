@@ -7,7 +7,7 @@
  */
 
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import { useManualFormStore } from '../useManualFormStore'
 
@@ -275,16 +275,49 @@ describe('useManualFormStore', () => {
         country_code: 'US',
       }
 
-      // Wait for any previous prefill's guard to reset (prefillInProgress uses setTimeout(100))
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 150))
-      })
-
       act(() => {
         result.current.prefillFromBusinessCard(businessCard)
       })
 
       await waitFor(() => expect(result.current.isDirty).toBe(true), { timeout: 500 })
+    })
+
+    it('does not apply a stale scheduled prefill after resetForm', () => {
+      const { result } = renderHook(() => useManualFormStore())
+      let frameCallback: FrameRequestCallback | null = null
+      const requestAnimationFrameMock = vi.fn((callback: FrameRequestCallback) => {
+        frameCallback = callback
+        return 123
+      })
+      const cancelAnimationFrameMock = vi.fn()
+
+      vi.stubGlobal('requestAnimationFrame', requestAnimationFrameMock)
+      vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrameMock)
+
+      try {
+        act(() => {
+          result.current.prefillFromBusinessCard({
+            company_name: 'Stale Business Card Corp',
+            industry: 'technology',
+            business_model: 'b2b_saas',
+            founding_year: 2020,
+            country_code: 'US',
+          })
+        })
+
+        act(() => {
+          result.current.resetForm()
+        })
+
+        act(() => {
+          frameCallback?.(0)
+        })
+
+        expect(cancelAnimationFrameMock).toHaveBeenCalledWith(123)
+        expect(result.current.formData.company_name).toBe('')
+      } finally {
+        vi.unstubAllGlobals()
+      }
     })
   })
 

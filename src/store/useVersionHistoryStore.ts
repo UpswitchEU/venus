@@ -20,11 +20,14 @@ import type {
 } from '../types/ValuationVersion'
 import { createContextLogger } from '../utils/logger'
 import {
-  appendVersionIfMissing,
+  applyCreatedBackendVersion,
+  buildLocalFallbackVersionCreation,
+  buildVersionCreationKey,
+  selectLatestVersion,
+} from './versionHistoryCreationModel'
+import {
   compareValuationVersions,
-  createLocalVersionSnapshot,
   deduplicateVersionsByNumber,
-  markVersionsInactive,
   mergeBackendVersionsByNumber,
   partializeVersionHistoryState,
 } from './versionHistoryModel'
@@ -250,7 +253,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
        */
       createVersion: async (request: CreateVersionRequest) => {
         // ✅ FIX: Prevent concurrent version creation for same reportId
-        const creationKey = `${request.reportId}_${request.versionLabel || 'auto'}`
+        const creationKey = buildVersionCreationKey(request)
         if (pendingVersionCreations.has(creationKey)) {
           versionLogger.warn('Version creation already in progress, skipping duplicate', {
             reportId: request.reportId,
@@ -258,7 +261,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           })
           // Return existing version if available, otherwise throw
           const existingVersions = get().versions[request.reportId] || []
-          const latestVersion = existingVersions[existingVersions.length - 1]
+          const latestVersion = selectLatestVersion(existingVersions)
           if (latestVersion) {
             return latestVersion
           }
@@ -266,6 +269,7 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
         }
 
         pendingVersionCreations.add(creationKey)
+        let failureAlreadyLogged = false
 
         try {
           versionLogger.info('Creating version', { reportId: request.reportId })
@@ -293,9 +297,9 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             // ✅ FIX: Check if version already exists before adding to prevent duplicates
             // Also deduplicate existing versions in case of race conditions
             set((state) => {
-              const reportVersions = state.versions[request.reportId] || []
-              const { versionExists, versions: updatedVersions } = appendVersionIfMissing({
-                versions: reportVersions,
+              const { nextState, versionExists } = applyCreatedBackendVersion({
+                reportId: request.reportId,
+                state,
                 version,
               })
 
@@ -305,32 +309,11 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                   versionNumber: version.versionNumber,
                   note: 'Version will be synced via fetchVersions',
                 })
-                // Don't add duplicate, but update active version and return deduplicated list
-                return {
-                  versions: {
-                    ...state.versions,
-                    [request.reportId]: updatedVersions,
-                  },
-                  activeVersions: {
-                    ...state.activeVersions,
-                    [request.reportId]: version.versionNumber,
-                  },
-                }
               }
 
-              return {
-                versions: {
-                  ...state.versions,
-                  [request.reportId]: updatedVersions,
-                },
-                activeVersions: {
-                  ...state.activeVersions,
-                  [request.reportId]: version.versionNumber,
-                },
-              }
+              return nextState
             })
 
-            pendingVersionCreations.delete(creationKey)
             return version
           } catch (backendError) {
             // Backend unavailable - create locally
@@ -341,24 +324,16 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
             })
 
             try {
-              const reportVersions = deduplicateVersionsByNumber(
-                get().versions[request.reportId] || []
-              )
-              const nextVersionNumber =
-                Math.max(0, ...reportVersions.map((v) => v.versionNumber)) + 1
-
-              const localVersion = createLocalVersionSnapshot({
-                request: enrichedRequest,
-                versionNumber: nextVersionNumber,
-              })
-
-              // Mark previous versions as inactive
-              const updatedVersions = markVersionsInactive(reportVersions)
+              const { localVersion, nextVersionNumber, versions } =
+                buildLocalFallbackVersionCreation({
+                  existingVersions: get().versions[request.reportId] || [],
+                  request: enrichedRequest,
+                })
 
               set((state) => ({
                 versions: {
                   ...state.versions,
-                  [request.reportId]: [...updatedVersions, localVersion],
+                  [request.reportId]: versions,
                 },
                 activeVersions: {
                   ...state.activeVersions,
@@ -371,12 +346,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
                 versionNumber: nextVersionNumber,
                 note: 'Backend unavailable, using local storage',
               })
-
-              pendingVersionCreations.delete(creationKey)
               return localVersion
             } catch (localError) {
               // Local version creation also failed - this is a real error
-              pendingVersionCreations.delete(creationKey)
+              failureAlreadyLogged = true
               versionLogger.error(
                 'Failed to create version (both backend and local fallback failed)',
                 {
@@ -391,13 +364,16 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           }
         } catch (error) {
           // This catch should only handle unexpected errors (not backend or local creation errors)
-          pendingVersionCreations.delete(creationKey)
-          versionLogger.error('Failed to create version (unexpected error)', {
-            reportId: request.reportId,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            errorType: error instanceof Error ? error.constructor.name : typeof error,
-          })
+          if (!failureAlreadyLogged) {
+            versionLogger.error('Failed to create version (unexpected error)', {
+              reportId: request.reportId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              errorType: error instanceof Error ? error.constructor.name : typeof error,
+            })
+          }
           throw error
+        } finally {
+          pendingVersionCreations.delete(creationKey)
         }
       },
 

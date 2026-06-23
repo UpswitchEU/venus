@@ -43,7 +43,12 @@ function validContext() {
 describe('delegatedClientContextApi', () => {
   it('fetches and validates delegated client context', async () => {
     const timers = makeTimerFns()
-    const fetchImpl = vi.fn(async () => Response.json(validContext())) as unknown as typeof fetch
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        accountantUser: validContext().accountantUser,
+        relationship: validContext().relationship,
+      })
+    ) as unknown as typeof fetch
 
     const context = await fetchDelegatedClientContext({
       apiUrl: 'https://api.test',
@@ -125,13 +130,28 @@ describe('delegatedClientContextApi', () => {
   })
 
   it('rejects successful responses with unusable context shape', async () => {
-    expect(isDelegatedClientContextResponse({ accountantUser: {}, relationship: {} })).toBe(true)
+    expect(isDelegatedClientContextResponse(validContext())).toBe(true)
+    expect(isDelegatedClientContextResponse({ accountantUser: {}, relationship: {} })).toBe(false)
     expect(isDelegatedClientContextResponse({ accountantUser: {} })).toBe(false)
 
     await expect(
       fetchDelegatedClientContext({
         clientId: 'rel_1',
-        fetchImpl: vi.fn(async () => Response.json({ accountantUser: {} })) as unknown as typeof fetch,
+        fetchImpl: vi.fn(async () =>
+          Response.json({ accountantUser: {} })
+        ) as unknown as typeof fetch,
+      })
+    ).rejects.toThrow('Invalid client context structure received')
+
+    await expect(
+      fetchDelegatedClientContext({
+        clientId: 'rel_1',
+        fetchImpl: vi.fn(async () =>
+          Response.json({
+            ...validContext(),
+            clientUser: { id: 'client_1' },
+          })
+        ) as unknown as typeof fetch,
       })
     ).rejects.toThrow('Invalid client context structure received')
   })

@@ -12,7 +12,7 @@
  * Prevents race conditions by blocking ALL API calls until complete
  *
  * Key Principles:
- * - No timeouts (guaranteed completion)
+ * - Bounded auth readiness wait with deterministic cleanup
  * - No parallel initialization (sequential only)
  * - Single source of truth (one initialization state)
  * - Defensive (handles errors gracefully)
@@ -21,6 +21,77 @@
 
 import logger from '../utils/logger'
 import type { SessionBootstrapState } from './bootstrap/types'
+
+const AUTH_INITIALIZATION_TIMEOUT_MS = 20_000
+
+type AuthReadinessState = {
+  loading: boolean
+}
+
+type AuthReadinessStore = {
+  getState: () => AuthReadinessState
+  subscribe: (listener: (state: AuthReadinessState) => void) => () => void
+}
+
+type SetTimeoutFn = (handler: () => void, timeoutMs: number) => ReturnType<typeof setTimeout>
+type ClearTimeoutFn = (handle: ReturnType<typeof setTimeout>) => void
+
+interface AuthReadinessWaitOptions {
+  clearTimeoutFn?: ClearTimeoutFn
+  setTimeoutFn?: SetTimeoutFn
+  timeoutMs?: number
+}
+
+export async function waitForAuthStoreReadiness(
+  authStore: AuthReadinessStore,
+  {
+    clearTimeoutFn = clearTimeout,
+    setTimeoutFn = setTimeout,
+    timeoutMs = AUTH_INITIALIZATION_TIMEOUT_MS,
+  }: AuthReadinessWaitOptions = {}
+): Promise<void> {
+  if (!authStore.getState().loading) {
+    return
+  }
+
+  const cleanup = {
+    timeoutHandle: null as ReturnType<typeof setTimeout> | null,
+    unsubscribe: null as (() => void) | null,
+  }
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let settled = false
+      const settle = (complete: () => void) => {
+        if (settled) return
+        settled = true
+        complete()
+      }
+
+      cleanup.unsubscribe = authStore.subscribe((state) => {
+        if (!state.loading) {
+          settle(resolve)
+        }
+      })
+
+      if (!authStore.getState().loading) {
+        settle(resolve)
+        return
+      }
+
+      cleanup.timeoutHandle = setTimeoutFn(() => {
+        settle(() => reject(new Error('Auth initialization timeout')))
+      }, timeoutMs)
+    })
+  } finally {
+    if (cleanup.timeoutHandle) {
+      clearTimeoutFn(cleanup.timeoutHandle)
+    }
+    if (cleanup.unsubscribe) {
+      cleanup.unsubscribe()
+    }
+  }
+}
 
 /**
  * Initialization State
@@ -174,27 +245,7 @@ class SessionInitializer {
         return
       }
 
-      // Wait for auth initialization (with timeout as safety net)
-      await Promise.race([
-        new Promise<void>((resolve) => {
-          // Subscribe to auth state changes
-          const unsubscribe = useAuthStore.subscribe((state) => {
-            if (!state.loading) {
-              unsubscribe()
-              resolve()
-            }
-          })
-
-          // Check immediately in case already initialized
-          if (!useAuthStore.getState().loading) {
-            unsubscribe()
-            resolve()
-          }
-        }),
-        new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('Auth initialization timeout')), 20000)
-        ),
-      ])
+      await waitForAuthStoreReadiness(useAuthStore)
 
       logger.debug('[SessionInitializer] Auth initialization complete')
     } catch (error) {

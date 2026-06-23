@@ -64,6 +64,12 @@ export const AI_ACTION_TOOL_NAME_TO_RESULT_TYPE = {
     // Synthetic — emitted by Titan's add-client recovery. Mercury renders this
     // as an inline CompanyNameInput widget; Venus intentionally ignores it.
     advisor_add_client_widget: 'add_client_widget',
+    // BET-500 value-up tools — the assistant proposes acting ON the value curve
+    // (advance a stage, fix a data gap, improve drafted content). Mercury renders
+    // these; Venus ignores them (see `venusIgnoredRenderableEnvelopeTypes`).
+    propose_stage_advance: 'stage_advance_request',
+    propose_gap_fix: 'gap_fix_request',
+    propose_content_improve: 'content_improve_request',
 };
 export const AI_ACTION_TOOL_NAMES = Object.freeze(Object.keys(AI_ACTION_TOOL_NAME_TO_RESULT_TYPE));
 export const AI_ACTION_TOOL_RESULT_TYPES = [
@@ -121,6 +127,10 @@ export const AI_ACTION_TOOL_RESULT_TYPES = [
     'lawyer_handoff_request',
     'start_playbook_request',
     'add_client_widget',
+    // BET-500 value-up cards (Mercury-rendered; Venus-ignored).
+    'stage_advance_request',
+    'gap_fix_request',
+    'content_improve_request',
 ];
 export const AI_STREAM_CHUNK_TYPES = [
     'text',

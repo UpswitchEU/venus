@@ -17,10 +17,11 @@ import { create } from 'zustand'
 import type { ValuationFormData } from '../../types/valuation'
 import { getCurrentFilingYear } from '../../utils/fiscalYear'
 import { storeLogger } from '../../utils/logger'
+import { createManualFormPrefillScheduler } from './manualFormPrefillScheduler'
 
 // ✅ FIX: Guard to prevent multiple simultaneous calls to prefillFromBusinessCard
 // This prevents React error #185 when multiple hooks call it simultaneously
-let prefillInProgress = false
+const prefillScheduler = createManualFormPrefillScheduler()
 
 interface ManualFormStore {
   // Form state
@@ -180,6 +181,8 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
 
   // Reset form data to defaults (atomic)
   resetForm: () => {
+    prefillScheduler.reset()
+
     set((state) => ({
       ...state,
       formData: getDefaultFormData(),
@@ -211,73 +214,61 @@ export const useManualFormStore = create<ManualFormStore>((set, get) => ({
     nace_description?: string
   }) => {
     // ✅ FIX: Guard against multiple simultaneous calls
-    if (prefillInProgress) {
+    const scheduled = prefillScheduler.trySchedule(() => {
+      set((state) => {
+        const hasIndustry =
+          typeof businessCard.industry === 'string' && businessCard.industry.trim() !== ''
+        const hasBusinessModel =
+          typeof businessCard.business_model === 'string' &&
+          businessCard.business_model.trim() !== ''
+        const hasCountryCode =
+          typeof businessCard.country_code === 'string' && businessCard.country_code.trim() !== ''
+        const hasFoundingYear =
+          typeof businessCard.founding_year === 'number' &&
+          Number.isFinite(businessCard.founding_year)
+        const hasEmployeeCount =
+          typeof businessCard.employee_count === 'number' &&
+          Number.isFinite(businessCard.employee_count)
+
+        const updatedFormData = {
+          ...state.formData,
+          company_name: businessCard.company_name,
+          ...(hasIndustry && { industry: businessCard.industry }),
+          ...(hasBusinessModel && { business_model: businessCard.business_model }),
+          ...(hasFoundingYear && { founding_year: businessCard.founding_year }),
+          ...(hasCountryCode && { country_code: businessCard.country_code }),
+          ...(hasEmployeeCount && { number_of_employees: businessCard.employee_count }),
+          // Phase 1.1: Add KBO registry fields if available
+          ...(businessCard.city && { city: businessCard.city }),
+          ...(businessCard.postal_code && { postal_code: businessCard.postal_code }),
+          ...(businessCard.kbo_number && { kbo_number: businessCard.kbo_number }),
+          ...(businessCard.vat_number && { vat_number: businessCard.vat_number }),
+          ...(businessCard.legal_form && { legal_form: businessCard.legal_form }),
+          ...(businessCard.nace_code && { nace_code: businessCard.nace_code }),
+          ...(businessCard.nace_description && {
+            nace_description: businessCard.nace_description,
+          }),
+        }
+
+        storeLogger.info('[Manual] Form data prefilled from business card', {
+          companyName: businessCard.company_name,
+          hasKboData: !!(businessCard.kbo_number || businessCard.vat_number),
+          formId: 'manual',
+        })
+
+        return {
+          ...state,
+          formData: updatedFormData,
+          isDirty: true,
+        }
+      })
+    })
+
+    if (!scheduled) {
       storeLogger.debug('[Manual] Prefill already in progress, skipping duplicate call', {
         companyName: businessCard.company_name,
       })
-      return
     }
-
-    prefillInProgress = true
-
-    // ✅ FIX: Use requestAnimationFrame to ensure we're not in render phase
-    // This prevents React error #185 by ensuring state updates happen after render
-    requestAnimationFrame(() => {
-      try {
-        set((state) => {
-          const hasIndustry =
-            typeof businessCard.industry === 'string' && businessCard.industry.trim() !== ''
-          const hasBusinessModel =
-            typeof businessCard.business_model === 'string' &&
-            businessCard.business_model.trim() !== ''
-          const hasCountryCode =
-            typeof businessCard.country_code === 'string' && businessCard.country_code.trim() !== ''
-          const hasFoundingYear =
-            typeof businessCard.founding_year === 'number' &&
-            Number.isFinite(businessCard.founding_year)
-          const hasEmployeeCount =
-            typeof businessCard.employee_count === 'number' &&
-            Number.isFinite(businessCard.employee_count)
-
-          const updatedFormData = {
-            ...state.formData,
-            company_name: businessCard.company_name,
-            ...(hasIndustry && { industry: businessCard.industry }),
-            ...(hasBusinessModel && { business_model: businessCard.business_model }),
-            ...(hasFoundingYear && { founding_year: businessCard.founding_year }),
-            ...(hasCountryCode && { country_code: businessCard.country_code }),
-            ...(hasEmployeeCount && { number_of_employees: businessCard.employee_count }),
-            // Phase 1.1: Add KBO registry fields if available
-            ...(businessCard.city && { city: businessCard.city }),
-            ...(businessCard.postal_code && { postal_code: businessCard.postal_code }),
-            ...(businessCard.kbo_number && { kbo_number: businessCard.kbo_number }),
-            ...(businessCard.vat_number && { vat_number: businessCard.vat_number }),
-            ...(businessCard.legal_form && { legal_form: businessCard.legal_form }),
-            ...(businessCard.nace_code && { nace_code: businessCard.nace_code }),
-            ...(businessCard.nace_description && {
-              nace_description: businessCard.nace_description,
-            }),
-          }
-
-          storeLogger.info('[Manual] Form data prefilled from business card', {
-            companyName: businessCard.company_name,
-            hasKboData: !!(businessCard.kbo_number || businessCard.vat_number),
-            formId: 'manual',
-          })
-
-          return {
-            ...state,
-            formData: updatedFormData,
-            isDirty: true,
-          }
-        })
-      } finally {
-        // Reset guard after a short delay to allow the update to complete
-        setTimeout(() => {
-          prefillInProgress = false
-        }, 100)
-      }
-    })
   },
 
   // Mark form as clean (atomic)

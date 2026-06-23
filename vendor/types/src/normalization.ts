@@ -23,7 +23,7 @@ export enum NormalizationCategory {
   OTHER_ADJUSTMENTS = 'other_adjustments',
 }
 
-export const NORMALIZATION_CATEGORY_VALUES = Object.values(NormalizationCategory) as string[];
+export const NORMALIZATION_CATEGORY_VALUES = Object.values(NormalizationCategory) as string[]
 
 export enum ConfidenceScore {
   LOW = 'low',
@@ -32,25 +32,25 @@ export enum ConfidenceScore {
 }
 
 /** String literal union for contexts that only need the value, not the enum. */
-export type ConfidenceScoreValue = `${ConfidenceScore}`;
+export type ConfidenceScoreValue = `${ConfidenceScore}`
 
-export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute';
+export type NormalizationType = 'add' | 'subtract' | 'add_percent' | 'subtract_percent' | 'absolute'
 
-export type NormalizationStatus = 'pending' | 'accepted' | 'rejected';
+export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
-export type NormalizationSource = 'manual' | 'suggestion' | 'import' | 'ai';
+export type NormalizationSource = 'manual' | 'suggestion' | 'import' | 'ai'
 
 export interface NormalizationItemBase {
-  id: string;
-  category: string;
-  amount: number;
-  is_addback: boolean;
-  description?: string;
-  note?: string;
-  confidence_score?: ConfidenceScore;
-  year?: number;
-  ledger_code?: string;
-  ledger_name?: string;
+  id: string
+  category: string
+  amount: number
+  is_addback: boolean
+  description?: string
+  note?: string
+  confidence_score?: ConfidenceScore
+  year?: number
+  ledger_code?: string
+  ledger_name?: string
   /**
    * Owner role context. Only meaningful for owner-compensation items.
    *
@@ -59,25 +59,25 @@ export interface NormalizationItemBase {
    * - passive: seller is a non-operating shareholder; add back the full owner
    *   compensation because the buyer does not need to replace the role.
    */
-  owner_role?: 'working' | 'passive';
+  owner_role?: 'working' | 'passive'
   /**
    * Replacement-manager benchmark salary used for the working-owner add-back.
    * When present, engines treat `amount` as actual owner compensation minus
    * this benchmark salary.
    */
-  replacement_salary_benchmark?: number;
+  replacement_salary_benchmark?: number
 }
 
 export interface NormalizationCategoryMetadata {
-  id: NormalizationCategory;
-  label: string;
-  description: string;
-  examples: string[];
-  is_addback: boolean;
+  id: NormalizationCategory
+  label: string
+  description: string
+  examples: string[]
+  is_addback: boolean
   typical_range?: {
-    min_percentage: number;
-    max_percentage: number;
-  };
+    min_percentage: number
+    max_percentage: number
+  }
 }
 
 export const CATEGORY_METADATA: Record<NormalizationCategory, NormalizationCategoryMetadata> = {
@@ -177,7 +177,7 @@ export const CATEGORY_METADATA: Record<NormalizationCategory, NormalizationCateg
     is_addback: true,
     typical_range: { min_percentage: 0, max_percentage: 5 },
   },
-};
+}
 
 /** Backward-compatible alias used by Titan. */
-export const NORMALIZATION_CATEGORIES = CATEGORY_METADATA;
+export const NORMALIZATION_CATEGORIES = CATEGORY_METADATA
