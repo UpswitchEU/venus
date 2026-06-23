@@ -13,17 +13,16 @@
 
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
+import { prefersReducedMotion } from '@/design-system/utils'
 
 const ScrollToTop = () => {
   const _pathname = usePathname()
 
   useEffect(() => {
-    const prefersReduced =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     window.scrollTo({
       top: 0,
       left: 0,
-      behavior: prefersReduced ? 'auto' : 'smooth',
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
     })
   }, [])
 

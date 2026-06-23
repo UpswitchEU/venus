@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import React, { useId, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { readMobileViewportFallback, useMobileViewport } from '@/hooks/useMobileViewport'
 
 interface DropdownProps {
   trigger: React.ReactNode
@@ -61,14 +62,6 @@ function readViewportBounds(): ViewportBounds {
   }
 }
 
-function readMobileViewportMode(): boolean {
-  if (typeof window.matchMedia === 'function') {
-    return window.matchMedia('(max-width: 767px)').matches
-  }
-
-  return window.innerWidth < 768
-}
-
 export const Dropdown: React.FC<DropdownProps> = ({
   trigger,
   children,
@@ -80,30 +73,22 @@ export const Dropdown: React.FC<DropdownProps> = ({
 }) => {
   const [open, setOpen] = useState(false)
   const [viewportPosition, setViewportPosition] = useState<ViewportPosition | null>(null)
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
+  const mobileViewport = useMobileViewport()
+  const isMobileViewport = mobileViewport.hasMeasured
+    ? mobileViewport.matches
+    : readMobileViewportFallback()
   const shouldAvoidViewportOverflow =
     avoidViewportOverflow === true || (avoidViewportOverflow === 'mobile' && isMobileViewport)
 
-  const syncMobileViewportMode = React.useCallback(() => {
-    if (avoidViewportOverflow !== 'mobile') return false
-
-    const matches = readMobileViewportMode()
-    setIsMobileViewport((current) => (current === matches ? current : matches))
-    return matches
-  }, [avoidViewportOverflow])
-
   const handleTriggerClick = React.useCallback(() => {
     if (!open) {
-      if (avoidViewportOverflow === 'mobile') {
-        syncMobileViewportMode()
-      }
       setViewportPosition(null)
     }
     setOpen((current) => !current)
-  }, [avoidViewportOverflow, open, syncMobileViewportMode])
+  }, [open])
 
   React.useEffect(() => {
     if (!open) return
@@ -129,33 +114,6 @@ export const Dropdown: React.FC<DropdownProps> = ({
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [open])
-
-  React.useEffect(() => {
-    if (avoidViewportOverflow !== 'mobile') return
-
-    const mediaQuery =
-      typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 767px)') : null
-    const updateViewportMode = () =>
-      setIsMobileViewport(mediaQuery ? mediaQuery.matches : window.innerWidth < 768)
-
-    updateViewportMode()
-    if (!mediaQuery) {
-      window.addEventListener('resize', updateViewportMode)
-      window.addEventListener('orientationchange', updateViewportMode)
-      return () => {
-        window.removeEventListener('resize', updateViewportMode)
-        window.removeEventListener('orientationchange', updateViewportMode)
-      }
-    }
-
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', updateViewportMode)
-      return () => mediaQuery.removeEventListener('change', updateViewportMode)
-    }
-
-    mediaQuery.addListener(updateViewportMode)
-    return () => mediaQuery.removeListener(updateViewportMode)
-  }, [avoidViewportOverflow])
 
   React.useLayoutEffect(() => {
     if (!open || !shouldAvoidViewportOverflow) {
@@ -267,9 +225,6 @@ export const Dropdown: React.FC<DropdownProps> = ({
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault()
               if (!open) {
-                if (avoidViewportOverflow === 'mobile') {
-                  syncMobileViewportMode()
-                }
                 setViewportPosition(null)
               }
               setOpen((current) => !current)

@@ -3,6 +3,7 @@
 import { Eye, EyeOff, Pin, Share2, ShieldX } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useState } from 'react'
+import { useTransientFlag } from '@/hooks/useTransientFlag'
 import type {
   ListingFieldUpdateRequest,
   ListingVisibilityRequest,
@@ -96,7 +97,7 @@ export function ShareTokenCard({ request }: { request: ShareTokenRequest }) {
   )
   const [label, setLabel] = useState(request.label ?? '')
   const [mintedUrl, setMintedUrl] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copied, showCopied] = useTransientFlag(1600)
 
   return (
     <InlineActionCard
@@ -222,8 +223,7 @@ export function ShareTokenCard({ request }: { request: ShareTokenRequest }) {
             type="button"
             onClick={async () => {
               await navigator.clipboard?.writeText(mintedUrl).catch(() => undefined)
-              setCopied(true)
-              window.setTimeout(() => setCopied(false), 1600)
+              showCopied()
             }}
             className="text-xs font-medium text-primary/85 hover:text-primary"
           >

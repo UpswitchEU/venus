@@ -154,16 +154,11 @@ export function SaasMetricsSection({
   // edited it. Once they type, we drop the chip + the per-field
   // key so the Clear All CTA never wipes their value.
   const editedSinceFillRef = useRef<Set<string>>(new Set())
-  const isStillPrefilled = useCallback(
-    (key: string): boolean => {
-      if (!prefilledKeysRef.current.has(key)) return false
-      if (editedSinceFillRef.current.has(key)) return false
-      return true
-    },
-    // prefilledKeys state used to force a re-render when the set changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  )
+  const isStillPrefilled = useCallback((key: string): boolean => {
+    if (!prefilledKeysRef.current.has(key)) return false
+    if (editedSinceFillRef.current.has(key)) return false
+    return true
+  }, [])
   const handleFieldChange = useCallback(
     (key: string, value: number | undefined) => {
       if (prefilledKeysRef.current.has(key)) {

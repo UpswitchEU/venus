@@ -249,6 +249,47 @@ describe('useDcfForecastSync', () => {
       expect(setShowForecastRemovalConfirm).not.toHaveBeenCalled()
     })
 
+    it('ignores callback identity churn but uses the latest callbacks on the next transition', () => {
+      const { setFormData, setShowForecastRemovalConfirm, formStateRef, rerender } = setup({
+        effectiveMethod: 'ebitda_multiple',
+        hasDcfSelected: false,
+      })
+      const nextSetFormData = vi.fn((arg: ManualValuationFormData | Updater) => {
+        formStateRef.current =
+          typeof arg === 'function' ? (arg as Updater)(formStateRef.current) : arg
+      })
+      const nextSetShowForecastRemovalConfirm = vi.fn()
+      const nextTranslate = vi.fn((key: string) => key)
+
+      act(() =>
+        rerender({
+          setFormData: nextSetFormData,
+          setShowForecastRemovalConfirm: nextSetShowForecastRemovalConfirm,
+          translate: nextTranslate,
+        })
+      )
+
+      expect(setFormData).not.toHaveBeenCalled()
+      expect(setShowForecastRemovalConfirm).not.toHaveBeenCalled()
+      expect(nextSetFormData).not.toHaveBeenCalled()
+      expect(nextSetShowForecastRemovalConfirm).not.toHaveBeenCalled()
+
+      act(() =>
+        rerender({
+          effectiveMethod: 'dcf',
+          hasDcfSelected: false,
+          setFormData: nextSetFormData,
+          setShowForecastRemovalConfirm: nextSetShowForecastRemovalConfirm,
+          translate: nextTranslate,
+        })
+      )
+
+      expect(setFormData).not.toHaveBeenCalled()
+      expect(setShowForecastRemovalConfirm).not.toHaveBeenCalled()
+      expect(nextSetFormData).toHaveBeenCalledTimes(1)
+      expect(nextSetShowForecastRemovalConfirm).toHaveBeenCalledWith(false)
+    })
+
     it('does not re-inject when DCF stays active across rerenders', () => {
       const { setFormData, rerender } = setup({
         effectiveMethod: 'dcf',

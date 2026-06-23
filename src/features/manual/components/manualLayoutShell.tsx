@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMobileViewport } from '../../../hooks/useMobileViewport'
 
 export function PanelSkeleton() {
   return (
@@ -12,21 +12,12 @@ export function PanelSkeleton() {
 }
 
 export function useManualLayoutViewport() {
-  const [viewport, setViewport] = useState({
-    hasMeasuredViewport: false,
-    isMobile: false,
-  })
-  useEffect(() => {
-    const check = () =>
-      setViewport({
-        hasMeasuredViewport: true,
-        isMobile: window.innerWidth < 768,
-      })
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-  return viewport
+  const { hasMeasured, matches } = useMobileViewport()
+
+  return {
+    hasMeasuredViewport: hasMeasured,
+    isMobile: matches,
+  }
 }
 
 export function useManualLayoutIsMobile() {

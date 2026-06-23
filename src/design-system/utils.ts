@@ -132,7 +132,9 @@ export function safeString(v: unknown): string {
  * Check if user prefers reduced motion
  * For SSR-safe usage in hooks, prefer useReducedMotion()
  */
+export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
+
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  return window.matchMedia(REDUCED_MOTION_QUERY).matches
 }

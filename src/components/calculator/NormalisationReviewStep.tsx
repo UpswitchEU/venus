@@ -17,8 +17,9 @@
 import { AnimatePresence } from 'framer-motion'
 import { AlertCircle, ChevronRight, Plus } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { AuroraButton as Button } from '@/design-system/components/Button'
+import { useManagedTimeout } from '@/hooks/useManagedTimeout'
 import type { LedgerAccount } from '../../constants/grootboek'
 import { useFetchedLedgerAccounts } from './hooks/useFetchedLedgerAccounts'
 import { NormalisationAddForm } from './NormalisationAddForm'
@@ -87,6 +88,9 @@ export function NormalisationReviewStep({
   const [showAddForm, setShowAddForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showLedgerDropdown, setShowLedgerDropdown] = useState(false)
+  const isProcessingRef = useRef(false)
+  const { schedule: scheduleProcessingReset } = useManagedTimeout()
+  const { schedule: scheduleContinue } = useManagedTimeout()
 
   // Edit form state
   const [editAmount, setEditAmount] = useState('')
@@ -209,19 +213,39 @@ export function NormalisationReviewStep({
     setShowAddForm(false)
   }, [selectedLedger, newAmount, newType, newApplyAllYears, newReason, originalEbitda, onAdd, nh])
 
-  const handleAcceptAll = () => {
-    setIsProcessing(true)
-    onAcceptAll()
-    setTimeout(() => setIsProcessing(false), 300)
-  }
+  const finishProcessing = useCallback(() => {
+    isProcessingRef.current = false
+    setIsProcessing(false)
+  }, [])
 
-  const handleContinue = () => {
+  const beginProcessing = useCallback(() => {
+    if (isProcessingRef.current) return false
+    isProcessingRef.current = true
     setIsProcessing(true)
-    setTimeout(() => {
+    return true
+  }, [])
+
+  const handleAcceptAll = useCallback(() => {
+    if (!beginProcessing()) return
+
+    try {
+      onAcceptAll()
+    } catch (error) {
+      finishProcessing()
+      throw error
+    }
+
+    scheduleProcessingReset(finishProcessing, 300)
+  }, [beginProcessing, finishProcessing, onAcceptAll, scheduleProcessingReset])
+
+  const handleContinue = useCallback(() => {
+    if (!beginProcessing()) return
+
+    scheduleContinue(() => {
+      finishProcessing()
       onContinue()
-      setIsProcessing(false)
     }, 500)
-  }
+  }, [beginProcessing, finishProcessing, onContinue, scheduleContinue])
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -237,6 +261,7 @@ export function NormalisationReviewStep({
         formatCurrency={formatCurrency}
         onRejectAll={onRejectAll}
         onAcceptAll={handleAcceptAll}
+        isProcessing={isProcessing}
         labels={{
           original: nh('original'),
           adjustment: nh('adjustment'),
@@ -354,7 +379,7 @@ export function NormalisationReviewStep({
             className="flex-1 gap-2"
             onClick={handleContinue}
             loading={isProcessing}
-            disabled={pendingCount > 0}
+            disabled={isProcessing || pendingCount > 0}
           >
             {pendingCount > 0
               ? `${pendingCount} ${nh('pendingToReview')}`

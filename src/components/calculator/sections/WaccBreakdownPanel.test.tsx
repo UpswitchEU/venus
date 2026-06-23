@@ -46,6 +46,19 @@ vi.mock('./AdaptivePercentInput', () => ({
 }))
 
 describe('WaccBreakdownPanel', () => {
+  it('seeds missing build-up defaults through the shared default path', () => {
+    const handleFieldChange = vi.fn()
+
+    render(<WaccBreakdownPanel currentWaccPct={9.8} onFieldChange={handleFieldChange} />)
+
+    expect(handleFieldChange).toHaveBeenCalledWith('dcf_risk_free_rate_pct', 3)
+    expect(handleFieldChange).toHaveBeenCalledWith('dcf_equity_risk_premium_pct', 5.5)
+    expect(handleFieldChange).toHaveBeenCalledWith('dcf_beta', 1.1)
+    expect(handleFieldChange).toHaveBeenCalledWith('dcf_cost_of_debt_pct', 4.5)
+    expect(handleFieldChange).toHaveBeenCalledWith('dcf_debt_equity_pct', 30)
+    expect(handleFieldChange).toHaveBeenCalledWith('dcf_tax_shield_pct', 25)
+  })
+
   it('renders aggregate WACC by default and expands into decomposition fields', () => {
     render(<WaccBreakdownPanel currentWaccPct={9.8} onFieldChange={vi.fn()} />)
 

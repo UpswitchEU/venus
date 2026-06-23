@@ -47,8 +47,17 @@ export function useManualDcfProjectionModelSync({
     }
   }, [formData.dcf_input_mode])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: DCF assumption fields intentionally retrigger a projection sync while the updater reads the latest state.
   useEffect(() => {
+    // Trigger-only assumption reads: the updater uses the freshest form
+    // snapshot, but these fields must still re-run projection sync when edited.
+    void formData.dcf_revenue_growth_pct
+    void formData.dcf_ebitda_margin_pct
+    void formData.dcf_capex_pct
+    void formData.dcf_da_pct
+    void formData.dcf_nwc_pct
+    void formData.dcf_tax_rate_pct
+    void dcfForecastYearKeys
+
     if (!hasDcfSelected || formData.dcf_input_mode === 'fcff_only') return
     if (dcfForecastRows.length === 0) return
 

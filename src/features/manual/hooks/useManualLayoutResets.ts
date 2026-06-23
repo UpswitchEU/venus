@@ -85,7 +85,6 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
   // so the user is re-prompted for warnings that the new run actually emits.
   // Content-keyed (NOT identity-keyed) — uses `buildQualityWarningResetKey` to
   // detect a "new" result independent of object identity.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!result) return
     const resetKey = buildQualityWarningResetKey(result)
@@ -97,7 +96,6 @@ export function useManualLayoutResets(params: UseManualLayoutResetsParams): void
 
   // Effect 5860: acknowledged startup issues set cleared when the user leaves
   // the startup route (the issue surface is venture-path-specific).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isStartupAssistantRoute) return
     setAcknowledgedStartupIssues(new Set())

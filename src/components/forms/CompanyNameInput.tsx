@@ -9,6 +9,7 @@
 import { useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useLatestAbortableRequest } from '../../hooks/useLatestAbortableRequest'
+import { useManagedTimeout } from '../../hooks/useManagedTimeout'
 import { registryService } from '../../services/registry/registryService'
 import type { CompanySearchResult } from '../../services/registry/types'
 import { debounce } from '../../utils/debounce'
@@ -65,6 +66,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
   const lastSearchEmptyRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { schedule: scheduleBlurClose } = useManagedTimeout()
   const { beginRequest, cancelRequest, reserveRequest } =
     useLatestAbortableRequest<CompanySearchContext>()
 
@@ -539,7 +541,7 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
         }}
         onBlur={(e) => {
           // Delay closing suggestions to allow click events to register
-          setTimeout(() => {
+          scheduleBlurClose(() => {
             if (!containerRef.current?.contains(document.activeElement)) {
               setShowSuggestions(false)
               setHighlightedIndex(-1)

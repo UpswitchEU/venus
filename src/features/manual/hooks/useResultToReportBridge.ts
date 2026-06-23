@@ -128,6 +128,13 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
 
   const generatePdfRef = useLatestRef(generatePdf)
   const isPdfGeneratingRef = useLatestRef(isPdfGenerating)
+  const onCompleteRef = useLatestRef(onComplete)
+  const setDraftStatusRef = useLatestRef(setDraftStatus)
+  const setLastSavedRef = useLatestRef(setLastSaved)
+  const setReportRef = useLatestRef(setReport)
+  const setRightPanelViewRef = useLatestRef(setRightPanelView)
+  const setShowFullscreenModalRef = useLatestRef(setShowFullscreenModal)
+  const tReportRef = useLatestRef(tReport)
   const isPdfGenerationInFlight = isPdfGeneratingRef.current
   const lastPdfTriggerFingerprintRef = useRef<string | null>(null)
 
@@ -136,11 +143,10 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     lastPdfTriggerFingerprintRef.current = null
   }, [reportId])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- setter and `tReport` references are stable in practice; including them re-fires this expensive effect on every parent render.
   useEffect(() => {
     if (!result) {
       // Keep panel in sync when results store is cleared (delete, company change, list delete).
-      setReport(null)
+      setReportRef.current(null)
       return
     }
 
@@ -156,7 +162,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
       // 1. Preparer-multiple store sync.
       usePreparerMultipleStore.getState().syncFromValuationResult(result)
       // 2. Parent-callback.
-      onComplete(result)
+      onCompleteRef.current(result)
 
       // Build the report projection (pure).
       const mappedReport = mapValuationResultToReport({
@@ -167,23 +173,23 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
         clientBlendedValue,
         reportId,
         canDownloadPdf,
-        tReport,
+        tReport: tReportRef.current,
       })
 
       // 3-5. Drop into panel state. Durable-save flows set status after PUT /result.
-      setReport(mappedReport)
+      setReportRef.current(mappedReport)
       if (draftStatus !== 'saving' && !durableSaveInFlightRef.current) {
-        setDraftStatus('saved')
-        setLastSaved(new Date())
+        setDraftStatusRef.current('saved')
+        setLastSavedRef.current(new Date())
       }
 
       // 6. Switch panel view to preview. PRESERVED: overrides prior user
       //    navigation; documented as intentional pending product review.
-      setRightPanelView('preview')
+      setRightPanelViewRef.current('preview')
 
       // 7. Mobile fullscreen.
       if (isMobile && mappedReport.htmlReport) {
-        setShowFullscreenModal(true)
+        setShowFullscreenModalRef.current(true)
       }
 
       // 8. Background PDF generation — only when PDF is stale and fingerprint changed
@@ -224,7 +230,6 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     sessionHtmlReport,
     standaloneHtmlReport,
     clientBlendedValue,
-    onComplete,
     reportId,
     generatePdfRef,
     isMobile,
@@ -233,11 +238,12 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     selectedMethod,
     canDownloadPdf,
     isPdfGenerationInFlight,
-    setDraftStatus,
-    setLastSaved,
-    setReport,
-    setRightPanelView,
-    setShowFullscreenModal,
-    tReport,
+    onCompleteRef,
+    setDraftStatusRef,
+    setLastSavedRef,
+    setReportRef,
+    setRightPanelViewRef,
+    setShowFullscreenModalRef,
+    tReportRef,
   ])
 }

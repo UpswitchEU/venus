@@ -208,6 +208,47 @@ describe('useResultToReportBridge', () => {
   })
 
   describe('preserved behaviours (Phase 4c.2 product calls)', () => {
+    it('ignores callback identity churn but uses the latest callbacks on the next result', () => {
+      const initialParams = makeParams({ canDownloadPdf: false })
+      const { rerender } = renderHook(
+        (p: UseResultToReportBridgeParams) => useResultToReportBridge(p),
+        { initialProps: initialParams }
+      )
+      vi.clearAllMocks()
+
+      const nextCallbacks = {
+        onComplete: vi.fn(),
+        setReport: vi.fn(),
+        setDraftStatus: vi.fn(),
+        setLastSaved: vi.fn(),
+        setRightPanelView: vi.fn(),
+        setShowFullscreenModal: vi.fn(),
+        tReport: vi.fn((key: string) => `next:${key}`),
+      }
+
+      rerender({
+        ...initialParams,
+        ...nextCallbacks,
+      })
+
+      expect(initialParams.onComplete).not.toHaveBeenCalled()
+      expect(nextCallbacks.onComplete).not.toHaveBeenCalled()
+      expect(nextCallbacks.setReport).not.toHaveBeenCalled()
+
+      const nextResult = makeResult({ valuation_id: 'val_next' })
+      rerender({
+        ...initialParams,
+        ...nextCallbacks,
+        result: nextResult,
+      })
+
+      expect(initialParams.onComplete).not.toHaveBeenCalled()
+      expect(nextCallbacks.onComplete).toHaveBeenCalledWith(nextResult)
+      expect(nextCallbacks.setReport).toHaveBeenCalledTimes(1)
+      expect(nextCallbacks.setDraftStatus).toHaveBeenCalledWith('saved')
+      expect(nextCallbacks.setRightPanelView).toHaveBeenCalledWith('preview')
+    })
+
     it('overrides setRightPanelView to "preview" on EVERY result-arrival (preserved)', () => {
       const initialParams = makeParams()
       const { rerender } = renderHook(

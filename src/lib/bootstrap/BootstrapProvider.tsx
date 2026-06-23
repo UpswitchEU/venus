@@ -412,7 +412,6 @@ export function BootstrapProvider({
     } finally {
       if (runId === bootstrapRunIdRef.current && mountedRef.current) setIsBootstrapping(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeContext, method, mountedRef])
 
   // Explicit retry: resets all guards and forces a fresh bootstrap call.
@@ -487,7 +486,6 @@ export function BootstrapProvider({
     if (autoBootstrap && authReady) {
       runBootstrap()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, autoBootstrap, activeContext, initialState, runBootstrap])
 
   // NOTE: setEngine is intentionally NOT called here via a reactive useEffect.

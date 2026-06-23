@@ -507,7 +507,6 @@ export function AuthGate({
       mounted = false
       clearTimeout(maxTimeout)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     authLoading,
     authError,

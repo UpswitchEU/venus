@@ -9,7 +9,7 @@
 
 import { AlertCircle, Check, Edit2, FileSpreadsheet, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import {
   AuroraButton,
@@ -21,6 +21,7 @@ import {
   ModalTitle,
 } from '@/design-system'
 import { cn } from '@/design-system/utils'
+import { useManagedTimeout } from '@/hooks/useManagedTimeout'
 
 export interface NormalisationSuggestion {
   id: string
@@ -85,32 +86,68 @@ export function NormalisationSuggestionModal({
   const [isEditing, setIsEditing] = useState(false)
   const [customValue, setCustomValue] = useState<string>('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const { clear: clearPendingAccept, schedule: scheduleAccept } = useManagedTimeout()
+  const suggestionId = suggestion?.id
 
-  if (!suggestion) return null
+  const resetModalState = useCallback(() => {
+    setIsProcessing(false)
+    setIsEditing(false)
+    setCustomValue('')
+  }, [])
 
-  const handleAccept = () => {
+  useEffect(() => {
+    if (open) return
+    clearPendingAccept()
+    resetModalState()
+  }, [clearPendingAccept, open, resetModalState])
+
+  useEffect(() => {
+    if (!suggestionId) {
+      clearPendingAccept()
+      resetModalState()
+      return
+    }
+    clearPendingAccept()
+    resetModalState()
+  }, [clearPendingAccept, resetModalState, suggestionId])
+
+  const handleAccept = useCallback(() => {
+    if (!suggestion || isProcessing) return
     setIsProcessing(true)
     const finalValue =
       isEditing && customValue ? parseFloat(customValue.replace(/[^0-9.-]/g, '')) : undefined
 
-    setTimeout(() => {
+    scheduleAccept(() => {
+      resetModalState()
       onAccept(suggestion, finalValue)
-      setIsProcessing(false)
-      setIsEditing(false)
-      setCustomValue('')
       onOpenChange(false)
     }, 300)
-  }
+  }, [
+    customValue,
+    isEditing,
+    isProcessing,
+    onAccept,
+    onOpenChange,
+    resetModalState,
+    scheduleAccept,
+    suggestion,
+  ])
 
-  const handleReject = () => {
+  const handleReject = useCallback(() => {
+    if (!suggestion) return
+    clearPendingAccept()
+    resetModalState()
     onReject(suggestion)
     onOpenChange(false)
-  }
+  }, [clearPendingAccept, onOpenChange, onReject, resetModalState, suggestion])
 
-  const startEditing = () => {
+  const startEditing = useCallback(() => {
+    if (!suggestion) return
     setIsEditing(true)
     setCustomValue(suggestion.suggestedValue.toString())
-  }
+  }, [suggestion])
+
+  if (!suggestion) return null
 
   const confidenceColors = {
     high: 'text-success bg-success/10 border-success/20',

@@ -163,8 +163,6 @@ export {
   type UseManualNormalizationStateResult,
   useManualNormalizationState,
 } from './useManualNormalizationState'
-export type { UseManualPanelResizeReturn } from './useManualPanelResize'
-export { useManualPanelResize } from './useManualPanelResize'
 export {
   type UseManualPdfExportControllerParams,
   type UseManualPdfExportControllerResult,

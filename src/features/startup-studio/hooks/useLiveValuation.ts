@@ -229,25 +229,7 @@ export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation 
       legs: normalised,
       isEmpty: false,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    state.stage,
-    state.maturity,
-    state.sound_idea,
-    state.prototype_status,
-    state.management_strength,
-    state.strategic_relationships,
-    state.product_rollout,
-    state.mrr,
-    state.year5_revenue_projection,
-    state.exit_revenue_multiple,
-    state.target_roi_x,
-    state.investment_amount_sought,
-    state.founder_pedigree,
-    state.inception_lens,
-    benchmark.berkus_max_per_milestone_eur,
-    state,
-  ])
+  }, [benchmark.berkus_max_per_milestone_eur, state])
 }
 
 export function formatEur(value: number | null): string {

@@ -72,8 +72,16 @@ export function useDcfForecastSync({
 }: UseDcfForecastSyncParams): UseDcfForecastSyncHandle {
   const prevMethodRef = useRef<string | null>(null)
   const prevHasDcfRef = useRef(false)
+  const setFormDataRef = useRef(setFormData)
+  const setShowForecastRemovalConfirmRef = useRef(setShowForecastRemovalConfirm)
+  const translateRef = useRef(translate)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- setters and `translate` are stable refs in practice; including them re-fires this expensive effect on every parent render.
+  useEffect(() => {
+    setFormDataRef.current = setFormData
+    setShowForecastRemovalConfirmRef.current = setShowForecastRemovalConfirm
+    translateRef.current = translate
+  }, [setFormData, setShowForecastRemovalConfirm, translate])
+
   useEffect(() => {
     const prev = prevMethodRef.current
     const nextMethod = effectiveMethod ?? null
@@ -87,15 +95,15 @@ export function useDcfForecastSync({
     if (!isMount && !methodChanged && !dcfJustEnabled) return
 
     if (methodKeyRequiresForecastYears(effectiveMethod) || hasDcfSelected) {
-      setShowForecastRemovalConfirm(false)
-      setFormData((current) => {
+      setShowForecastRemovalConfirmRef.current(false)
+      setFormDataRef.current((current) => {
         const before = current.yearlyFinancials
         let nextFinancials = injectDefaultDcfForecastYears(before)
         if (nextFinancials === current.yearlyFinancials) return current
         const addedCount = dcfInjectionAddedRowCount(before, nextFinancials)
         if (!isMount && addedCount > 0) {
           import('sonner').then(({ toast }) =>
-            toast.info(translate('dcfForecastAdded', { count: addedCount }))
+            toast.info(translateRef.current('dcfForecastAdded', { count: addedCount }))
           )
         }
         const smart = dcfSmartDefaultsFromForm(current)
@@ -122,15 +130,15 @@ export function useDcfForecastSync({
       !isMount &&
       (methodKeyRequiresForecastYears(prev) || (prevHasDcf && !hasDcfSelected))
     ) {
-      setFormData((current) => {
+      setFormDataRef.current((current) => {
         const hasForecast = current.yearlyFinancials.some((yf) => yf.isForecast)
         if (hasForecast) {
-          queueMicrotask(() => setShowForecastRemovalConfirm(true))
+          queueMicrotask(() => setShowForecastRemovalConfirmRef.current(true))
         }
         return current
       })
     }
-  }, [effectiveMethod, hasDcfSelected, setFormData, setShowForecastRemovalConfirm, translate])
+  }, [effectiveMethod, hasDcfSelected])
 
   return {
     markPrevMethod: (method) => {

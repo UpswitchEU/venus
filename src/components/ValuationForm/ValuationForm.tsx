@@ -18,6 +18,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
+import { useManagedTimeout } from '../../hooks/useManagedTimeout'
 import { usePrefillRestorationCoordinator } from '../../hooks/usePrefillRestorationCoordinator'
 import { useBootstrapSafe } from '../../lib/bootstrap'
 import { businessTypesApiService } from '../../services/businessTypesApi'
@@ -83,6 +84,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   const { businessTypes } = useBusinessTypes()
   const { businessCard, isAuthenticated } = useAuth()
   const { getVersion } = useVersionHistoryStore()
+  const { schedule: scheduleInitializationCompletion } = useManagedTimeout()
 
   // Load version data if initialVersion is provided (M&A workflow)
   // CRITICAL: Read session state via getState() inside effect, not as subscription
@@ -388,7 +390,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
 
           // ✅ NEW: Mark initialization as complete after prefill
           // This enables toasts for subsequent user actions
-          setTimeout(() => {
+          scheduleInitializationCompletion(() => {
             useSessionStore.getState().completeInitialization()
           }, 500) // Small delay to ensure any triggered saves complete during init phase
         }
@@ -400,7 +402,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
         setHasProcessedPrefilledQuery(true)
 
         // ✅ NEW: Mark initialization as complete even if no match
-        setTimeout(() => {
+        scheduleInitializationCompletion(() => {
           useSessionStore.getState().completeInitialization()
         }, 500)
       }
@@ -409,7 +411,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     // ✅ NEW: If no prefilledQuery, mark initialization as complete after business types load
     if (!prefilledQuery && businessTypes.length > 0 && !hasProcessedPrefilledQuery) {
       setHasProcessedPrefilledQuery(true)
-      setTimeout(() => {
+      scheduleInitializationCompletion(() => {
         useSessionStore.getState().completeInitialization()
       }, 500)
     }
@@ -418,6 +420,7 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     businessTypes,
     formData.business_type_id,
     hasProcessedPrefilledQuery,
+    scheduleInitializationCompletion,
     updateFormData,
   ])
 

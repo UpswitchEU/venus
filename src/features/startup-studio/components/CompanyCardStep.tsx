@@ -147,7 +147,6 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     if (next != null) {
       setField('investment_amount_sought', next)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage, raise, setField])
 
   // Materially recurring revenue threshold for the SaaS-pivot nudge.

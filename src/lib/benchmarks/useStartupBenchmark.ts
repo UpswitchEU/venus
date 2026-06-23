@@ -172,7 +172,6 @@ export function useStartupBenchmark(
     return () => {
       active = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, key, country, fallbackRow, sector, stage])
 
   const currentState =

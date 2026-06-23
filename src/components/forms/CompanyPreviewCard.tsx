@@ -6,7 +6,8 @@
  */
 
 import { useTranslations } from 'next-intl'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
+import { useTransientFlag } from '@/hooks/useTransientFlag'
 import type { CompanySearchResult } from '../../services/registry/types'
 import {
   formatLegalFormLabel,
@@ -27,7 +28,7 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
   isVerifying = false,
 }) => {
   const t = useTranslations()
-  const [justVerified, setJustVerified] = useState(false)
+  const [justVerified, showJustVerified] = useTransientFlag(2000)
   const wasVerifying = useRef(false)
 
   const { label: legalFormLabel, title: legalFormTitle } = formatLegalFormLabel(company.legal_form)
@@ -48,11 +49,10 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
   // Show subtle feedback when verification completes
   useEffect(() => {
     if (!isVerifying && wasVerifying.current) {
-      setJustVerified(true)
-      setTimeout(() => setJustVerified(false), 2000)
+      showJustVerified()
     }
     wasVerifying.current = isVerifying
-  }, [isVerifying])
+  }, [isVerifying, showJustVerified])
 
   return (
     <div className="mt-3 p-4 bg-gradient-to-br from-primary/10 to-background border border-primary/30 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">

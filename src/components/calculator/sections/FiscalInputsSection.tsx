@@ -133,7 +133,6 @@ export function FiscalInputsSection({
     // Intentionally only re-opens when altFilled transitions upward.
     // We do NOT collapse on user-driven blanking — that would yank
     // the panel out from under the user mid-edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [altFilled])
 
   const ariaAnchor1 = `${t('anchor1Eyebrow')} — ${t('anchor1Label')}`

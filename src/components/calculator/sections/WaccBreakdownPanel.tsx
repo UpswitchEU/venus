@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { cn } from '@/design-system/utils'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { DCF_DEFAULT_WACC_PCT } from './dcfEngineDefaults'
@@ -122,44 +122,45 @@ export function WaccBreakdownPanel({
     onFieldChange('dcf_wacc_pct', computedWaccPct)
   }, [computedWaccPct, expanded, onFieldChange])
 
+  const seedMissingDefaults = useCallback(() => {
+    if (disabled) return
+
+    const defaultSeeds = [
+      ['dcf_risk_free_rate_pct', riskFreeRatePct, DEFAULT_RISK_FREE_RATE_PCT],
+      ['dcf_equity_risk_premium_pct', equityRiskPremiumPct, DEFAULT_EQUITY_RISK_PREMIUM_PCT],
+      ['dcf_beta', beta, DEFAULT_BETA],
+      ['dcf_cost_of_debt_pct', costOfDebtPct, DEFAULT_COST_OF_DEBT_PCT],
+      ['dcf_debt_equity_pct', debtEquityPct, DEFAULT_DEBT_EQUITY_PCT],
+      ['dcf_tax_shield_pct', taxShieldPct, DEFAULT_TAX_SHIELD_PCT],
+    ] as const
+
+    for (const [field, currentValue, defaultValue] of defaultSeeds) {
+      if (currentValue == null) onFieldChange(field, defaultValue)
+    }
+  }, [
+    beta,
+    costOfDebtPct,
+    debtEquityPct,
+    disabled,
+    equityRiskPremiumPct,
+    onFieldChange,
+    riskFreeRatePct,
+    taxShieldPct,
+  ])
+
   // Seed the 6 build-up sub-fields on mount when blank, so the engine
   // receives the same values the formula chip displays. Without this,
   // a user who never expands the panel ships `undefined` for Rf / β / ERP /
   // Kd / D-E / tax-shield, and the backend's own fallbacks may diverge from
   // what the chip showed (the same class of bug as the headline WACC seed).
   // Null-checks prevent the loop on prop reflection.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot seed per missing field
   useEffect(() => {
-    if (disabled) return
-    if (riskFreeRatePct == null) onFieldChange('dcf_risk_free_rate_pct', DEFAULT_RISK_FREE_RATE_PCT)
-    if (equityRiskPremiumPct == null)
-      onFieldChange('dcf_equity_risk_premium_pct', DEFAULT_EQUITY_RISK_PREMIUM_PCT)
-    if (beta == null) onFieldChange('dcf_beta', DEFAULT_BETA)
-    if (costOfDebtPct == null) onFieldChange('dcf_cost_of_debt_pct', DEFAULT_COST_OF_DEBT_PCT)
-    if (debtEquityPct == null) onFieldChange('dcf_debt_equity_pct', DEFAULT_DEBT_EQUITY_PCT)
-    if (taxShieldPct == null) onFieldChange('dcf_tax_shield_pct', DEFAULT_TAX_SHIELD_PCT)
-  }, [
-    disabled,
-    riskFreeRatePct,
-    equityRiskPremiumPct,
-    beta,
-    costOfDebtPct,
-    debtEquityPct,
-    taxShieldPct,
-    onFieldChange,
-  ])
+    seedMissingDefaults()
+  }, [seedMissingDefaults])
 
   const handleToggleExpanded = () => {
     if (!expanded) {
-      if (riskFreeRatePct == null)
-        onFieldChange('dcf_risk_free_rate_pct', DEFAULT_RISK_FREE_RATE_PCT)
-      if (equityRiskPremiumPct == null) {
-        onFieldChange('dcf_equity_risk_premium_pct', DEFAULT_EQUITY_RISK_PREMIUM_PCT)
-      }
-      if (beta == null) onFieldChange('dcf_beta', DEFAULT_BETA)
-      if (costOfDebtPct == null) onFieldChange('dcf_cost_of_debt_pct', DEFAULT_COST_OF_DEBT_PCT)
-      if (debtEquityPct == null) onFieldChange('dcf_debt_equity_pct', DEFAULT_DEBT_EQUITY_PCT)
-      if (taxShieldPct == null) onFieldChange('dcf_tax_shield_pct', DEFAULT_TAX_SHIELD_PCT)
+      seedMissingDefaults()
     }
     setExpanded((value) => !value)
   }

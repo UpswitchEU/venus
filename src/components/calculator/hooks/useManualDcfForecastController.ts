@@ -129,8 +129,11 @@ export function useManualDcfForecastController({
     translate,
   })
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: dcf_input_mode intentionally retriggers the updater when leaving FCFF-only mode.
   useEffect(() => {
+    // Trigger-only: leaving FCFF-only mode should re-run default patching,
+    // while the updater reads the freshest complete form snapshot.
+    void formData.dcf_input_mode
+
     if (!hasDcfSelected) return
 
     setFormData((prev) => {

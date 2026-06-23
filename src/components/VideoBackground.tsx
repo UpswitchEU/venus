@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { readMobileViewportFallback, useMobileViewport } from '@/hooks/useMobileViewport'
 
 export interface VideoBackgroundProps {
   videos: string[]
@@ -26,20 +27,12 @@ export const VideoBackground: React.FC<VideoBackgroundProps> = ({
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
   const [nextVideoIndex, setNextVideoIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
   const [hasError, setHasError] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
-
-  // Check if mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  const mobileViewport = useMobileViewport()
+  const isMobile = mobileViewport.hasMeasured
+    ? mobileViewport.matches
+    : readMobileViewportFallback()
 
   // Initialize with random video
   useEffect(() => {
@@ -54,18 +47,24 @@ export const VideoBackground: React.FC<VideoBackgroundProps> = ({
   useEffect(() => {
     if (videos.length <= 1 || hasError || disableAutoRotation) return
 
+    let transitionTimer: ReturnType<typeof setTimeout> | null = null
     const interval = setInterval(() => {
       const newIndex = Math.floor(Math.random() * videos.length)
       setNextVideoIndex(newIndex)
       setIsTransitioning(true)
 
-      setTimeout(() => {
+      if (transitionTimer) clearTimeout(transitionTimer)
+      transitionTimer = setTimeout(() => {
         setCurrentVideoIndex(newIndex)
         setIsTransitioning(false)
+        transitionTimer = null
       }, transitionDuration)
     }, videoDuration)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      if (transitionTimer) clearTimeout(transitionTimer)
+    }
   }, [videos, videoDuration, transitionDuration, hasError, disableAutoRotation])
 
   // Keyboard interaction completely disabled - only automatic rotation controls videos

@@ -322,7 +322,6 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
    * Trigger PDF generation via Titan API
    * ROBUST: Guards against double-invocation and race conditions
    */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: mountedRef.current is read lazily, not reactive
   const generatePdf = useCallback(async (): Promise<string | null> => {
     if (!reportId) {
       setState((prev) => ({
@@ -443,10 +442,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }
       return null
     }
-    // `mountedRef.current` is intentionally NOT a dep: refs don't notify React
-    // on change, and listing `.current` makes the memo unstable in subtle ways
-    // (the value flips false during unmount, causing late re-creations).
-  }, [reportId, startPolling])
+  }, [mountedRef, reportId, startPolling])
 
   /**
    * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)

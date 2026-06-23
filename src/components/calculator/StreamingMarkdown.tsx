@@ -21,10 +21,11 @@
 
 import { CheckCheck, Copy, ExternalLink } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { createContext, memo, type ReactNode, useContext, useMemo, useState } from 'react'
+import { createContext, memo, type ReactNode, useContext, useMemo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/design-system/utils'
+import { useTransientFlag } from '@/hooks/useTransientFlag'
 
 // ---------------------------------------------------------------------------
 // Command-pill context — lets the module-scope `em` renderer fire the parent's
@@ -103,7 +104,7 @@ export function splitMarkdownBlocks(markdown: string): string[] {
 // ---------------------------------------------------------------------------
 
 function CodeBlock({ children, className }: { children: ReactNode; className?: string }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, showCopied] = useTransientFlag(2000)
   const ca = useTranslations('chatAssistant')
   const lang = className?.replace(/^language-/, '') || ''
   const codeText = (
@@ -112,8 +113,7 @@ function CodeBlock({ children, className }: { children: ReactNode; className?: s
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(codeText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    showCopied()
   }
 
   return (

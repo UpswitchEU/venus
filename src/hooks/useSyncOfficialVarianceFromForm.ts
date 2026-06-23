@@ -22,8 +22,18 @@ export function useSyncOfficialVarianceFromForm(): void {
     hasUsableOfficialFinancialsContent(s.formData.official_financials)
   )
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run when user figures or year context change; Biome thinks only hasOfficial is needed but variance reads fresh store state for those inputs
   useEffect(() => {
+    // These selector values are trigger inputs. The calculation reads the
+    // freshest full form snapshot below so derived official-financials fields
+    // cannot lag behind sibling store updates in the same render window.
+    void revenue
+    void ebitda
+    void cyRev
+    void cyEbit
+    void cyYear
+    void histYears
+    void officialFilingYear
+
     if (!hasOfficial) return
 
     const fd = useManualFormStore.getState().formData

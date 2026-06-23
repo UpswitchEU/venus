@@ -25,6 +25,7 @@ interface NormalisationReviewStepHeaderProps {
   formatCurrency: (amount: number) => string
   onRejectAll: () => void
   onAcceptAll: () => void
+  isProcessing?: boolean
 }
 
 export function NormalisationReviewStepHeader({
@@ -40,6 +41,7 @@ export function NormalisationReviewStepHeader({
   formatCurrency,
   onRejectAll,
   onAcceptAll,
+  isProcessing = false,
 }: NormalisationReviewStepHeaderProps) {
   return (
     <>
@@ -125,6 +127,7 @@ export function NormalisationReviewStepHeader({
               variant="ghost"
               size="sm"
               onClick={onRejectAll}
+              disabled={isProcessing}
               className="text-foreground/50 text-xs px-2 md:px-3"
             >
               {labels.rejectAll}
@@ -133,6 +136,7 @@ export function NormalisationReviewStepHeader({
               variant="secondary"
               size="sm"
               onClick={onAcceptAll}
+              disabled={isProcessing}
               className="text-xs px-2 md:px-3"
             >
               {labels.acceptAll}

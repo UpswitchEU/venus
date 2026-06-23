@@ -49,7 +49,6 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
   const router = useTransitionRouter()
   const searchParams = useSearchParams()
   const isUpdatingRef = useRef(false)
-  const lastStateRef = useRef<UrlState>({})
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const targetStateRef = useRef<UrlState | null>(null)
 
@@ -85,6 +84,7 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
     }),
     [modeParam, versionParam, flowParam, prefilledQueryParam, autoSendParam]
   )
+  const lastStateRef = useRef<UrlState>(urlState)
 
   // Update URL with new state
   const updateUrl = useCallback(
@@ -213,12 +213,6 @@ export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): Us
 
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
-
-  // Initialize lastStateRef snapshot (run once; URL-derived state recreated each render elsewhere)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount baseline only — adding urlState reruns unnecessarily
-  useEffect(() => {
-    lastStateRef.current = urlState
   }, [])
 
   // EARLY RESET: When searchParams update and match target, reset immediately (no need to wait for timeout)

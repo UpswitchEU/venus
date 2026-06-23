@@ -11,10 +11,10 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useState } from 'react'
 import { springGentle } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
 import { useSmoothStreamedText } from '@/hooks/useSmoothStreamedText'
+import { useTransientFlag } from '@/hooks/useTransientFlag'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { ChatAssistantProposalCards } from './ChatAssistantProposalCards'
 import type { AgentChoiceSelection, ChatMessage, FieldContext } from './ChatAssistantTypes'
@@ -114,7 +114,7 @@ export function MessageBubble({
         : `${mercuryUrl}/${loginLocale}`
     return `${mercuryUrl}/${loginLocale}/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`
   })()
-  const [copied, setCopied] = useState(false)
+  const [copied, showCopied] = useTransientFlag(2000)
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
@@ -127,8 +127,7 @@ export function MessageBubble({
 
   const handleCopyMessage = async () => {
     await navigator.clipboard.writeText(message.content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    showCopied()
   }
 
   if (isSystem) {

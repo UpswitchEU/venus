@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CompanySearchResponse, CompanySearchResult } from '../../services/registry/types'
 import CompanyNameInput from './CompanyNameInput'
 
@@ -109,6 +109,10 @@ describe('CompanyNameInput', () => {
     mocks.requests.length = 0
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('ignores stale registry results while a newer query is pending', async () => {
     const { rerender } = render(renderCompanyNameInput('Acme'))
 
@@ -162,5 +166,17 @@ describe('CompanyNameInput', () => {
       limit: 200,
       query: 'Acme',
     })
+  })
+
+  it('clears the delayed blur close when the input unmounts', () => {
+    vi.useFakeTimers()
+
+    const { unmount } = render(renderCompanyNameInput(''))
+
+    fireEvent.blur(screen.getByPlaceholderText('Company name'))
+
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

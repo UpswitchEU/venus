@@ -310,7 +310,6 @@ export default function ValuationReportClient({
       sourceApp: source,
       mercuryPersonaMode: source === 'mercury' ? urlParams.mode : undefined,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     reportId,
     locale,

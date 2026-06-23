@@ -100,6 +100,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
 
     // Sync initial mode and version to URL on mount
     useEffect(() => {
+      void reportId
       if (urlSyncAttemptedRef.current) return
       urlSyncAttemptedRef.current = true
 
@@ -120,8 +121,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         )
       }
       // reportId in deps: re-sync when navigating to a different report
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialMode, initialVersion, updateUrl, urlState.mode, urlState.version])
+    }, [initialMode, initialVersion, reportId, updateUrl, urlState.mode, urlState.version])
 
     // GA4: Track session start and report open when loading report directly (not from HomePage)
     // Covers: Mercury redirect, embedded iframe, client report view, direct links
