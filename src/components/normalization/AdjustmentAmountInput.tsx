@@ -92,7 +92,7 @@ export function AdjustmentAmountInput({
     return (
       <div
         className={`absolute right-16 top-1/2 -translate-y-1/2 text-sm font-semibold transition-colors ${
-          value > 0 ? 'text-moss-600' : 'text-rust-600'
+          value > 0 ? 'text-success' : 'text-destructive'
         }`}
       >
         {value > 0 ? '+' : '−'}
@@ -118,13 +118,13 @@ export function AdjustmentAmountInput({
         onBlur={handleBlur}
         disabled={disabled}
         className={`
-          w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-slate-ink bg-card 
+          w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-foreground bg-card 
           border rounded-xl transition-all duration-200
           ${
             value > 0
-              ? 'border-moss-300 hover:border-moss-400 focus:border-moss-500 focus:ring-2 focus:ring-moss-500/20'
+              ? 'border-success/40 hover:border-success/60 focus:border-success focus:ring-2 focus:ring-success/20'
               : value < 0
-                ? 'border-rust-300 hover:border-rust-400 focus:border-rust-500 focus:ring-2 focus:ring-rust-500/20'
+                ? 'border-destructive/40 hover:border-destructive/60 focus:border-destructive focus:ring-2 focus:ring-destructive/20'
                 : 'border-foreground/10 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20'
           }
           focus:outline-none

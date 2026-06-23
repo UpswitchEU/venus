@@ -59,7 +59,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
   const adjustmentCount = allAdjustments.filter((a) => a !== 0).length
 
   return (
-    <div className="sticky top-0 bg-canvas rounded-lg border border-foreground/10 p-6 shadow-sm">
+    <div className="sticky top-0 rounded-xl border border-foreground/10 bg-card p-6">
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-foreground">{t('livePreview')}</h3>
         <p className="text-sm text-muted-foreground mt-1">{t('normalizationFor', { year })}</p>
@@ -68,7 +68,9 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
       {/* Reported EBITDA */}
       <div className="mb-4 pb-4 border-b border-foreground/10">
         <div className="text-sm text-muted-foreground mb-1">Reported EBITDA</div>
-        <div className="text-2xl font-bold text-foreground">{formatCurrency(reportedEbitda)}</div>
+        <div className="font-mono text-2xl font-bold tabular-nums text-foreground">
+          {formatCurrency(reportedEbitda)}
+        </div>
         <div className="text-xs text-muted-foreground mt-1">
           {t('asShownInFinancialStatements')}
         </div>
@@ -262,15 +264,17 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
       {/* Normalized EBITDA */}
       <div className="mb-4 pb-4 border-b border-foreground/10">
         <div className="text-sm text-muted-foreground mb-1">Normalized EBITDA</div>
-        <div className="text-3xl font-bold text-primary">{formatCurrency(normalizedEbitda)}</div>
+        <div className="font-mono text-3xl font-bold tabular-nums text-primary">
+          {formatCurrency(normalizedEbitda)}
+        </div>
         <div className="text-xs text-muted-foreground mt-1">{t('trueEarningPower')}</div>
       </div>
 
       {/* Info box */}
-      <div className="mt-6 p-4 bg-river-50 rounded-lg border border-river-200">
+      <div className="mt-6 p-4 bg-foreground/[0.04] rounded-lg border border-foreground/10">
         <div className="flex items-start">
           <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-river-600" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="h-5 w-5 text-foreground/40" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
                 d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
@@ -279,7 +283,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
             </svg>
           </div>
           <div className="ml-3 flex-1">
-            <p className="text-sm text-river-800">
+            <p className="text-sm text-foreground/60">
               Positive adjustments increase EBITDA. Negative adjustments decrease it. All changes
               are reflected in real-time.
             </p>

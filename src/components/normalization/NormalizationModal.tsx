@@ -217,7 +217,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-slate-ink">{categoryDef.label}</h4>
+                            <h4 className="font-semibold text-foreground">{categoryDef.label}</h4>
                             <button
                               type="button"
                               className="text-muted-foreground hover:text-foreground"
@@ -240,12 +240,12 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                           {isExpanded && (
                             <div className="mt-3 p-4 bg-card rounded-lg border border-foreground/10 text-sm space-y-3">
                               <div>
-                                <p className="text-slate-ink leading-relaxed">
+                                <p className="text-foreground leading-relaxed">
                                   {categoryDef.detailedDescription}
                                 </p>
                               </div>
                               <div>
-                                <p className="font-semibold text-slate-ink mb-2">Examples:</p>
+                                <p className="font-semibold text-foreground mb-2">Examples:</p>
                                 <ul className="list-disc list-inside text-muted-foreground space-y-1.5 ml-1">
                                   {categoryDef.examples.map((example, idx) => (
                                     <li key={idx} className="leading-relaxed">
@@ -257,10 +257,12 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
 
                               {/* Visual Guidance in Learn More */}
                               <div className="pt-2 border-t border-foreground/10">
-                                <p className="font-semibold text-slate-ink mb-2">When to adjust:</p>
+                                <p className="font-semibold text-foreground mb-2">
+                                  When to adjust:
+                                </p>
                                 <div className="space-y-2">
                                   <div className="flex items-start gap-2">
-                                    <span className="text-moss-600 font-semibold flex-shrink-0">
+                                    <span className="text-success font-semibold flex-shrink-0">
                                       + Add:
                                     </span>
                                     <span className="text-muted-foreground">
@@ -268,7 +270,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                                     </span>
                                   </div>
                                   <div className="flex items-start gap-2">
-                                    <span className="text-rust-600 font-semibold flex-shrink-0">
+                                    <span className="text-destructive font-semibold flex-shrink-0">
                                       − Subtract:
                                     </span>
                                     <span className="text-muted-foreground">
@@ -304,14 +306,14 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
 
                       {/* Note Input */}
                       <div className="mt-3">
-                        <label className="block text-sm font-medium text-slate-ink mb-1">
+                        <label className="block text-sm font-medium text-foreground mb-1">
                           Note (optional)
                         </label>
                         <textarea
                           value={note}
                           onChange={(e) => handleNoteChange(categoryDef.id, e.target.value)}
                           rows={2}
-                          className="w-full px-3 py-2 border border-foreground/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none bg-card text-slate-ink"
+                          className="w-full px-3 py-2 border border-foreground/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none bg-card text-foreground"
                           placeholder="Add context or rationale for this adjustment..."
                         />
                       </div>
@@ -349,12 +351,12 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                               )
                             }
                             placeholder="Enter adjustment description (e.g., 'Seasonal adjustment for Q4')"
-                            className="flex-1 mr-2 px-3 py-2 border border-foreground/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-card text-slate-ink"
+                            className="flex-1 mr-2 px-3 py-2 border border-foreground/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-card text-foreground"
                           />
                           <button
                             type="button"
                             onClick={() => removeCustomAdjustment(year, customId)}
-                            className="text-rust-600 hover:text-rust-700 p-2"
+                            className="text-destructive hover:text-destructive/80 p-2"
                             title="Remove custom adjustment"
                           >
                             <svg
@@ -395,7 +397,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                                     custom.note
                                   )
                                 }}
-                                className="w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-slate-ink bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
+                                className="w-full h-14 px-4 pt-6 pb-2 pl-8 text-base text-foreground bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
                                 placeholder="0"
                               />
                               <label className="absolute left-8 top-2 text-xs text-muted-foreground font-medium pointer-events-none">
@@ -420,7 +422,7 @@ export const NormalizationModal: React.FC<NormalizationModalProps> = ({
                                     e.target.value
                                   )
                                 }
-                                className="w-full h-14 px-4 pt-6 pb-2 text-base text-slate-ink bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
+                                className="w-full h-14 px-4 pt-6 pb-2 text-base text-foreground bg-card border border-foreground/10 rounded-xl transition-all duration-200 hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none placeholder:text-muted-foreground"
                                 placeholder="Additional context..."
                               />
                               <label className="absolute left-4 top-2 text-xs text-muted-foreground font-medium pointer-events-none">

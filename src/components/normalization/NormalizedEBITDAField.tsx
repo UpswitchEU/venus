@@ -95,7 +95,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
           "
           >
             {label}
-            <span className="text-rust-500 ml-1">*</span>
+            <span className="text-destructive ml-1">*</span>
           </label>
         </div>
       </div>
