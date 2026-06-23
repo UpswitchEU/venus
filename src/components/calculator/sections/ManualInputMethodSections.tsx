@@ -6,8 +6,6 @@ import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
-import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
-import { isYearRowForecast } from '@/utils/yearData'
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
 import type { MethodWeightsDataPlan } from '../../../types/methodDataPlan'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
@@ -18,11 +16,7 @@ import { AdvisorControlsTrigger, type AdvisorDefaultAppliedField } from './Advis
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import { RealEstateCarveOutSection, SynthesisWeightingSection } from './index'
 import { MethodDataPlanPanel } from './MethodDataPlanPanel'
-
-function hasPositiveRevenue(row: { revenue?: unknown }): boolean {
-  const revenue = parseFlexibleNumber(row.revenue)
-  return revenue !== undefined && revenue > 0
-}
+import { buildManualInputAdvisorControlsModel } from './manualInputAdvisorControlsModel'
 
 interface ManualInputMethodSectionsProps {
   adaptiveHeaderSteps: ManualInputAdaptiveHeaderSteps
@@ -107,56 +101,15 @@ export function ManualInputMethodSections({
   const advisorExpertModeEnabled = advisorExpertModeOverride ?? advisorExpertModeDefault
   const synthesisPanelAnchorRef = useRef<HTMLDivElement>(null)
   const prevSynthesisMethodCountRef = useRef(0)
-  const advisorWeightingYears = useMemo(() => {
-    const years = new Set<number>()
-    const currentYear = Number(formData.current_year_data?.year ?? historicalCardRows[0]?.year)
-    const currentYearSource =
-      formData.current_year_data ??
-      historicalCardRows.find((row) => Number(row.year) === currentYear) ??
-      {}
-    if (Number.isFinite(currentYear) && hasPositiveRevenue(currentYearSource)) {
-      years.add(currentYear)
-    }
-    for (const yearData of formData.historical_years_data ?? []) {
-      const year = Number(yearData.year)
-      if (!isYearRowForecast(yearData) && Number.isFinite(year) && hasPositiveRevenue(yearData)) {
-        years.add(year)
-      }
-    }
-    return Array.from(years).sort((a, b) => a - b)
-  }, [formData.current_year_data, formData.historical_years_data, historicalCardRows])
-  const sectorAverageMultiple = useMemo(() => {
-    const context = formData.business_context as Record<string, unknown> | undefined
-    const distribution = context?.ev_ebitda_multiple as Record<string, unknown> | undefined
-    const candidates = [
-      context?.benchmark_multiple,
-      context?.ev_ebitda_median,
-      distribution?.median,
-      distribution?.p50,
-    ]
-    for (const candidate of candidates) {
-      const value = Number(candidate)
-      if (Number.isFinite(value) && value > 0) return value
-    }
-    return null
-  }, [formData.business_context])
-  const advisorControlsPreviewEbitda = useMemo(() => {
-    const candidates = [
-      normalizedData.totalYearsWithData > 0 ? normalizedData.averageNormalizedEbitda : undefined,
-      formData.current_year_data?.ebitda,
-      formData.ebitda,
-    ]
-    for (const candidate of candidates) {
-      const value = parseFlexibleNumber(candidate)
-      if (value !== undefined && value > 0) return value
-    }
-    return null
-  }, [
-    formData.current_year_data?.ebitda,
-    formData.ebitda,
-    normalizedData.averageNormalizedEbitda,
-    normalizedData.totalYearsWithData,
-  ])
+  const { advisorControlsPreviewEbitda, advisorWeightingYears, sectorAverageMultiple } = useMemo(
+    () =>
+      buildManualInputAdvisorControlsModel({
+        formData,
+        historicalCardRows,
+        normalizedData,
+      }),
+    [formData, historicalCardRows, normalizedData]
+  )
 
   useEffect(() => {
     const nextCount = synthesisMethods.length
