@@ -7,16 +7,7 @@
     "files": {}
   },
   "suppressions": {
-    "total": 9,
-    "files": {
-      "app/[locale]/reports/[id]/ValuationReportClient.tsx": 1,
-      "src/components/AuthGate.tsx": 1,
-      "src/components/calculator/hooks/useManualDcfForecastController.ts": 1,
-      "src/components/calculator/hooks/useManualDcfProjectionModelSync.ts": 1,
-      "src/hooks/usePdfGeneration.ts": 1,
-      "src/hooks/useSyncOfficialVarianceFromForm.ts": 1,
-      "src/hooks/useUrlState.ts": 1,
-      "src/lib/bootstrap/BootstrapProvider.tsx": 2
-    }
+    "total": 0,
+    "files": {}
   }
 }

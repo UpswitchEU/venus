@@ -10,8 +10,6 @@
 import { fetchWithBySession404Retry } from '../../../utils/fetchWithBySession404Retry'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { isUuid } from '../../../utils/identifiers'
-import { mergeSessionSurfaceForOptionalPrefill } from '../../../utils/mergeOptionalSessionPrefillFields'
-import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -22,6 +20,7 @@ import type {
 } from '../types'
 import { DEFAULT_REPORT } from '../types'
 import { generateReportId, truncateForLog } from '../utils'
+import { sessionHasExistingData, sessionHasValuationResult } from './SessionResolverModel'
 
 const API_URL = getApiUrl()
 
@@ -135,16 +134,19 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
 
       if (sessionResult.success && sessionResult.data) {
         const session = sessionResult.data
+        const hasExistingData = sessionHasExistingData(session)
+        const hasValuationResult = sessionHasValuationResult(session)
+        const status = this.mapStatus(session.status)
 
-        // ✅ CRITICAL FIX: If session is completed but has no report_id, auto-create report
+        // If session is completed but has no report_id, auto-create report.
         // This handles cases where valuation completed but report creation failed (e.g., null constraint bug)
-        if (session.status === 'completed' && !session.report_id && this.hasExistingData(session)) {
+        if (session.status === 'completed' && !session.report_id && hasExistingData) {
           this.logger.info(
             '[SessionResolver] Session completed but no report exists - auto-creating report',
             {
               sessionKey: session.session_key.substring(0, 30) + '...',
               status: session.status,
-              hasExistingData: this.hasExistingData(session),
+              hasExistingData,
             }
           )
 
@@ -199,12 +201,11 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
           data: {
             mode: 'existing',
             reportId: session.session_key,
-            hasExistingData: this.hasExistingData(session),
-            hasValuationResult: this.hasValuationResult(session),
-            reportReady:
-              this.mapStatus(session.status) !== 'completed' || this.hasValuationResult(session),
+            hasExistingData,
+            hasValuationResult,
+            reportReady: status !== 'completed' || hasValuationResult,
             version: context.version,
-            status: this.mapStatus(session.status),
+            status,
             createdAt: new Date(session.created_at),
             updatedAt: new Date(session.updated_at),
             completedAt: session.completed_at ? new Date(session.completed_at) : undefined,
@@ -377,82 +378,6 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         error: error instanceof Error ? error.message : 'Network error',
       }
     }
-  }
-
-  /**
-   * Check if session has meaningful existing data (INPUT or OUTPUT)
-   * Returns true if any form field or valuation result exists
-   */
-  private hasExistingData(session: SessionData): boolean {
-    const sessionData = session.session_data || {}
-    const merged = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
-
-    const meaningfulFields = [
-      'company_name',
-      'business_type_id',
-      'revenue',
-      'ebitda',
-      'industry',
-      'filing_year_confirmed',
-      'valuation_result',
-      '_valuationResult',
-      'html_report',
-      'htmlReport',
-      '_htmlReport',
-      'kbo_number',
-      'kboNumber',
-      'vat_number',
-      'vatNumber',
-    ]
-
-    for (const field of meaningfulFields) {
-      const value = merged[field]
-      if (value !== null && value !== undefined && value !== '') {
-        return true
-      }
-    }
-
-    const yearDataRaw =
-      (merged.year_data as Record<string, unknown> | undefined) ??
-      (merged.yearData as Record<string, unknown> | undefined) ??
-      (sessionData.year_data as Record<string, unknown> | undefined) ??
-      (sessionData.yearData as Record<string, unknown> | undefined)
-    if (yearDataRaw && typeof yearDataRaw === 'object' && !Array.isArray(yearDataRaw)) {
-      const years = Object.keys(yearDataRaw)
-      if (years.length > 0) {
-        return true
-      }
-    }
-
-    return false
-  }
-
-  /**
-   * Check if session has completed valuation OUTPUT data
-   * This is more specific than hasExistingData - only returns true if there's
-   * an actual valuation_result (the completed valuation package)
-   *
-   * Use this for loading step messaging:
-   * - hasValuationResult = true → Show "Restoring valuation package"
-   * - hasValuationResult = false → Show "Initializing" (even if form data exists)
-   */
-  private hasValuationResult(session: SessionData): boolean {
-    const sessionData = session.session_data || {}
-    if (sessionData.valuation_result || sessionData._valuationResult) {
-      return true
-    }
-
-    if (
-      getFirstRenderableReportHtml(
-        typeof sessionData._htmlReport === 'string' ? sessionData._htmlReport : null,
-        typeof sessionData.htmlReport === 'string' ? sessionData.htmlReport : null,
-        typeof sessionData.html_report === 'string' ? sessionData.html_report : null
-      )
-    ) {
-      return true
-    }
-
-    return false
   }
 
   /**

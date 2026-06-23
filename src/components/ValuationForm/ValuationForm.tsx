@@ -15,13 +15,10 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { useBootstrapPrefill } from '../../hooks/useBootstrapPrefill'
 import { useBusinessTypes } from '../../hooks/useBusinessTypes'
 import { useFormSessionSync } from '../../hooks/useFormSessionSync'
 import { useManagedTimeout } from '../../hooks/useManagedTimeout'
 import { usePrefillRestorationCoordinator } from '../../hooks/usePrefillRestorationCoordinator'
-import { useBootstrapSafe } from '../../lib/bootstrap'
-import { businessTypesApiService } from '../../services/businessTypesApi'
 import { useManualFormStore, useManualResultsStore } from '../../store/manual'
 import { useEbitdaNormalizationStore } from '../../store/useEbitdaNormalizationStore'
 import { useNormalizationStore } from '../../store/useNormalizationStore'
@@ -36,15 +33,13 @@ import {
 } from '../../utils/versionConfirmation'
 import { RecalculateConfirmationPopup } from '../normalization/RecalculateConfirmationPopup'
 import { useHistoricalInputsSync } from './hooks/useHistoricalInputsSync'
+import { useValuationFormPrefillEffects } from './hooks/useValuationFormPrefillEffects'
 import { useValuationFormSubmission } from './hooks/useValuationFormSubmission'
 import { BasicInformationSection } from './sections/BasicInformationSection'
 import { FinancialDataSection } from './sections/FinancialDataSection'
 import { FormSubmitSection } from './sections/FormSubmitSection'
 import { HistoricalDataSection } from './sections/HistoricalDataSection'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
-import { buildBusinessTypeFormData } from './utils/businessTypeFormData'
-import { getHttpStatus, matchBusinessType } from './utils/businessTypeMatching'
-import { getPrefilledQuery, getStringRecordValue } from './utils/recordAccess'
 import {
   hasRecentAcceptedNormalizations,
   hasValuationFormChangesSinceVersion,
@@ -126,7 +121,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     updateFormData,
     reportId,
   })
-  const [hasPrefilledOnce, setHasPrefilledOnce] = useState(false)
   const [employeeCountError, setEmployeeCountError] = useState<string | null>(null)
 
   // Use form session sync hook for syncing form changes to session
@@ -138,13 +132,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
   })
 
   usePrefillRestorationCoordinator(reportId)
-
-  // NOTE: DataResponse[] syncing is not needed for Manual flow
-  // Manual flow uses formData directly, conversational flow uses collected data
-  // This keeps the flows isolated and prevents confusion
-
-  // NOTE: Manual flow doesn't need DataResponse[] syncing
-  // Form data is used directly in form submission
 
   // Clear owner concentration fields when switching to sole-trader
   // Set defaults when switching to company
@@ -170,259 +157,16 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     formData.number_of_owners,
   ])
 
-  // ============================================================================
-  // PREFILL STRATEGY: Priority-based cascade
-  // ============================================================================
-  // Priority 1: Session data from Mercury (accountant → client flow)
-  // Priority 2: Auth context (user's own business card)
-  // Priority 3: URL parameters (prefilledQuery)
-
-  // PRE-FILL: Priority 0 - Bootstrap prefill (World-class initialization)
-  // This runs first and applies data from the bootstrap system which resolves
-  // auth, session, and prefill data BEFORE UI renders. This is the most
-  // comprehensive prefill as it aggregates from all sources: KBO, user profile,
-  // session data, and Mercury business card.
-  const { prefillConfidence } = useBootstrapPrefill()
-
-  // ✅ WORLD-CLASS: Get bootstrap state to check if viewing existing report
-  const bootstrap = useBootstrapSafe()
-  const isViewingExistingReport =
-    bootstrap?.report?.mode === 'existing' && bootstrap?.report?.hasExistingData
-  const bootstrapHasMeaningfulPrefill = !!(
-    bootstrap &&
-    (bootstrap.hasPrefilledData ||
-      (bootstrap.prefillData.fieldsPopulated?.length ?? 0) > 0 ||
-      prefillConfidence >= 0.05 ||
-      bootstrap.prefillData.companyInfo?.companyName?.trim() ||
-      bootstrap.prefillData.businessType?.id ||
-      (bootstrap.prefillData.financials &&
-        ((bootstrap.prefillData.financials.revenue != null &&
-          Number.isFinite(Number(bootstrap.prefillData.financials.revenue))) ||
-          (bootstrap.prefillData.financials.ebitda != null &&
-            Number.isFinite(Number(bootstrap.prefillData.financials.ebitda))) ||
-          (bootstrap.prefillData.financials.yearData &&
-            Object.keys(bootstrap.prefillData.financials.yearData).length > 0))))
-  )
-
-  // Mercury/session gap-fill runs only on the manual calculator route (`ManualLayout`):
-  // `useSessionDataPrefill`, `useSessionOptionalMethodPrefill`, `restorationComplete` gating.
-  // This legacy shell keeps bootstrap + business-card fallback only.
-
-  // PRE-FILL: Business card (ONLY if bootstrap hasn't already prefilled)
-  // Bootstrap aggregates all prefill sources including user profile, so this is a fallback
-  useEffect(() => {
-    // ✅ WORLD-CLASS FIX: Skip if bootstrap has already prefilled
-    // Bootstrap is the single source of truth for all prefill data
-    if (bootstrapHasMeaningfulPrefill) {
-      generalLogger.debug('Skipping business card prefill - bootstrap already prefilled', {
-        prefillConfidence: prefillConfidence.toFixed(2),
-      })
-      return
-    }
-
-    // Skip prefill for existing reports with data
-    if (isViewingExistingReport) {
-      generalLogger.debug('Skipping business card prefill - viewing existing report')
-      return
-    }
-
-    // Skip if no business card or already prefilled
-    if (!isAuthenticated || !businessCard || hasPrefilledOnce || businessTypes.length === 0) {
-      return
-    }
-
-    generalLogger.info('Pre-filling form with business card data (bootstrap fallback)', {
-      company_name: businessCard.company_name?.substring(0, 20),
-    })
-
-    // ✅ FIX: prefillFromBusinessCard now uses requestAnimationFrame internally
-    prefillFromBusinessCard(businessCard)
-
-    // Match business_type_id if available
-    const businessCardBusinessTypeId = getStringRecordValue(businessCard, 'business_type_id')
-    if (businessCardBusinessTypeId) {
-      const matchingType = businessTypes.find((bt) => bt.id === businessCardBusinessTypeId)
-      if (matchingType) {
-        updateFormData(buildBusinessTypeFormData(matchingType, businessCard.industry || 'services'))
-      }
-    } else if (businessCard.industry) {
-      const matchingType = businessTypes.find(
-        (bt) =>
-          bt.industry === businessCard.industry || bt.industryMapping === businessCard.industry
-      )
-      if (matchingType) {
-        updateFormData(buildBusinessTypeFormData(matchingType))
-      }
-    }
-
-    setHasPrefilledOnce(true)
-  }, [
-    prefillConfidence,
-    isAuthenticated,
-    businessCard,
-    hasPrefilledOnce,
+  const { prefilledQuery } = useValuationFormPrefillEffects({
+    formData,
+    updateFormData,
     prefillFromBusinessCard,
     businessTypes,
-    updateFormData,
-    isViewingExistingReport,
-    bootstrapHasMeaningfulPrefill,
-  ])
-
-  // PRE-FILL: Priority 3 - NACE code to business type suggestion
-  // Auto-suggest business type from NACE code (from KBO registry) via Titan's NACE mapping
-  const lastProcessedNaceRef = useRef<string | null>(null)
-  useEffect(() => {
-    const naceCode = formData.nace_code?.trim()
-    if (
-      !naceCode ||
-      formData.business_type_id ||
-      businessTypes.length === 0 ||
-      lastProcessedNaceRef.current === naceCode
-    ) {
-      return
-    }
-
-    lastProcessedNaceRef.current = naceCode
-    let cancelled = false
-
-    ;(async () => {
-      try {
-        const bt = await businessTypesApiService.getBusinessTypeForNaceCode(
-          naceCode,
-          formData.country_code || undefined,
-          { guaranteeResolution: true }
-        )
-        if (cancelled || !bt) return
-
-        // Always prefer the full BusinessType from the loaded list (has preference fields).
-        // The NACE API returns a sparse object without dcfPreference / multiplesPreference.
-        const matchedType = businessTypes.find((t) => t.id === bt.id)
-        if (matchedType) {
-          generalLogger.info('[ValuationForm] Prefilled business type from NACE (full type)', {
-            nace_code: naceCode,
-            business_type_id: matchedType.id,
-            title: matchedType.title,
-          })
-          updateFormData(buildBusinessTypeFormData(matchedType))
-        } else {
-          // Sparse fallback: bt lacks preference fields, but still better than nothing.
-          generalLogger.warn(
-            '[ValuationForm] NACE type not in loaded list, using sparse NACE object',
-            {
-              nace_code: naceCode,
-              business_type_id: bt.id,
-            }
-          )
-          updateFormData(buildBusinessTypeFormData(bt))
-        }
-      } catch (err: unknown) {
-        // Only silently ignore 404 / "not found" — those mean no mapping exists for this NACE code.
-        // Log all other errors so they surface during development and monitoring.
-        const status = getHttpStatus(err)
-        const message = err instanceof Error ? err.message : String(err)
-        const isNotFound =
-          status === 404 ||
-          message.toLowerCase().includes('not found') ||
-          message.toLowerCase().includes('no mapping')
-        if (!isNotFound) {
-          generalLogger.warn('[ValuationForm] NACE lookup failed unexpectedly', {
-            nace_code: naceCode,
-            status,
-            error: message,
-          })
-        }
-        // In all cases: leave business type empty — user can select manually
-      } finally {
-        if (cancelled) lastProcessedNaceRef.current = null
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    formData.nace_code,
-    formData.country_code,
-    formData.business_type_id,
-    businessTypes,
-    updateFormData,
-  ])
-
-  // PRE-FILL: Priority 4 - prefilledQuery (URL parameter)
-  // This runs after restoration and business types are loaded
-  const [hasProcessedPrefilledQuery, setHasProcessedPrefilledQuery] = useState(false)
-  useEffect(() => {
-    // ROOT CAUSE FIX: Read session state via getState() inside effect, not as subscription
-    const currentSession = useSessionStore.getState().session
-    const prefilledQuery = getPrefilledQuery(currentSession?.partialData)
-
-    // Only process if:
-    // 1. prefilledQuery exists
-    // 2. Business types are loaded
-    // 3. Form doesn't already have a business type (to avoid overriding restored data)
-    // 4. We haven't processed it yet
-    if (
-      prefilledQuery &&
-      businessTypes.length > 0 &&
-      !formData.business_type_id &&
-      !hasProcessedPrefilledQuery
-    ) {
-      generalLogger.info('Processing prefilledQuery from URL', {
-        prefilledQuery,
-        reportId,
-      })
-
-      // Match query to business type
-      const matchedBusinessTypeId = matchBusinessType(prefilledQuery, businessTypes)
-
-      if (matchedBusinessTypeId) {
-        const matchedType = businessTypes.find((bt) => bt.id === matchedBusinessTypeId)
-        if (matchedType) {
-          generalLogger.info('Prefilled business type from URL query', {
-            query: prefilledQuery,
-            matchedType: matchedType.title,
-            id: matchedType.id,
-          })
-
-          updateFormData(buildBusinessTypeFormData(matchedType))
-
-          setHasProcessedPrefilledQuery(true)
-
-          // ✅ NEW: Mark initialization as complete after prefill
-          // This enables toasts for subsequent user actions
-          scheduleInitializationCompletion(() => {
-            useSessionStore.getState().completeInitialization()
-          }, 500) // Small delay to ensure any triggered saves complete during init phase
-        }
-      } else {
-        generalLogger.warn('Could not match prefilledQuery to business type', {
-          prefilledQuery,
-        })
-        // Mark as processed even if no match to avoid retrying
-        setHasProcessedPrefilledQuery(true)
-
-        // ✅ NEW: Mark initialization as complete even if no match
-        scheduleInitializationCompletion(() => {
-          useSessionStore.getState().completeInitialization()
-        }, 500)
-      }
-    }
-
-    // ✅ NEW: If no prefilledQuery, mark initialization as complete after business types load
-    if (!prefilledQuery && businessTypes.length > 0 && !hasProcessedPrefilledQuery) {
-      setHasProcessedPrefilledQuery(true)
-      scheduleInitializationCompletion(() => {
-        useSessionStore.getState().completeInitialization()
-      }, 500)
-    }
-  }, [
+    businessCard,
+    isAuthenticated,
     reportId,
-    businessTypes,
-    formData.business_type_id,
-    hasProcessedPrefilledQuery,
     scheduleInitializationCompletion,
-    updateFormData,
-  ])
+  })
 
   // Use form submission hook
   const { handleSubmit, isSubmitting } = useValuationFormSubmission(setEmployeeCountError)
@@ -474,16 +218,6 @@ export const ValuationForm: React.FC<ValuationFormProps> = ({
     hasAnyNormalization,
     isConfirmationOpen: versionConfirmationOpenRef.current,
   })
-
-  // Memoize prefilledQuery to prevent render loops
-  // ROOT CAUSE FIX: Read session state via getState(), not as subscription
-  const prefilledQueryValue = useMemo(() => {
-    const currentSession = useSessionStore.getState().session
-    return getPrefilledQuery(currentSession?.partialData)
-  }, []) // Only recompute when reportId changes
-  const prefilledQuery = useMemo(() => {
-    return prefilledQueryValue || null
-  }, [prefilledQueryValue]) // Only recompute when the actual string value changes
 
   // Get business types loading/error state
   const { loading: businessTypesLoading, error: businessTypesError } = useBusinessTypes()

@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { BootstrapContext, BootstrapHints, IdentityState } from '../types'
 import { SessionResolver } from './SessionResolver'
+import { sessionHasExistingData, sessionHasValuationResult } from './SessionResolverModel'
 
 const REPORT_UUID = '46e05c0c-6f40-4527-82cb-4560d6eee0ad'
 
 type TestableSessionResolver = {
-  hasValuationResult(session: { session_data: Record<string, unknown> }): boolean
-  hasExistingData(session: { session_data: Record<string, unknown> }): boolean
   resolve(
     context: BootstrapContext,
     hints: BootstrapHints,
@@ -19,7 +18,7 @@ describe('SessionResolver readiness helpers', () => {
 
   it('treats html-only completed payloads as valuation output', () => {
     expect(
-      resolver.hasValuationResult({
+      sessionHasValuationResult({
         session_data: {
           _htmlReport: '<html>ready</html>',
         },
@@ -29,7 +28,7 @@ describe('SessionResolver readiness helpers', () => {
 
   it('treats _businessInfo-only identity as existing input data', () => {
     expect(
-      resolver.hasExistingData({
+      sessionHasExistingData({
         session_data: {
           _businessInfo: {
             company_name: 'Nested BV',
@@ -49,13 +48,13 @@ describe('SessionResolver readiness helpers', () => {
       },
     }
 
-    expect(resolver.hasExistingData(session)).toBe(true)
-    expect(resolver.hasValuationResult(session)).toBe(true)
+    expect(sessionHasExistingData(session)).toBe(true)
+    expect(sessionHasValuationResult(session)).toBe(true)
   })
 
   it('treats year_data nested under _businessInfo as existing input data', () => {
     expect(
-      resolver.hasExistingData({
+      sessionHasExistingData({
         session_data: {
           _businessInfo: {
             year_data: { '2023': { revenue: 1, ebitda: 1 } },
@@ -67,7 +66,7 @@ describe('SessionResolver readiness helpers', () => {
 
   it('does not treat input-only sessions as valuation output', () => {
     expect(
-      resolver.hasValuationResult({
+      sessionHasValuationResult({
         session_data: {
           company_name: 'UpSwitch BV',
           revenue: 1000000,
