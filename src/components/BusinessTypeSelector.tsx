@@ -149,6 +149,14 @@ function fallbackOptionToBusinessType(option: SharedBusinessTypeOption): Busines
   }
 }
 
+/** Humanize a taxonomy slug ("retail-services" → "Retail services") for display. */
+function humanizeTaxon(value?: string | null): string {
+  if (!value) return ''
+  const spaced = value.replace(/[-_]+/g, ' ').trim()
+  if (!spaced) return ''
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
 export function BusinessTypeSelector({
   label = 'Business Type',
   value,
@@ -205,6 +213,8 @@ export function BusinessTypeSelector({
   ).slice(0, 4)
   const requiredQuestionsCount =
     selectedMetadata?.questions.filter((question) => question.required).length ?? 0
+  const dcfPct = Math.round((selectedMetadata?.dcf_preference ?? 0) * 100)
+  const multiplesPct = Math.round((selectedMetadata?.multiples_preference ?? 0) * 100)
 
   useEffect(() => {
     if (selectedMetadata && onMetadataLoaded) {
@@ -264,61 +274,76 @@ export function BusinessTypeSelector({
       {showPreview && selectedId && (
         <div className="mt-4">
           {loadingMetadata ? (
-            <div className="flex items-center justify-center rounded-lg bg-muted p-6">
-              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+            <div className="flex items-center justify-center rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] p-6">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-foreground/10 border-t-primary" />
             </div>
           ) : selectedMetadata ? (
-            <div className="space-y-4 rounded-lg bg-gradient-to-br from-primary-50 to-canvas p-6">
-              <div className="flex items-center space-x-3">
-                <span className="text-4xl">{selectedMetadata.icon || '🏢'}</span>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">
+            <div className="space-y-4 rounded-xl border border-primary/15 bg-foreground/[0.02] bg-gradient-to-br from-primary/[0.08] to-transparent p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-foreground/[0.08] bg-foreground/[0.05] text-2xl">
+                  {selectedMetadata.icon || '🏢'}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-semibold text-foreground">
                     {selectedMetadata.title}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedMetadata.sector} • {selectedMetadata.industry}
-                  </p>
+                  {(selectedMetadata.sector || selectedMetadata.industry) && (
+                    <p className="truncate text-xs text-foreground/50">
+                      {[
+                        humanizeTaxon(selectedMetadata.sector),
+                        humanizeTaxon(selectedMetadata.industry),
+                      ]
+                        .filter(Boolean)
+                        .join(' • ')}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {(selectedMetadata.typical_revenue_median ||
                 selectedMetadata.typical_ebitda_margin_median ||
                 selectedMetadata.typical_employee_median) && (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3">
                   {selectedMetadata.typical_revenue_median && (
-                    <div className="rounded-md bg-card p-3">
-                      <p className="mb-1 text-xs text-muted-foreground">Typical Revenue</p>
-                      <p className="text-lg font-semibold text-foreground">
+                    <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.04] p-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/45">
+                        Typical revenue
+                      </p>
+                      <p className="mt-1 font-mono text-base font-semibold tabular-nums text-foreground">
                         {formatCurrency(selectedMetadata.typical_revenue_median)}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Range: {formatCurrency(selectedMetadata.typical_revenue_min)} -{' '}
+                      <p className="mt-1 font-mono text-[11px] tabular-nums text-foreground/40">
+                        {formatCurrency(selectedMetadata.typical_revenue_min)} –{' '}
                         {formatCurrency(selectedMetadata.typical_revenue_max)}
                       </p>
                     </div>
                   )}
 
                   {selectedMetadata.typical_ebitda_margin_median && (
-                    <div className="rounded-md bg-card p-3">
-                      <p className="mb-1 text-xs text-muted-foreground">Typical EBITDA Margin</p>
-                      <p className="text-lg font-semibold text-foreground">
+                    <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.04] p-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/45">
+                        EBITDA margin
+                      </p>
+                      <p className="mt-1 font-mono text-base font-semibold tabular-nums text-foreground">
                         {formatPercentage(selectedMetadata.typical_ebitda_margin_median)}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Range: {formatPercentage(selectedMetadata.typical_ebitda_margin_min)} -{' '}
+                      <p className="mt-1 font-mono text-[11px] tabular-nums text-foreground/40">
+                        {formatPercentage(selectedMetadata.typical_ebitda_margin_min)} –{' '}
                         {formatPercentage(selectedMetadata.typical_ebitda_margin_max)}
                       </p>
                     </div>
                   )}
 
                   {selectedMetadata.typical_employee_median && (
-                    <div className="rounded-md bg-card p-3">
-                      <p className="mb-1 text-xs text-muted-foreground">Typical Employees</p>
-                      <p className="text-lg font-semibold text-foreground">
+                    <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.04] p-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/45">
+                        Typical employees
+                      </p>
+                      <p className="mt-1 font-mono text-base font-semibold tabular-nums text-foreground">
                         {selectedMetadata.typical_employee_median}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Range: {selectedMetadata.typical_employee_min} -{' '}
+                      <p className="mt-1 font-mono text-[11px] tabular-nums text-foreground/40">
+                        {selectedMetadata.typical_employee_min} –{' '}
                         {selectedMetadata.typical_employee_max}
                       </p>
                     </div>
@@ -327,15 +352,15 @@ export function BusinessTypeSelector({
               )}
 
               {keyMetricLabels.length > 0 && (
-                <div>
-                  <p className="mb-2 text-sm font-medium text-foreground">
-                    Key Metrics We'll Ask About:
+                <div className="space-y-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/45">
+                    Key metrics we'll ask about
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {keyMetricLabels.map((label) => (
                       <span
                         key={label}
-                        className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                        className="inline-flex items-center rounded-md border border-primary/15 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
                       >
                         {label}
                       </span>
@@ -344,17 +369,37 @@ export function BusinessTypeSelector({
                 </div>
               )}
 
-              {selectedMetadata.questions && selectedMetadata.questions.length > 0 && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  {selectedMetadata.questions.length} targeted questions
-                  {requiredQuestionsCount > 0 && ` (${requiredQuestionsCount} required)`}
-                </div>
-              )}
-
-              {selectedMetadata.dcf_preference && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  Valuation: {Math.round(selectedMetadata.dcf_preference * 100)}% DCF,{' '}
-                  {Math.round(selectedMetadata.multiples_preference * 100)}% Multiples
+              {(selectedMetadata.questions?.length || selectedMetadata.dcf_preference) && (
+                <div className="space-y-2 border-t border-foreground/[0.08] pt-3.5">
+                  <div className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-wide text-foreground/45">
+                    <span>
+                      {selectedMetadata.dcf_preference ? 'Valuation method' : 'Targeted questions'}
+                    </span>
+                    {selectedMetadata.questions && selectedMetadata.questions.length > 0 && (
+                      <span className="font-mono tabular-nums normal-case tracking-normal text-foreground/55">
+                        {selectedMetadata.questions.length} questions
+                        {requiredQuestionsCount > 0 && ` · ${requiredQuestionsCount} required`}
+                      </span>
+                    )}
+                  </div>
+                  {selectedMetadata.dcf_preference && (
+                    <>
+                      <div className="flex h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]">
+                        <div className="bg-primary" style={{ width: `${dcfPct}%` }} />
+                        <div className="bg-accent" style={{ width: `${multiplesPct}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between font-mono text-[11px] tabular-nums text-foreground/55">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-sm bg-primary" />
+                          {dcfPct}% DCF
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          {multiplesPct}% Multiples
+                          <span className="h-2 w-2 rounded-sm bg-accent" />
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

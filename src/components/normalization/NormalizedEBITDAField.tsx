@@ -61,9 +61,9 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
 
   const adjustmentColor =
     totalAdjustments > 0
-      ? 'text-moss-600'
+      ? 'text-success'
       : totalAdjustments < 0
-        ? 'text-rust-600'
+        ? 'text-destructive'
         : 'text-muted-foreground'
   const adjustmentSign = totalAdjustments > 0 ? '+' : ''
 
@@ -101,10 +101,10 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
       </div>
 
       {/* Details Card (matches company verification card style) */}
-      <div className="mt-3 p-4 bg-gradient-to-br from-moss-50 to-canvas border border-moss-200 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+      <div className="mt-3 p-4 rounded-xl border border-success/20 bg-success/[0.06] animate-in fade-in slide-in-from-top-2 duration-300">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="flex-shrink-0 w-8 h-8 bg-moss-500 rounded-full flex items-center justify-center transition-all">
+            <div className="flex-shrink-0 w-8 h-8 bg-success rounded-full flex items-center justify-center transition-all">
               <svg
                 className="w-5 h-5 text-white"
                 fill="none"
@@ -120,7 +120,7 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
               </svg>
             </div>
             <div>
-              <p className="text-xs font-semibold text-moss-700 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-success uppercase tracking-wider">
                 {t('ebitdaNormalized')}
               </p>
               <p className="text-sm font-medium text-muted-foreground">
@@ -146,14 +146,14 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
               {formatCurrency(totalAdjustments)}
             </span>
           </div>
-          <div className="pt-2 border-t border-moss-200/50">
+          <div className="pt-2 border-t border-foreground/10">
             <div className="flex justify-between items-center text-base">
               <span className="font-semibold text-foreground">{t('normalizedEbitdaLabel')}</span>
               <div className="flex items-center gap-2">
                 <span className="font-mono font-bold text-foreground">
                   {formatCurrency(normalizedValue)}
                 </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-moss-100 text-moss-800">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success/15 text-success">
                   {t('usedBadge')}
                 </span>
               </div>
@@ -162,18 +162,18 @@ export const NormalizedEBITDAField: React.FC<NormalizedEBITDAFieldProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2 pt-3 border-t border-moss-200/50">
+        <div className="flex gap-2 pt-3 border-t border-foreground/10">
           <button
             type="button"
             onClick={onEdit}
-            className="flex-1 px-4 py-2 text-sm font-medium text-river-600 hover:text-river-700 hover:bg-river-50 rounded-lg transition-colors"
+            className="flex-1 px-4 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-foreground/[0.06] rounded-lg transition-colors"
           >
             {t('editNormalization')}
           </button>
           <button
             type="button"
             onClick={onRemove}
-            className="flex-1 px-4 py-2 text-sm font-medium text-rust-600 hover:text-rust-700 hover:bg-rust-50 rounded-lg transition-colors"
+            className="flex-1 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
           >
             {t('removeNormalization')}
           </button>

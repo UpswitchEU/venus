@@ -61,14 +61,14 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
   return (
     <div className="sticky top-0 bg-canvas rounded-lg border border-foreground/10 p-6 shadow-sm">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-slate-ink">{t('livePreview')}</h3>
+        <h3 className="text-lg font-semibold text-foreground">{t('livePreview')}</h3>
         <p className="text-sm text-muted-foreground mt-1">{t('normalizationFor', { year })}</p>
       </div>
 
       {/* Reported EBITDA */}
       <div className="mb-4 pb-4 border-b border-foreground/10">
         <div className="text-sm text-muted-foreground mb-1">Reported EBITDA</div>
-        <div className="text-2xl font-bold text-slate-ink">{formatCurrency(reportedEbitda)}</div>
+        <div className="text-2xl font-bold text-foreground">{formatCurrency(reportedEbitda)}</div>
         <div className="text-xs text-muted-foreground mt-1">
           {t('asShownInFinancialStatements')}
         </div>
@@ -92,7 +92,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                     <div className="flex-1 min-w-0">
                       <p
                         className={cn(
-                          'text-sm font-medium text-slate-ink',
+                          'text-sm font-medium text-foreground',
                           LEDGER_LABEL_TEXT_CLASSES
                         )}
                         title={category?.label || adj.category}
@@ -114,7 +114,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-sm font-semibold whitespace-nowrap ${
-                          adj.amount > 0 ? 'text-moss-600' : 'text-rust-600'
+                          adj.amount > 0 ? 'text-success' : 'text-rust-600'
                         }`}
                       >
                         {adj.amount > 0 ? '+' : ''}
@@ -158,7 +158,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                   <div className="flex-1 min-w-0">
                     <p
                       className={cn(
-                        'text-sm font-medium text-slate-ink',
+                        'text-sm font-medium text-foreground',
                         LEDGER_LABEL_TEXT_CLASSES
                       )}
                       title={adj.description}
@@ -180,7 +180,7 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
                   <div className="flex items-center gap-2">
                     <span
                       className={`text-sm font-semibold whitespace-nowrap ${
-                        adj.amount > 0 ? 'text-moss-600' : 'text-rust-600'
+                        adj.amount > 0 ? 'text-success' : 'text-rust-600'
                       }`}
                     >
                       {adj.amount > 0 ? '+' : ''}
@@ -222,10 +222,10 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
               <span
                 className={`text-base font-bold ${
                   totalAdjustments > 0
-                    ? 'text-moss-600'
+                    ? 'text-success'
                     : totalAdjustments < 0
                       ? 'text-rust-600'
-                      : 'text-slate-ink'
+                      : 'text-foreground'
                 }`}
               >
                 {totalAdjustments > 0 ? '+' : ''}
@@ -246,10 +246,10 @@ export const NormalizationPreview: React.FC<NormalizationPreviewProps> = ({
           <div
             className={`text-2xl font-bold ${
               totalAdjustments > 0
-                ? 'text-moss-600'
+                ? 'text-success'
                 : totalAdjustments < 0
                   ? 'text-rust-600'
-                  : 'text-slate-ink'
+                  : 'text-foreground'
             }`}
           >
             {totalAdjustments > 0 ? '+' : ''}
