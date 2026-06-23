@@ -16,7 +16,7 @@ interface UseLiquidationAutoPrefillInput {
   prefillSourceAnnualRent?: number
   prefillSourcePaidUpCapital?: number
   prefillSourceDeferredTax?: number
-  onFieldChange: (field: string, value: number | undefined) => void
+  onFieldChange: (field: LiquidationNumericFieldKey, value: number | undefined) => void
 }
 
 const EMPTY_PREFILL_FLAGS: PrefillFlags = {

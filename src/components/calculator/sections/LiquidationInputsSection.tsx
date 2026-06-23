@@ -52,24 +52,23 @@ import { useId, useState } from 'react'
 
 import { cn } from '@/design-system/utils'
 import {
-  LIQUIDATION_ASSET_CLASS_CODES,
   LIQUIDATION_ASSET_CLASSES,
-  LIQUIDATION_ESSENTIAL_FIELDS,
-  LIQUIDATION_LIABILITY_BUCKET_CODES,
   LIQUIDATION_LIABILITY_BUCKET_TIERS,
   LIQUIDATION_PREMISE_OPTIONS,
   LIQUIDATION_RESET_NUMERIC_FIELD_KEYS,
   type LiquidationAssetClassCode,
   type LiquidationLiabilityBucketCode,
+  type LiquidationNumericFieldKey,
 } from '@/lib/methods/liquidation_analysis/liquidationInputConfig'
-import { countPositiveLiquidationValues } from '@/lib/methods/liquidation_analysis/liquidationInputModel'
+import { buildLiquidationSectionStatus } from '@/lib/methods/liquidation_analysis/liquidationInputModel'
 import { CurrencyInput } from '../CurrencyInput'
 import { IntegerInput } from './IntegerInput'
+import { LiquidationInputsAdvancedPanel } from './LiquidationInputsAdvancedPanel'
+import { LiquidationInputsCollectionPanel } from './LiquidationInputsCollectionPanel'
 import {
   LIQUIDATION_PANEL_GROUP,
   LiquidationCollapsibleToggle,
   LiquidationPanelEyebrow,
-  LiquidationPercentInput,
 } from './LiquidationInputsSectionControls'
 import { PrefilledBadge } from './PrefilledBadge'
 import { useLiquidationAutoPrefill } from './useLiquidationAutoPrefill'
@@ -117,7 +116,7 @@ export interface LiquidationInputsSectionProps {
   /** Deferred tax liabilities from balance-sheet long-term liabilities
    * (Hermes maps NBB code 168 / RGS BlnSch.LtgVoz to this field). */
   prefillSourceDeferredTax?: number
-  onFieldChange: (field: string, value: number | undefined) => void
+  onFieldChange: (field: LiquidationNumericFieldKey, value: number | undefined) => void
   onAnyFieldChange?: (field: string, value: unknown) => void
   disabled?: boolean
 }
@@ -152,17 +151,16 @@ export function LiquidationInputsSection({
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showLiabilityBuckets, setShowLiabilityBuckets] = useState(false)
   const [showAssetOverrides, setShowAssetOverrides] = useState(false)
-  // Count of non-zero buckets — surfaces in the toggle so the advisor
-  // can see at-a-glance whether the cascade is running on real data
-  // or jurisdiction defaults.
-  const liabilityBucketsFilled = countPositiveLiquidationValues(
+  const sectionStatus = buildLiquidationSectionStatus({
+    currentValues: {
+      liqHeadcount,
+      liqMonthlyRent,
+      liqPaidUpCapital,
+      liqDeferredTax,
+    },
     liqLiabilityBuckets,
-    LIQUIDATION_LIABILITY_BUCKET_CODES
-  )
-  const assetOverridesFilled = countPositiveLiquidationValues(
     liqAssetOverrides,
-    LIQUIDATION_ASSET_CLASS_CODES
-  )
+  })
   const { prefilledFields, markFieldEdited, clearPrefillFlags } = useLiquidationAutoPrefill({
     liqHeadcount,
     liqMonthlyRent,
@@ -182,11 +180,6 @@ export function LiquidationInputsSection({
   const advancedPanelId = `${disclosureIdBase}-advanced`
   const liabilityBucketsPanelId = `${disclosureIdBase}-liability-buckets`
   const assetOverridesPanelId = `${disclosureIdBase}-asset-overrides`
-
-  const essentialsFilled = [liqHeadcount, liqMonthlyRent, liqPaidUpCapital, liqDeferredTax].filter(
-    (v) => v !== undefined
-  ).length
-  const sectionComplete = essentialsFilled === LIQUIDATION_ESSENTIAL_FIELDS.length
 
   const handleReset = () => {
     for (const field of LIQUIDATION_RESET_NUMERIC_FIELD_KEYS) {
@@ -212,7 +205,7 @@ export function LiquidationInputsSection({
     >
       <ValuationSectionHeader
         step={step}
-        complete={sectionComplete}
+        complete={sectionStatus.sectionComplete}
         title={t('title')}
         subtitle={t('subtitle')}
       />
@@ -227,14 +220,14 @@ export function LiquidationInputsSection({
         >
           <p className="text-[11px] leading-snug text-foreground/55">
             {t('essentialsProgress', {
-              filled: essentialsFilled,
-              total: LIQUIDATION_ESSENTIAL_FIELDS.length,
+              filled: sectionStatus.essentialsFilled,
+              total: sectionStatus.essentialsTotal,
             })}
           </p>
           <span
             className={cn(
               'mt-0.5 inline-flex h-1.5 w-1.5 shrink-0 rounded-full',
-              sectionComplete ? 'bg-emerald-500' : 'bg-primary/60'
+              sectionStatus.sectionComplete ? 'bg-emerald-500' : 'bg-primary/60'
             )}
             aria-hidden="true"
           />
@@ -390,90 +383,19 @@ export function LiquidationInputsSection({
           testId="liq-advanced-toggle"
         />
         {showAdvanced ? (
-          <motion.div
-            id={advancedPanelId}
-            role="region"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            transition={{ duration: 0.15 }}
-            className={LIQUIDATION_PANEL_GROUP}
-            data-testid="liq-advanced-section"
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <CurrencyInput
-                id="liq_taxable_reserves"
-                name="liq_taxable_reserves"
-                label={t('taxableReservesLabel')}
-                description={t('taxableReservesHint')}
-                value={liqTaxableReserves}
-                onChange={(next) => onFieldChange('liq_taxable_reserves', next)}
-                disabled={disabled}
-                truncateLabel={false}
-              />
-              <IntegerInput
-                label={t('runwayMonthsLabel')}
-                description={t('runwayMonthsHint')}
-                value={liqRunwayMonthsOrderly}
-                onChange={(next) => onFieldChange('liq_runway_months_orderly', next)}
-                min={1}
-                max={24}
-                placeholder={t('runwayMonthsPlaceholder')}
-                disabled={disabled}
-              />
-              <IntegerInput
-                label={t('runwayMonthsForcedLabel')}
-                description={t('runwayMonthsForcedHint')}
-                value={liqRunwayMonthsForced}
-                onChange={(next) => onFieldChange('liq_runway_months_forced', next)}
-                min={1}
-                max={12}
-                placeholder={t('runwayMonthsForcedPlaceholder')}
-                disabled={disabled}
-              />
-              <LiquidationPercentInput
-                name="liq_distress_wacc_orderly"
-                label={t('distressWaccLabel')}
-                description={t('distressWaccHint')}
-                placeholder={t('distressWaccPlaceholder')}
-                value={liqDistressWaccOrderly}
-                onChange={(next) => onFieldChange('liq_distress_wacc_orderly', next)}
-                disabled={disabled}
-                testId="liq-distress-wacc-input"
-              />
-              <LiquidationPercentInput
-                name="liq_distress_wacc_forced"
-                label={t('distressWaccForcedLabel')}
-                description={t('distressWaccForcedHint')}
-                placeholder={t('distressWaccForcedPlaceholder')}
-                value={liqDistressWaccForced}
-                onChange={(next) => onFieldChange('liq_distress_wacc_forced', next)}
-                disabled={disabled}
-                testId="liq-distress-wacc-forced-input"
-              />
-              <LiquidationPercentInput
-                name="liq_intangibles_uplift_pct"
-                label={t('intangiblesUpliftLabel')}
-                description={t('intangiblesUpliftHint')}
-                placeholder={t('intangiblesUpliftPlaceholder')}
-                value={liqIntangiblesUpliftPct}
-                onChange={(next) => onFieldChange('liq_intangibles_uplift_pct', next)}
-                disabled={disabled}
-                testId="liq-intangibles-uplift-input"
-              />
-              <div className="sm:col-span-2">
-                <CurrencyInput
-                  id="liq_multiples_value_override"
-                  name="liq_multiples_value_override"
-                  label={t('multiplesValueLabel')}
-                  description={t('multiplesValueHint')}
-                  value={liqMultiplesValueOverride}
-                  onChange={(next) => onFieldChange('liq_multiples_value_override', next)}
-                  disabled={disabled}
-                  truncateLabel={false}
-                />
-              </div>
-            </div>
-          </motion.div>
+          <LiquidationInputsAdvancedPanel
+            panelId={advancedPanelId}
+            liqTaxableReserves={liqTaxableReserves}
+            liqRunwayMonthsOrderly={liqRunwayMonthsOrderly}
+            liqRunwayMonthsForced={liqRunwayMonthsForced}
+            liqDistressWaccOrderly={liqDistressWaccOrderly}
+            liqDistressWaccForced={liqDistressWaccForced}
+            liqIntangiblesUpliftPct={liqIntangiblesUpliftPct}
+            liqMultiplesValueOverride={liqMultiplesValueOverride}
+            onFieldChange={onFieldChange}
+            disabled={disabled}
+            t={t}
+          />
         ) : null}
 
         {/* Per-tier liability buckets — supplying these kills the
@@ -488,45 +410,25 @@ export function LiquidationInputsSection({
           onToggle={() => setShowLiabilityBuckets((prev) => !prev)}
           title={t('liabilityBucketsTitle')}
           subtitle={t('liabilityBucketsProgress', {
-            filled: liabilityBucketsFilled,
-            total: LIQUIDATION_LIABILITY_BUCKET_TIERS.length,
+            filled: sectionStatus.liabilityBucketsFilled,
+            total: sectionStatus.liabilityBucketsTotal,
           })}
           panelId={liabilityBucketsPanelId}
           testId="liq-liability-buckets-toggle"
         />
         {showLiabilityBuckets ? (
-          <motion.div
-            id={liabilityBucketsPanelId}
-            role="region"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            transition={{ duration: 0.15 }}
-            className={LIQUIDATION_PANEL_GROUP}
-            data-testid="liq-liability-buckets-section"
-          >
-            <p className="text-[11px] leading-snug text-foreground/55">
-              {t('liabilityBucketsSubtitle')}
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {LIQUIDATION_LIABILITY_BUCKET_TIERS.map((tier) => {
-                const formKey = `liq_lb_${tier.code}` as const
-                const current = liqLiabilityBuckets?.[tier.code]
-                return (
-                  <CurrencyInput
-                    key={tier.code}
-                    id={formKey}
-                    name={formKey}
-                    label={t(`liabilityBucketLabel.${tier.i18nKey}`)}
-                    description={t(`liabilityBucketHint.${tier.i18nKey}`)}
-                    value={current}
-                    onChange={(next) => onFieldChange(formKey, next)}
-                    disabled={disabled}
-                    truncateLabel={false}
-                  />
-                )
-              })}
-            </div>
-          </motion.div>
+          <LiquidationInputsCollectionPanel
+            panelId={liabilityBucketsPanelId}
+            testId="liq-liability-buckets-section"
+            subtitle={t('liabilityBucketsSubtitle')}
+            items={LIQUIDATION_LIABILITY_BUCKET_TIERS}
+            values={liqLiabilityBuckets}
+            getFieldName={(tier) => `liq_lb_${tier.code}`}
+            getLabel={(tier) => t(`liabilityBucketLabel.${tier.i18nKey}`)}
+            getDescription={(tier) => t(`liabilityBucketHint.${tier.i18nKey}`)}
+            onFieldChange={onFieldChange}
+            disabled={disabled}
+          />
         ) : null}
 
         {/* Per-asset-class adjusted-FMV overrides — turns the
@@ -540,45 +442,25 @@ export function LiquidationInputsSection({
           onToggle={() => setShowAssetOverrides((prev) => !prev)}
           title={t('assetOverridesTitle')}
           subtitle={t('assetOverridesProgress', {
-            filled: assetOverridesFilled,
-            total: LIQUIDATION_ASSET_CLASSES.length,
+            filled: sectionStatus.assetOverridesFilled,
+            total: sectionStatus.assetOverridesTotal,
           })}
           panelId={assetOverridesPanelId}
           testId="liq-asset-overrides-toggle"
         />
         {showAssetOverrides ? (
-          <motion.div
-            id={assetOverridesPanelId}
-            role="region"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            transition={{ duration: 0.15 }}
-            className={LIQUIDATION_PANEL_GROUP}
-            data-testid="liq-asset-overrides-section"
-          >
-            <p className="text-[11px] leading-snug text-foreground/55">
-              {t('assetOverridesSubtitle')}
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {LIQUIDATION_ASSET_CLASSES.map((cls) => {
-                const formKey = `liq_ao_${cls.code}` as const
-                const current = liqAssetOverrides?.[cls.code]
-                return (
-                  <CurrencyInput
-                    key={cls.code}
-                    id={formKey}
-                    name={formKey}
-                    label={t(`assetClassLabel.${cls.i18nKey}`)}
-                    description={t('assetOverridesHint')}
-                    value={current}
-                    onChange={(next) => onFieldChange(formKey, next)}
-                    disabled={disabled}
-                    truncateLabel={false}
-                  />
-                )
-              })}
-            </div>
-          </motion.div>
+          <LiquidationInputsCollectionPanel
+            panelId={assetOverridesPanelId}
+            testId="liq-asset-overrides-section"
+            subtitle={t('assetOverridesSubtitle')}
+            items={LIQUIDATION_ASSET_CLASSES}
+            values={liqAssetOverrides}
+            getFieldName={(assetClass) => `liq_ao_${assetClass.code}`}
+            getLabel={(assetClass) => t(`assetClassLabel.${assetClass.i18nKey}`)}
+            getDescription={() => t('assetOverridesHint')}
+            onFieldChange={onFieldChange}
+            disabled={disabled}
+          />
         ) : null}
       </div>
 

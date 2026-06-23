@@ -12,6 +12,7 @@ import {
   resolveClientContext,
 } from './clientContextGate'
 import { API_URL } from './config'
+import { fetchDelegatedClientContext } from './delegatedClientContextApi'
 import { isReloadLooping, markInitSuccess, wasRecentlyInitialized } from './initGuards'
 import {
   getInitPromise,
@@ -321,35 +322,16 @@ export async function initializeAuth(): Promise<void> {
             }
 
             try {
-              const ctxAbort = new AbortController()
-              const ctxTimeout = setTimeout(() => ctxAbort.abort(), 8000)
-              const response = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ clientId: clientIdParam }),
-                signal: ctxAbort.signal,
+              const context = await fetchDelegatedClientContext({
+                apiUrl: API_URL,
+                clientId: clientIdParam,
               })
-              clearTimeout(ctxTimeout)
 
-              if (response.ok) {
-                const context = await response.json()
+              const { useClientContext } = await import('../../stores/clientContext')
+              useClientContext.getState().setClientContext(context)
 
-                if (!context.accountantUser || !context.relationship) {
-                  throw new Error('Invalid client context structure received')
-                }
-
-                const { useClientContext } = await import('../../stores/clientContext')
-                useClientContext.getState().setClientContext(context)
-
-                generalLogger.info(`[Auth:${traceId}] Client context established via clientId`)
-                resolveClientContext()
-              } else {
-                const errorData = await response.json().catch(() => ({}))
-                throw new Error(
-                  errorData.message || `Failed to fetch client context (${response.status})`
-                )
-              }
+              generalLogger.info(`[Auth:${traceId}] Client context established via clientId`)
+              resolveClientContext()
             } catch (error) {
               generalLogger.error(`[Auth:${traceId}] Failed to fetch client context`, {
                 error: error instanceof Error ? error.message : String(error),
@@ -463,40 +445,23 @@ export async function initializeAuth(): Promise<void> {
 
                         initClientContextPromise()
 
-                        const ctxAbort2 = new AbortController()
-                        const ctxTimeout2 = setTimeout(() => ctxAbort2.abort(), 5000)
-                        const contextResponse = await fetch(
-                          `${API_URL}/api/v2/auth/get-client-context`,
-                          {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({ clientId: accountantCustomerId }),
-                            signal: ctxAbort2.signal,
-                          }
-                        )
-                        clearTimeout(ctxTimeout2)
+                        try {
+                          const context = await fetchDelegatedClientContext({
+                            apiUrl: API_URL,
+                            clientId: accountantCustomerId,
+                            timeoutMs: 5000,
+                          })
+                          useClientContext.getState().setClientContext(context)
 
-                        if (contextResponse.ok) {
-                          const context = await contextResponse.json()
-
-                          if (context.accountantUser && context.relationship) {
-                            useClientContext.getState().setClientContext(context)
-
-                            generalLogger.info(
-                              `[Auth:${traceId}] Client context restored from report`
-                            )
-                            resolveClientContext()
-                          } else {
-                            const message = 'Invalid client context structure received'
-                            generalLogger.warn(`[Auth:${traceId}] ${message} (from report)`)
-                            failDelegatedRestore(message)
-                          }
-                        } else {
-                          const errorData = await contextResponse.json().catch(() => ({}))
+                          generalLogger.info(
+                            `[Auth:${traceId}] Client context restored from report`
+                          )
+                          resolveClientContext()
+                        } catch (error) {
                           const message =
-                            errorData.message ||
-                            `Failed to fetch client context (${contextResponse.status})`
+                            error instanceof Error
+                              ? error.message
+                              : 'Failed to fetch client context'
                           generalLogger.warn(
                             `[Auth:${traceId}] Failed to fetch client context from report`,
                             { message }

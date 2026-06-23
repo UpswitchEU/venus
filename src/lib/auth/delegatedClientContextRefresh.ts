@@ -14,6 +14,7 @@ import {
   resolveClientContext,
 } from './clientContextGate'
 import { API_URL } from './config'
+import { fetchDelegatedClientContext } from './delegatedClientContextApi'
 import { isInitCompleted } from './initRuntime'
 import {
   clearDelegatedClientContext,
@@ -45,28 +46,9 @@ function buildRefreshKey(input: DelegatedContextRefreshInput): string {
 
 async function fetchClientContextById(clientId: string): Promise<void> {
   const { useClientContext } = await import('../../stores/clientContext')
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 8000)
 
   try {
-    const response = await fetch(`${API_URL}/api/v2/auth/get-client-context`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ clientId }),
-      signal: controller.signal,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || `Failed to fetch client context (${response.status})`)
-    }
-
-    const context = await response.json()
-    if (!context.accountantUser || !context.relationship) {
-      throw new Error('Invalid client context structure received')
-    }
-
+    const context = await fetchDelegatedClientContext({ apiUrl: API_URL, clientId })
     useClientContext.getState().setClientContext(context)
     resolveClientContext()
   } catch (error) {
@@ -75,8 +57,6 @@ async function fetchClientContextById(clientId: string): Promise<void> {
     const message = error instanceof Error ? error.message : 'Failed to establish client context'
     useAuthStore.getState().setError(message)
     throw error
-  } finally {
-    clearTimeout(timeout)
   }
 }
 

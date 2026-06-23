@@ -175,6 +175,30 @@ describe('LiquidationInputsSection', () => {
     expect(onAnyFieldChange).toHaveBeenCalledWith('liq_premise_override', undefined)
   })
 
+  it('routes liability bucket and asset override edits through canonical form keys', () => {
+    const { onFieldChange } = setup({
+      liqLiabilityBuckets: { unsecured: 25_000 },
+      liqAssetOverrides: { cash: 10_000 },
+    })
+    onFieldChange.mockClear()
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('liq-liability-buckets-toggle'))
+    })
+    fireEvent.change(screen.getByLabelText('liabilityBucketLabel.unsecured'), {
+      target: { value: '30000' },
+    })
+    expect(onFieldChange).toHaveBeenCalledWith('liq_lb_unsecured', 30_000)
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('liq-asset-overrides-toggle'))
+    })
+    fireEvent.change(screen.getByLabelText('assetClassLabel.cash'), {
+      target: { value: '15000' },
+    })
+    expect(onFieldChange).toHaveBeenCalledWith('liq_ao_cash', 15_000)
+  })
+
   it('section header renders the localised subtitle (regression guard)', () => {
     // Previously the `ValuationSectionHeader.subtitle` prop was declared
     // but never rendered. The Liquidation panel was the only caller, so

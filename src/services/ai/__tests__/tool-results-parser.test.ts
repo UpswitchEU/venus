@@ -137,6 +137,12 @@ describe('parseAIChatToolResults — input tolerance', () => {
       'valuation_method_selection_request',
       'deal_readiness',
       'start_playbook_request',
+      // BET-500 value-up cards: Titan emits these for the owner/advisor value
+      // curve (a Mercury surface); the Venus calculator has no workspace to
+      // render them, so it intentionally ignores the envelopes.
+      'stage_advance_request',
+      'gap_fix_request',
+      'content_improve_request',
     ])
   })
 

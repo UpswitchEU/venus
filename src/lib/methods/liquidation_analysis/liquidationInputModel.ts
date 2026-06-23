@@ -4,6 +4,11 @@ import type {
   LiquidationLiabilityBucketCode,
   LiquidationNumericFieldKey,
 } from './liquidationInputConfig'
+import {
+  LIQUIDATION_ASSET_CLASS_CODES,
+  LIQUIDATION_ESSENTIAL_FIELDS,
+  LIQUIDATION_LIABILITY_BUCKET_CODES,
+} from './liquidationInputConfig'
 
 export type LiquidationPrefillPatch = {
   field: LiquidationNumericFieldKey
@@ -20,6 +25,44 @@ export function countPositiveLiquidationValues<T extends string>(
     const value = values?.[key]
     return typeof value === 'number' && Number.isFinite(value) && value > 0
   }).length
+}
+
+export function buildLiquidationSectionStatus({
+  currentValues,
+  liqAssetOverrides,
+  liqLiabilityBuckets,
+}: {
+  currentValues: {
+    liqHeadcount?: number
+    liqMonthlyRent?: number
+    liqPaidUpCapital?: number
+    liqDeferredTax?: number
+  }
+  liqLiabilityBuckets?: Partial<Record<LiquidationLiabilityBucketCode, number>>
+  liqAssetOverrides?: Partial<Record<LiquidationAssetClassCode, number>>
+}) {
+  const essentialsFilled = [
+    currentValues.liqHeadcount,
+    currentValues.liqMonthlyRent,
+    currentValues.liqPaidUpCapital,
+    currentValues.liqDeferredTax,
+  ].filter((value) => value !== undefined).length
+
+  return {
+    essentialsFilled,
+    essentialsTotal: LIQUIDATION_ESSENTIAL_FIELDS.length,
+    sectionComplete: essentialsFilled === LIQUIDATION_ESSENTIAL_FIELDS.length,
+    liabilityBucketsFilled: countPositiveLiquidationValues(
+      liqLiabilityBuckets,
+      LIQUIDATION_LIABILITY_BUCKET_CODES
+    ),
+    liabilityBucketsTotal: LIQUIDATION_LIABILITY_BUCKET_CODES.length,
+    assetOverridesFilled: countPositiveLiquidationValues(
+      liqAssetOverrides,
+      LIQUIDATION_ASSET_CLASS_CODES
+    ),
+    assetOverridesTotal: LIQUIDATION_ASSET_CLASS_CODES.length,
+  }
 }
 
 export function resolveLiquidationPositivePrefill({

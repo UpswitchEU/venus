@@ -12,6 +12,7 @@ import {
   buildLiquidationAssetOverrides,
   buildLiquidationLiabilityBuckets,
   buildLiquidationPrefillPatches,
+  buildLiquidationSectionStatus,
   countPositiveLiquidationValues,
   formatLiquidationPercentDisplay,
   monthlyRentFromAnnualRent,
@@ -43,6 +44,36 @@ describe('liquidation input model', () => {
         LIQUIDATION_LIABILITY_BUCKET_CODES
       )
     ).toBe(1)
+  })
+
+  it('builds section status from canonical essentials, liability buckets, and asset classes', () => {
+    expect(
+      buildLiquidationSectionStatus({
+        currentValues: {
+          liqHeadcount: 0,
+          liqMonthlyRent: 1500,
+          liqPaidUpCapital: 100_000,
+          liqDeferredTax: undefined,
+        },
+        liqLiabilityBuckets: {
+          secured: 120_000,
+          unsecured: 0,
+          subordinated: Number.NaN,
+        },
+        liqAssetOverrides: {
+          cash: 10_000,
+          inventory_raw: -1,
+        },
+      })
+    ).toMatchObject({
+      essentialsFilled: 3,
+      essentialsTotal: LIQUIDATION_ESSENTIAL_FIELDS.length,
+      sectionComplete: false,
+      liabilityBucketsFilled: 1,
+      liabilityBucketsTotal: LIQUIDATION_LIABILITY_BUCKET_CODES.length,
+      assetOverridesFilled: 1,
+      assetOverridesTotal: LIQUIDATION_ASSET_CLASS_CODES.length,
+    })
   })
 
   it('resolves positive prefill patches only for empty fields', () => {
