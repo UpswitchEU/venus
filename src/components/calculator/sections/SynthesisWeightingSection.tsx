@@ -16,53 +16,8 @@ import { AuroraTextarea } from '@/design-system/components/Input'
 import { cn } from '@/design-system/utils'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import type { ValuationMethodResult } from '@/types/valuation'
-import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
+import { buildSynthesisWeightingModel, formatCompactCurrency } from './synthesisWeightingModel'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
-
-function formatCompactCurrency(amount: number): string {
-  const sign = amount < 0 ? '-' : ''
-  const abs = Math.abs(amount)
-  if (abs >= 1_000_000) return `${sign}€${(abs / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000) return `${sign}€${Math.round(abs / 1_000)}K`
-  return `${sign}€${Math.round(abs)}`
-}
-
-function asDetailsRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (value == null || value === '') return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
-function getDcfApvBridge(result: ValuationMethodResult | undefined | null) {
-  const details = asDetailsRecord(result?.details)
-  const taxShield = toFiniteNumber(details?.apv_tax_shield_value)
-  if (taxShield == null || taxShield === 0) return null
-  const provenance = asDetailsRecord(details?.apv_bridge_provenance)
-  const isCustomerTemplate =
-    provenance?.customer_template_reconciliation === true ||
-    provenance?.benchmark_style === 'customer_template_apv'
-  return {
-    taxShield,
-    valueBeforeBridge: toFiniteNumber(details?.dcf_equity_value_before_apv),
-    isCustomerTemplate,
-    includedInDcfValue: provenance?.included_in_dcf_value !== false,
-    separateWeightingMethod: provenance?.separate_weighting_method === true,
-    doubleCountingGuard:
-      typeof provenance?.double_counting_guard === 'string'
-        ? provenance.double_counting_guard
-        : null,
-    convention:
-      typeof details?.apv_discounting_convention === 'string'
-        ? details.apv_discounting_convention
-        : null,
-  }
-}
 
 export interface SynthesisWeightingSectionProps {
   methods: string[]
@@ -136,60 +91,17 @@ export function SynthesisWeightingSection({
     [methods, displayWeights]
   )
 
-  const hasResults = !!valuationResults && Object.keys(valuationResults).length > 0
-
-  const liveBlended = useMemo(() => {
-    if (!hasResults || total !== 100) return null
-    let sum = 0
-    let allAvailable = true
-    for (const m of methods) {
-      const mr = getValuationMethodResultForKey(valuationResults, m)
-      const w = displayWeights[m] ?? 0
-      if (w <= 0) continue
-      if (!mr?.available || mr.value == null) {
-        allAvailable = false
-        continue
-      }
-      const add = Number(mr.value)
-      if (!Number.isFinite(add)) {
-        allAvailable = false
-        continue
-      }
-      sum += add * (w / 100)
-    }
-    if (!allAvailable) return null
-    return Number.isFinite(sum) && sum > 0 ? Math.round(sum) : null
-  }, [hasResults, valuationResults, methods, displayWeights, total])
-
-  const contributions = useMemo(() => {
-    if (!hasResults) return null
-    return methods.map((m) => {
-      const mr = getValuationMethodResultForKey(valuationResults, m)
-      const w = displayWeights[m] ?? 0
-      const raw = mr?.available && mr.value != null ? Number(mr.value) : NaN
-      const equity = Number.isFinite(raw) ? raw : null
-      const apvBridge = m === 'dcf' ? getDcfApvBridge(mr) : null
-      return {
-        method: m,
-        label: t(METHOD_LABEL_KEYS[m] ?? m),
-        equity,
-        weight: w,
-        contribution: equity != null && w > 0 ? Math.round(equity * (w / 100)) : null,
-        available: mr?.available ?? false,
-        unavailableReason: mr?.unavailable_reason ?? null,
-        apvBridge,
-      }
-    })
-  }, [hasResults, valuationResults, methods, displayWeights, t])
-
-  const contributionByMethod = useMemo(() => {
-    if (!contributions) return null
-    const map: Record<string, (typeof contributions)[number]> = {}
-    for (const c of contributions) {
-      map[c.method] = c
-    }
-    return map
-  }, [contributions])
+  const { contributionByMethod, contributions, liveBlended } = useMemo(
+    () =>
+      buildSynthesisWeightingModel({
+        displayWeights,
+        methods,
+        resolveLabel: (method) => t(METHOD_LABEL_KEYS[method] ?? method),
+        total,
+        valuationResults,
+      }),
+    [displayWeights, methods, t, total, valuationResults]
+  )
 
   const handleSliderChange = useCallback(
     (method: string, value: number) => {
