@@ -81,7 +81,7 @@ export function EmbeddedDcfControls({
   const handleDcfFieldChange = useCallback(
     (field: string, value: number | undefined) => {
       setFormData((prev) => {
-        const previousValue = (prev as Record<string, unknown>)[field]
+        const previousValue = prev[field as keyof ManualValuationFormData]
         if (Object.is(previousValue, value)) return prev
         return { ...prev, [field]: value }
       })

@@ -221,6 +221,45 @@ describe('DcfGlobalAssumptionsSectionStack', () => {
     })
   })
 
+  it('normalizes persisted DCF numeric strings at the method-stack boundary', () => {
+    render(
+      <DcfGlobalAssumptionsSectionStack
+        step={9}
+        variant="discountTerminalOnly"
+        formData={formData({
+          dcf_wacc_pct: '11,5' as unknown as number,
+          dcf_terminal_growth_pct: '2,25' as unknown as number,
+          dcf_exit_multiple: '6,5' as unknown as number,
+          dcf_risk_free_rate_pct: '3,0' as unknown as number,
+          dcf_equity_risk_premium_pct: '5,5' as unknown as number,
+          dcf_beta: '1,1' as unknown as number,
+          dcf_cost_of_debt_pct: '4,5' as unknown as number,
+          dcf_debt_equity_pct: '30' as unknown as number,
+          dcf_tax_shield_pct: '25' as unknown as number,
+          dcf_discounting_convention: 'unexpected' as unknown as 'mid_year',
+          dcf_input_mode: 'unexpected' as unknown as 'ebitda',
+        })}
+        terminalValueMethod="perpetual_growth"
+        onTerminalValueMethodChange={vi.fn()}
+        onFieldChange={vi.fn()}
+      />
+    )
+
+    expect(mocks.sectionProps.at(-1)).toMatchObject({
+      dcfWaccPct: 11.5,
+      dcfTerminalGrowthPct: 2.25,
+      dcfExitMultiple: 6.5,
+      dcfRiskFreeRatePct: 3,
+      dcfEquityRiskPremiumPct: 5.5,
+      dcfBeta: 1.1,
+      dcfCostOfDebtPct: 4.5,
+      dcfDebtEquityPct: 30,
+      dcfTaxShieldPct: 25,
+      dcfDiscountingConvention: 'mid_year',
+      dcfInputMode: 'ebitda',
+    })
+  })
+
   it('keeps DCF global render eligibility method-owned', () => {
     expect(
       shouldMountDcfGlobalAssumptionsSectionStack({

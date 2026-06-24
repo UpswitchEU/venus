@@ -175,9 +175,6 @@ describe('WaccBreakdownPanel', () => {
     expect(screen.getByLabelText('Equity risk premium (%)')).toHaveValue('5.5')
     expect(screen.getByLabelText('Beta')).toHaveValue('1.1')
     expect(handleFieldChange).not.toHaveBeenCalledWith('dcf_wacc_pct', expect.any(Number))
-    expect(handleFieldChange).not.toHaveBeenCalledWith(
-      'dcf_risk_free_rate_pct',
-      expect.any(Number)
-    )
+    expect(handleFieldChange).not.toHaveBeenCalledWith('dcf_risk_free_rate_pct', expect.any(Number))
   })
 })

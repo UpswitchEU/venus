@@ -150,6 +150,8 @@ describe('EmbeddedDcfControls', () => {
     const update = setFormData.mock.calls[0][0] as (
       previous: ManualValuationFormData
     ) => ManualValuationFormData
+    const alreadyCurrent = formData({ dcf_wacc_pct: 9 })
+    expect(update(alreadyCurrent)).toBe(alreadyCurrent)
     expect(update(currentFormData)).toMatchObject({ dcf_wacc_pct: 9 })
 
     mocks.stackProps[1].onDiscountingConventionChange?.('mid_year')
@@ -157,6 +159,8 @@ describe('EmbeddedDcfControls', () => {
     const conventionUpdate = setFormData.mock.calls[1][0] as (
       previous: ManualValuationFormData
     ) => ManualValuationFormData
+    const alreadyMidYear = formData({ dcf_discounting_convention: 'mid_year' })
+    expect(conventionUpdate(alreadyMidYear)).toBe(alreadyMidYear)
     expect(conventionUpdate(currentFormData)).toMatchObject({
       dcf_discounting_convention: 'mid_year',
     })
