@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { AdaptivePercentInput } from './AdaptivePercentInput'
 import { DCF_DEFAULT_WACC_PCT } from './dcfEngineDefaults'
 
@@ -46,6 +47,14 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10
 }
 
+function toFiniteNumber(value: unknown): number | undefined {
+  return parseFlexibleNumber(value)
+}
+
+function valueOrDefault(value: unknown, fallback: number): number {
+  return toFiniteNumber(value) ?? fallback
+}
+
 export function WaccBreakdownPanel({
   currentWaccPct,
   riskFreeRatePct,
@@ -60,25 +69,23 @@ export function WaccBreakdownPanel({
 }: WaccBreakdownPanelProps) {
   const t = useTranslations('manualInput.methodSelector')
   const [expanded, setExpanded] = useState(false)
+  const normalizedCurrentWaccPct = toFiniteNumber(currentWaccPct)
+  const normalizedRiskFreeRatePct = toFiniteNumber(riskFreeRatePct)
+  const normalizedEquityRiskPremiumPct = toFiniteNumber(equityRiskPremiumPct)
+  const normalizedBeta = toFiniteNumber(beta)
+  const normalizedCostOfDebtPct = toFiniteNumber(costOfDebtPct)
+  const normalizedDebtEquityPct = toFiniteNumber(debtEquityPct)
+  const normalizedTaxShieldPct = toFiniteNumber(taxShieldPct)
 
-  // Out-of-band detection vs the supplied sector band.
-  // Uses the current WACC the user sees (computed when the build-up is open,
-  // typed when collapsed) so the warning tracks the value being submitted.
-  const outOfBandSeverity = useMemo<'high' | 'low' | null>(() => {
-    if (!sectorBand) return null
-    const value = expanded ? currentWaccPct : currentWaccPct
-    if (typeof value !== 'number' || !Number.isFinite(value)) return null
-    if (value > sectorBand.max) return 'high'
-    if (value < sectorBand.min) return 'low'
-    return null
-  }, [sectorBand, currentWaccPct, expanded])
-
-  const resolvedRiskFreeRatePct = riskFreeRatePct ?? DEFAULT_RISK_FREE_RATE_PCT
-  const resolvedEquityRiskPremiumPct = equityRiskPremiumPct ?? DEFAULT_EQUITY_RISK_PREMIUM_PCT
-  const resolvedBeta = beta ?? DEFAULT_BETA
-  const resolvedCostOfDebtPct = costOfDebtPct ?? DEFAULT_COST_OF_DEBT_PCT
-  const resolvedDebtEquityPct = debtEquityPct ?? DEFAULT_DEBT_EQUITY_PCT
-  const resolvedTaxShieldPct = taxShieldPct ?? DEFAULT_TAX_SHIELD_PCT
+  const resolvedRiskFreeRatePct = valueOrDefault(riskFreeRatePct, DEFAULT_RISK_FREE_RATE_PCT)
+  const resolvedEquityRiskPremiumPct = valueOrDefault(
+    equityRiskPremiumPct,
+    DEFAULT_EQUITY_RISK_PREMIUM_PCT
+  )
+  const resolvedBeta = valueOrDefault(beta, DEFAULT_BETA)
+  const resolvedCostOfDebtPct = valueOrDefault(costOfDebtPct, DEFAULT_COST_OF_DEBT_PCT)
+  const resolvedDebtEquityPct = valueOrDefault(debtEquityPct, DEFAULT_DEBT_EQUITY_PCT)
+  const resolvedTaxShieldPct = valueOrDefault(taxShieldPct, DEFAULT_TAX_SHIELD_PCT)
 
   const waccBuildup = useMemo(() => {
     const debtWeight = clamp(resolvedDebtEquityPct, 0, 95) / 100
@@ -105,22 +112,33 @@ export function WaccBreakdownPanel({
 
   const waccOverridesCapm = useMemo(() => {
     if (expanded) return false
-    if (typeof currentWaccPct !== 'number' || !Number.isFinite(currentWaccPct)) return false
-    return Math.abs(currentWaccPct - computedWaccPct) >= 0.15
-  }, [expanded, currentWaccPct, computedWaccPct])
+    if (normalizedCurrentWaccPct == null) return false
+    return Math.abs(normalizedCurrentWaccPct - computedWaccPct) >= 0.15
+  }, [expanded, normalizedCurrentWaccPct, computedWaccPct])
 
   const displayWaccPct = useMemo(() => {
     if (expanded) return computedWaccPct
-    if (typeof currentWaccPct === 'number' && Number.isFinite(currentWaccPct)) {
-      return currentWaccPct
-    }
+    if (normalizedCurrentWaccPct != null) return normalizedCurrentWaccPct
     return computedWaccPct
-  }, [expanded, currentWaccPct, computedWaccPct])
+  }, [expanded, normalizedCurrentWaccPct, computedWaccPct])
+
+  // Out-of-band detection vs the supplied sector band.
+  // Uses the current WACC the user sees (computed when the build-up is open,
+  // typed when collapsed) so the warning tracks the value being submitted.
+  const outOfBandSeverity = useMemo<'high' | 'low' | null>(() => {
+    if (!sectorBand) return null
+    if (displayWaccPct > sectorBand.max) return 'high'
+    if (displayWaccPct < sectorBand.min) return 'low'
+    return null
+  }, [sectorBand, displayWaccPct])
 
   useEffect(() => {
     if (!expanded) return
+    if (normalizedCurrentWaccPct != null && round1(normalizedCurrentWaccPct) === computedWaccPct) {
+      return
+    }
     onFieldChange('dcf_wacc_pct', computedWaccPct)
-  }, [computedWaccPct, expanded, onFieldChange])
+  }, [computedWaccPct, expanded, normalizedCurrentWaccPct, onFieldChange])
 
   const seedMissingDefaults = useCallback(() => {
     if (disabled) return
@@ -135,7 +153,7 @@ export function WaccBreakdownPanel({
     ] as const
 
     for (const [field, currentValue, defaultValue] of defaultSeeds) {
-      if (currentValue == null) onFieldChange(field, defaultValue)
+      if (toFiniteNumber(currentValue) == null) onFieldChange(field, defaultValue)
     }
   }, [
     beta,
@@ -184,7 +202,7 @@ export function WaccBreakdownPanel({
       )}
       <AdaptivePercentInput
         label={t('fields.dcfWaccPct')}
-        value={expanded ? computedWaccPct : currentWaccPct}
+        value={expanded ? computedWaccPct : normalizedCurrentWaccPct}
         onChange={(value) => onFieldChange('dcf_wacc_pct', value)}
         placeholder={String(DCF_DEFAULT_WACC_PCT)}
         disabled={disabled}
@@ -240,7 +258,7 @@ export function WaccBreakdownPanel({
             <div className="mt-3 grid grid-cols-1 gap-3">
               <AdaptivePercentInput
                 label={t('fields.dcfRiskFreeRatePct')}
-                value={riskFreeRatePct}
+                value={normalizedRiskFreeRatePct}
                 onChange={(value) => onFieldChange('dcf_risk_free_rate_pct', value)}
                 placeholder={String(DEFAULT_RISK_FREE_RATE_PCT)}
                 disabled={disabled}
@@ -248,7 +266,7 @@ export function WaccBreakdownPanel({
               />
               <AdaptivePercentInput
                 label={t('fields.dcfEquityRiskPremiumPct')}
-                value={equityRiskPremiumPct}
+                value={normalizedEquityRiskPremiumPct}
                 onChange={(value) => onFieldChange('dcf_equity_risk_premium_pct', value)}
                 placeholder={String(DEFAULT_EQUITY_RISK_PREMIUM_PCT)}
                 disabled={disabled}
@@ -256,7 +274,7 @@ export function WaccBreakdownPanel({
               />
               <AdaptivePercentInput
                 label={t('fields.dcfBeta')}
-                value={beta}
+                value={normalizedBeta}
                 onChange={(value) => onFieldChange('dcf_beta', value)}
                 placeholder={String(DEFAULT_BETA)}
                 disabled={disabled}
@@ -265,7 +283,7 @@ export function WaccBreakdownPanel({
               />
               <AdaptivePercentInput
                 label={t('fields.dcfCostOfDebtPct')}
-                value={costOfDebtPct}
+                value={normalizedCostOfDebtPct}
                 onChange={(value) => onFieldChange('dcf_cost_of_debt_pct', value)}
                 placeholder={String(DEFAULT_COST_OF_DEBT_PCT)}
                 disabled={disabled}
@@ -273,7 +291,7 @@ export function WaccBreakdownPanel({
               />
               <AdaptivePercentInput
                 label={t('fields.dcfDebtEquityPct')}
-                value={debtEquityPct}
+                value={normalizedDebtEquityPct}
                 onChange={(value) => onFieldChange('dcf_debt_equity_pct', value)}
                 placeholder={String(DEFAULT_DEBT_EQUITY_PCT)}
                 disabled={disabled}
@@ -281,7 +299,7 @@ export function WaccBreakdownPanel({
               />
               <AdaptivePercentInput
                 label={t('fields.dcfTaxShieldPct')}
-                value={taxShieldPct}
+                value={normalizedTaxShieldPct}
                 onChange={(value) => onFieldChange('dcf_tax_shield_pct', value)}
                 placeholder={String(DEFAULT_TAX_SHIELD_PCT)}
                 disabled={disabled}

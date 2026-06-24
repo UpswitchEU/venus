@@ -7,6 +7,7 @@ import { buildStaleReportRecoveryUrl } from '../features/manual/utils/deleteValu
 import { trackPaywallShown } from '../lib/analytics'
 import { useAuthStore } from '../lib/auth'
 import { useBootstrapSafe } from '../lib/bootstrap'
+import { BOOTSTRAP_TIMEOUT_USER_MESSAGE } from '../lib/bootstrap/bootstrapUserMessages'
 import {
   buildMercuryDelegatedHandoffSignals,
   buildSeedIdentity,
@@ -29,6 +30,25 @@ function readStringField(source: unknown, key: string): string | null {
   if (!source || typeof source !== 'object') return null
   const value = (source as Record<string, unknown>)[key]
   return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+export function normalizeValuationSessionManagerErrorMessage(
+  error: string | null | undefined
+): string | null {
+  const message = error?.trim()
+  if (!message) return null
+
+  const lowerMessage = message.toLowerCase()
+  if (
+    lowerMessage.includes('signal is aborted') ||
+    lowerMessage.includes('aborterror') ||
+    lowerMessage.includes('bootstrap request timed out') ||
+    lowerMessage.includes('upstream_timeout')
+  ) {
+    return BOOTSTRAP_TIMEOUT_USER_MESSAGE
+  }
+
+  return message
 }
 
 interface ValuationSessionManagerProps {
@@ -448,8 +468,9 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     }, [reportId, clearSession, router])
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
-    const effectiveError =
+    const rawEffectiveError =
       error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
+    const effectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
 
     // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session
     // load still fails, recover to /reports/new with Mercury query params preserved.

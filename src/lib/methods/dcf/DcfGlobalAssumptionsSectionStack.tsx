@@ -12,6 +12,7 @@ import type {
 } from '@/components/calculator/sections/dcfSmartDefaults'
 import type { ManualValuationFormData } from '@/types/valuation'
 import { countForecastYears } from '@/utils/forecastYears'
+import { coerceFiniteNumber } from '@/utils/isFiniteNumeric'
 
 export type { TerminalValueMethod } from '@/components/calculator/sections/DcfGlobalAssumptions'
 
@@ -35,6 +36,20 @@ export interface DcfGlobalAssumptionsSectionStackProps {
   integrationCapexPct?: number | null
   integrationDaPct?: number | null
   waccSectorBand?: WaccSectorBand | null
+}
+
+function numericFormValue(value: unknown): number | undefined {
+  return coerceFiniteNumber(value)
+}
+
+function discountingConventionValue(
+  value: ManualValuationFormData['dcf_discounting_convention']
+): DcfDiscountingConvention {
+  return value === 'year_end' ? 'year_end' : 'mid_year'
+}
+
+function dcfInputModeValue(value: ManualValuationFormData['dcf_input_mode']) {
+  return value === 'fcff_only' ? 'fcff_only' : 'ebitda'
 }
 
 export function DcfGlobalAssumptionsSectionStack({
@@ -63,22 +78,22 @@ export function DcfGlobalAssumptionsSectionStack({
       className={className}
       step={step}
       variant={variant}
-      dcfRevenueGrowthPct={formData.dcf_revenue_growth_pct as number | undefined}
-      dcfEbitdaMarginPct={formData.dcf_ebitda_margin_pct as number | undefined}
-      dcfCapexPct={formData.dcf_capex_pct as number | undefined}
-      dcfDaPct={formData.dcf_da_pct as number | undefined}
-      dcfNwcPct={formData.dcf_nwc_pct as number | undefined}
-      dcfTaxRatePct={formData.dcf_tax_rate_pct as number | undefined}
-      dcfWaccPct={formData.dcf_wacc_pct as number | undefined}
-      dcfTerminalGrowthPct={formData.dcf_terminal_growth_pct as number | undefined}
-      dcfExitMultiple={formData.dcf_exit_multiple as number | undefined}
-      dcfRiskFreeRatePct={formData.dcf_risk_free_rate_pct as number | undefined}
-      dcfEquityRiskPremiumPct={formData.dcf_equity_risk_premium_pct as number | undefined}
-      dcfBeta={formData.dcf_beta as number | undefined}
-      dcfCostOfDebtPct={formData.dcf_cost_of_debt_pct as number | undefined}
-      dcfDebtEquityPct={formData.dcf_debt_equity_pct as number | undefined}
-      dcfTaxShieldPct={formData.dcf_tax_shield_pct as number | undefined}
-      dcfDiscountingConvention={formData.dcf_discounting_convention ?? 'mid_year'}
+      dcfRevenueGrowthPct={numericFormValue(formData.dcf_revenue_growth_pct)}
+      dcfEbitdaMarginPct={numericFormValue(formData.dcf_ebitda_margin_pct)}
+      dcfCapexPct={numericFormValue(formData.dcf_capex_pct)}
+      dcfDaPct={numericFormValue(formData.dcf_da_pct)}
+      dcfNwcPct={numericFormValue(formData.dcf_nwc_pct)}
+      dcfTaxRatePct={numericFormValue(formData.dcf_tax_rate_pct)}
+      dcfWaccPct={numericFormValue(formData.dcf_wacc_pct)}
+      dcfTerminalGrowthPct={numericFormValue(formData.dcf_terminal_growth_pct)}
+      dcfExitMultiple={numericFormValue(formData.dcf_exit_multiple)}
+      dcfRiskFreeRatePct={numericFormValue(formData.dcf_risk_free_rate_pct)}
+      dcfEquityRiskPremiumPct={numericFormValue(formData.dcf_equity_risk_premium_pct)}
+      dcfBeta={numericFormValue(formData.dcf_beta)}
+      dcfCostOfDebtPct={numericFormValue(formData.dcf_cost_of_debt_pct)}
+      dcfDebtEquityPct={numericFormValue(formData.dcf_debt_equity_pct)}
+      dcfTaxShieldPct={numericFormValue(formData.dcf_tax_shield_pct)}
+      dcfDiscountingConvention={discountingConventionValue(formData.dcf_discounting_convention)}
       terminalValueMethod={terminalValueMethod}
       onTerminalValueMethodChange={onTerminalValueMethodChange}
       onDiscountingConventionChange={onDiscountingConventionChange}
@@ -86,7 +101,7 @@ export function DcfGlobalAssumptionsSectionStack({
       onApplyToForecastYears={onApplyDcfPercentAutofill}
       canApplyToForecastYears={!!canApplyDcfPercentAutofill}
       forecastYearCount={countForecastYears(formData.yearlyFinancials ?? [])}
-      dcfInputMode={formData.dcf_input_mode ?? 'ebitda'}
+      dcfInputMode={dcfInputModeValue(formData.dcf_input_mode)}
       showDcfInputModeToggle={showDcfInputModeToggle}
       dcfModeSegmentOptions={dcfModeSegmentOptions}
       onDcfInputModeChange={onDcfInputModeChange}

@@ -537,6 +537,15 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/Invalid response from bootstrap service/)
   })
 
+  it('ValuationSessionManager does not render raw abort transport text', () => {
+    const path = join(__dirname, '../ValuationSessionManager.tsx')
+    const source = readFileSync(path, 'utf8')
+    expect(source).toMatch(/normalizeValuationSessionManagerErrorMessage/)
+    expect(source).toMatch(/signal is aborted/)
+    expect(source).toMatch(/BOOTSTRAP_TIMEOUT_USER_MESSAGE/)
+    expect(source).toMatch(/rawEffectiveError/)
+  })
+
   it('useSessionStore blocks loadSession without engine', () => {
     const path = join(__dirname, '../../store/useSessionStore.ts')
     const source = readFileSync(path, 'utf8')

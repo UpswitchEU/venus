@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useCallback } from 'react'
 import type { DcfInputMode } from '@/components/calculator/sections/DcfForecastWorkspace'
 import type { TerminalValueMethod } from '@/lib/methods/dcf/DcfGlobalAssumptionsSectionStack'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
@@ -78,15 +78,29 @@ export function EmbeddedDcfControls({
   updateYearlyFinancials,
   waccSectorBand,
 }: EmbeddedDcfControlsProps) {
+  const handleDcfFieldChange = useCallback(
+    (field: string, value: number | undefined) => {
+      setFormData((prev) => {
+        const previousValue = (prev as Record<string, unknown>)[field]
+        if (Object.is(previousValue, value)) return prev
+        return { ...prev, [field]: value }
+      })
+    },
+    [setFormData]
+  )
+  const handleDcfDiscountingConventionChange = useCallback(
+    (convention: 'mid_year' | 'year_end') => {
+      setFormData((prev) => {
+        if (prev.dcf_discounting_convention === convention) return prev
+        return { ...prev, dcf_discounting_convention: convention }
+      })
+    },
+    [setFormData]
+  )
+
   if (!(hasDcfSelected && dcfForecastRows.length > 0)) return null
 
   const showGlobalAssumptions = adaptiveDcfGlobalStep != null
-  const handleDcfFieldChange = (field: string, value: number | undefined) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
-  const handleDcfDiscountingConventionChange = (convention: 'mid_year' | 'year_end') => {
-    setFormData((prev) => ({ ...prev, dcf_discounting_convention: convention }))
-  }
 
   return (
     <>
