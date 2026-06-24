@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import React from 'react'
+import React, { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { WaccBreakdownPanel } from './WaccBreakdownPanel'
 
@@ -114,5 +114,70 @@ describe('WaccBreakdownPanel', () => {
     expect(screen.getByRole('button', { name: /Show inputs/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Show inputs/ }))
     expect(screen.getByRole('button', { name: /Hide inputs/ })).toBeInTheDocument()
+  })
+
+  it('expands safely when parent recreates onFieldChange after the computed WACC write-back', () => {
+    function InlineParent() {
+      const [formData, setFormData] = useState({
+        dcf_wacc_pct: 11,
+        dcf_risk_free_rate_pct: 3,
+        dcf_equity_risk_premium_pct: 5.5,
+        dcf_beta: 1.1,
+        dcf_cost_of_debt_pct: 4.5,
+        dcf_debt_equity_pct: 30,
+        dcf_tax_shield_pct: 25,
+      })
+
+      return (
+        <WaccBreakdownPanel
+          currentWaccPct={formData.dcf_wacc_pct}
+          riskFreeRatePct={formData.dcf_risk_free_rate_pct}
+          equityRiskPremiumPct={formData.dcf_equity_risk_premium_pct}
+          beta={formData.dcf_beta}
+          costOfDebtPct={formData.dcf_cost_of_debt_pct}
+          debtEquityPct={formData.dcf_debt_equity_pct}
+          taxShieldPct={formData.dcf_tax_shield_pct}
+          onFieldChange={(field, value) => {
+            setFormData((previous) => ({ ...previous, [field]: value }))
+          }}
+        />
+      )
+    }
+
+    render(<InlineParent />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Show inputs/ }))
+
+    expect(screen.getByRole('button', { name: /Hide inputs/ })).toBeInTheDocument()
+    expect(screen.getByLabelText('WACC (%)')).toHaveValue('7.3')
+  })
+
+  it('parses persisted localized DCF assumption strings before rendering or seeding', () => {
+    const handleFieldChange = vi.fn()
+
+    render(
+      <WaccBreakdownPanel
+        currentWaccPct={'7,3' as unknown as number}
+        riskFreeRatePct={'3,0' as unknown as number}
+        equityRiskPremiumPct={'5,5' as unknown as number}
+        beta={'1,1' as unknown as number}
+        costOfDebtPct={'4,5' as unknown as number}
+        debtEquityPct={'30' as unknown as number}
+        taxShieldPct={'25' as unknown as number}
+        onFieldChange={handleFieldChange}
+      />
+    )
+
+    expect(screen.getByLabelText('WACC (%)')).toHaveValue('7.3')
+    fireEvent.click(screen.getByRole('button', { name: /Show inputs/ }))
+
+    expect(screen.getByLabelText('Risk-free rate (%)')).toHaveValue('3')
+    expect(screen.getByLabelText('Equity risk premium (%)')).toHaveValue('5.5')
+    expect(screen.getByLabelText('Beta')).toHaveValue('1.1')
+    expect(handleFieldChange).not.toHaveBeenCalledWith('dcf_wacc_pct', expect.any(Number))
+    expect(handleFieldChange).not.toHaveBeenCalledWith(
+      'dcf_risk_free_rate_pct',
+      expect.any(Number)
+    )
   })
 })
