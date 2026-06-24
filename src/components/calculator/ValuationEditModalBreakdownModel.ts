@@ -9,12 +9,12 @@ import type {
 import { sumAdjustmentValues, toNumberOrNull } from './ValuationEditModalFormatting'
 
 export interface DcfSensitivityMatrixData {
-  wacc_values: number[]
-  growth_values?: number[]
-  secondary_values?: number[]
+  wacc_values: unknown[]
+  growth_values?: unknown[]
+  secondary_values?: unknown[]
   secondary_axis_key?: 'terminal_growth' | 'exit_multiple' | string
   secondary_axis_format?: 'percent' | 'multiple' | string
-  ev_matrix: number[][]
+  ev_matrix: unknown[][]
 }
 
 export interface MethodPipelineRow {
