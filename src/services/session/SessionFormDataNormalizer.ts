@@ -5,11 +5,13 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../utils/fiscalYear'
+import { parseFlexibleNumber } from '../../utils/isFiniteNumeric'
 import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
   SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
 } from '../../utils/optionalSessionPrefillKeys'
+import { normalizeDcfSessionFields } from './SessionDcfFieldNormalizer'
 
 type SessionRecord = Record<string, unknown>
 type SessionYearRow = { year: number; revenue?: number; ebitda?: number }
@@ -25,8 +27,7 @@ function snakeToCamelAlias(key: string): string | null {
 
 function toOptionalNumeric(value: unknown): number | undefined {
   if (value === null || value === undefined || value === '') return undefined
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : undefined
+  return parseFlexibleNumber(value)
 }
 
 function isPlaceholderNumeric(value: unknown): boolean {
@@ -485,6 +486,7 @@ export function extractFormData(sessionData: SessionRecord): Partial<ValuationRe
   normalizeFinancialRows(fd, yearRowsFromMap)
   normalizeActivityFields(fd)
   promoteAdaptiveFieldsFromBusinessContext(fd, sessionData as Record<string, unknown>)
+  normalizeDcfSessionFields(fd)
 
   return formData
 }

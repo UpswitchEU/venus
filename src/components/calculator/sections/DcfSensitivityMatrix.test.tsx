@@ -69,4 +69,26 @@ describe('DcfSensitivityMatrix', () => {
       screen.getByText('Enterprise value under +/-1 point changes in WACC and exit multiple.')
     ).toBeInTheDocument()
   })
+
+  it('normalizes localized persisted matrix values and suppresses NaN cells', () => {
+    render(
+      <DcfSensitivityMatrix
+        sensitivityData={
+          {
+            wacc_values: ['0,09', '0,10', '0,11'],
+            growth_values: ['0,01', '0,02', '0,03'],
+            ev_matrix: [
+              ['2.900.000', '3.000.000', 'bad'],
+              ['2.400.000', '2.500.000', '2.600.000'],
+              ['bad'],
+            ],
+          } as unknown as React.ComponentProps<typeof DcfSensitivityMatrix>['sensitivityData']
+        }
+      />
+    )
+
+    expect(screen.getByText('10%')).toBeInTheDocument()
+    expect(screen.getAllByText('€3M').length).toBeGreaterThan(0)
+    expect(document.body.textContent).not.toContain('NaN')
+  })
 })

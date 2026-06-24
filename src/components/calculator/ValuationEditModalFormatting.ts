@@ -1,3 +1,5 @@
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
+
 export const formatCurrency = (amount: number) => {
   const sign = amount < 0 ? '-' : ''
   const abs = Math.abs(amount)
@@ -17,8 +19,7 @@ export const formatPercent = (value: number | null, scale = 1) =>
 
 export const toNumberOrNull = (value: unknown): number | null => {
   if (value == null || value === '') return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
+  return parseFlexibleNumber(value) ?? null
 }
 
 export const sumAdjustmentValues = (value: unknown): number | null => {

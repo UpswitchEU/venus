@@ -57,6 +57,36 @@ describe('ValuationEditModalBreakdownModel', () => {
     expect(buildMultipleFormulaModel('dcf', model)).toBeNull()
   })
 
+  it('normalizes localized DCF result strings for report breakdown cards', () => {
+    const method = {
+      available: true,
+      label: 'Discounted Cash Flow',
+      value: '1.496.000',
+      wacc: '0,11',
+      details: {
+        enterprise_value: '1.396.000',
+        terminal_value: '500.000',
+        terminal_exit_multiple: '6,5',
+        terminal_value_methodology: 'exit_multiple',
+        apv_tax_shield_value: '3.000',
+      },
+    } as unknown as ValuationMethodResult
+
+    const model = buildMethodBreakdownModel({
+      appliedMultiple: null,
+      method,
+      methodKey: 'dcf',
+      result: {} as ValuationResponse,
+    })
+
+    expect(model.wacc).toBe(0.11)
+    expect(model.equityValue).toBe(1_496_000)
+    expect(model.enterpriseValue).toBe(1_396_000)
+    expect(model.terminalValue).toBe(500_000)
+    expect(model.terminalExitMultiple).toBe(6.5)
+    expect(model.apvTaxShieldValue).toBe(3_000)
+  })
+
   it('projects revenue multiple formulas from normalized model values', () => {
     const method = {
       available: true,

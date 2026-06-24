@@ -13,6 +13,7 @@ import {
 } from '@/design-system/components/Table'
 import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 
 interface DcfSensitivityMatrixProps {
   sensitivityData?: {
@@ -25,22 +26,40 @@ interface DcfSensitivityMatrixProps {
   } | null
 }
 
+function normalizeNumberArray(values: unknown): number[] {
+  return Array.isArray(values)
+    ? values
+        .map((value) => parseFlexibleNumber(value))
+        .filter((value): value is number => value !== undefined)
+    : []
+}
+
+function normalizeMatrixRows(values: unknown, rowCount: number, columnCount: number): number[][] {
+  if (!Array.isArray(values)) return []
+  return values.slice(0, rowCount).map((row) => {
+    const cells = Array.isArray(row) ? row : []
+    return Array.from({ length: columnCount }, (_, index) => parseFlexibleNumber(cells[index]) ?? 0)
+  })
+}
+
 export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixProps) {
   const t = useTranslations('methodBreakdown')
   const { formatEurCompact, ratio: ratioFormatter } = useManualPreviewFormatters()
 
-  if (
-    !sensitivityData ||
-    sensitivityData.wacc_values.length === 0 ||
-    sensitivityData.ev_matrix.length === 0
-  ) {
+  if (!sensitivityData) {
     return null
   }
 
-  const secondaryValues = sensitivityData.secondary_values ?? sensitivityData.growth_values ?? []
-  if (secondaryValues.length === 0) {
+  const waccValues = normalizeNumberArray(sensitivityData.wacc_values)
+  const secondaryValues = normalizeNumberArray(
+    sensitivityData.secondary_values ?? sensitivityData.growth_values
+  )
+  if (waccValues.length === 0 || secondaryValues.length === 0) {
     return null
   }
+  const evMatrix = normalizeMatrixRows(sensitivityData.ev_matrix, waccValues.length, secondaryValues.length)
+  if (evMatrix.length === 0) return null
+
   const secondaryAxisKey = sensitivityData.secondary_axis_key ?? 'terminal_growth'
   const secondaryAxisFormat =
     sensitivityData.secondary_axis_format ??
@@ -50,7 +69,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   const formatSecondaryValue = (value: number) =>
     secondaryAxisFormat === 'multiple' ? `${ratioFormatter.format(value)}×` : formatPercent(value)
 
-  const centerRowIndex = Math.floor(sensitivityData.wacc_values.length / 2)
+  const centerRowIndex = Math.floor(waccValues.length / 2)
   const centerColumnIndex = Math.floor(secondaryValues.length / 2)
 
   return (
@@ -93,7 +112,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sensitivityData.wacc_values.map((waccValue, rowIndex) => (
+            {waccValues.map((waccValue, rowIndex) => (
               <TableRow key={`wacc-${rowIndex}`} className="last:border-b-0">
                 <TableCell
                   className={cn(
@@ -114,7 +133,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
                     )}
                   >
                     {formatEurCompact(
-                      Number(sensitivityData.ev_matrix[rowIndex]?.[columnIndex] ?? 0)
+                      evMatrix[rowIndex]?.[columnIndex] ?? 0
                     )}
                   </TableCell>
                 ))}
