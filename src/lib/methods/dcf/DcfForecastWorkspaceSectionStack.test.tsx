@@ -146,4 +146,50 @@ describe('DcfForecastWorkspaceSectionStack', () => {
       { year: '2026', revenue: 0, ebitda: 0, isForecast: true },
     ])
   })
+
+  it('normalizes invalid DCF input mode and restored tax shield projection storage', () => {
+    const setFormData = vi.fn()
+    const fieldValidation = {
+      errors: {},
+      warnings: {},
+      hasErrors: false,
+    } satisfies ManualInputFieldValidation
+    const currentFormData = formData({
+      yearlyFinancials: forecastRows,
+      dcf_input_mode: 'unexpected' as unknown as DcfInputMode,
+      dcf_tax_shield_projections: ['1.125' as unknown as number],
+    })
+
+    render(
+      <DcfForecastWorkspaceSectionStack
+        step={7}
+        formData={currentFormData}
+        forecastRows={forecastRows}
+        projectionAutofillRows={[]}
+        fieldValidation={fieldValidation}
+        onDcfInputModeChange={vi.fn()}
+        setFormData={setFormData as React.Dispatch<React.SetStateAction<ManualValuationFormData>>}
+        setShowForecastRemovalConfirm={vi.fn()}
+        updateYearlyFinancials={vi.fn()}
+      />
+    )
+
+    const props = mocks.workspaceProps.at(-1)
+    expect(props?.dcfInputMode).toBe('ebitda')
+
+    props?.onDcfTaxShieldProjectionChange?.(0, 1125)
+    const normalizeUpdate = setFormData.mock.calls[0][0] as (
+      previous: ManualValuationFormData
+    ) => ManualValuationFormData
+    const normalized = normalizeUpdate(currentFormData)
+    expect(normalized).not.toBe(currentFormData)
+    expect(normalized.dcf_tax_shield_projections).toEqual([1125])
+    expect(normalizeUpdate(normalized)).toBe(normalized)
+
+    props?.onDcfTaxShieldProjectionChange?.(2, 900)
+    const invalidIndexUpdate = setFormData.mock.calls[1][0] as (
+      previous: ManualValuationFormData
+    ) => ManualValuationFormData
+    expect(invalidIndexUpdate(normalized)).toBe(normalized)
+  })
 })

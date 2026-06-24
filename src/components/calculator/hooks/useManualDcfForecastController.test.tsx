@@ -62,6 +62,16 @@ describe('useManualDcfForecastController', () => {
     })
   })
 
+  it('normalizes invalid restored terminal value method before rendering assumptions', () => {
+    const { result } = setup({
+      dcf_terminal_value_method: 'unexpected' as unknown as 'perpetual_growth',
+      dcf_exit_multiple: '6,5' as unknown as number,
+      dcf_terminal_growth_pct: '2,0' as unknown as number,
+    })
+
+    expect(result.current.terminalValueMethod).toBe('perpetual_growth')
+  })
+
   it('switches forecast rows to FCFF-only mode and locks terminal value to Gordon growth', () => {
     const { formStateRef, result } = setup({
       dcf_terminal_value_method: 'exit_multiple',

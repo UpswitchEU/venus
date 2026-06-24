@@ -116,6 +116,47 @@ describe('DcfGlobalAssumptionsModel', () => {
     })
   })
 
+  it('normalizes restored numeric strings without replacing them with defaults', () => {
+    const patch = buildDcfGlobalAssumptionsSeedPatch({
+      variant: 'full',
+      dcfInputMode: 'ebitda',
+      terminalValueMethod: 'perpetual_growth',
+      currentValues: {
+        dcfRevenueGrowthPct: '4,5' as unknown as number,
+        dcfEbitdaMarginPct: '18,5' as unknown as number,
+        dcfCapexPct: '3,5' as unknown as number,
+        dcfDaPct: '2,5' as unknown as number,
+        dcfNwcPct: '0,75' as unknown as number,
+        dcfTaxRatePct: '20,5' as unknown as number,
+        dcfWaccPct: '9,5' as unknown as number,
+        dcfTerminalGrowthPct: '2,25' as unknown as number,
+      },
+      smartDefaults: {
+        revenueGrowthPct: 12,
+        ebitdaMarginPct: 24,
+        capexPct: 8,
+        daPct: 7,
+        nwcPct: 3,
+        taxRatePct: 25,
+        waccPct: 13,
+        terminalGrowthPct: 3,
+      },
+      integrationCapexPct: 6,
+      integrationDaPct: 5,
+    })
+
+    expect(patch).toEqual({
+      dcf_revenue_growth_pct: 4.5,
+      dcf_ebitda_margin_pct: 18.5,
+      dcf_capex_pct: 3.5,
+      dcf_da_pct: 2.5,
+      dcf_nwc_pct: 0.75,
+      dcf_tax_rate_pct: 20.5,
+      dcf_wacc_pct: 9.5,
+      dcf_terminal_growth_pct: 2.25,
+    })
+  })
+
   it('returns no patch when disabled', () => {
     expect(
       buildDcfGlobalAssumptionsSeedPatch({

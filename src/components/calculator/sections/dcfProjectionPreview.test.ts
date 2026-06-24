@@ -249,6 +249,57 @@ describe('deriveDcfProjectionPreview', () => {
     expect(rows[0].ebitda).toBe(198_000)
   })
 
+  it('accepts persisted localized strings for DCF projection assumptions', () => {
+    const rows = deriveDcfProjectionPreview({
+      yearlyFinancials: [{ year: '2024', revenue: '900.000', ebitda: '90.000' }],
+      revenueGrowthPct: '10,5' as unknown as number,
+      ebitdaMarginPct: '20,5' as unknown as number,
+      capexPct: '4,0' as unknown as number,
+      daPct: '3,0' as unknown as number,
+      nwcPct: '1,5' as unknown as number,
+      taxRatePct: '25,0' as unknown as number,
+      forecastYears: ['2025' as unknown as number],
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].revenue).toBe(994_500)
+    expect(rows[0].ebitda).toBe(203_873)
+    expect(rows[0].capex).toBe(39_780)
+    expect(rows[0].da).toBe(29_835)
+    expect(rows[0].nwcChange).toBe(1_418)
+    expect(Number.isFinite(rows[0].fcff)).toBe(true)
+  })
+
+  it('accepts localized bridge row values when building FCFF rows', () => {
+    const row = buildProjectionRowFromForecastRow(
+      {
+        year: '2026',
+        revenue: '1.100.000',
+        ebitda: '220.000',
+        capex: '44.000',
+        depreciation: '33.000',
+        nwc_change: '1.500',
+      } as unknown as Parameters<typeof buildProjectionRowFromForecastRow>[0],
+      {
+        daPct: '3,0' as unknown as number,
+        capexPct: '4,0' as unknown as number,
+        nwcPct: '1,5' as unknown as number,
+        taxRatePct: '25,0' as unknown as number,
+        previousRevenue: '1.000.000' as unknown as number,
+      }
+    )
+
+    expect(row).toMatchObject({
+      year: 2026,
+      revenue: 1_100_000,
+      ebitda: 220_000,
+      da: 33_000,
+      capex: 44_000,
+      nwcChange: 1_500,
+      fcff: 127_750,
+    })
+  })
+
   it('applies projected values onto snake_case forecast rows', () => {
     const result = applyDcfProjectionPreviewToForecastRows(
       [{ year: '2026', revenue: 0, ebitda: 0, is_forecast: true }],

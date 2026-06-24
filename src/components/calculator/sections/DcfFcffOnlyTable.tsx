@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { InlineCurrencyInput } from '../InlineCurrencyInput'
 import type { DcfForecastRow } from './DcfForecastTypes'
 
@@ -64,12 +65,9 @@ export function DcfFcffOnlyTable({
         <tbody>
           {sorted.map((row, index) => {
             const v = row.free_cash_flow
-            const numericValue = typeof v === 'number' && Number.isFinite(v) ? v : undefined
+            const numericValue = parseFlexibleNumber(v)
             const taxShieldRaw = taxShieldProjections?.[index]
-            const taxShieldValue =
-              typeof taxShieldRaw === 'number' && Number.isFinite(taxShieldRaw)
-                ? taxShieldRaw
-                : undefined
+            const taxShieldValue = parseFlexibleNumber(taxShieldRaw)
             const errMsg = fieldValidation?.errors[`fcff-${row.year}`]
             const warnMsg = fieldValidation?.warnings[`fcff-${row.year}`]
             const state: 'default' | 'warning' | 'error' = errMsg

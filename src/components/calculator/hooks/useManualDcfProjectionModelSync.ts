@@ -2,6 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
+import { coerceFiniteNumber } from '../../../utils/isFiniteNumeric'
 import type { DcfForecastModelSnapshot } from '../sections/dcfForecastModelSync'
 import {
   deriveManualDcfProjectionRowsFromForm,
@@ -62,14 +63,9 @@ export function useManualDcfProjectionModelSync({
     if (dcfForecastRows.length === 0) return
 
     setFormData((prev) => {
-      const growth = prev.dcf_revenue_growth_pct
-      const margin = prev.dcf_ebitda_margin_pct
-      if (
-        growth == null ||
-        margin == null ||
-        !Number.isFinite(growth) ||
-        !Number.isFinite(margin)
-      ) {
+      const growth = coerceFiniteNumber(prev.dcf_revenue_growth_pct)
+      const margin = coerceFiniteNumber(prev.dcf_ebitda_margin_pct)
+      if (growth == null || margin == null) {
         return prev
       }
 

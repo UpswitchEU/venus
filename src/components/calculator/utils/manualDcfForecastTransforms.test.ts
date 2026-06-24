@@ -44,6 +44,32 @@ describe('manual DCF forecast transforms', () => {
     expect(forecast?.free_cash_flow).toBe(122_875)
   })
 
+  it('switches localized restored forecast rows to FCFF-only without producing NaN', () => {
+    const result = switchManualDcfInputMode(
+      makeForm({
+        dcf_da_pct: '3,0' as unknown as number,
+        dcf_capex_pct: '4,0' as unknown as number,
+        dcf_nwc_pct: '1,5' as unknown as number,
+        dcf_tax_rate_pct: '25,0' as unknown as number,
+        yearlyFinancials: [
+          { year: '2024', revenue: '1.000.000', ebitda: '200.000' },
+          {
+            year: '2025',
+            revenue: '1.100.000',
+            ebitda: '220.000',
+            isForecast: true,
+          },
+        ] as unknown as YearlyFinancials[],
+      }),
+      'fcff_only'
+    )
+
+    const forecast = result.yearlyFinancials.find((row) => row.isForecast)
+    expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
+    expect(forecast?.free_cash_flow).toBe(127_750)
+    expect(Number.isFinite(forecast?.free_cash_flow)).toBe(true)
+  })
+
   it('switches back to EBITDA mode by clearing FCFF and applying projection rows', () => {
     const result = switchManualDcfInputMode(
       makeForm({

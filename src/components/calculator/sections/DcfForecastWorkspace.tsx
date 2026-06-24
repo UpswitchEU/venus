@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl'
 import { useCallback, useMemo, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { cn } from '@/design-system/utils'
-import { coalesceFiniteNumber, useManualPreviewFormatters } from '@/lib/omniPreview'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { DcfFcffOnlyTable } from './DcfFcffOnlyTable'
 import type { DcfForecastRow } from './DcfForecastTypes'
 import { DcfProjectionTable } from './DcfProjectionTable'
@@ -23,6 +24,10 @@ import {
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 export type DcfInputMode = 'ebitda' | 'fcff_only'
+
+function finiteValue(value: unknown): number | undefined {
+  return parseFlexibleNumber(value)
+}
 
 interface DcfForecastWorkspaceProps {
   /** Step index after financial history (default 4). */
@@ -103,14 +108,12 @@ export function DcfForecastWorkspace({
   const forecastSectionComplete = useMemo(() => {
     if (sortedRows.length === 0) return false
     if (dcfInputMode === 'fcff_only') {
-      return sortedRows.every(
-        (r) => typeof r.free_cash_flow === 'number' && Number.isFinite(r.free_cash_flow)
-      )
+      return sortedRows.every((r) => finiteValue(r.free_cash_flow) !== undefined)
     }
     return sortedRows.every((r) => {
-      const rev = Number(r.revenue)
-      const ebit = Number(r.ebitda)
-      return Number.isFinite(rev) && Number.isFinite(ebit) && (rev !== 0 || ebit !== 0)
+      const rev = finiteValue(r.revenue)
+      const ebit = finiteValue(r.ebitda)
+      return rev != null && ebit != null && (rev !== 0 || ebit !== 0)
     })
   }, [sortedRows, dcfInputMode])
 
@@ -122,18 +125,18 @@ export function DcfForecastWorkspace({
   const projectionRows: DcfProjectionPreviewRow[] = useMemo(() => {
     if (sortedRows.length === 0) return []
     const globals = {
-      daPct: globalDaPct ?? DCF_DEFAULT_DA_PCT,
-      capexPct: globalCapexPct ?? DCF_DEFAULT_CAPEX_PCT,
-      nwcPct: globalNwcPct ?? DCF_DEFAULT_NWC_PCT,
-      taxRatePct: globalTaxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT,
+      daPct: finiteValue(globalDaPct) ?? DCF_DEFAULT_DA_PCT,
+      capexPct: finiteValue(globalCapexPct) ?? DCF_DEFAULT_CAPEX_PCT,
+      nwcPct: finiteValue(globalNwcPct) ?? DCF_DEFAULT_NWC_PCT,
+      taxRatePct: finiteValue(globalTaxRatePct) ?? DCF_DEFAULT_TAX_RATE_PCT,
     }
     const build = (row: DcfForecastRow, index: number) => {
       const previousRevenue =
         index === 0
-          ? (latestHistoricalRevenue ?? coalesceFiniteNumber(row.revenue) ?? 0)
-          : (coalesceFiniteNumber(sortedRows[index - 1]?.revenue) ??
-            latestHistoricalRevenue ??
-            coalesceFiniteNumber(row.revenue) ??
+          ? (finiteValue(latestHistoricalRevenue) ?? finiteValue(row.revenue) ?? 0)
+          : (finiteValue(sortedRows[index - 1]?.revenue) ??
+            finiteValue(latestHistoricalRevenue) ??
+            finiteValue(row.revenue) ??
             0)
       return buildProjectionRowFromForecastRow(row, { ...globals, previousRevenue })
     }
@@ -147,12 +150,12 @@ export function DcfForecastWorkspace({
       const derivedRow = derivedByYear.get(Number(row.year))
       // Prefer stored row whenever the user has entered any forecast line (not only revenue).
       const hasStoredForecastInput =
-        coalesceFiniteNumber(row.revenue) !== 0 ||
-        coalesceFiniteNumber(row.ebitda) !== 0 ||
-        (typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)) ||
-        (row.capex != null && Number.isFinite(row.capex)) ||
-        (row.depreciation != null && Number.isFinite(row.depreciation)) ||
-        (row.nwc_change != null && Number.isFinite(row.nwc_change))
+        (finiteValue(row.revenue) ?? 0) !== 0 ||
+        (finiteValue(row.ebitda) ?? 0) !== 0 ||
+        finiteValue(row.free_cash_flow) !== undefined ||
+        finiteValue(row.capex) !== undefined ||
+        finiteValue(row.depreciation) !== undefined ||
+        finiteValue(row.nwc_change) !== undefined
       if (derivedRow && !hasStoredForecastInput) {
         return derivedRow
       }

@@ -1,5 +1,6 @@
 import { dcfSmartDefaultsFromForm } from '../../../lib/methods/dcf/smartDefaultsFromForm'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
@@ -19,6 +20,14 @@ import {
 } from '../sections/dcfProjectionPreview'
 
 export type ManualDcfInputMode = 'ebitda' | 'fcff_only'
+
+function numberOrDefault(value: unknown, fallback: number): number {
+  return parseFlexibleNumber(value) ?? fallback
+}
+
+function hasFiniteAmount(value: unknown): boolean {
+  return parseFlexibleNumber(value) !== undefined
+}
 
 export function deriveManualDcfProjectionRowsFromForm(
   formData: ManualValuationFormData,
@@ -41,10 +50,10 @@ export function countManualDcfForecastManualEdits(yearlyFinancials: YearlyFinanc
   return yearlyFinancials.filter((row) => {
     if (!row.isForecast) return false
     return (
-      (typeof row.capex === 'number' && Number.isFinite(row.capex)) ||
-      (typeof row.depreciation === 'number' && Number.isFinite(row.depreciation)) ||
-      (typeof row.nwc_change === 'number' && Number.isFinite(row.nwc_change)) ||
-      (typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow))
+      hasFiniteAmount(row.capex) ||
+      hasFiniteAmount(row.depreciation) ||
+      hasFiniteAmount(row.nwc_change) ||
+      hasFiniteAmount(row.free_cash_flow)
     )
   }).length
 }
@@ -70,7 +79,8 @@ export function applyManualDcfSuggestedCapexToBlankForecastRows({
 }): { yearlyFinancials: YearlyFinancials[]; changed: boolean } {
   let changed = false
   const nextYearlyFinancials = yearlyFinancials.map((row) => {
-    if (row.isForecast && (row.capex == null || row.capex === 0)) {
+    const capex = parseFlexibleNumber(row.capex)
+    if (row.isForecast && (capex == null || capex === 0)) {
       changed = true
       return { ...row, capex: suggestedCapex }
     }
@@ -166,18 +176,17 @@ export function switchManualDcfInputMode(
 ): ManualValuationFormData {
   if (mode === 'fcff_only') {
     const globals = {
-      daPct: formData.dcf_da_pct ?? DCF_DEFAULT_DA_PCT,
-      capexPct: formData.dcf_capex_pct ?? DCF_DEFAULT_CAPEX_PCT,
-      nwcPct: formData.dcf_nwc_pct ?? DCF_DEFAULT_NWC_PCT,
-      taxRatePct: formData.dcf_tax_rate_pct ?? DCF_DEFAULT_TAX_RATE_PCT,
+      daPct: numberOrDefault(formData.dcf_da_pct, DCF_DEFAULT_DA_PCT),
+      capexPct: numberOrDefault(formData.dcf_capex_pct, DCF_DEFAULT_CAPEX_PCT),
+      nwcPct: numberOrDefault(formData.dcf_nwc_pct, DCF_DEFAULT_NWC_PCT),
+      taxRatePct: numberOrDefault(formData.dcf_tax_rate_pct, DCF_DEFAULT_TAX_RATE_PCT),
     }
     const previousRevenueByYear = new Map<string, number>()
     let previousRevenue: number | undefined
     for (const row of [...formData.yearlyFinancials].sort(
       (a, b) => Number(a.year) - Number(b.year)
     )) {
-      const revenue =
-        typeof row.revenue === 'number' && Number.isFinite(row.revenue) ? row.revenue : undefined
+      const revenue = parseFlexibleNumber(row.revenue)
       if (row.isForecast) {
         if (previousRevenue != null) {
           previousRevenueByYear.set(String(row.year), previousRevenue)

@@ -2,11 +2,21 @@
 
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from 'react'
 import type { ManualValuationFormData } from '../../../types/valuation'
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import type { TerminalValueMethod } from '../sections/DcfGlobalAssumptions'
 
+function isTerminalValueMethod(value: unknown): value is TerminalValueMethod {
+  return value === 'perpetual_growth' || value === 'exit_multiple'
+}
+
 function getInitialTerminalValueMethod(formData: ManualValuationFormData): TerminalValueMethod {
-  if (formData.dcf_terminal_value_method) return formData.dcf_terminal_value_method
-  if (formData.dcf_exit_multiple != null && formData.dcf_terminal_growth_pct == null) {
+  if (isTerminalValueMethod(formData.dcf_terminal_value_method)) {
+    return formData.dcf_terminal_value_method
+  }
+
+  const exitMultiple = parseFlexibleNumber(formData.dcf_exit_multiple)
+  const terminalGrowthPct = parseFlexibleNumber(formData.dcf_terminal_growth_pct)
+  if (exitMultiple != null && terminalGrowthPct == null) {
     return 'exit_multiple'
   }
   return 'perpetual_growth'
@@ -27,8 +37,10 @@ export function useManualDcfTerminalValueMethod({
 
   const handleTerminalValueMethodChange = useCallback(
     (method: TerminalValueMethod) => {
-      setTerminalValueMethod(method)
-      setFormData((prev) => ({ ...prev, dcf_terminal_value_method: method }))
+      setTerminalValueMethod((prev) => (prev === method ? prev : method))
+      setFormData((prev) =>
+        prev.dcf_terminal_value_method === method ? prev : { ...prev, dcf_terminal_value_method: method }
+      )
     },
     [setFormData]
   )
@@ -37,11 +49,15 @@ export function useManualDcfTerminalValueMethod({
     if (formData.dcf_input_mode !== 'fcff_only') return
     if (terminalValueMethod !== 'exit_multiple') return
     setTerminalValueMethod('perpetual_growth')
-    setFormData((prev) => ({ ...prev, dcf_terminal_value_method: 'perpetual_growth' }))
+    setFormData((prev) =>
+      prev.dcf_terminal_value_method === 'perpetual_growth'
+        ? prev
+        : { ...prev, dcf_terminal_value_method: 'perpetual_growth' }
+    )
   }, [formData.dcf_input_mode, terminalValueMethod, setFormData])
 
   const markPerpetualGrowthWhenFcffOnly = useCallback(() => {
-    setTerminalValueMethod('perpetual_growth')
+    setTerminalValueMethod((prev) => (prev === 'perpetual_growth' ? prev : 'perpetual_growth'))
   }, [])
 
   return {

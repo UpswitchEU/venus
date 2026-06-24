@@ -98,4 +98,45 @@ describe('manual DCF default seeding', () => {
 
     expect(patch).toEqual({})
   })
+
+  it('normalizes restored numeric-string DCF defaults instead of overwriting them', () => {
+    const patch = buildManualDcfDefaultsPatch({
+      formData: makeForm({
+        dcf_wacc_pct: '9,5' as unknown as number,
+        dcf_terminal_growth_pct: '2,25' as unknown as number,
+        dcf_revenue_growth_pct: '4,5' as unknown as number,
+        dcf_ebitda_margin_pct: '18,5' as unknown as number,
+        dcf_capex_pct: '3,5' as unknown as number,
+        dcf_da_pct: '2,5' as unknown as number,
+        dcf_nwc_pct: '0,75' as unknown as number,
+        dcf_tax_rate_pct: '20,5' as unknown as number,
+      }),
+      hasForecastRows: true,
+      latestHistoricalRevenue: 1_000_000,
+      latestHistoricalEbitda: 200_000,
+      smartDefaults: {
+        revenueGrowthPct: 12,
+        ebitdaMarginPct: 24,
+        capexPct: 8,
+        daPct: 7,
+        nwcPct: 3,
+        taxRatePct: 25,
+        waccPct: 13,
+        terminalGrowthPct: 3,
+      },
+      integrationDerivedCapexPct: 6,
+      integrationDerivedDaPct: 5,
+    })
+
+    expect(patch).toEqual({
+      dcf_wacc_pct: 9.5,
+      dcf_terminal_growth_pct: 2.25,
+      dcf_revenue_growth_pct: 4.5,
+      dcf_ebitda_margin_pct: 18.5,
+      dcf_capex_pct: 3.5,
+      dcf_da_pct: 2.5,
+      dcf_nwc_pct: 0.75,
+      dcf_tax_rate_pct: 20.5,
+    })
+  })
 })

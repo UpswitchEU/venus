@@ -67,37 +67,44 @@ export function buildProjectionRowFromForecastRow(
     previousRevenue?: number
   }
 ): DcfProjectionPreviewRow {
-  if (typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)) {
-    const y = Number(row.year)
+  const parsedYear = Number.parseInt(String(row.year), 10)
+  const year = Number.isFinite(parsedYear) ? parsedYear : 0
+  const revenue = toFinite(row.revenue) ?? 0
+  const ebitda = toFinite(row.ebitda) ?? 0
+  const explicitFcff = toFinite(row.free_cash_flow)
+
+  if (explicitFcff != null) {
     return {
-      year: y,
-      revenue: row.revenue,
-      ebitda: row.ebitda,
+      year,
+      revenue,
+      ebitda,
       da: 0,
       ebit: 0,
       taxes: 0,
       nopat: 0,
       capex: 0,
       nwcChange: 0,
-      fcff: roundCurrency(row.free_cash_flow),
+      fcff: roundCurrency(explicitFcff),
     }
   }
-  const taxRate = globals.taxRatePct / 100
-  const revenue = row.revenue
-  const ebitda = row.ebitda
-  const da = row.depreciation ?? Math.round(revenue * (globals.daPct / 100))
-  const capex = row.capex ?? Math.round(revenue * (globals.capexPct / 100))
+  const taxRate = (toFinite(globals.taxRatePct) ?? DCF_DEFAULT_TAX_RATE_PCT) / 100
+  const daPct = toFinite(globals.daPct) ?? DCF_DEFAULT_DA_PCT
+  const capexPct = toFinite(globals.capexPct) ?? DCF_DEFAULT_CAPEX_PCT
+  const nwcPct = toFinite(globals.nwcPct) ?? DCF_DEFAULT_NWC_PCT
+  const previousRevenue = toFinite(globals.previousRevenue)
+  const da = toFinite(row.depreciation) ?? Math.round(revenue * (daPct / 100))
+  const capex = toFinite(row.capex) ?? Math.round(revenue * (capexPct / 100))
   const nwcChange =
-    row.nwc_change ??
-    (Number.isFinite(globals.previousRevenue)
-      ? Math.round((revenue - (globals.previousRevenue ?? revenue)) * (globals.nwcPct / 100))
+    toFinite(row.nwc_change) ??
+    (previousRevenue != null
+      ? Math.round((revenue - previousRevenue) * (nwcPct / 100))
       : 0)
   const ebit = ebitda - da
   const taxes = Math.round(Math.max(0, ebit) * taxRate)
   const nopat = ebit - taxes
   const fcff = Math.round(nopat + da - capex - nwcChange)
   return {
-    year: Number(row.year),
+    year,
     revenue,
     ebitda,
     da,
@@ -178,21 +185,27 @@ export function deriveDcfProjectionPreview(args: {
   const latest = historical[historical.length - 1]
   if (!latest) return []
 
-  const revenueGrowthPct = args.revenueGrowthPct ?? args.smartDefaults?.revenueGrowthPct
-  const ebitdaMarginPct = args.ebitdaMarginPct ?? args.smartDefaults?.ebitdaMarginPct
+  const revenueGrowthPct =
+    toFinite(args.revenueGrowthPct) ?? toFinite(args.smartDefaults?.revenueGrowthPct)
+  const ebitdaMarginPct =
+    toFinite(args.ebitdaMarginPct) ?? toFinite(args.smartDefaults?.ebitdaMarginPct)
 
   if (revenueGrowthPct == null || ebitdaMarginPct == null) return []
 
   const growthRate = revenueGrowthPct / 100
   const marginRate = ebitdaMarginPct / 100
-  const capexPct = args.capexPct ?? args.smartDefaults?.capexPct ?? DCF_DEFAULT_CAPEX_PCT
-  const daPct = args.daPct ?? args.smartDefaults?.daPct ?? DCF_DEFAULT_DA_PCT
-  const nwcPct = args.nwcPct ?? args.smartDefaults?.nwcPct ?? DCF_DEFAULT_NWC_PCT
+  const capexPct =
+    toFinite(args.capexPct) ?? toFinite(args.smartDefaults?.capexPct) ?? DCF_DEFAULT_CAPEX_PCT
+  const daPct = toFinite(args.daPct) ?? toFinite(args.smartDefaults?.daPct) ?? DCF_DEFAULT_DA_PCT
+  const nwcPct =
+    toFinite(args.nwcPct) ?? toFinite(args.smartDefaults?.nwcPct) ?? DCF_DEFAULT_NWC_PCT
   const taxRate =
-    (args.taxRatePct ?? args.smartDefaults?.taxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT) / 100
+    (toFinite(args.taxRatePct) ??
+      toFinite(args.smartDefaults?.taxRatePct) ??
+      DCF_DEFAULT_TAX_RATE_PCT) / 100
 
   const explicitForecastYears = (args.forecastYears ?? [])
-    .map((year) => Math.trunc(year))
+    .map((year) => Math.trunc(toFinite(year) ?? Number.NaN))
     .filter((year) => Number.isFinite(year) && year > latest.year)
     .sort((a, b) => a - b)
 

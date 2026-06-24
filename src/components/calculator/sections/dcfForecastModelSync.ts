@@ -2,6 +2,8 @@
  * Compares forecast row snapshots to decide whether a row still matches the last
  * model-driven projection (so globals can safely re-apply) vs user overrides.
  */
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
+
 export type DcfForecastModelSnapshot = {
   revenue: number
   ebitda: number
@@ -12,6 +14,10 @@ export type DcfForecastModelSnapshot = {
 
 const DEFAULT_TOL = 1
 
+function valueOrZero(value: unknown): number {
+  return parseFlexibleNumber(value) ?? 0
+}
+
 export function snapshotFromForecastRowLike(row: {
   revenue: number
   ebitda: number
@@ -20,11 +26,11 @@ export function snapshotFromForecastRowLike(row: {
   nwc_change?: number
 }): DcfForecastModelSnapshot {
   return {
-    revenue: row.revenue,
-    ebitda: row.ebitda,
-    capex: row.capex ?? 0,
-    depreciation: row.depreciation ?? 0,
-    nwc_change: row.nwc_change ?? 0,
+    revenue: valueOrZero(row.revenue),
+    ebitda: valueOrZero(row.ebitda),
+    capex: valueOrZero(row.capex),
+    depreciation: valueOrZero(row.depreciation),
+    nwc_change: valueOrZero(row.nwc_change),
   }
 }
 

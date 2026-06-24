@@ -9,6 +9,7 @@ import {
   DCF_DEFAULT_WACC_PCT,
 } from './dcfEngineDefaults'
 import type { DcfSmartDefaults } from './dcfSmartDefaults'
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 
 export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
 export type DcfDiscountingConvention = 'mid_year' | 'year_end'
@@ -87,13 +88,18 @@ export interface DcfGlobalAssumptionsSectionState {
   showDiscountTerminalBlock: boolean
 }
 
-function finite(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
+function toFinite(value: unknown): number | undefined {
+  return parseFlexibleNumber(value)
 }
 
-function pickFinite(...sources: Array<number | null | undefined>): number | undefined {
+function finite(value: unknown): boolean {
+  return toFinite(value) !== undefined
+}
+
+function pickFinite(...sources: Array<unknown>): number | undefined {
   for (const source of sources) {
-    if (finite(source)) return source
+    const parsed = toFinite(source)
+    if (parsed !== undefined) return parsed
   }
   return undefined
 }
@@ -104,12 +110,18 @@ function seedIfMissing(
   field: DcfGlobalAssumptionsSeedField,
   value: number | undefined
 ) {
-  if (finite(current) || value === undefined) return
+  const currentParsed = toFinite(current)
+  if (currentParsed !== undefined) {
+    if (current !== currentParsed) patch[field] = currentParsed
+    return
+  }
+  if (value === undefined) return
   patch[field] = value
 }
 
-function isPositiveFinite(value: unknown): value is number {
-  return finite(value) && value > 0
+function isPositiveFinite(value: unknown): boolean {
+  const parsed = toFinite(value)
+  return parsed !== undefined && parsed > 0
 }
 
 export function buildDcfGlobalAssumptionsSectionState({

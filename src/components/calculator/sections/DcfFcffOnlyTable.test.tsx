@@ -66,4 +66,27 @@ describe('DcfFcffOnlyTable', () => {
 
     expect(onTaxShieldChange).toHaveBeenCalledWith(0, 1125)
   })
+
+  it('renders restored localized FCFF and APV tax shield strings as numeric inputs', () => {
+    render(
+      <DcfFcffOnlyTable
+        forecastRows={[
+          {
+            year: '2025',
+            revenue: 0,
+            ebitda: 0,
+            free_cash_flow: '125.000' as unknown as number,
+          },
+        ]}
+        taxShieldProjections={['1.500' as unknown as number]}
+        onChange={vi.fn()}
+        onTaxShieldChange={vi.fn()}
+      />
+    )
+
+    expect(screen.getByLabelText('dcfFcffOnlyTable.inputAria:year=2025')).toHaveValue('125.000')
+    expect(screen.getByLabelText('dcfFcffOnlyTable.taxShieldInputAria:year=2025')).toHaveValue(
+      '1.500'
+    )
+  })
 })
