@@ -1,6 +1,7 @@
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
 import { mapFrontendCategoryToBackend } from '../store/useNormalizationStore'
 import type { EbitdaNormalization } from '../types/ebitdaNormalization'
+import { ValidationError } from '../types/errors'
 import {
   mapLegacyCustomAdjustment,
   mapLegacyNormalizationAdjustment,
@@ -48,6 +49,11 @@ export function buildValuationRequestNormalizations({
         statuses: Array.from(new Set(allItems.map((n) => n.status ?? 'undefined'))),
         note: 'Valuation will use unnormalized EBITDA. Confirm the user accepted these adjustments before submitting.',
       }
+    )
+    throw new ValidationError(
+      'Normalizations are present but none are accepted. Review, accept, or remove them before generating the valuation report.',
+      'normalizations',
+      allItems.map((n) => ({ id: n.id, status: n.status ?? 'undefined', year: n.year }))
     )
   }
 
@@ -117,6 +123,11 @@ export function buildValuationRequestNormalizations({
           'historical years to cover the targeted year before resubmitting.',
       }
     )
+    throw new ValidationError(
+      'Accepted normalizations target fiscal years that are missing from the financial data. Re-import the missing years or remove those normalizations before generating the report.',
+      'normalizations',
+      orphanItems
+    )
   }
 
   const legacyOrphanYears: Array<{ year: number; totalAdjustment: number }> = []
@@ -165,6 +176,11 @@ export function buildValuationRequestNormalizations({
           'current_year_data + historical_years_data and would have been ' +
           'silently lost downstream.',
       }
+    )
+    throw new ValidationError(
+      'Saved EBITDA normalizations target fiscal years that are missing from the financial data. Re-import the missing years or remove those normalizations before generating the report.',
+      'normalizations',
+      legacyOrphanYears
     )
   }
 

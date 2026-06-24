@@ -38,6 +38,39 @@ import { isYearRowForecast } from './yearData'
 
 type FormDataRecord = ValuationFormData & Record<string, unknown>
 
+const MAX_AUTO_ACCEPTED_EBITDA_MARGIN = 0.9
+
+function assertPlausibleImportedEbitdaMargin({
+  companyName,
+  fiscalYear,
+  revenue,
+  ebitda,
+}: {
+  companyName: string
+  fiscalYear: number
+  revenue: number
+  ebitda: number
+}): void {
+  if (revenue <= 0 || ebitda < 0) return
+  const margin = ebitda / revenue
+  if (margin < MAX_AUTO_ACCEPTED_EBITDA_MARGIN) return
+
+  generalLogger.warn('[buildValuationRequest] Blocking implausible EBITDA margin', {
+    business_name: companyName,
+    fiscal_year: fiscalYear,
+    revenue,
+    ebitda,
+    ebitda_margin: margin,
+    threshold: MAX_AUTO_ACCEPTED_EBITDA_MARGIN,
+    note: 'This usually means imported expense accounts were dropped or sign-mapped incorrectly. Re-import and review the source financials before generating a valuation report.',
+  })
+  throw new ValidationError(
+    'EBITDA is almost equal to revenue. Review the imported expenses before generating the valuation report.',
+    'current_year_data.ebitda',
+    { fiscalYear, revenue, ebitda, margin }
+  )
+}
+
 /**
  * Build ValuationRequest from formData or DataResponse[]
  *
@@ -170,6 +203,12 @@ export function buildValuationRequest(
     )
   }
   const ebitda = rawEbitda ?? 0
+  assertPlausibleImportedEbitdaMargin({
+    companyName,
+    fiscalYear: currentFiscalYear,
+    revenue,
+    ebitda,
+  })
 
   // Use provided items or read from store — avoids redundant getState() in recalculation paths.
   // Imported auto-suggestions get a second defensibility pass below once the reported

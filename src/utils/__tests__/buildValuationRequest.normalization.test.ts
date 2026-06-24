@@ -10,45 +10,44 @@ describe('buildValuationRequest normalization integrity guards', () => {
   })
 
   // ─── Normalization integrity guard ─────────────────────────────────────────
-  // Regression for the Metaalbewerking incident: visible normalizations in the
-  // store with status !== 'accepted' would silently drop from the request, the
-  // valuation would run on unnormalized EBITDA, and the seller would be
-  // undervalued by ~€1M. The guard logs a warning so QA/telemetry catches it.
-  it('logs an integrity warning when items are visible but none reach the request', async () => {
+  // Regression for the Metaalbewerking / Silverfin demo class of incidents:
+  // visible normalizations in the store with status !== 'accepted' would
+  // silently drop from the request, the valuation would run on unnormalized
+  // EBITDA, and the report would look successful but be wrong.
+  it('blocks report generation when items are visible but none reach the request', async () => {
     const loggerModule = await import('../logger')
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
 
     const lastFullYear = getCurrentFilingYear()
-    const result = buildValuationRequest(
-      makeFormData({
-        ebitda: 290_000,
-        current_year_data: {
-          year: lastFullYear,
-          revenue: 1_950_000,
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
           ebitda: 290_000,
-        },
-      }),
-      [
-        // Pending — would be displayed as a normalization but is NOT applied.
-        {
-          id: 'norm-pending-1',
-          title: 'Owner compensation',
-          rationale: 'Above-market owner salary',
-          category: 'salary',
-          type: 'add',
-          value: 280_000,
-          adjustment: 280_000,
-          year: lastFullYear,
-          status: 'pending',
-          source: 'manual',
-          confidence: 'high',
-          createdAt: new Date().toISOString(),
-        },
-      ]
-    )
-
-    expect(result.current_year_data.ebitda).toBe(290_000)
-    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+          current_year_data: {
+            year: lastFullYear,
+            revenue: 1_950_000,
+            ebitda: 290_000,
+          },
+        }),
+        [
+          // Pending — displayed to the advisor but not safe for the report.
+          {
+            id: 'norm-pending-1',
+            title: 'Owner compensation',
+            rationale: 'Above-market owner salary',
+            category: 'salary',
+            type: 'add',
+            value: 280_000,
+            adjustment: 280_000,
+            year: lastFullYear,
+            status: 'pending',
+            source: 'manual',
+            confidence: 'high',
+            createdAt: new Date().toISOString(),
+          },
+        ]
+      )
+    ).toThrow(/Normalizations are present but none are accepted/)
 
     const matched = warnSpy.mock.calls.find(
       ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
@@ -106,36 +105,35 @@ describe('buildValuationRequest normalization integrity guards', () => {
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
 
     const lastFullYear = getCurrentFilingYear()
-    const result = buildValuationRequest(
-      makeFormData({
-        ebitda: 260_000,
-        current_year_data: {
-          year: lastFullYear,
-          revenue: 1_800_000,
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
           ebitda: 260_000,
-        },
-      }),
-      [
-        {
-          id: `imported_sde_${lastFullYear}_610000_0`,
-          ledgerCode: '610000',
-          ledgerName: 'Services and other goods',
-          category: 'other',
-          type: 'add',
-          value: 206_000,
-          adjustment: 206_000,
-          year: lastFullYear,
-          applyAllYears: false,
-          applyYears: [lastFullYear],
-          status: 'accepted',
-          source: 'auto',
-          confidence: 'high',
-        },
-      ]
-    )
-
-    expect(result.current_year_data.ebitda).toBe(260_000)
-    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+          current_year_data: {
+            year: lastFullYear,
+            revenue: 1_800_000,
+            ebitda: 260_000,
+          },
+        }),
+        [
+          {
+            id: `imported_sde_${lastFullYear}_610000_0`,
+            ledgerCode: '610000',
+            ledgerName: 'Services and other goods',
+            category: 'other',
+            type: 'add',
+            value: 206_000,
+            adjustment: 206_000,
+            year: lastFullYear,
+            applyAllYears: false,
+            applyYears: [lastFullYear],
+            status: 'accepted',
+            source: 'auto',
+            confidence: 'high',
+          },
+        ]
+      )
+    ).toThrow(/Normalizations are present but none are accepted/)
 
     const matched = warnSpy.mock.calls.find(
       ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
@@ -269,12 +267,43 @@ describe('buildValuationRequest normalization integrity guards', () => {
     expect(result.historical_years_data.map((row) => row.year)).toEqual([2021, 2022, 2023])
   })
 
+  it('blocks report generation when imported EBITDA is almost equal to revenue', async () => {
+    const loggerModule = await import('../logger')
+    const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
+    const lastFullYear = getCurrentFilingYear()
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          revenue: 198_768.46,
+          ebitda: 197_979.35,
+          current_year_data: {
+            year: lastFullYear,
+            revenue: 198_768.46,
+            ebitda: 197_979.35,
+          },
+        }),
+        []
+      )
+    ).toThrow(/EBITDA is almost equal to revenue/)
+
+    const matched = warnSpy.mock.calls.find(
+      ([msg]) => typeof msg === 'string' && msg.includes('Blocking implausible EBITDA margin')
+    )
+    expect(matched).toBeDefined()
+    const ctx = matched?.[1] as Record<string, unknown> | undefined
+    expect(ctx?.fiscal_year).toBe(lastFullYear)
+    expect(ctx?.ebitda_margin).toBeGreaterThan(0.99)
+
+    warnSpy.mockRestore()
+  })
+
   // ─── Orphan-year normalization guard (legacy store path) ─────────────────
   // ValuationForm still writes to useEbitdaNormalizationStore. A legacy
-  // entry keyed by a year outside the canonical data set used to be
-  // allocated into normByYear[<missing year>] and silently lost when the
-  // current/historical builders ran. The guard now drops + logs them too.
-  it('logs and drops legacy-store normalizations keyed by an orphan year', async () => {
+  // entry keyed by a year outside the canonical data set used to be allocated
+  // into normByYear[<missing year>] and silently lost when the current/
+  // historical builders ran. The guard now logs and blocks generation.
+  it('blocks legacy-store normalizations keyed by an orphan year', async () => {
     const loggerModule = await import('../logger')
     const ebitdaStoreModule = await import('../../store/useEbitdaNormalizationStore')
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
@@ -304,21 +333,19 @@ describe('buildValuationRequest normalization integrity guards', () => {
     })
 
     const lastFullYear = getCurrentFilingYear()
-    const result = buildValuationRequest(
-      makeFormData({
-        ebitda: 290_000,
-        current_year_data: {
-          year: lastFullYear,
-          revenue: 1_950_000,
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
           ebitda: 290_000,
-        },
-      }),
-      []
-    )
-
-    // Current-year EBITDA must NOT have absorbed the orphan legacy addback.
-    expect(result.current_year_data.ebitda).toBe(290_000)
-    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+          current_year_data: {
+            year: lastFullYear,
+            revenue: 1_950_000,
+            ebitda: 290_000,
+          },
+        }),
+        []
+      )
+    ).toThrow(/Saved EBITDA normalizations target fiscal years/)
 
     const matched = warnSpy.mock.calls.find(
       ([msg]) =>
@@ -343,44 +370,42 @@ describe('buildValuationRequest normalization integrity guards', () => {
   // OR historical_years_data. Without this guard the addback would be allocated
   // into normByYear[<missing year>] but never read by either request builder
   // — €280K would simply vanish from the calculation.
-  it('logs and drops accepted normalizations whose target year is outside the data set', async () => {
+  it('blocks accepted normalizations whose target year is outside the data set', async () => {
     const loggerModule = await import('../logger')
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
 
     const lastFullYear = getCurrentFilingYear()
     const orphanYear = 1999 // intentionally outside the data set
-    const result = buildValuationRequest(
-      makeFormData({
-        ebitda: 290_000,
-        current_year_data: {
-          year: lastFullYear,
-          revenue: 1_950_000,
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
           ebitda: 290_000,
-        },
-      }),
-      [
-        {
-          id: 'norm-orphan',
-          title: 'Stale orphan addback',
-          rationale: 'Targets a year that no longer exists',
-          category: 'other',
-          type: 'add',
-          value: 280_000,
-          adjustment: 280_000,
-          year: orphanYear,
-          applyAllYears: false,
-          applyYears: [orphanYear],
-          status: 'accepted',
-          source: 'manual',
-          confidence: 'medium',
-          createdAt: new Date().toISOString(),
-        },
-      ]
-    )
-
-    // Current-year EBITDA must NOT have absorbed the orphan addback.
-    expect(result.current_year_data.ebitda).toBe(290_000)
-    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+          current_year_data: {
+            year: lastFullYear,
+            revenue: 1_950_000,
+            ebitda: 290_000,
+          },
+        }),
+        [
+          {
+            id: 'norm-orphan',
+            title: 'Stale orphan addback',
+            rationale: 'Targets a year that no longer exists',
+            category: 'other',
+            type: 'add',
+            value: 280_000,
+            adjustment: 280_000,
+            year: orphanYear,
+            applyAllYears: false,
+            applyYears: [orphanYear],
+            status: 'accepted',
+            source: 'manual',
+            confidence: 'medium',
+            createdAt: new Date().toISOString(),
+          },
+        ]
+      )
+    ).toThrow(/Accepted normalizations target fiscal years/)
 
     const matched = warnSpy.mock.calls.find(
       ([msg]) =>
