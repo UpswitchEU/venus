@@ -30,6 +30,25 @@ interface TitanJsonResult<T> {
   label: string
 }
 
+function isUpstreamAbortOrTimeout(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  if (error && typeof error === 'object' && 'name' in error) {
+    const name = (error as { name?: unknown }).name
+    if (name === 'AuthUpstreamTimeoutError') return true
+    if (name === 'AbortError' || name === 'TimeoutError') return true
+  }
+  return message.includes('timeout') || message.includes('aborted')
+}
+
+function upstreamFailureResult<T>(label: string, error: unknown): TitanJsonResult<T> {
+  return {
+    data: null,
+    ok: false,
+    status: isUpstreamAbortOrTimeout(error) ? 504 : 503,
+    label,
+  }
+}
+
 function jsonHeaders(cookieHeader: string): HeadersInit {
   const accessToken = getTitanAccessTokenFromCookieHeader(cookieHeader)
   return {
@@ -47,20 +66,29 @@ async function fetchTitanJson<T>(
   timeoutMs = 10_000
 ): Promise<TitanJsonResult<T>> {
   const titanApiUrl = getTitanApiUrl(request)
-  const { response, json } = await fetchJsonWithTimeout(
-    `${titanApiUrl}${path}`,
-    {
-      method: 'GET',
-      headers: jsonHeaders(cookieHeader),
-      credentials: 'include',
-    },
-    timeoutMs
-  )
-  return {
-    data: json as T | null,
-    ok: response.ok,
-    status: response.status,
-    label,
+  try {
+    const { response, json } = await fetchJsonWithTimeout(
+      `${titanApiUrl}${path}`,
+      {
+        method: 'GET',
+        headers: jsonHeaders(cookieHeader),
+        credentials: 'include',
+      },
+      timeoutMs
+    )
+    return {
+      data: json as T | null,
+      ok: response.ok,
+      status: response.status,
+      label,
+    }
+  } catch (error) {
+    console.warn('[Venus /api/buyer-ready/room/:entityId] Titan detail fetch failed', {
+      label,
+      status: isUpstreamAbortOrTimeout(error) ? 504 : 503,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return upstreamFailureResult<T>(label, error)
   }
 }
 

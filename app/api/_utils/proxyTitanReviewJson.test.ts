@@ -72,4 +72,27 @@ describe('proxyTitanReviewJsonRoute', () => {
       message: 'The valuation service is temporarily busy. Please try again in a moment.',
     })
   })
+
+  it('maps abort-shaped upstream failures to the shared transient failure envelope', async () => {
+    const abortError = new Error('signal is aborted without reason')
+    abortError.name = 'AbortError'
+    mocks.fetchJsonWithTimeout.mockRejectedValue(abortError)
+
+    const request = new NextRequest(
+      'https://preview.valuation.upswitch.app/api/valuations/r1/review'
+    )
+    const response = await proxyTitanReviewJsonRoute(
+      request,
+      'https://api-staging.upswitch.app/api/v2/valuations/r1/review',
+      { method: 'GET' },
+      { defaultErrorMessage: 'Failed to load review state' }
+    )
+    const json = await response.json()
+
+    expect(response.status).toBe(504)
+    expect(json).toEqual({
+      success: false,
+      message: 'The valuation service is temporarily busy. Please try again in a moment.',
+    })
+  })
 })

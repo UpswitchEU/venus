@@ -16,11 +16,13 @@ function extractUpstreamMessage(json: unknown, fallback: string): string {
 }
 
 function isUpstreamTimeout(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
   if (error && typeof error === 'object' && 'name' in error) {
     const name = (error as { name?: unknown }).name
     if (name === 'AuthUpstreamTimeoutError') return true
+    if (name === 'AbortError' || name === 'TimeoutError') return true
   }
-  return error instanceof Error && error.message.toLowerCase().includes('timeout')
+  return message.includes('timeout') || message.includes('aborted')
 }
 
 export async function proxyTitanReviewJsonRoute(

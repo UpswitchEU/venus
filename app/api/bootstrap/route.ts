@@ -121,10 +121,16 @@ function mergeCookies(originalCookieHeader: string, newCookies: string[]): strin
 }
 
 function isUpstreamTimeoutError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
   return (
     error instanceof AuthUpstreamTimeoutError ||
     (error instanceof DOMException && error.name === 'AbortError') ||
-    (error instanceof Error && error.name === 'AuthUpstreamTimeoutError')
+    (error instanceof Error &&
+      (error.name === 'AuthUpstreamTimeoutError' ||
+        error.name === 'AbortError' ||
+        error.name === 'TimeoutError')) ||
+    message.includes('timeout') ||
+    message.includes('aborted')
   )
 }
 

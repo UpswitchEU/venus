@@ -144,6 +144,18 @@ describe('POST /api/bootstrap', () => {
     expect(payload.error).toBe('Bootstrap request timed out')
   })
 
+  it('returns 504 when Titan bootstrap aborts without a timeout error class', async () => {
+    const abortError = new Error('signal is aborted without reason')
+    abortError.name = 'AbortError'
+    mocks.fetchWithTimeout.mockRejectedValueOnce(abortError)
+
+    const res = await POST(makeRequest({ reportId: 'rep-1' }))
+    const payload = await res.json()
+
+    expect(res.status).toBe(504)
+    expect(payload.error).toBe('Bootstrap request timed out')
+  })
+
   it('returns 504 when Titan response body exceeds the route budget', async () => {
     vi.useFakeTimers()
     mocks.fetchWithTimeout.mockResolvedValueOnce({
