@@ -57,7 +57,11 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   if (waccValues.length === 0 || secondaryValues.length === 0) {
     return null
   }
-  const evMatrix = normalizeMatrixRows(sensitivityData.ev_matrix, waccValues.length, secondaryValues.length)
+  const evMatrix = normalizeMatrixRows(
+    sensitivityData.ev_matrix,
+    waccValues.length,
+    secondaryValues.length
+  )
   if (evMatrix.length === 0) return null
 
   const secondaryAxisKey = sensitivityData.secondary_axis_key ?? 'terminal_growth'
@@ -132,9 +136,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
                         'bg-primary/10 text-primary'
                     )}
                   >
-                    {formatEurCompact(
-                      evMatrix[rowIndex]?.[columnIndex] ?? 0
-                    )}
+                    {formatEurCompact(evMatrix[rowIndex]?.[columnIndex] ?? 0)}
                   </TableCell>
                 ))}
               </TableRow>
