@@ -39,7 +39,9 @@ export function useManualDcfTerminalValueMethod({
     (method: TerminalValueMethod) => {
       setTerminalValueMethod((prev) => (prev === method ? prev : method))
       setFormData((prev) =>
-        prev.dcf_terminal_value_method === method ? prev : { ...prev, dcf_terminal_value_method: method }
+        prev.dcf_terminal_value_method === method
+          ? prev
+          : { ...prev, dcf_terminal_value_method: method }
       )
     },
     [setFormData]

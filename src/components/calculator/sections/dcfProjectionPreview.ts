@@ -96,9 +96,7 @@ export function buildProjectionRowFromForecastRow(
   const capex = toFinite(row.capex) ?? Math.round(revenue * (capexPct / 100))
   const nwcChange =
     toFinite(row.nwc_change) ??
-    (previousRevenue != null
-      ? Math.round((revenue - previousRevenue) * (nwcPct / 100))
-      : 0)
+    (previousRevenue != null ? Math.round((revenue - previousRevenue) * (nwcPct / 100)) : 0)
   const ebit = ebitda - da
   const taxes = Math.round(Math.max(0, ebit) * taxRate)
   const nopat = ebit - taxes

@@ -1,3 +1,4 @@
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
@@ -9,7 +10,6 @@ import {
   DCF_DEFAULT_WACC_PCT,
 } from './dcfEngineDefaults'
 import type { DcfSmartDefaults } from './dcfSmartDefaults'
-import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 
 export type TerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
 export type DcfDiscountingConvention = 'mid_year' | 'year_end'

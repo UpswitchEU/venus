@@ -10,12 +10,12 @@ import type { DcfProjectionPreviewRow } from '@/components/calculator/sections/d
 import type { ManualInputFieldValidation } from '@/components/calculator/utils/manualInputFieldValidation'
 import type { UpdateManualYearlyFinancials } from '@/components/calculator/utils/manualYearlyFinancialUpdates'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
-import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import {
   appendManualForecastYear,
   canAppendForecastYear,
   getNextForecastYear,
 } from '@/utils/forecastYears'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 
 export interface DcfForecastWorkspaceSectionStackProps {
   step: number
