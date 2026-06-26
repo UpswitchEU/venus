@@ -2,7 +2,7 @@
 
 import type { BusinessTypeOption as SharedBusinessTypeOption } from '@upswitch/business-type-selector'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { useMemo } from 'react'
@@ -14,12 +14,41 @@ import {
   type BusinessType as SearchBusinessType,
 } from '@/design-system'
 import { AuroraSelect } from '@/design-system/components/Select'
+import { Tooltip } from '@/design-system/components/Tooltip'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { TARGET_COUNTRIES } from '../../../config/countries'
 import type { BusinessType as ApiBusinessType } from '../../../services/businessTypesApi'
 import type { ManualValuationFormData } from '../../../types/valuation'
 import { BusinessTypeSelector } from '../../BusinessTypeSelector'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
+import { SegmentWeightingPanel } from './SegmentWeightingPanel'
+
+function MultipleSourceTooltipContent() {
+  return (
+    <div className="space-y-2 max-w-[260px]">
+      <p className="font-semibold text-background text-xs leading-snug">
+        Hoe wordt de multiple bepaald?
+      </p>
+      <p className="text-background/75 text-xs leading-relaxed">
+        Multiples komen uit de Upswitch benchmarkdatabase — opgebouwd uit echte KMO-transacties in
+        België en Nederland, gecorrigeerd voor sector en omvang.
+      </p>
+      <div className="border-t border-background/20 pt-2 text-background/60 text-[11px] leading-relaxed space-y-1">
+        <div>
+          <span className="font-medium text-background/80">Bron:</span> Delphi benchmarkindex
+        </div>
+        <div>
+          <span className="font-medium text-background/80">Marge:</span> p25 / mediaan / p75
+          bandbreedte per sector
+        </div>
+        <div>
+          <span className="font-medium text-background/80">Grondslag:</span> EV/EBITDA of EV/SDE
+          afhankelijk van bedrijfstype
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const businessStructures = [
   { value: 'bv', label: 'BV' },
@@ -227,31 +256,13 @@ export function CompanyIdentificationSection({
     selectedCompany?.naceCode,
     selectedSegments,
   ])
-  const updateSegmentEarnings = (index: number, earnings: string) => {
-    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
-      segmentIndex === index
-        ? {
-            ...segment,
-            earnings: earnings.trim() ? earnings : null,
-          }
-        : segment
-    )
-    updateField(
-      'business_type_segments',
-      nextSegments as ManualValuationFormData['business_type_segments']
-    )
-    updateFormData({ business_type_segments: nextSegments })
-  }
-
-  const updateSegmentWeight = (index: number, weight: string) => {
-    const nextSegments = selectedSegments.map((segment, segmentIndex) =>
-      segmentIndex === index
-        ? {
-            ...segment,
-            weight: weight.trim() ? weight : null,
-          }
-        : segment
-    )
+  // Write the full rebalanced weight array back onto the segments. The panel
+  // owns the rebalance (weights always total 100), so we just map index→value.
+  const updateSegmentWeights = (weights: number[]) => {
+    const nextSegments = selectedSegments.map((segment, segmentIndex) => ({
+      ...segment,
+      weight: weights[segmentIndex] ?? segment.weight ?? null,
+    }))
     updateField(
       'business_type_segments',
       nextSegments as ManualValuationFormData['business_type_segments']
@@ -437,101 +448,61 @@ export function CompanyIdentificationSection({
                   finiteNumber(segment.multiple) ?? finiteNumber(segment.applied_multiple)
                 if (benchmarkNumber === undefined && segment.multiple == null) return null
                 return (
-                  <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
-                    <AuroraNumberInput
-                      label={metricLabel}
-                      placeholder={
-                        benchmarkNumber !== undefined ? benchmarkNumber.toFixed(1) : 'Auto'
-                      }
-                      name="business_type_segments.0.multiple"
-                      value={segment.multiple ?? ''}
-                      onChange={(event) => updateSegmentMultiple(0, event.target.value)}
-                      min={0}
-                      step={0.1}
-                      suffix="x"
-                      allowDecimals
-                      disabled={isCalculating}
-                    />
-                    <p className="mt-2 text-[11px] text-foreground/45">
-                      {mi('appliedMultipleHint')}
-                    </p>
+                  <div className="rounded-2xl border border-foreground/[0.10] bg-foreground/[0.03] overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {basis && (
+                          <span className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-xs text-foreground/55">
+                            {basis}
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-foreground">{metricLabel}</span>
+                      </div>
+                      <Tooltip
+                        content={<MultipleSourceTooltipContent />}
+                        side="top"
+                        align="end"
+                        sideOffset={8}
+                        className="!py-3 !px-3 !rounded-xl"
+                      >
+                        <button
+                          type="button"
+                          className="flex items-center justify-center h-7 w-7 rounded-lg text-foreground/35 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-all duration-150"
+                          aria-label="Meer informatie over de multiple"
+                        >
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    </div>
+                    <div className="border-t border-foreground/[0.08] px-4 pb-4 pt-3">
+                      <AuroraNumberInput
+                        label={metricLabel}
+                        placeholder={
+                          benchmarkNumber !== undefined ? benchmarkNumber.toFixed(1) : 'Auto'
+                        }
+                        name="business_type_segments.0.multiple"
+                        value={segment.multiple ?? ''}
+                        onChange={(event) => updateSegmentMultiple(0, event.target.value)}
+                        min={0}
+                        step={0.1}
+                        suffix="x"
+                        allowDecimals
+                        disabled={isCalculating}
+                        size="sm"
+                      />
+                      <p className="mt-2 text-[11px] text-foreground/45">
+                        {mi('appliedMultipleHint')}
+                      </p>
+                    </div>
                   </div>
                 )
               })()}
             {selectedSegments.length > 1 && (
-              <div className="rounded-xl border border-foreground/[0.10] bg-foreground/[0.03] p-3">
-                <div className="mb-2 text-xs font-semibold text-foreground">Segment weighting</div>
-                <div className="space-y-3">
-                  {selectedSegments.map((segment, index) => {
-                    const basis = segment.basis ?? segment.earnings_basis
-                    const multiple =
-                      typeof segment.multiple === 'number' || typeof segment.multiple === 'string'
-                        ? segment.multiple
-                        : segment.applied_multiple
-                    const multipleNumber = Number(multiple)
-                    const weightValue =
-                      segment.weight != null
-                        ? segment.weight
-                        : Number((100 / selectedSegments.length).toFixed(2))
-
-                    return (
-                      <div
-                        key={`${segment.business_type_id}-${index}`}
-                        className="grid gap-3 border-t border-foreground/[0.08] pt-3 md:grid-cols-[minmax(0,1fr)_110px_110px_160px]"
-                      >
-                        <div className="min-w-0 self-center">
-                          <div className="truncate text-sm font-medium text-foreground">
-                            {segment.business_type_title ?? segment.business_type_id}
-                          </div>
-                          {basis && (
-                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-foreground/60">
-                              <span className="rounded-md bg-foreground/[0.06] px-2 py-1">
-                                {basis}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <AuroraNumberInput
-                          label="Multiple"
-                          placeholder={
-                            Number.isFinite(multipleNumber) ? multipleNumber.toFixed(1) : 'Auto'
-                          }
-                          name={`business_type_segments.${index}.multiple`}
-                          value={segment.multiple ?? ''}
-                          onChange={(event) => updateSegmentMultiple(index, event.target.value)}
-                          min={0}
-                          step={0.1}
-                          suffix="x"
-                          allowDecimals
-                        />
-                        <AuroraNumberInput
-                          label="Weight"
-                          placeholder="Auto"
-                          name={`business_type_segments.${index}.weight`}
-                          value={weightValue}
-                          onChange={(event) => updateSegmentWeight(index, event.target.value)}
-                          min={0}
-                          max={100}
-                          step={5}
-                          suffix="%"
-                          allowDecimals
-                        />
-                        <AuroraNumberInput
-                          label={basis ? `${basis} earnings` : 'Segment earnings'}
-                          placeholder="0"
-                          name={`business_type_segments.${index}.earnings`}
-                          value={segment.earnings ?? ''}
-                          onChange={(event) => updateSegmentEarnings(index, event.target.value)}
-                          min={0}
-                          step={1000}
-                          prefix="EUR"
-                          formatAsCurrency
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+              <SegmentWeightingPanel
+                segments={selectedSegments}
+                onWeightsChange={updateSegmentWeights}
+                disabled={isCalculating}
+              />
             )}
 
             <AuroraSelect

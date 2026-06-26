@@ -57,8 +57,6 @@ import {
   getLegalFormOptions,
   hasMaterialRecurringRevenue,
   resolveStageDefaultRaiseSeed,
-  updateSegmentEarningsValue,
-  updateSegmentWeightValue,
 } from '@/features/startup-studio/utils/companyCardStepModel'
 import { STARTUP_STUDIO_STAGES } from '@/features/startup-studio/utils/studioDeepLinkContract'
 import { useBusinessTypes } from '@/hooks/useBusinessTypes'
@@ -389,17 +387,14 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
     [applyBusinessTypeSelection]
   )
 
-  const updateSegmentEarnings = useCallback(
-    (index: number, earnings: string) => {
-      const nextSegments = updateSegmentEarningsValue(businessTypeSegments, index, earnings)
-      updateFormData({ business_type_segments: nextSegments })
-    },
-    [businessTypeSegments, updateFormData]
-  )
-
-  const updateSegmentWeight = useCallback(
-    (index: number, weight: string) => {
-      const nextSegments = updateSegmentWeightValue(businessTypeSegments, index, weight)
+  // The shared panel owns the slider rebalance and hands back the full weight
+  // array (always summing to 100); we just map index→value onto the segments.
+  const updateSegmentWeights = useCallback(
+    (weights: number[]) => {
+      const nextSegments = businessTypeSegments.map((segment, index) => ({
+        ...segment,
+        weight: weights[index] ?? segment.weight ?? null,
+      }))
       updateFormData({ business_type_segments: nextSegments })
     },
     [businessTypeSegments, updateFormData]
@@ -483,8 +478,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
 
         <BusinessTypeSegmentWeightingEditor
           segments={businessTypeSegments}
-          onEarningsChange={updateSegmentEarnings}
-          onWeightChange={updateSegmentWeight}
+          onWeightsChange={updateSegmentWeights}
         />
 
         <AuroraSelect
