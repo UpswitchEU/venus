@@ -446,6 +446,11 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
             onSelectionChange={handleBusinessTypeSelectionChange}
             selectionMode="multiple"
             showPreview={visibleBusinessTypeIds.length <= 1}
+            editableMultiples
+            segments={selectedSegments}
+            onSegmentsChange={(segments) =>
+              updateFormData({ business_type_segments: segments })
+            }
             className={businessTypesLoading ? 'pointer-events-none opacity-60' : ''}
           />
           {businessTypesError && (

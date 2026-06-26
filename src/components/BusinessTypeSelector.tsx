@@ -7,16 +7,20 @@
 
 import {
   BusinessTypeMultiSelect,
+  type BusinessTypeMultipleBand,
+  type BusinessTypeMultipleMetric,
+  type BusinessTypeMultipleSelection,
   type BusinessTypeMultiSelectCopy,
   type BusinessTypePrimaryMultiple,
   type BusinessTypeOption as SharedBusinessTypeOption,
 } from '@upswitch/business-type-selector'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { BusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypeFull } from '../hooks/useBusinessTypeFull'
 import { useBusinessTypes } from '../hooks/useBusinessTypes'
 import type { BusinessType } from '../services/businessTypesApi'
+import type { BusinessTypeSegmentInput } from '../types/valuation'
 
 interface BusinessTypeSelectorProps {
   label?: string
@@ -34,6 +38,16 @@ interface BusinessTypeSelectorProps {
    * still enforces the selection regardless of this flag.
    */
   showRequiredHint?: boolean
+  /**
+   * Enable the per-business-type multiples editor inside each selected chip
+   * (EV/EBITDA, EV/Revenue, P/E — viewable + overridable for this valuation).
+   * Requires `segments` + `onSegmentsChange` to persist overrides into the calc.
+   */
+  editableMultiples?: boolean
+  /** Current valuation segments (SSOT for the applied multiple/basis per type). */
+  segments?: BusinessTypeSegmentInput[]
+  /** Persist segment changes (applied multiple + basis) back to the form. */
+  onSegmentsChange?: (segments: BusinessTypeSegmentInput[]) => void
   className?: string
 }
 
@@ -80,6 +94,23 @@ function selectorCopy(
       : isDutch
         ? 'Multiple verborgen: lage steekproef'
         : 'Multiple hidden: low sample',
+    multiplesEditor: {
+      title: isFrench
+        ? 'Multiples pour cette evaluation'
+        : isDutch
+          ? 'Multiples voor deze waardering'
+          : 'Multiples for this valuation',
+      edit: isFrench
+        ? 'Modifier les multiples'
+        : isDutch
+          ? 'Multiples aanpassen'
+          : 'Edit multiples',
+      applied: isFrench ? 'Applique' : isDutch ? 'Toegepast' : 'Applied',
+      apply: isFrench ? 'Utiliser' : isDutch ? 'Gebruik' : 'Use',
+      benchmark: isFrench ? 'Reference' : isDutch ? 'Benchmark' : 'Benchmark',
+      overridden: isFrench ? 'Modifie' : isDutch ? 'Aangepast' : 'Edited',
+      reset: isFrench ? 'Reinitialiser' : isDutch ? 'Herstel' : 'Reset',
+    },
   }
 }
 
@@ -124,6 +155,67 @@ function primaryMultipleFromBusinessType(
   return null
 }
 
+/** EV/EBITDA + EV/Revenue map onto a segment earnings basis; P/E is a bare multiple. */
+const METRIC_TO_BASIS: Record<BusinessTypeMultipleMetric, BusinessTypeSegmentInput['basis'] | undefined> = {
+  ev_ebitda: 'EBITDA',
+  ev_revenue: 'Revenue',
+  pe: undefined,
+}
+
+function metricFromBasis(
+  basis: string | null | undefined
+): BusinessTypeMultipleMetric | null {
+  const token = String(basis ?? '').toLowerCase()
+  if (token.includes('revenue') || token.includes('omzet')) return 'ev_revenue'
+  if (token.includes('ebitda')) return 'ev_ebitda'
+  return null
+}
+
+function finiteOrUndefined(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+/** Build the editable bands (EV/EBITDA, EV/Revenue, P/E) from a business type. */
+function multiplesFromBusinessType(businessType: BusinessType): BusinessTypeMultipleBand[] {
+  const bands: BusinessTypeMultipleBand[] = []
+  const evEbitda = finiteOrUndefined(businessType.evEbitdaMedian)
+  if (evEbitda !== undefined && evEbitda > 0) {
+    bands.push({
+      metric: 'ev_ebitda',
+      label: 'EV/EBITDA',
+      median: evEbitda,
+      p25: finiteOrUndefined(businessType.evEbitdaP25),
+      p75: finiteOrUndefined(businessType.evEbitdaP75),
+    })
+  }
+  const evRevenue = finiteOrUndefined(businessType.evRevenueMedian)
+  if (evRevenue !== undefined && evRevenue > 0) {
+    bands.push({
+      metric: 'ev_revenue',
+      label: 'EV/Revenue',
+      median: evRevenue,
+      p25: finiteOrUndefined(businessType.evRevenueP25),
+      p75: finiteOrUndefined(businessType.evRevenueP75),
+    })
+  }
+  const peRatio = finiteOrUndefined(businessType.peRatioMedian)
+  if (peRatio !== undefined && peRatio > 0) {
+    bands.push({
+      metric: 'pe',
+      label: 'P/E',
+      median: peRatio,
+      p25: finiteOrUndefined(businessType.peRatioP25),
+      p75: finiteOrUndefined(businessType.peRatioP75),
+    })
+  }
+  return bands
+}
+
 function toSharedOption(businessType: BusinessType): SharedBusinessTypeOption {
   return {
     id: businessType.id,
@@ -135,6 +227,7 @@ function toSharedOption(businessType: BusinessType): SharedBusinessTypeOption {
     keywords: businessType.keywords,
     popular: businessType.popular,
     primaryMultiple: primaryMultipleFromBusinessType(businessType),
+    multiples: multiplesFromBusinessType(businessType),
   }
 }
 
@@ -174,6 +267,9 @@ export function BusinessTypeSelector({
   selectionMode = 'multiple',
   showPreview = true,
   showRequiredHint = true,
+  editableMultiples = false,
+  segments,
+  onSegmentsChange,
   className = '',
 }: BusinessTypeSelectorProps) {
   const t = useTranslations('common')
@@ -211,6 +307,105 @@ export function BusinessTypeSelector({
     }
     return byId
   }, [businessTypes, fallbackOptions])
+
+  // ─── Per-business-type multiples editor (controlled) ───
+  const selectedIds = useMemo(
+    () => (Array.isArray(value) ? value.filter(Boolean) : value ? [value] : []),
+    [value]
+  )
+  const optionById = useMemo(() => new Map(options.map((o) => [o.id, o])), [options])
+  const segmentById = useMemo(() => {
+    const byId = new Map<string, BusinessTypeSegmentInput>()
+    for (const segment of segments ?? []) {
+      if (segment.business_type_id) byId.set(segment.business_type_id, segment)
+    }
+    return byId
+  }, [segments])
+
+  // Read latest maps inside the seed effect without re-running it on every
+  // segment keystroke (the effect only cares about which ids are selected).
+  const segmentByIdRef = useRef(segmentById)
+  segmentByIdRef.current = segmentById
+  const optionByIdRef = useRef(optionById)
+  optionByIdRef.current = optionById
+
+  const [multipleSelections, setMultipleSelections] = useState<
+    Record<string, BusinessTypeMultipleSelection>
+  >({})
+
+  // Seed selections when the SET of selected ids changes (add/remove/prefill).
+  // Existing entries are preserved so user edits survive unrelated re-renders;
+  // unchanged id-sets short-circuit to avoid render loops.
+  const selectedIdsKey = selectedIds.join('|')
+  useEffect(() => {
+    setMultipleSelections((prev) => {
+      const ids = selectedIds
+      const prevKeys = Object.keys(prev)
+      const sameSet =
+        prevKeys.length === ids.length && prevKeys.every((id) => ids.includes(id))
+      if (sameSet) return prev
+
+      const next: Record<string, BusinessTypeMultipleSelection> = {}
+      for (const id of ids) {
+        if (prev[id]) {
+          next[id] = prev[id]
+          continue
+        }
+        const segment = segmentByIdRef.current.get(id)
+        const bands = optionByIdRef.current.get(id)?.multiples ?? []
+        const appliedMetric =
+          metricFromBasis(segment?.basis ?? segment?.earnings_basis) ??
+          bands[0]?.metric ??
+          null
+        const overrides: BusinessTypeMultipleSelection['overrides'] = {}
+        const segMultiple = finiteOrUndefined(segment?.multiple)
+        if (appliedMetric && segMultiple !== undefined) {
+          overrides[appliedMetric] = segMultiple
+        }
+        next[id] = { appliedMetric, overrides }
+      }
+      return next
+    })
+  }, [selectedIdsKey, selectedIds])
+
+  const handleMultipleSelectionChange = (
+    businessTypeId: string,
+    selection: BusinessTypeMultipleSelection
+  ) => {
+    setMultipleSelections((prev) => ({ ...prev, [businessTypeId]: selection }))
+
+    if (!onSegmentsChange) return
+    const metric = selection.appliedMetric
+    if (!metric) return
+    const band = optionById.get(businessTypeId)?.multiples?.find((b) => b.metric === metric)
+    const override = selection.overrides?.[metric]
+    const appliedMultiple = override != null ? override : band?.median
+    if (appliedMultiple == null || !Number.isFinite(appliedMultiple)) return
+    const basis = METRIC_TO_BASIS[metric]
+
+    const base = segments ?? []
+    let found = false
+    const updated: BusinessTypeSegmentInput[] = base.map((segment) => {
+      if (segment.business_type_id !== businessTypeId) return segment
+      found = true
+      return {
+        ...segment,
+        multiple: appliedMultiple,
+        ...(basis
+          ? { basis, earnings_basis: basis }
+          : { basis: undefined, earnings_basis: undefined }),
+      }
+    })
+    if (!found) {
+      updated.push({
+        business_type_id: businessTypeId,
+        business_type_title: optionById.get(businessTypeId)?.title,
+        multiple: appliedMultiple,
+        ...(basis ? { basis, earnings_basis: basis } : {}),
+      })
+    }
+    onSegmentsChange(updated)
+  }
 
   const keyMetricLabels = Array.from(
     new Set(
@@ -277,6 +472,11 @@ export function BusinessTypeSelector({
         error={loadingError}
         required={showRequiredHint}
         showCategories={false}
+        editableMultiples={editableMultiples}
+        multipleSelections={editableMultiples ? multipleSelections : undefined}
+        onMultipleSelectionChange={
+          editableMultiples ? handleMultipleSelectionChange : undefined
+        }
       />
 
       {showPreview && selectedId && (
