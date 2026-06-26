@@ -191,7 +191,11 @@ export function SegmentWeightingPanel({
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate text-sm font-medium text-foreground">{row.title}</span>
               {row.multiple != null && (
-                <Tooltip content="Benchmark multiple from the Delphi SME index" side="top" sideOffset={6}>
+                <Tooltip
+                  content="Benchmark multiple from the Delphi SME index"
+                  side="top"
+                  sideOffset={6}
+                >
                   <span className="shrink-0 cursor-help select-none rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs tabular-nums text-primary">
                     {row.multipleLabel ? `${row.multipleLabel} ` : ''}
                     {row.multiple.toFixed(1)}×
@@ -270,7 +274,9 @@ export function SegmentWeightingPanel({
               Weights must total 100% (currently {total}%)
             </span>
           ) : (
-            <span className="text-[11px] text-foreground/45">Weighted across {rows.length} segments</span>
+            <span className="text-[11px] text-foreground/45">
+              Weighted across {rows.length} segments
+            </span>
           )}
           {blended != null && (
             <span className="flex items-center gap-1.5 text-xs text-foreground/55">

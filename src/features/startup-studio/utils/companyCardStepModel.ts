@@ -230,33 +230,3 @@ export function buildCompanyCardRegistrySelectionPlan({
     descriptionSeed,
   }
 }
-
-export function updateSegmentEarningsValue(
-  segments: BusinessTypeSegmentInput[],
-  index: number,
-  earnings: string
-): BusinessTypeSegmentInput[] {
-  return segments.map((segment, segmentIndex) =>
-    segmentIndex === index
-      ? {
-          ...segment,
-          earnings: earnings.trim() ? earnings : null,
-        }
-      : segment
-  )
-}
-
-export function updateSegmentWeightValue(
-  segments: BusinessTypeSegmentInput[],
-  index: number,
-  weight: string
-): BusinessTypeSegmentInput[] {
-  return segments.map((segment, segmentIndex) =>
-    segmentIndex === index
-      ? {
-          ...segment,
-          weight: weight.trim() ? weight : null,
-        }
-      : segment
-  )
-}

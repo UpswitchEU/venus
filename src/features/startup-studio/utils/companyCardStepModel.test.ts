@@ -11,8 +11,6 @@ import {
   getLegalFormOptions,
   hasMaterialRecurringRevenue,
   resolveStageDefaultRaiseSeed,
-  updateSegmentEarningsValue,
-  updateSegmentWeightValue,
 } from './companyCardStepModel'
 
 const accountingBusinessType: ApiBusinessType = {
@@ -240,28 +238,5 @@ describe('buildCompanyCardRegistrySelectionPlan', () => {
       country_code: 'FR',
       nace_code: '70220',
     })
-  })
-})
-
-describe('segment patch helpers', () => {
-  const segments = [
-    { business_type_id: 'a', earnings: '100', weight: 60 },
-    { business_type_id: 'b', earnings: '200', weight: 40 },
-  ]
-
-  it('updates only the targeted segment earnings and preserves immutability', () => {
-    const result = updateSegmentEarningsValue(segments, 1, '')
-
-    expect(result).not.toBe(segments)
-    expect(result[0]).toBe(segments[0])
-    expect(result[1]).toMatchObject({ earnings: null })
-  })
-
-  it('updates only the targeted segment weight and stores blanks as null', () => {
-    const result = updateSegmentWeightValue(segments, 0, '55')
-    const cleared = updateSegmentWeightValue(segments, 1, ' ')
-
-    expect(result[0]).toMatchObject({ weight: '55' })
-    expect(cleared[1]).toMatchObject({ weight: null })
   })
 })

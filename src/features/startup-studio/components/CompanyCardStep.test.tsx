@@ -263,7 +263,10 @@ describe('CompanyCardStep — identity bridge', () => {
         },
       ],
     })
-    expect(screen.getAllByText('Weight')).toHaveLength(2)
+    // Each segment now exposes a weight slider (the per-segment earnings
+    // input was removed in favour of the weighted-blend model).
+    expect(screen.getAllByRole('slider')).toHaveLength(2)
+    expect(screen.getByText('EV/EBITDA 5.4×')).toBeInTheDocument()
   })
 
   it('bridges selected registry legal forms into business_structure for downstream payloads', () => {

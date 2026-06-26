@@ -152,7 +152,11 @@ describe('CompanyIdentificationSection business type fallbacks', () => {
     expect(screen.getByTestId('fallback-tax-advisory')).toHaveTextContent(
       'Fiscaal advies EV/EBITDA 6.1x'
     )
-    expect(screen.getAllByText('Weight')).toHaveLength(2)
+    // The segment-weighting panel renders one weight slider per segment and a
+    // read-only, basis-labelled multiple chip (earnings input was removed).
+    expect(screen.getAllByRole('slider')).toHaveLength(2)
+    expect(screen.getByText('EV/EBITDA 5.4×')).toBeInTheDocument()
+    expect(screen.getByText('EV/EBITDA 6.1×')).toBeInTheDocument()
   })
 
   it('passes KBO candidate multiples to the selector before segment earnings exist', () => {

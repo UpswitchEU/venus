@@ -1,6 +1,6 @@
 import { AuroraFullWidthField } from '../../../design-system/components'
-import { SegmentWeightingPanel } from '../../calculator/sections/SegmentWeightingPanel'
 import type { BusinessTypeSegmentInput } from '../../../types/valuation'
+import { SegmentWeightingPanel } from '../../calculator/sections/SegmentWeightingPanel'
 
 interface BasicInformationSegmentWeightingPanelProps {
   segments: BusinessTypeSegmentInput[]
