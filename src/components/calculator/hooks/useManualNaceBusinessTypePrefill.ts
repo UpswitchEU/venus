@@ -30,6 +30,10 @@ export interface UseManualNaceBusinessTypePrefillResult {
     naceCode?: string
   ) => Promise<void>
   retryNacePrefill: () => void
+  /** Call when the user explicitly removes their business type selection so the
+   *  background NACE prefill does not immediately re-seed it. Resets when a new
+   *  company is selected or the user explicitly retries the NACE lookup. */
+  suppressNacePrefill: () => void
 }
 
 /**
@@ -54,6 +58,9 @@ export function useManualNaceBusinessTypePrefill({
   const companySelectAbortRef = useRef<AbortController | null>(null)
   const [nacePrefillError, setNacePrefillError] = useState<string | null>(null)
   const [retryTrigger, setRetryTrigger] = useState(0)
+  // Set to true when the user explicitly removes their selection so the background
+  // NACE prefill does not immediately re-seed it. Reset on new company / retry.
+  const userClearedRef = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -72,6 +79,12 @@ export function useManualNaceBusinessTypePrefill({
       selectedCompany?.naceCode?.trim()
     if (!naceCode || formData.businessType?.trim()) {
       setNacePrefillError(null)
+      return
+    }
+
+    // User explicitly removed their selection — don't re-seed until they pick a
+    // new company or explicitly retry the NACE lookup.
+    if (userClearedRef.current) {
       return
     }
 
@@ -148,6 +161,7 @@ export function useManualNaceBusinessTypePrefill({
 
   const prefillBusinessTypeForCompany = useCallback(
     async (company: KBOCompany, baseUpdates: Partial<ValuationFormData>, naceCode?: string) => {
+      userClearedRef.current = false
       backgroundAbortRef.current?.abort()
       companySelectAbortRef.current?.abort()
       const controller = new AbortController()
@@ -211,13 +225,21 @@ export function useManualNaceBusinessTypePrefill({
   )
 
   const clearNacePrefillError = useCallback(() => setNacePrefillError(null), [])
-  const retryNacePrefill = useCallback(() => setRetryTrigger((prev) => prev + 1), [])
+  const retryNacePrefill = useCallback(() => {
+    userClearedRef.current = false
+    setRetryTrigger((prev) => prev + 1)
+  }, [])
+  const suppressNacePrefill = useCallback(() => {
+    userClearedRef.current = true
+    backgroundAbortRef.current?.abort()
+  }, [])
 
   return {
     clearNacePrefillError,
     nacePrefillError,
     prefillBusinessTypeForCompany,
     retryNacePrefill,
+    suppressNacePrefill,
   }
 }
 

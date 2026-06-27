@@ -123,6 +123,7 @@ export function useManualCompanyIdentificationController({
     nacePrefillError,
     prefillBusinessTypeForCompany,
     retryNacePrefill,
+    suppressNacePrefill,
   } = useManualNaceBusinessTypePrefill({
     businessTypesForSearch,
     formData,
@@ -141,6 +142,7 @@ export function useManualCompanyIdentificationController({
       clearNacePrefillError()
 
       if (!primaryBusinessType) {
+        suppressNacePrefill()
         setSelectedBusinessType(null)
         setFormData((prev) => ({
           ...prev,
@@ -191,7 +193,7 @@ export function useManualCompanyIdentificationController({
         ...segmentPatch,
       })
     },
-    [clearNacePrefillError, formData.business_type_segments, setFormData, updateFormData]
+    [clearNacePrefillError, formData.business_type_segments, setFormData, suppressNacePrefill, updateFormData]
   )
 
   const handleCompanySelect = useCallback(

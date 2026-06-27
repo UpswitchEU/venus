@@ -501,6 +501,8 @@ export function CompanyIdentificationSection({
               <SegmentWeightingPanel
                 segments={selectedSegments}
                 onWeightsChange={updateSegmentWeights}
+                allowMultipleOverride={allowMultipleOverride}
+                onMultipleChange={allowMultipleOverride ? updateSegmentMultiple : undefined}
                 disabled={isCalculating}
               />
             )}

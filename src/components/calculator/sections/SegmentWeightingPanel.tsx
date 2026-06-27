@@ -38,6 +38,10 @@ export interface SegmentWeightingPanelProps {
   segments: BusinessTypeSegmentInput[]
   /** Receives the full, rebalanced weight array (always sums to 100). */
   onWeightsChange: (weights: number[]) => void
+  /** When true, each segment shows an editable multiple input (override benchmark). */
+  allowMultipleOverride?: boolean
+  /** Called when the user edits a segment's multiple. Empty string clears the override. */
+  onMultipleChange?: (index: number, multiple: string) => void
   title?: string
   disabled?: boolean
   className?: string
@@ -119,10 +123,13 @@ function WeightSlider({
 export function SegmentWeightingPanel({
   segments,
   onWeightsChange,
-  title = 'Segment weighting',
+  allowMultipleOverride,
+  onMultipleChange,
+  title,
   disabled,
   className,
 }: SegmentWeightingPanelProps) {
+  const displayTitle = title ?? (allowMultipleOverride ? 'Weights & multiples' : 'Segment weighting')
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const cancelBlurRef = useRef(false)
@@ -165,7 +172,7 @@ export function SegmentWeightingPanel({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="text-sm font-semibold text-foreground">{title}</span>
+        <span className="text-sm font-semibold text-foreground">{displayTitle}</span>
         <Tooltip
           content={<MultipleSourceTooltip />}
           side="top"
@@ -186,21 +193,56 @@ export function SegmentWeightingPanel({
       {/* Segment rows */}
       {rows.map((row, index) => (
         <div key={row.key} className="space-y-2 border-t border-foreground/[0.08] px-4 py-4">
-          {/* Identity + multiple chip + weight readout */}
+          {/* Identity + multiple (chip or editable) + weight readout */}
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <span className="truncate text-sm font-medium text-foreground">{row.title}</span>
-              {row.multiple != null && (
-                <Tooltip
-                  content="Benchmark multiple from the Delphi SME index"
-                  side="top"
-                  sideOffset={6}
-                >
-                  <span className="shrink-0 cursor-help select-none rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs tabular-nums text-primary">
-                    {row.multipleLabel ? `${row.multipleLabel} ` : ''}
-                    {row.multiple.toFixed(1)}×
-                  </span>
-                </Tooltip>
+              {allowMultipleOverride && (row.multiple != null || row.benchmarkMultiple != null) ? (
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {row.multipleLabel && (
+                    <span className="text-[11px] text-foreground/40">{row.multipleLabel}</span>
+                  )}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder={(row.benchmarkMultiple ?? row.multiple)?.toFixed(1)}
+                      value={row.overrideMultiple != null ? String(row.overrideMultiple) : ''}
+                      onChange={(e) =>
+                        onMultipleChange?.(index, e.target.value.replace(/[^0-9.]/g, ''))
+                      }
+                      disabled={disabled}
+                      aria-label={`${row.title} multiple`}
+                      className={cn(
+                        'w-14 rounded-lg border border-foreground/[0.10] bg-foreground/[0.04]',
+                        'py-1 pl-2 pr-5 text-right text-xs font-mono tabular-nums text-foreground/80',
+                        'outline-none transition-colors',
+                        'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
+                        'placeholder:text-foreground/30',
+                        disabled && 'cursor-not-allowed opacity-50'
+                      )}
+                    />
+                    <span
+                      className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-foreground/45"
+                      aria-hidden
+                    >
+                      ×
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                row.multiple != null && (
+                  <Tooltip
+                    content="Benchmark multiple from the Delphi SME index"
+                    side="top"
+                    sideOffset={6}
+                  >
+                    <span className="shrink-0 cursor-help select-none rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs tabular-nums text-primary">
+                      {row.multipleLabel ? `${row.multipleLabel} ` : ''}
+                      {row.multiple.toFixed(1)}×
+                    </span>
+                  </Tooltip>
+                )
               )}
             </div>
             <div className="relative shrink-0">

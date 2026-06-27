@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   prefillBusinessTypeForCompany: vi.fn(),
   refetchBusinessTypes: vi.fn(),
   retryNacePrefill: vi.fn(),
+  suppressNacePrefill: vi.fn(),
   taxType: {
     id: 'tax-advisory',
     title: 'Tax advisory',
@@ -67,6 +68,7 @@ vi.mock('./useManualNaceBusinessTypePrefill', () => ({
     nacePrefillError: null,
     prefillBusinessTypeForCompany: mocks.prefillBusinessTypeForCompany,
     retryNacePrefill: mocks.retryNacePrefill,
+    suppressNacePrefill: mocks.suppressNacePrefill,
   }),
 }))
 
@@ -175,6 +177,35 @@ describe('useManualCompanyIdentificationController', () => {
             weight: 100,
           }),
         ],
+      })
+    )
+  })
+
+  it('clears state and suppresses NACE re-seed when the last business type is removed', () => {
+    mocks.suppressNacePrefill.mockClear()
+    const { result, updateFormData } = renderController({
+      ...baseFormData,
+      businessType: 'accounting',
+      business_type_id: 'accounting',
+      business_type_segments: [
+        { business_type_id: 'accounting', business_type_title: 'Accounting practice', weight: 100 },
+      ],
+    } as ManualValuationFormData)
+
+    // User clicks × on the only chip → empty selection.
+    act(() => {
+      result.current.handleBusinessTypeSelectionChange([], [])
+    })
+
+    // The background NACE prefill must be suppressed so it doesn't re-seed the
+    // type from the still-selected company's NACE code (the "can't remove the
+    // last type" bug).
+    expect(mocks.suppressNacePrefill).toHaveBeenCalled()
+    expect(updateFormData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business_type_id: undefined,
+        business_type_title: undefined,
+        business_type_segments: [],
       })
     )
   })

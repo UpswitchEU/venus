@@ -10,7 +10,6 @@ import {
 import { AcademicValidationNotice } from '../../../components/calculator/sections/AcademicValidationNotice'
 import { ErrorState } from '../../../components/ErrorState'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
-import { ReportSkeleton } from '../../../components/skeletons/ReportSkeleton'
 import { springDefault } from '../../../design-system/components/motion'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
@@ -129,19 +128,46 @@ function ReportRenderErrorPanel({
   )
 }
 
-function GeneratingPreview({
+function GeneratingLoader({
   translateReport,
 }: {
   translateReport: ManualReportWorkspaceTranslator
 }) {
   return (
-    <div className="h-full flex flex-col bg-background">
-      <div className="flex items-center justify-center gap-2 py-4">
-        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        <span className="text-sm text-foreground/70">{translateReport('generating.title')}</span>
+    <motion.div
+      className="h-full flex flex-col items-center justify-center gap-5 bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="relative w-14 h-14">
+        <div className="absolute inset-0 rounded-full border-[3px] border-foreground/8" />
+        <div className="absolute inset-0 rounded-full border-[3px] border-primary border-t-transparent animate-spin" />
       </div>
-      <ReportSkeleton />
-    </div>
+      <div className="text-center space-y-1.5">
+        <p className="text-sm font-medium text-foreground/70">{translateReport('generating.title')}</p>
+        <p className="text-xs text-foreground/35 max-w-[220px] leading-relaxed">
+          {translateReport('generating.description')}
+        </p>
+      </div>
+    </motion.div>
+  )
+}
+
+function ClearingLoader({ translate }: { translate: ManualReportWorkspaceTranslator }) {
+  return (
+    <motion.div
+      className="h-full flex flex-col items-center justify-center gap-4 bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="relative w-10 h-10">
+        <div className="absolute inset-0 rounded-full border-2 border-foreground/8" />
+        <div className="absolute inset-0 rounded-full border-2 border-foreground/30 border-t-transparent animate-spin" />
+      </div>
+      <p className="text-sm text-foreground/40">{translate('updatingReport')}</p>
+    </motion.div>
   )
 }
 
@@ -161,6 +187,7 @@ export function ManualReportWorkspace({
 }: ManualReportWorkspaceProps) {
   const reportPanelRef = useRef<HTMLDivElement>(null)
   const renderError = useSessionStore((state) => state.renderError)
+  const isClearing = isDeletingCurrentReport
   const isBusy = isGenerating || isCalculating || isRecoveringReportHtml || isDeletingCurrentReport
   const showPayloadTooLarge = renderError === 'payload_too_large' && !report?.htmlReport && !isBusy
   const showHtmlRecoveryFailed =
@@ -179,22 +206,59 @@ export function ManualReportWorkspace({
               transition={springDefault}
               className="valuation-report-container h-full overflow-y-auto bg-background"
             >
-              {report?.htmlReport ? (
-                <HtmlReportSurface
-                  isMethodSwitchRendering={isMethodSwitchRendering}
-                  liveMultipleReportPreview={liveMultipleReportPreview}
-                  report={report}
-                  translate={translate}
-                />
-              ) : isBusy ? (
-                <GeneratingPreview translateReport={translateReport} />
-              ) : showPayloadTooLarge ? (
-                <ReportRenderErrorPanel variant="payload_too_large" />
-              ) : showHtmlRecoveryFailed ? (
-                <ReportRenderErrorPanel variant="html_recovery_failed" />
-              ) : (
-                <ReportPlaceholder />
-              )}
+              <AnimatePresence mode="wait">
+                {report?.htmlReport ? (
+                  <motion.div
+                    key="html"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={springDefault}
+                  >
+                    <HtmlReportSurface
+                      isMethodSwitchRendering={isMethodSwitchRendering}
+                      liveMultipleReportPreview={liveMultipleReportPreview}
+                      report={report}
+                      translate={translate}
+                    />
+                  </motion.div>
+                ) : isClearing ? (
+                  <ClearingLoader key="clearing" translate={translate} />
+                ) : isBusy ? (
+                  <GeneratingLoader key="generating" translateReport={translateReport} />
+                ) : showPayloadTooLarge ? (
+                  <motion.div
+                    key="error-large"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={springDefault}
+                  >
+                    <ReportRenderErrorPanel variant="payload_too_large" />
+                  </motion.div>
+                ) : showHtmlRecoveryFailed ? (
+                  <motion.div
+                    key="error-recovery"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={springDefault}
+                  >
+                    <ReportRenderErrorPanel variant="html_recovery_failed" />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="placeholder"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={springDefault}
+                    className="h-full"
+                  >
+                    <ReportPlaceholder />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : rightPanelView === 'history' ? (
             <motion.div
@@ -229,6 +293,17 @@ export function ManualReportWorkspace({
                 translate={translate}
               />
             </motion.div>
+          ) : isClearing ? (
+            <motion.div
+              key="clearing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springDefault}
+              className="h-full bg-background"
+            >
+              <ClearingLoader translate={translate} />
+            </motion.div>
           ) : isBusy ? (
             <motion.div
               key="report"
@@ -238,7 +313,7 @@ export function ManualReportWorkspace({
               transition={springDefault}
               className="h-full bg-background"
             >
-              <ReportSkeleton />
+              <GeneratingLoader translateReport={translateReport} />
             </motion.div>
           ) : showPayloadTooLarge ? (
             <motion.div

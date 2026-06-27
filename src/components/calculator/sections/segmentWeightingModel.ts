@@ -24,8 +24,12 @@ export interface SegmentWeightRow {
   basis?: string
   /** Display label for the multiple, e.g. "EV/EBITDA". Undefined when unknown. */
   multipleLabel?: string
-  /** Numeric benchmark multiple, undefined when not finite. */
+  /** Effective multiple used for blended calculation (override if set, else benchmark). */
   multiple?: number
+  /** Benchmark multiple from the engine (applied_multiple). Used as placeholder for override input. */
+  benchmarkMultiple?: number
+  /** Raw user override value — null when not set (reverts to benchmark). */
+  overrideMultiple?: number | string | null
   /** Weight as an integer percentage 0–100. */
   weight: number
 }
@@ -84,7 +88,9 @@ export function resolveSegmentWeightRows(
 
   return segments.map((segment, index) => {
     const basis = segment.basis ?? segment.earnings_basis
-    const multiple = finiteNumber(segment.multiple) ?? finiteNumber(segment.applied_multiple)
+    const benchmarkMultiple = finiteNumber(segment.applied_multiple)
+    const overrideMultiple = segment.multiple ?? null
+    const multiple = finiteNumber(segment.multiple) ?? benchmarkMultiple
     const storedWeight = stored[index]
     return {
       key: `${segment.business_type_id}-${index}`,
@@ -92,6 +98,8 @@ export function resolveSegmentWeightRows(
       basis: basis ?? undefined,
       multipleLabel: multipleLabelForBasis(basis),
       multiple,
+      benchmarkMultiple,
+      overrideMultiple,
       weight: anyStored ? Math.round(storedWeight ?? 0) : (fallback[index] ?? 0),
     }
   })
