@@ -129,7 +129,8 @@ export function SegmentWeightingPanel({
   disabled,
   className,
 }: SegmentWeightingPanelProps) {
-  const displayTitle = title ?? (allowMultipleOverride ? 'Weights & multiples' : 'Segment weighting')
+  const displayTitle =
+    title ?? (allowMultipleOverride ? 'Weights & multiples' : 'Segment weighting')
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
   const cancelBlurRef = useRef(false)

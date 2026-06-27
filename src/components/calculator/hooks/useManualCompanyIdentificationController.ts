@@ -193,7 +193,13 @@ export function useManualCompanyIdentificationController({
         ...segmentPatch,
       })
     },
-    [clearNacePrefillError, formData.business_type_segments, setFormData, suppressNacePrefill, updateFormData]
+    [
+      clearNacePrefillError,
+      formData.business_type_segments,
+      setFormData,
+      suppressNacePrefill,
+      updateFormData,
+    ]
   )
 
   const handleCompanySelect = useCallback(

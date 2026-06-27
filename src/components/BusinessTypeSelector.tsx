@@ -6,10 +6,10 @@
  */
 
 import {
-  BusinessTypeMultiSelect,
   type BusinessTypeMultipleBand,
   type BusinessTypeMultipleMetric,
   type BusinessTypeMultipleSelection,
+  BusinessTypeMultiSelect,
   type BusinessTypeMultiSelectCopy,
   type BusinessTypePrimaryMultiple,
   type BusinessTypeOption as SharedBusinessTypeOption,
@@ -156,15 +156,16 @@ function primaryMultipleFromBusinessType(
 }
 
 /** EV/EBITDA + EV/Revenue map onto a segment earnings basis; P/E is a bare multiple. */
-const METRIC_TO_BASIS: Record<BusinessTypeMultipleMetric, BusinessTypeSegmentInput['basis'] | undefined> = {
+const METRIC_TO_BASIS: Record<
+  BusinessTypeMultipleMetric,
+  BusinessTypeSegmentInput['basis'] | undefined
+> = {
   ev_ebitda: 'EBITDA',
   ev_revenue: 'Revenue',
   pe: undefined,
 }
 
-function metricFromBasis(
-  basis: string | null | undefined
-): BusinessTypeMultipleMetric | null {
+function metricFromBasis(basis: string | null | undefined): BusinessTypeMultipleMetric | null {
   const token = String(basis ?? '').toLowerCase()
   if (token.includes('revenue') || token.includes('omzet')) return 'ev_revenue'
   if (token.includes('ebitda')) return 'ev_ebitda'
@@ -341,8 +342,7 @@ export function BusinessTypeSelector({
     setMultipleSelections((prev) => {
       const ids = selectedIds
       const prevKeys = Object.keys(prev)
-      const sameSet =
-        prevKeys.length === ids.length && prevKeys.every((id) => ids.includes(id))
+      const sameSet = prevKeys.length === ids.length && prevKeys.every((id) => ids.includes(id))
       if (sameSet) return prev
 
       const next: Record<string, BusinessTypeMultipleSelection> = {}
@@ -354,9 +354,7 @@ export function BusinessTypeSelector({
         const segment = segmentByIdRef.current.get(id)
         const bands = optionByIdRef.current.get(id)?.multiples ?? []
         const appliedMetric =
-          metricFromBasis(segment?.basis ?? segment?.earnings_basis) ??
-          bands[0]?.metric ??
-          null
+          metricFromBasis(segment?.basis ?? segment?.earnings_basis) ?? bands[0]?.metric ?? null
         const overrides: BusinessTypeMultipleSelection['overrides'] = {}
         const segMultiple = finiteOrUndefined(segment?.multiple)
         if (appliedMetric && segMultiple !== undefined) {
@@ -474,9 +472,7 @@ export function BusinessTypeSelector({
         showCategories={false}
         editableMultiples={editableMultiples}
         multipleSelections={editableMultiples ? multipleSelections : undefined}
-        onMultipleSelectionChange={
-          editableMultiples ? handleMultipleSelectionChange : undefined
-        }
+        onMultipleSelectionChange={editableMultiples ? handleMultipleSelectionChange : undefined}
       />
 
       {showPreview && selectedId && (

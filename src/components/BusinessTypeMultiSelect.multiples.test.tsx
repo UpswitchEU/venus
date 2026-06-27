@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import {
-  BusinessTypeMultiSelect,
   type BusinessTypeMultipleSelection,
+  BusinessTypeMultiSelect,
 } from '@upswitch/business-type-selector'
 import { describe, expect, it, vi } from 'vitest'
 

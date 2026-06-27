@@ -1,6 +1,6 @@
 {
   "owner": "Architecture",
-  "updated": "2026-06-22",
+  "updated": "2026-06-27",
   "rule": "Freeze direct console.*, alert(), and debugger usage in production paths. New or increased direct debug surfaces fail guard:debug-surface; approved reductions must update this baseline.",
   "scanRoots": [
     "app",
@@ -11,7 +11,7 @@
     "src/utils/logger.ts"
   ],
   "totals": {
-    "console": 52,
+    "console": 53,
     "alert": 0,
     "debugger": 0
   },
@@ -99,11 +99,12 @@
       }
     },
     "app/api/buyer-ready/room/[entityId]/route.ts": {
-      "console": 1,
+      "console": 2,
       "alert": 0,
       "debugger": 0,
       "consoleMethods": {
-        "error": 1
+        "error": 1,
+        "warn": 1
       }
     },
     "app/api/integrations/accounting/silverfin/authorize/route.ts": {

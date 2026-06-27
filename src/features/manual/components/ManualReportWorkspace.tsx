@@ -145,7 +145,9 @@ function GeneratingLoader({
         <div className="absolute inset-0 rounded-full border-[3px] border-primary border-t-transparent animate-spin" />
       </div>
       <div className="text-center space-y-1.5">
-        <p className="text-sm font-medium text-foreground/70">{translateReport('generating.title')}</p>
+        <p className="text-sm font-medium text-foreground/70">
+          {translateReport('generating.title')}
+        </p>
         <p className="text-xs text-foreground/35 max-w-[220px] leading-relaxed">
           {translateReport('generating.description')}
         </p>
