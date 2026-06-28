@@ -39,6 +39,56 @@ describe('PrefillResolver session fallback years', () => {
     })
   })
 
+  it('merges current_year_data into multi-year session prefill', () => {
+    const result = extractSessionPrefill({
+      company_name: 'LGS workshop',
+      revenue: 0,
+      ebitda: 0,
+      current_year_data: {
+        year: 2025,
+        revenue: 11_282_327,
+        ebitda: 1_200_000,
+      },
+      historical_years_data: [
+        { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+        { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+      ],
+    })
+
+    expect(result.financials?.revenue).toBe(11_282_327)
+    expect(result.financials?.ebitda).toBe(1_200_000)
+    expect(result.financials?.yearData).toEqual({
+      2025: { revenue: 11_282_327, ebitda: 1_200_000 },
+      2024: { revenue: 11_282_327, ebitda: 1_115_950 },
+      2023: { revenue: 11_282_327, ebitda: 1_045_723 },
+    })
+  })
+
+  it('does not let stale zero current-year fields overwrite a real connected year row', () => {
+    const result = extractSessionPrefill({
+      company_name: 'LGS workshop',
+      revenue: 0,
+      ebitda: 0,
+      current_year_data: {
+        year: 2025,
+        revenue: 0,
+        ebitda: 0,
+      },
+      historical_years_data: [
+        { year: 2025, revenue: 11_282_327, ebitda: 1_200_000 },
+        { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+        { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+      ],
+    })
+
+    expect(result.financials?.revenue).toBe(11_282_327)
+    expect(result.financials?.ebitda).toBe(1_200_000)
+    expect(result.financials?.yearData?.[2025]).toEqual({
+      revenue: 11_282_327,
+      ebitda: 1_200_000,
+    })
+  })
+
   it('canonicalizes session business_type_id aliases during prefill extraction', () => {
     const result = extractSessionPrefill({
       company_name: 'Upswitch',

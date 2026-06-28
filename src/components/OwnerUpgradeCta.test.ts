@@ -37,7 +37,8 @@ describe('OwnerUpgradeCta logic', () => {
       expect(ownerUpgradeCopy('grow', 'fr').headline).toBe('Faites grimper votre valeur')
     })
     it('puts the right price in each tier CTA', () => {
-      expect(ownerUpgradeCopy('grow', 'en').cta).toContain('149')
+      expect(ownerUpgradeCopy('grow', 'en').cta).toContain('299')
+      expect(ownerUpgradeCopy('grow', 'en').cta).toContain('Grow your business')
       expect(ownerUpgradeCopy('sell', 'en').cta).toContain('299')
       expect(ownerUpgradeCopy('sell', 'nl').cta).toContain('299')
     })

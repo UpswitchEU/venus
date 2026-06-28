@@ -16,6 +16,19 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(numeric) ? numeric : null
 }
 
+function toFiscalYear(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : null
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!/^\d{4}$/.test(trimmed)) return null
+    const year = Number(trimmed)
+    return Number.isInteger(year) && year > 0 ? year : null
+  }
+  return null
+}
+
 /** Dec-31 (UTC) fiscal-year anchor — matches the canonical observation date. */
 function fiscalYearAnchorIso(year: number): string {
   return `${year}-12-31T00:00:00.000Z`
@@ -33,13 +46,11 @@ export function buildTimelineChartRows(
 
   const bestByYear = new Map<number, ValuationTimelinePoint>()
   for (const point of timeline) {
-    const year = toFiniteNumber(point?.fiscal_year)
+    const year = toFiscalYear(point?.fiscal_year)
     if (year == null) continue
-    const truncated = Math.trunc(year)
-    if (truncated <= 0) continue
     if (toFiniteNumber(point?.equity_mid) == null) continue
     // Last entry for a given year wins (defensive — the engine emits one per year).
-    bestByYear.set(truncated, point)
+    bestByYear.set(year, point)
   }
 
   const points = [...bestByYear.entries()].map(([year, point]) => {

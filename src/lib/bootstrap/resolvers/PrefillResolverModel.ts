@@ -38,8 +38,12 @@ export interface SessionDataForPrefill {
   revenue?: number
   ebitda?: number
   current_year_data?: { year?: number; revenue?: number | null; ebitda?: number | null }
-  historical_years_data?: Array<{ year: number; revenue?: number; ebitda?: number }>
-  year_data?: Record<number, { revenue?: number; ebitda?: number }>
+  historical_years_data?: Array<{
+    year: number
+    revenue?: number | null
+    ebitda?: number | null
+  }>
+  year_data?: Record<number, { revenue?: number | null; ebitda?: number | null }>
   kbo_number?: string
   vat_number?: string
   legal_form?: string
@@ -62,6 +66,92 @@ export function asRecord(value: unknown): Record<string, unknown> | null {
 
 export function readString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  const number = Number(value)
+  return Number.isFinite(number) ? number : undefined
+}
+
+function validYear(value: unknown): number | undefined {
+  const year = Number(value)
+  return Number.isInteger(year) && year >= 2000 && year <= 2100 ? year : undefined
+}
+
+function financialYearDataFrom(value: unknown): { revenue?: number; ebitda?: number } {
+  const record = asRecord(value)
+  if (!record) return {}
+  const revenue = finiteNumber(record.revenue)
+  const ebitda = finiteNumber(record.ebitda)
+  return {
+    ...(revenue !== undefined ? { revenue } : {}),
+    ...(ebitda !== undefined ? { ebitda } : {}),
+  }
+}
+
+function upsertYearData(
+  target: Record<number, { revenue?: number; ebitda?: number }>,
+  year: unknown,
+  value: unknown,
+  options: { preserveExistingNonZero?: boolean } = {}
+): void {
+  const normalizedYear = validYear(year)
+  if (normalizedYear === undefined) return
+
+  const incoming = financialYearDataFrom(value)
+  if (incoming.revenue === undefined && incoming.ebitda === undefined) return
+
+  const existing = target[normalizedYear] ?? {}
+  const next = { ...existing }
+
+  for (const key of ['revenue', 'ebitda'] as const) {
+    const value = incoming[key]
+    if (value === undefined) continue
+    const existingValue = existing[key]
+    if (
+      options.preserveExistingNonZero &&
+      value === 0 &&
+      typeof existingValue === 'number' &&
+      Number.isFinite(existingValue) &&
+      existingValue !== 0
+    ) {
+      continue
+    }
+    next[key] = value
+  }
+
+  target[normalizedYear] = next
+}
+
+function buildSessionYearData(
+  merged: Record<string, unknown>,
+  currentYearData: { year?: number; revenue?: number | null; ebitda?: number | null } | undefined
+): Record<number, { revenue?: number; ebitda?: number }> | undefined {
+  const yearData: Record<number, { revenue?: number; ebitda?: number }> = {}
+  const explicitYearData = asRecord(merged.year_data) ?? asRecord(merged.yearData)
+
+  if (explicitYearData) {
+    for (const [year, data] of Object.entries(explicitYearData)) {
+      upsertYearData(yearData, year, data)
+    }
+  }
+
+  if (Array.isArray(merged.historical_years_data)) {
+    for (const row of merged.historical_years_data) {
+      const record = asRecord(row)
+      upsertYearData(yearData, record?.year, record)
+    }
+  }
+
+  if (currentYearData) {
+    upsertYearData(yearData, currentYearData.year ?? getCurrentFilingYear(), currentYearData, {
+      preserveExistingNonZero: true,
+    })
+  }
+
+  return Object.keys(yearData).length > 0 ? yearData : undefined
 }
 
 export function extractSessionPrefill(sessionData: SessionDataForPrefill): {
@@ -101,31 +191,13 @@ export function extractSessionPrefill(sessionData: SessionDataForPrefill): {
   const cyd = merged.current_year_data as
     | { year?: number; revenue?: number | null; ebitda?: number | null }
     | undefined
+  const yearData = buildSessionYearData(merged, cyd)
+  const currentYear = validYear(cyd?.year) ?? getCurrentFilingYear()
+  const currentYearFinancials = yearData?.[currentYear]
   const revenue =
-    (merged.revenue as number) ?? (cyd?.revenue != null ? Number(cyd.revenue) : undefined)
-  const ebitda = (merged.ebitda as number) ?? (cyd?.ebitda != null ? Number(cyd.ebitda) : undefined)
-  const yearData =
-    (merged.year_data as Record<number, { revenue?: number; ebitda?: number }>) ??
-    (merged.yearData as Record<number, { revenue?: number; ebitda?: number }>) ??
-    (merged.historical_years_data &&
-    Array.isArray(merged.historical_years_data) &&
-    merged.historical_years_data.length > 0
-      ? Object.fromEntries(
-          merged.historical_years_data.map(
-            (yearRow: { year: number; revenue?: number; ebitda?: number }) => [
-              yearRow.year,
-              { revenue: yearRow.revenue, ebitda: yearRow.ebitda },
-            ]
-          )
-        )
-      : cyd?.revenue != null || cyd?.ebitda != null
-        ? {
-            [cyd?.year ?? getCurrentFilingYear()]: {
-              revenue: cyd?.revenue ?? undefined,
-              ebitda: cyd?.ebitda ?? undefined,
-            },
-          }
-        : undefined)
+    currentYearFinancials?.revenue ?? finiteNumber(cyd?.revenue) ?? finiteNumber(merged.revenue)
+  const ebitda =
+    currentYearFinancials?.ebitda ?? finiteNumber(cyd?.ebitda) ?? finiteNumber(merged.ebitda)
 
   const financials: PartialFinancials = {
     revenue,

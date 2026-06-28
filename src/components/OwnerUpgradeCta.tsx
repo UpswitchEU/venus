@@ -3,10 +3,11 @@
 /**
  * OwnerUpgradeCta — the Venus-side owner paywall surface (BET-340/341).
  *
- * The valuation stays FREE (the "Know" tier). This is the proactive upgrade
- * moment shown beneath the result: a business owner sees their number for free,
- * then a value-ladder CTA — free/Know → Grow ("make your number go up", €149/yr)
- * → Sell ("get exit-ready", €299/yr). Venus hosts no paid owner features (those
+ * The valuation stays FREE (the "Know your worth" tier). This is the proactive
+ * upgrade moment shown beneath the result: a business owner sees their number for
+ * free, then a value-ladder CTA — free/Know your worth → Grow your business
+ * ("make your number go up", €29/mo or €299/yr) → Sell ("get exit-ready",
+ * €299/yr). Venus hosts no paid owner features (those
  * live in Mercury), so the CTA routes cross-app to Mercury's owner pricing the
  * same way the Starter paywall does. Renders nothing for advisors, the top (Sell)
  * tier, or signed-out users.
@@ -25,7 +26,7 @@ export function isOwnerRole(role: string | null | undefined): boolean {
 }
 
 /**
- * The next paid tier to upsell, by owner `plan_type`. Owner free ("Know") is
+ * The next paid tier to upsell, by owner `plan_type`. Owner free ("Know your worth") is
  * `free` (or unset); `owner_grow` upsells Sell; `owner_sell`/`premium` (top) and
  * any non-owner plan upsell nothing.
  */
@@ -53,7 +54,7 @@ export function ownerUpgradeCopy(tier: OwnerUpgradeTier, locale: string): Upgrad
         eyebrow: 'U ziet uw waarde — gratis',
         headline: 'Laat uw waarde stijgen',
         body: 'Ontgrendel AI-acties om waarde te verhogen, de scenariosimulator en uw stappenplan naar een hogere waardering.',
-        cta: 'Bekijk Grow — €149/jaar',
+        cta: 'Bekijk Grow your business — €299/jaar',
       }
     }
     if (isFr) {
@@ -61,14 +62,14 @@ export function ownerUpgradeCopy(tier: OwnerUpgradeTier, locale: string): Upgrad
         eyebrow: 'Vous voyez votre valeur — gratuitement',
         headline: 'Faites grimper votre valeur',
         body: "Débloquez les actions IA d'augmentation de valeur, le simulateur de scénarios et votre feuille de route vers une valorisation plus élevée.",
-        cta: 'Découvrir Grow — 149 €/an',
+        cta: 'Découvrir Grow your business — 299 €/an',
       }
     }
     return {
       eyebrow: 'You see your number — free',
       headline: 'Make your number go up',
       body: 'Unlock AI value-up actions, the scenario simulator, and your readiness roadmap to a higher valuation.',
-      cta: 'See Grow — €149/yr',
+      cta: 'See Grow your business — €299/yr',
     }
   }
 

@@ -65,13 +65,16 @@ describe('buildTimelineChartRows', () => {
 
   it('dedupes a fiscal year (last entry wins) and drops malformed points', () => {
     const rows = buildTimelineChartRows([
+      point({ fiscal_year: '2024' as unknown as number, equity_mid: 150 }),
       point({ fiscal_year: 2025, equity_mid: 100 }),
       point({ fiscal_year: 2025, equity_mid: 200 }),
       { fiscal_year: Number.NaN, equity_low: 1, equity_mid: 1, equity_high: 1 },
+      point({ fiscal_year: 2026.7, equity_mid: 300 }),
+      point({ fiscal_year: 'FY2023' as unknown as number, equity_mid: 400 }),
       point({ fiscal_year: 2024, equity_mid: 'not-a-number' as unknown as number }),
     ])
-    expect(rows).toHaveLength(1)
-    expect(rows[0].valueMid).toBe(200)
+    expect(rows.map((row) => row.label)).toEqual(['2024', '2025'])
+    expect(rows.map((row) => row.valueMid)).toEqual([150, 200])
   })
 })
 
