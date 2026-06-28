@@ -151,6 +151,34 @@ describe('ValuationFormSubmissionModel', () => {
     expect(update.shares_for_sale).toBe(100)
   })
 
+  it('does not let stale top-level zero mirrors clobber populated current-year accounting data', () => {
+    const update = buildPreCalculationSessionUpdate(
+      formData({
+        revenue: 0,
+        ebitda: 0,
+        filing_year_confirmed: false,
+        current_year_data: {
+          year: 2025,
+          revenue: 11_282_327,
+          ebitda: 1_205_000,
+          total_assets: 5_300_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+          { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+        ],
+      }),
+      new Date('2026-06-28T12:00:00.000Z')
+    )
+
+    expect(update.current_year_data).toMatchObject({
+      year: 2025,
+      revenue: 11_282_327,
+      ebitda: 1_205_000,
+      total_assets: 5_300_000,
+    })
+  })
+
   it('keeps report and session identifiers out of calculation requests unless they match known formats', () => {
     expect(buildCalculationRequestIdentifiers('8d57c0da-8fc9-4042-a9ca-2f8c17b78b10')).toEqual({
       reportId: '8d57c0da-8fc9-4042-a9ca-2f8c17b78b10',

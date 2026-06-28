@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { areFormAndSessionDataEqualForAutosync } from '../useFormSessionSync'
+import {
+  areFormAndSessionDataEqualForAutosync,
+  resolveAutosyncFinancialSessionFields,
+} from '../useFormSessionSync'
 
 const base = {
   company_name: 'A',
@@ -309,5 +312,59 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
     const a = { ...base, filing_year_confirmed: true as const }
     const b = { ...base, filing_year_confirmed: false as const }
     expect(areFormAndSessionDataEqualForAutosync(a, b)).toBe(false)
+  })
+})
+
+describe('resolveAutosyncFinancialSessionFields', () => {
+  it('persists populated current-year data instead of stale top-level zero mirrors', () => {
+    const result = resolveAutosyncFinancialSessionFields(
+      {
+        ...base,
+        revenue: 0,
+        ebitda: 0,
+        current_year_data: {
+          year: 2025,
+          revenue: 11_282_327,
+          ebitda: 1_205_000,
+        },
+      },
+      2025
+    )
+
+    expect(result).toMatchObject({
+      revenue: 11_282_327,
+      ebitda: 1_205_000,
+      current_year_data: {
+        year: 2025,
+        revenue: 11_282_327,
+        ebitda: 1_205_000,
+      },
+    })
+  })
+
+  it('preserves explicit break-even EBITDA when the nested row is also break-even', () => {
+    const result = resolveAutosyncFinancialSessionFields(
+      {
+        ...base,
+        revenue: 1_000_000,
+        ebitda: 0,
+        current_year_data: {
+          year: 2025,
+          revenue: 1_000_000,
+          ebitda: 0,
+        },
+      },
+      2025
+    )
+
+    expect(result).toMatchObject({
+      revenue: 1_000_000,
+      ebitda: 0,
+      current_year_data: {
+        year: 2025,
+        revenue: 1_000_000,
+        ebitda: 0,
+      },
+    })
   })
 })

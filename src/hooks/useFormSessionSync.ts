@@ -23,6 +23,10 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
+import {
+  currentYearFinancialNumberOrZero,
+  resolveCurrentYearFinancialBasis,
+} from '../utils/currentYearFinancialBasis'
 import { debounceWithFlush } from '../utils/debounce'
 import {
   isFilingYearConfirmedValue,
@@ -135,6 +139,44 @@ function taxLatenciesEqualForAutosync(
   const s = sessionData?._taxLatencies
   const normalized = Array.isArray(s) ? s : []
   return JSON.stringify(storeItems) === JSON.stringify(normalized)
+}
+
+export function resolveAutosyncFinancialSessionFields(
+  data: ValuationFormData,
+  normalizedCurrentYear: number
+): {
+  current_year_data: ReturnType<typeof buildCurrentYearData>
+  ebitda: number | undefined
+  revenue: number | undefined
+} {
+  const currentYearFinancials = resolveCurrentYearFinancialBasis({
+    currentFiscalYear: normalizedCurrentYear,
+    currentYearData: data.current_year_data,
+    topLevelRevenue: data.revenue,
+    topLevelEbitda: data.ebitda,
+  })
+  const hasRevenueInput =
+    currentYearFinancials.revenueInput !== undefined && currentYearFinancials.revenueInput !== null
+  const hasEbitdaInput =
+    currentYearFinancials.ebitdaInput !== undefined && currentYearFinancials.ebitdaInput !== null
+  const revenue = hasRevenueInput
+    ? currentYearFinancialNumberOrZero(currentYearFinancials.revenueInput)
+    : data.revenue
+  const ebitda = hasEbitdaInput
+    ? currentYearFinancialNumberOrZero(currentYearFinancials.ebitdaInput)
+    : data.ebitda
+
+  return {
+    revenue,
+    ebitda,
+    current_year_data: buildCurrentYearData({
+      // Respect the explicitly selected base year when the accountant confirms a newer filing year.
+      year: normalizedCurrentYear,
+      revenue,
+      ebitda,
+      currentYearData: data.current_year_data,
+    }),
+  }
 }
 
 /** Exported for tests — debounced autosave must not treat DCF / NAV-only edits as “no change”. */
@@ -330,6 +372,10 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           data.historical_years_data,
           data.filing_year_confirmed
         )
+        const financialSessionFields = resolveAutosyncFinancialSessionFields(
+          data,
+          normalizedCurrentYear
+        )
 
         const dataRecord = data as unknown as Record<string, unknown>
         const sessionUpdate: Record<string, unknown> = {
@@ -343,16 +389,10 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           business_highlights: data.business_highlights,
           reason_for_selling: data.reason_for_selling,
           city: data.city,
-          revenue: data.revenue,
-          ebitda: data.ebitda,
+          revenue: financialSessionFields.revenue,
+          ebitda: financialSessionFields.ebitda,
           filing_year_confirmed: data.filing_year_confirmed,
-          current_year_data: buildCurrentYearData({
-            // Respect the explicitly selected base year when the accountant confirms a newer filing year.
-            year: normalizedCurrentYear,
-            revenue: data.revenue ?? data.current_year_data?.revenue ?? 0,
-            ebitda: data.ebitda ?? data.current_year_data?.ebitda ?? 0,
-            currentYearData: data.current_year_data,
-          }),
+          current_year_data: financialSessionFields.current_year_data,
           historical_years_data: normalizedHistoricalYears,
           ...(data.forecast_years_data !== undefined && {
             forecast_years_data: data.forecast_years_data,

@@ -1,6 +1,10 @@
 import type { SaveSessionUpdates } from '../../../services/session/SessionSaveService'
 import type { ValuationFormData } from '../../../types/valuation'
 import {
+  currentYearFinancialNumberOrZero,
+  resolveCurrentYearFinancialBasis,
+} from '../../../utils/currentYearFinancialBasis'
+import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../../../utils/fiscalYear'
@@ -88,6 +92,12 @@ export function buildPreCalculationSessionUpdate(
     formData.filing_year_confirmed,
     now
   )
+  const currentYearFinancials = resolveCurrentYearFinancialBasis({
+    currentFiscalYear: currentYear,
+    currentYearData: formData.current_year_data,
+    topLevelRevenue: formData.revenue,
+    topLevelEbitda: formData.ebitda,
+  })
 
   return {
     company_name: formData.company_name,
@@ -97,8 +107,8 @@ export function buildPreCalculationSessionUpdate(
     founding_year: formData.founding_year,
     current_year_data: {
       year: currentYear,
-      revenue: formData.revenue ?? formData.current_year_data?.revenue ?? 0,
-      ebitda: formData.ebitda ?? formData.current_year_data?.ebitda ?? 0,
+      revenue: currentYearFinancialNumberOrZero(currentYearFinancials.revenueInput),
+      ebitda: currentYearFinancialNumberOrZero(currentYearFinancials.ebitdaInput),
       ...(formData.current_year_data?.total_assets != null && {
         total_assets: formData.current_year_data.total_assets,
       }),

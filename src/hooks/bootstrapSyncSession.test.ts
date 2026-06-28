@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SessionBootstrapState } from '../lib/bootstrap/types'
 import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useSessionStore } from '../store/useSessionStore'
@@ -48,6 +48,10 @@ describe('syncBootstrapSession', () => {
       engine: null,
       restorationComplete: false,
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('gap-fills an existing session through the atomic hydrate+complete path', () => {
@@ -125,5 +129,66 @@ describe('syncBootstrapSession', () => {
       country_code: 'BE',
     })
     expect(useManualFormStore.getState().formData.country_code).toBe('BE')
+  })
+
+  it('hydrates current year and visible grid from existing-report accounting yearData', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-28T12:00:00Z'))
+
+    useManualFormStore.getState().updateFormData({
+      current_year_data: { year: 2025, revenue: 0, ebitda: 0 },
+      yearlyFinancials: [
+        { year: '2025', revenue: 0, ebitda: 0 },
+        { year: '2024', revenue: 0, ebitda: 0 },
+        { year: '2023', revenue: 0, ebitda: 0 },
+      ],
+    })
+
+    syncBootstrapSession(
+      makeBootstrapState({
+        report: {
+          mode: 'existing',
+          reportId: 'val_lgs_existing',
+          hasExistingData: true,
+          status: 'active',
+        },
+        prefillData: {
+          sources: ['session', 'accounting_integration'],
+          confidence: 0.8,
+          fieldsPopulated: ['company_name', 'current_year_data'],
+          fieldsRemaining: [],
+          companyInfo: {
+            companyName: 'LGS workshop',
+            countryCode: 'BE',
+          },
+          financials: {
+            revenue: 11_282_327,
+            ebitda: 1_200_000,
+            dataSource: 'silverfin',
+            yearData: {
+              2025: { revenue: 11_282_327, ebitda: 1_200_000 },
+              2024: { revenue: 11_282_327, ebitda: 1_115_950 },
+              2023: { revenue: 11_282_327, ebitda: 1_045_723 },
+            },
+          },
+        },
+      })
+    )
+
+    const formData = useManualFormStore.getState().formData
+    expect(formData.current_year_data).toEqual({
+      year: 2025,
+      revenue: 11_282_327,
+      ebitda: 1_200_000,
+    })
+    expect(formData.historical_years_data).toEqual([
+      { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+      { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+    ])
+    expect(formData.yearlyFinancials).toEqual([
+      { year: '2025', revenue: 11_282_327, ebitda: 1_200_000 },
+      { year: '2024', revenue: 11_282_327, ebitda: 1_115_950 },
+      { year: '2023', revenue: 11_282_327, ebitda: 1_045_723 },
+    ])
   })
 })

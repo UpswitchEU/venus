@@ -34,6 +34,7 @@ import {
 import type { YearlyFinancialLike } from './yearlyFinancials'
 import {
   buildYearlyFinancialsFromCurrentAndHistorical,
+  yearlyFinancialRowHasNonPlaceholderData,
   yearlyFinancialsContainsNonPlaceholderData,
 } from './yearlyFinancials'
 
@@ -82,6 +83,34 @@ function isEmptyStructSlot(existing: unknown): boolean {
   if (Array.isArray(existing)) return existing.length === 0
   if (typeof existing === 'object') return Object.keys(existing as object).length === 0
   return false
+}
+
+function isPlaceholderCurrentYearData(existing: unknown): boolean {
+  if (existing == null) return true
+  if (typeof existing !== 'object' || Array.isArray(existing)) return false
+  const row = existing as Record<string, unknown>
+  return !yearlyFinancialRowHasNonPlaceholderData({
+    year: row.year as string | number | null | undefined,
+    revenue: row.revenue as number | null | undefined,
+    ebitda: row.ebitda as number | null | undefined,
+    free_cash_flow: row.free_cash_flow as number | null | undefined,
+  })
+}
+
+function latestNonPlaceholderYearRow(
+  rows: Array<{ year: number; revenue?: number; ebitda?: number }>
+): { year: number; revenue?: number; ebitda?: number } | null {
+  return (
+    rows
+      .filter((row) =>
+        yearlyFinancialRowHasNonPlaceholderData({
+          year: row.year,
+          revenue: row.revenue,
+          ebitda: row.ebitda,
+        })
+      )
+      .sort((a, b) => b.year - a.year)[0] ?? null
+  )
 }
 
 function removeIdentityGapFillFields(out: Partial<ValuationFormData>): Partial<ValuationFormData> {
@@ -343,6 +372,7 @@ export function mergeOptionalSessionPrefillFields(
   let incomingHistorical: unknown[] | null = Array.isArray(mergedData.historical_years_data)
     ? mergedData.historical_years_data
     : null
+  let incomingHistoricalFromYearData = false
   if (
     (!incomingHistorical || incomingHistorical.length === 0) &&
     (!Array.isArray(existingHy) || existingHy.length === 0)
@@ -350,7 +380,10 @@ export function mergeOptionalSessionPrefillFields(
     const fromYearData =
       historicalRowsFromYearDataBlob(mergedData.year_data) ??
       historicalRowsFromYearDataBlob(mergedData.yearData)
-    if (fromYearData?.length) incomingHistorical = fromYearData
+    if (fromYearData?.length) {
+      incomingHistorical = fromYearData
+      incomingHistoricalFromYearData = true
+    }
   }
 
   if (
@@ -367,7 +400,20 @@ export function mergeOptionalSessionPrefillFields(
       filingForNormalize
     )
     if (normalized.length > 0) {
-      out.historical_years_data = normalized as ValuationFormData['historical_years_data']
+      const yearDataCurrent =
+        incomingHistoricalFromYearData && isPlaceholderCurrentYearData(fd['current_year_data'])
+          ? latestNonPlaceholderYearRow(normalized)
+          : null
+      if (yearDataCurrent) {
+        out.current_year_data = {
+          year: yearDataCurrent.year,
+          revenue: yearDataCurrent.revenue ?? 0,
+          ebitda: yearDataCurrent.ebitda ?? 0,
+        } as YearDataInput
+      }
+      out.historical_years_data = normalized.filter(
+        (row) => row.year !== yearDataCurrent?.year
+      ) as ValuationFormData['historical_years_data']
     }
   }
 

@@ -725,6 +725,36 @@ describe('buildValuationRequest core registry and financial contract', () => {
     ])
   })
 
+  it('uses populated current-year accounting data when stale top-level mirrors remain zero', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-28T12:00:00.000Z'))
+
+    const result = buildValuationRequest(
+      makeFormData({
+        company_name: 'LGS workshop',
+        revenue: 0,
+        ebitda: 0,
+        current_year_data: {
+          year: 2025,
+          revenue: 11_282_327,
+          ebitda: 1_205_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+          { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+        ],
+      }),
+      []
+    )
+
+    expect(result.current_year_data).toMatchObject({
+      year: 2025,
+      revenue: 11_282_327,
+      ebitda: 1_205_000,
+    })
+    expect(result.historical_years_data.map((row) => row.year)).toEqual([2023, 2024])
+  })
+
   it('drops historical rows without positive revenue before building the request', () => {
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(

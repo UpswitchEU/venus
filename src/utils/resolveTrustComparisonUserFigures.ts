@@ -10,6 +10,7 @@
  */
 
 import type { ValuationFormData } from '../types/valuation'
+import { resolveCurrentYearFinancialBasis } from './currentYearFinancialBasis'
 
 function normalizeCalendarYear(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null
@@ -33,6 +34,20 @@ export function resolveTrustComparisonUserFigures(
     const cyd = fd.current_year_data
     if (cyd && normalizeCalendarYear(cyd.year) === fy) {
       return { revenue: cyd.revenue, ebitda: cyd.ebitda }
+    }
+  }
+
+  const currentYear = normalizeCalendarYear(fd.current_year_data?.year)
+  if (currentYear != null) {
+    const repairedBasis = resolveCurrentYearFinancialBasis({
+      currentFiscalYear: currentYear,
+      currentYearData: fd.current_year_data,
+      topLevelRevenue: fd.revenue,
+      topLevelEbitda: fd.ebitda,
+    })
+    return {
+      revenue: repairedBasis.revenueInput as number | undefined | null,
+      ebitda: repairedBasis.ebitdaInput as number | undefined | null,
     }
   }
 

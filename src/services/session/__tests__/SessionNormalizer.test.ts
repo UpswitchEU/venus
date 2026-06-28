@@ -137,6 +137,36 @@ describe('normalizeSessionData', () => {
     expect(normalized.formData.ebitda).toBe(120000)
   })
 
+  it('repairs stale top-level zero mirrors from populated current-year data on restore', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-28T12:00:00Z'))
+
+    const normalized = normalizeSessionData({
+      session_key: 'val_lgs_restore',
+      session_data: {
+        revenue: 0,
+        ebitda: 0,
+        current_year_data: {
+          year: 2025,
+          revenue: 11_282_327,
+          ebitda: 1_205_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+          { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+        ],
+      },
+    })
+
+    expect(normalized.formData.current_year_data).toEqual({
+      year: 2025,
+      revenue: 11_282_327,
+      ebitda: 1_205_000,
+    })
+    expect(normalized.formData.revenue).toBe(11_282_327)
+    expect(normalized.formData.ebitda).toBe(1_205_000)
+  })
+
   it('replaces a stale zero filing-year placeholder with the latest imported actual year', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))

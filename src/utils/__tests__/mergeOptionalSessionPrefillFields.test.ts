@@ -211,6 +211,44 @@ describe('mergeOptionalSessionPrefillFields', () => {
     expect(patch.historical_years_data?.length).toBeGreaterThan(0)
   })
 
+  it('promotes latest real year_data row over a default current-year zero placeholder', () => {
+    const patch = mergeOptionalSessionPrefillFields(
+      {
+        year_data: {
+          2025: { revenue: 11_282_327, ebitda: 1_200_000 },
+          2024: { revenue: 11_282_327, ebitda: 1_115_950 },
+          2023: { revenue: 11_282_327, ebitda: 1_045_723 },
+        },
+      },
+      {
+        ...baseForm,
+        current_year_data: { year: 2025, revenue: 0, ebitda: 0 },
+        yearlyFinancials: [
+          { year: '2025', revenue: 0, ebitda: 0 },
+          { year: '2024', revenue: 0, ebitda: 0 },
+          { year: '2023', revenue: 0, ebitda: 0 },
+        ],
+      }
+    )
+
+    expect(patch.current_year_data).toEqual({
+      year: 2025,
+      revenue: 11_282_327,
+      ebitda: 1_200_000,
+    })
+    expect(patch.historical_years_data).toEqual([
+      { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+      { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+    ])
+    expect((patch as Record<string, unknown>).yearlyFinancials).toEqual([
+      { year: '2025', revenue: 11_282_327, ebitda: 1_200_000 },
+      { year: '2024', revenue: 11_282_327, ebitda: 1_115_950 },
+      { year: '2023', revenue: 11_282_327, ebitda: 1_045_723 },
+    ])
+    expect(patch.revenue).toBe(11_282_327)
+    expect(patch.ebitda).toBe(1_200_000)
+  })
+
   it('rebuilds yearlyFinancials when form only has placeholder zeros', () => {
     const fy = getCurrentFilingYear()
     const patch = mergeOptionalSessionPrefillFields(

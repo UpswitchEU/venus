@@ -16,6 +16,7 @@ import {
 } from './buildValuationRequest.helpers'
 import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
+import { resolveCurrentYearFinancialBasis } from './currentYearFinancialBasis'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from './fiscalYear'
 import { generalLogger } from './logger'
@@ -172,29 +173,39 @@ export function buildValuationRequest(
   industry = industry || 'services'
   businessModel = businessModel || 'services'
 
+  const currentYearFinancials = resolveCurrentYearFinancialBasis({
+    currentFiscalYear,
+    currentYearData: effectiveCurrentYearData,
+    preferCurrentYearData: promotedCurrentFromHistorical,
+    topLevelRevenue: formData.revenue,
+    topLevelEbitda: formData.ebitda,
+  })
+  if (
+    currentYearFinancials.usedCurrentYearData &&
+    currentYearFinancials.reason === 'stale_top_level_zero'
+  ) {
+    generalLogger.warn(
+      '[buildValuationRequest] Using populated current_year_data over stale top-level zero financials',
+      {
+        business_name: companyName,
+        fiscal_year: currentFiscalYear,
+        revenue: currentYearFinancials.revenueInput,
+        ebitda: currentYearFinancials.ebitdaInput,
+        note: 'Top-level revenue/EBITDA were still zero while the accounting-imported current-year row was populated.',
+      }
+    )
+  }
+
   // Normalize financial data.
-  // Revenue: treat 0 as a valid value (pre-revenue startup). Only fall back to
-  // current_year_data when the form field is truly absent (null/undefined).
-  const rawRevenue =
-    promotedCurrentFromHistorical && effectiveCurrentYearData?.revenue != null
-      ? effectiveCurrentYearData.revenue
-      : formData.revenue != null
-        ? formData.revenue
-        : effectiveCurrentYearData?.revenue != null
-          ? effectiveCurrentYearData.revenue
-          : null
-  const revenue = requireNonNegativeRevenue(rawRevenue, 'current_year_data.revenue')
+  // Revenue: treat 0 as a valid value, but do not let stale top-level zero
+  // mirrors clobber a populated accounting-imported current-year row.
+  const revenue = requireNonNegativeRevenue(
+    currentYearFinancials.revenueInput,
+    'current_year_data.revenue'
+  )
 
   // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
-  const rawEbitdaInput =
-    promotedCurrentFromHistorical && effectiveCurrentYearData?.ebitda != null
-      ? effectiveCurrentYearData.ebitda
-      : formData.ebitda !== undefined && formData.ebitda !== null
-        ? formData.ebitda
-        : effectiveCurrentYearData?.ebitda !== undefined &&
-            effectiveCurrentYearData?.ebitda !== null
-          ? effectiveCurrentYearData.ebitda
-          : null
+  const rawEbitdaInput = currentYearFinancials.ebitdaInput
   const rawEbitda = toFiniteNumber(rawEbitdaInput)
   if (rawEbitda === null) {
     generalLogger.warn(

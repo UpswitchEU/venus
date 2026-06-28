@@ -57,4 +57,21 @@ describe('resolveTrustComparisonUserFigures', () => {
     expect(out.revenue).toBe(1_000_000)
     expect(out.ebitda).toBe(100_000)
   })
+
+  it('repairs stale scalar zeroes from populated current-year data for fallback comparisons', () => {
+    const fd = {
+      revenue: 0,
+      ebitda: 0,
+      historical_years_data: [
+        { year: 2024, revenue: 11_282_327, ebitda: 1_115_950 },
+        { year: 2023, revenue: 11_282_327, ebitda: 1_045_723 },
+      ],
+      current_year_data: { year: 2025, revenue: 11_282_327, ebitda: 1_205_000 },
+    } as ValuationFormData
+
+    const out = resolveTrustComparisonUserFigures(fd, null)
+
+    expect(out.revenue).toBe(11_282_327)
+    expect(out.ebitda).toBe(1_205_000)
+  })
 })

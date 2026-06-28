@@ -1,6 +1,10 @@
 import type { ValuationRequest } from '../../types/valuation'
 import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import {
+  currentYearFinancialNumberOrZero,
+  resolveCurrentYearFinancialBasis,
+} from '../../utils/currentYearFinancialBasis'
+import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
@@ -216,7 +220,23 @@ function normalizeFinancialRows(
   const currentYearData = fd.current_year_data as
     | { year?: number; revenue?: number | null; ebitda?: number | null }
     | undefined
-  if (currentYearData && (fd.revenue === undefined || fd.ebitda === undefined)) {
+  if (currentYearData) {
+    const currentYear = Number(currentYearData.year)
+    const currentYearFinancials = Number.isFinite(currentYear)
+      ? resolveCurrentYearFinancialBasis({
+          currentFiscalYear: currentYear,
+          currentYearData,
+          topLevelRevenue: fd.revenue,
+          topLevelEbitda: fd.ebitda,
+        })
+      : null
+
+    if (currentYearFinancials?.usedCurrentYearData) {
+      fd.revenue = currentYearFinancialNumberOrZero(currentYearFinancials.revenueInput)
+      fd.ebitda = currentYearFinancialNumberOrZero(currentYearFinancials.ebitdaInput)
+      return
+    }
+
     if (fd.revenue === undefined && currentYearData.revenue != null) {
       fd.revenue = Number(currentYearData.revenue)
     }
