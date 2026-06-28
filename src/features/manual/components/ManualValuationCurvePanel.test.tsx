@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // The panel reads translations + locale; the key-returning mock keeps assertions
@@ -26,11 +26,15 @@ const timeline = [
 ]
 
 function seed(result: Partial<ValuationResponse>) {
-  useManualResultsStore.setState({ result: result as ValuationResponse, isCalculating: false })
+  act(() => {
+    useManualResultsStore.setState({ result: result as ValuationResponse, isCalculating: false })
+  })
 }
 
 afterEach(() => {
-  useManualResultsStore.setState({ result: null, isCalculating: false })
+  act(() => {
+    useManualResultsStore.setState({ result: null, isCalculating: false })
+  })
 })
 
 describe('ManualValuationCurvePanel', () => {
