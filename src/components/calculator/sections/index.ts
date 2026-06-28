@@ -33,6 +33,7 @@ export {
 } from './dcfEngineDefaults'
 export { FiscalInputsSection } from './FiscalInputsSection'
 export { FiscalReferencePreviewCard } from './FiscalReferencePreviewCard'
+export { HistoricalYearWeightingSection } from './HistoricalYearWeightingSection'
 export { LiquidationInputsSection } from './LiquidationInputsSection'
 export { MethodPreviewAuditDevPanel } from './MethodPreviewAuditDevPanel'
 export { NavAssetScheduleSection } from './NavAssetScheduleSection'

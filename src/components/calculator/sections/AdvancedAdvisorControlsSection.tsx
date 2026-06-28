@@ -1,13 +1,10 @@
 'use client'
 
-import { Info, RotateCcw, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMemo } from 'react'
-import { AuroraButton } from '@/design-system/components/Button'
 import { AuroraFormAlert } from '@/design-system/components/FormSection'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
-import { SegmentedControl } from '@/design-system/components/SegmentedControl'
-import { Slider } from '@/design-system/components/Slider'
 import { Switch } from '@/design-system/components/Switch'
 import type { BusinessTypeSegmentInput } from '../../../types/valuation/request'
 import { resolveMercuryAppOrigin } from '../../../utils/getMercuryAppOrigin'
@@ -20,10 +17,7 @@ import {
   type AdvisorDefaultAppliedField,
   type AdvisorDiscountKey,
   buildAdvisorDiscountWeightUpdate,
-  buildHistoricalWeightingModeUpdates,
-  buildHistoricalWeightUpdate,
   buildMultipleTypeWeightUpdate,
-  buildRecencyHistoricalWeights,
   buildResetDiscountControlUpdates,
   clampDiscountFloorFactor,
   deriveAdvancedAdvisorControlModel,
@@ -31,6 +25,7 @@ import {
   toFiniteNumber,
   type WeightingMode,
 } from './advancedAdvisorControlsModel'
+import { HistoricalYearWeightingSection } from './HistoricalYearWeightingSection'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
 export interface AdvancedAdvisorControlsSectionProps {
@@ -146,22 +141,17 @@ export function AdvancedAdvisorControlsSection({
     activePreviewChangeKeys,
     adjustment,
     calibratedMultiple,
-    canWeight,
     complete,
     discountWeights,
     floorFactor,
     livePreview,
-    mode,
     multipleBlendWeights,
     noteComplete,
     previewEbitdaBasis,
-    rawWeights,
     requiresCalibrationNote,
     requiresEffectiveOverrideNote,
     effectiveOverrideNoteComplete,
     riskEnabled,
-    yearKeys,
-    years,
   } = advisorControlModel
   const previewCurrency = previewCurrencyFormatter?.resolvedOptions().currency ?? 'EUR'
   const fallbackCurrencyFormatter = useMemo(
@@ -182,23 +172,6 @@ export function AdvancedAdvisorControlsSection({
       }),
     [locale]
   )
-
-  const updateWeight = (year: number, nextValue: number) => {
-    onFieldChange(
-      'historical_ebitda_weights',
-      buildHistoricalWeightUpdate({ rawWeights, year, nextValue })
-    )
-  }
-
-  const resetWeights = () => {
-    onFieldChange('historical_ebitda_weights', buildRecencyHistoricalWeights(yearKeys))
-  }
-
-  const switchWeightingMode = (nextMode: WeightingMode) => {
-    for (const update of buildHistoricalWeightingModeUpdates({ nextMode, yearKeys })) {
-      onFieldChange(update.field, update.value)
-    }
-  }
 
   const updateMultipleTypeWeight = (key: MultipleTypeKey, nextValue: number) => {
     onFieldChange(
@@ -419,69 +392,14 @@ export function AdvancedAdvisorControlsSection({
           )}
         </div>
 
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <SegmentedControl<WeightingMode>
-              value={mode}
-              onChange={switchWeightingMode}
-              options={[
-                { value: 'standard', label: t('standardAverage') },
-                { value: 'weighted', label: t('weightedAverage'), disabled: !canWeight },
-              ]}
-              size="sm"
-              variant="pills"
-              disabled={disabled}
-              aria-label={t('historicalWeighting')}
-            />
-            {mode === 'weighted' && (
-              <AuroraButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={resetWeights}
-                disabled={disabled}
-                className="gap-1.5 text-xs"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                {t('resetEqual')}
-              </AuroraButton>
-            )}
-          </div>
-
-          {!canWeight && (
-            <div className="inline-flex items-center gap-2 text-[11px] text-foreground/45">
-              <Info className="h-3.5 w-3.5" />
-              {t('needsThreeYears')}
-            </div>
-          )}
-
-          {mode === 'weighted' && canWeight && (
-            <div className="space-y-3">
-              {years.map((year) => {
-                const value = rawWeights[String(year)] ?? 0
-                return (
-                  <div key={year} className="grid grid-cols-[64px_1fr_48px] items-center gap-3">
-                    <span className="font-mono text-xs text-foreground/65">{year}</span>
-                    <Slider
-                      value={value}
-                      min={0}
-                      max={100}
-                      step={1}
-                      onChange={(next) => updateWeight(year, next)}
-                      disabled={disabled}
-                      showTooltip
-                      formatValue={(v) => `${Math.round(v)}%`}
-                      aria-label={`${year} ${t('historicalWeighting')}`}
-                    />
-                    <span className="font-mono text-xs text-foreground/65 tabular-nums">
-                      {Math.round(value)}%
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <HistoricalYearWeightingSection
+          historicalYears={historicalYears}
+          historicalEbitdaWeightingMode={historicalEbitdaWeightingMode}
+          historicalEbitdaWeights={historicalEbitdaWeights}
+          onFieldChange={onFieldChange}
+          disabled={disabled}
+          variant="modal"
+        />
       </div>
     </Wrapper>
   )

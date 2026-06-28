@@ -25,6 +25,7 @@ vi.mock('./AdaptiveSections', () => ({
 }))
 
 vi.mock('./index', () => ({
+  HistoricalYearWeightingSection: () => <div data-testid="historical-year-weighting-stub" />,
   RealEstateCarveOutSection: () => <div data-testid="real-estate-stub" />,
   SynthesisWeightingSection: () => <div data-testid="synthesis-stub" />,
 }))

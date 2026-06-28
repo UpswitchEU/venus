@@ -178,6 +178,36 @@ export function sortedDistinctYears(years: number[]): number[] {
   return Array.from(new Set(years.filter((year) => Number.isFinite(year)))).sort((a, b) => a - b)
 }
 
+export interface HistoricalYearWeightingModel {
+  mode: WeightingMode
+  rawWeights: Record<string, number>
+  yearKeys: string[]
+  years: number[]
+  canWeight: boolean
+}
+
+/**
+ * Minimal model for the historical-year weighting control, shared by the advisor
+ * controls modal and the inline calculator panel so both derive the weighting
+ * state (mode, per-year weights, eligibility) identically from the raw form fields.
+ */
+export function deriveHistoricalYearWeightingModel({
+  historicalYears,
+  historicalEbitdaWeightingMode,
+  historicalEbitdaWeights,
+}: {
+  historicalYears: number[]
+  historicalEbitdaWeightingMode?: WeightingMode
+  historicalEbitdaWeights?: Record<number, number>
+}): HistoricalYearWeightingModel {
+  const years = sortedDistinctYears(historicalYears).slice(-5)
+  const yearKeys = years.map(String)
+  const mode = historicalEbitdaWeightingMode ?? 'standard'
+  const canWeight = years.length >= 3
+  const rawWeights = deriveRawHistoricalWeights({ historicalEbitdaWeights, yearKeys, years })
+  return { mode, rawWeights, yearKeys, years, canWeight }
+}
+
 function numericKeyedRecord(weights: Record<string, number>): Record<number, number> {
   return Object.fromEntries(Object.entries(weights).map(([key, value]) => [Number(key), value]))
 }
@@ -394,15 +424,15 @@ export function deriveAdvancedAdvisorControlModel({
   riskAnalysisEnabled,
   sectorAverageMultiple,
 }: AdvancedAdvisorControlModelInput): AdvancedAdvisorControlModel {
-  const years = sortedDistinctYears(historicalYears).slice(-5)
-  const yearKeys = years.map(String)
-  const mode = historicalEbitdaWeightingMode ?? 'standard'
-  const canWeight = years.length >= 3
+  const { years, yearKeys, mode, canWeight, rawWeights } = deriveHistoricalYearWeightingModel({
+    historicalYears,
+    historicalEbitdaWeightingMode,
+    historicalEbitdaWeights,
+  })
   const multipleBlendWeights = normalizeMultipleTypeWeights(multipleTypeWeights)
   const riskEnabled = riskAnalysisEnabled ?? true
   const floorFactor = clampDiscountFloorFactor(discountFloorFactor)
   const discountWeights = deriveDiscountWeights(advisorDiscountWeights)
-  const rawWeights = deriveRawHistoricalWeights({ historicalEbitdaWeights, yearKeys, years })
   const adjustment = multipleCalibrationAdjustment ?? 0
   const calibratedMultiple =
     sectorAverageMultiple != null && Number.isFinite(sectorAverageMultiple)

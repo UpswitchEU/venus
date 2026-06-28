@@ -10,6 +10,7 @@ import {
   clampDiscountFloorFactor,
   clampDiscountWeight,
   deriveAdvancedAdvisorControlModel,
+  deriveHistoricalYearWeightingModel,
   normalizeMultipleTypeWeights,
   sortedDistinctYears,
 } from './advancedAdvisorControlsModel'
@@ -102,6 +103,23 @@ describe('advancedAdvisorControlsModel', () => {
     ])
     expect(model.years).toEqual([2020, 2021, 2022, 2023, 2024])
     expect(model.rawWeights).toEqual({ '2020': 20, '2021': 20, '2022': 20, '2023': 20, '2024': 20 })
+  })
+
+  it('derives the shared historical-year weighting model (caps at 5 years, recency-eligible at 3+)', () => {
+    const empty = deriveHistoricalYearWeightingModel({ historicalYears: [2024] })
+    expect(empty.mode).toBe('standard')
+    expect(empty.canWeight).toBe(false)
+
+    const model = deriveHistoricalYearWeightingModel({
+      historicalYears: [2019, 2020, 2021, 2022, 2023, 2024],
+      historicalEbitdaWeightingMode: 'weighted',
+      historicalEbitdaWeights: { 2024: 40, 2023: 30, 2022: 20, 2021: 10 },
+    })
+    expect(model.mode).toBe('weighted')
+    expect(model.canWeight).toBe(true)
+    // Oldest year dropped — only the five most recent remain.
+    expect(model.years).toEqual([2020, 2021, 2022, 2023, 2024])
+    expect(model.yearKeys).toEqual(['2020', '2021', '2022', '2023', '2024'])
   })
 
   it('builds the recency ramp (most recent year heaviest, summing to 100)', () => {
