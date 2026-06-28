@@ -82,7 +82,7 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(baseProps.onFieldChange).toHaveBeenCalledWith('effective_multiple_override', 6.25)
   })
 
-  it('initializes weighted historical EBITDA controls with an exact equal split', () => {
+  it('initializes custom historical EBITDA controls on the recency default (50/33/17)', () => {
     render(<AdvancedAdvisorControlsSection {...baseProps} />)
 
     fireEvent.click(screen.getByRole('radio', { name: 'weightedAverage' }))
@@ -92,9 +92,9 @@ describe('AdvancedAdvisorControlsSection', () => {
       'weighted'
     )
     expect(baseProps.onFieldChange).toHaveBeenCalledWith('historical_ebitda_weights', {
-      2023: 34,
+      2023: 17,
       2024: 33,
-      2025: 33,
+      2025: 50,
     })
   })
 
