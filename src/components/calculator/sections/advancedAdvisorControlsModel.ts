@@ -199,6 +199,27 @@ export function buildEqualHistoricalWeights(yearKeys: string[]): Record<number, 
   return numericKeyedRecord(equalWeightsFor(yearKeys))
 }
 
+/**
+ * Default per-year weighting: a linear recency ramp (most recent year heaviest),
+ * as whole-percent weights summing to 100. Mirrors ValuationIQ's engine default
+ * — three years resolve to the canonical 50/33/17 split — so the sliders open on
+ * the same basis the report already uses instead of a flat equal split.
+ */
+export function buildRecencyHistoricalWeights(yearKeys: string[]): Record<number, number> {
+  const n = yearKeys.length
+  if (n === 0) return {}
+  const ascending = [...yearKeys].sort((a, b) => Number(a) - Number(b))
+  const denominator = (n * (n + 1)) / 2 // 1 + 2 + … + n
+  const weights = ascending.map((_, index) => Math.round(((index + 1) / denominator) * 100))
+  // Absorb any rounding drift into the most recent year so the column sums to 100.
+  weights[n - 1] += 100 - weights.reduce((sum, value) => sum + value, 0)
+  const result: Record<number, number> = {}
+  ascending.forEach((year, index) => {
+    result[Number(year)] = weights[index]
+  })
+  return result
+}
+
 export function buildHistoricalWeightingModeUpdates({
   nextMode,
   yearKeys,
@@ -210,7 +231,7 @@ export function buildHistoricalWeightingModeUpdates({
     { field: 'historical_ebitda_weighting_mode', value: nextMode },
     {
       field: 'historical_ebitda_weights',
-      value: nextMode === 'weighted' ? buildEqualHistoricalWeights(yearKeys) : undefined,
+      value: nextMode === 'weighted' ? buildRecencyHistoricalWeights(yearKeys) : undefined,
     },
   ]
 }

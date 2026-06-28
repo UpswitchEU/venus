@@ -5,6 +5,7 @@ import {
   buildHistoricalWeightingModeUpdates,
   buildHistoricalWeightUpdate,
   buildMultipleTypeWeightUpdate,
+  buildRecencyHistoricalWeights,
   buildResetDiscountControlUpdates,
   clampDiscountFloorFactor,
   clampDiscountWeight,
@@ -103,6 +104,27 @@ describe('advancedAdvisorControlsModel', () => {
     expect(model.rawWeights).toEqual({ '2020': 20, '2021': 20, '2022': 20, '2023': 20, '2024': 20 })
   })
 
+  it('builds the recency ramp (most recent year heaviest, summing to 100)', () => {
+    // Three years resolve to the canonical 50/33/17 split.
+    expect(buildRecencyHistoricalWeights(['2023', '2024', '2025'])).toEqual({
+      2023: 17,
+      2024: 33,
+      2025: 50,
+    })
+    // Four/five years extend the same ramp and still sum to 100.
+    expect(buildRecencyHistoricalWeights(['2022', '2023', '2024', '2025'])).toEqual({
+      2022: 10,
+      2023: 20,
+      2024: 30,
+      2025: 40,
+    })
+    const fiveYear = buildRecencyHistoricalWeights(['2021', '2022', '2023', '2024', '2025'])
+    expect(Object.values(fiveYear).reduce((sum, weight) => sum + weight, 0)).toBe(100)
+    expect(fiveYear[2025]).toBeGreaterThan(fiveYear[2021])
+    // Order-independent: most recent year always carries the most weight.
+    expect(buildRecencyHistoricalWeights(['2025', '2023', '2024'])[2025]).toBe(50)
+  })
+
   it('builds exact historical weighting update payloads for the section dispatcher', () => {
     expect(buildEqualHistoricalWeights(['2023', '2024', '2025'])).toEqual({
       2023: 34,
@@ -116,7 +138,8 @@ describe('advancedAdvisorControlsModel', () => {
       })
     ).toEqual([
       { field: 'historical_ebitda_weighting_mode', value: 'weighted' },
-      { field: 'historical_ebitda_weights', value: { 2023: 34, 2024: 33, 2025: 33 } },
+      // Switching to custom seeds the recency default (50/33/17), not a flat split.
+      { field: 'historical_ebitda_weights', value: { 2023: 17, 2024: 33, 2025: 50 } },
     ])
     expect(
       buildHistoricalWeightingModeUpdates({

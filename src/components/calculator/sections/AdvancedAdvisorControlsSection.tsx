@@ -20,10 +20,10 @@ import {
   type AdvisorDefaultAppliedField,
   type AdvisorDiscountKey,
   buildAdvisorDiscountWeightUpdate,
-  buildEqualHistoricalWeights,
   buildHistoricalWeightingModeUpdates,
   buildHistoricalWeightUpdate,
   buildMultipleTypeWeightUpdate,
+  buildRecencyHistoricalWeights,
   buildResetDiscountControlUpdates,
   clampDiscountFloorFactor,
   deriveAdvancedAdvisorControlModel,
@@ -191,7 +191,7 @@ export function AdvancedAdvisorControlsSection({
   }
 
   const resetWeights = () => {
-    onFieldChange('historical_ebitda_weights', buildEqualHistoricalWeights(yearKeys))
+    onFieldChange('historical_ebitda_weights', buildRecencyHistoricalWeights(yearKeys))
   }
 
   const switchWeightingMode = (nextMode: WeightingMode) => {
