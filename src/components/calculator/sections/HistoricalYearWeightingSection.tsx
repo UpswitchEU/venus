@@ -2,7 +2,7 @@
 
 import { Info, RotateCcw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { AuroraButton } from '@/design-system/components/Button'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
@@ -44,6 +44,7 @@ export function HistoricalYearWeightingSection({
   variant = 'modal',
 }: HistoricalYearWeightingSectionProps) {
   const t = useTranslations('manualInput.methodSelector.advancedAdvisorControls')
+  const needsYearsHintId = useId()
   const { mode, rawWeights, yearKeys, years, canWeight } = useMemo(
     () =>
       deriveHistoricalYearWeightingModel({
@@ -85,6 +86,7 @@ export function HistoricalYearWeightingSection({
           variant="pills"
           disabled={disabled}
           aria-label={t('historicalWeighting')}
+          aria-describedby={canWeight ? undefined : needsYearsHintId}
         />
         {mode === 'weighted' && (
           <AuroraButton
@@ -102,7 +104,10 @@ export function HistoricalYearWeightingSection({
       </div>
 
       {!canWeight && (
-        <div className="inline-flex items-center gap-2 text-[11px] text-foreground/45">
+        <div
+          id={needsYearsHintId}
+          className="inline-flex items-center gap-2 text-[11px] text-foreground/45"
+        >
           <Info className="h-3.5 w-3.5" />
           {t('needsThreeYears')}
         </div>

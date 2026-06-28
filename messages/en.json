@@ -529,6 +529,33 @@
 		"hoursAgo": "{count, plural, one {# hour ago} other {# hours ago}}",
 		"daysAgo": "{count, plural, one {# day ago} other {# days ago}}"
 	},
+	"valuationCurve": {
+		"title": "Valuation curve",
+		"subtitle": "Your estimated value across every financial year the engine valued: history, the current year, and forecast. Same adaptive method as the report.",
+		"emptyTitle": "No curve yet",
+		"emptyDescription": "Run a valuation to see your value plotted across every financial year.",
+		"singlePointHint": "One financial year so far. As more years are valued, the trend line builds out.",
+		"ariaLabel": "Valuation over financial years",
+		"tableCaption": "Estimated value by financial year",
+		"footnote": "The report shows the most recent financial year. This curve restates each year on today's market lens, so the trend reflects how the business moved rather than a change in method. Forecast years are drawn dashed.",
+		"labels": {
+			"date": "Year",
+			"range": "Range",
+			"midpoint": "Estimated value",
+			"askingPrice": "Asking price",
+			"method": "Method",
+			"version": "Version",
+			"valuation": "Valuation",
+			"status": "Type",
+			"triggerManual": "Manual update",
+			"triggerAutoRecalculation": "Auto recalculation",
+			"triggerConversation": "Assistant update",
+			"triggerAdjustment": "Adjustment",
+			"confidence": "Confidence",
+			"actual": "Actual",
+			"forecast": "Forecast"
+		}
+	},
 	"valuationEmptyState": {
 		"reportsWillAppearHere": "Reports will appear here",
 		"startConversationDesc": "Start a conversation in the chat to generate insights and reports about your indicative business estimate"
@@ -641,6 +668,7 @@
 		"preview": "Preview",
 		"noReport": "No report yet",
 		"history": "Version history",
+		"graph": "Valuation curve",
 		"generatingPDF": "Generating PDF...",
 		"downloadPDF": "Download PDF",
 		"recentDownloads": "Recent Downloads",

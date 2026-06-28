@@ -420,6 +420,32 @@ export interface ValuationResponse {
   ev_equity_waterfall_steps?: EvEquityWaterfallStep[]
   /** Titan may persist full Jinja context; waterfall steps may appear here if top-level omitted */
   report_context?: Record<string, unknown>
+
+  /**
+   * Per-year valuation timeline (the value-over-fiscal-years curve): one adaptive
+   * valuation per year (historical actuals + current + forecast), restated on the
+   * current market lens. The report shows the latest year; this curve shows the
+   * full trend. Always attached by Titan for full valuations; absent on legacy
+   * persisted reports that predate it (the curve degrades to a single point).
+   */
+  valuation_timeline?: ValuationTimelinePoint[]
+}
+
+/**
+ * One fiscal-year point on the {@link ValuationResponse.valuation_timeline} curve.
+ * Numerics arrive as strings or numbers (Python decimal precision) — parse before
+ * charting. Mirrors Titan's `ValuationTimelinePoint`.
+ */
+export interface ValuationTimelinePoint {
+  fiscal_year: number
+  equity_low: ApiNumeric
+  equity_mid: ApiNumeric
+  equity_high: ApiNumeric
+  currency?: string
+  methodology_used?: string | null
+  confidence_level?: string | null
+  confidence_score?: ApiNumeric | null
+  is_forecast?: boolean
 }
 
 /** One bar/step in the enterprise-to-equity waterfall (ValuationIQ JSON). */

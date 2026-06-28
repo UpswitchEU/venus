@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Eye, FileSpreadsheet, MessageCircle } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, FileSpreadsheet, LineChart, MessageCircle } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link, useTransitionRouter } from 'next-view-transitions'
 import { useMemo } from 'react'
@@ -39,6 +39,7 @@ export function CalculatorNav({
   onDownload,
   onFullscreen,
   onPreview,
+  onShowGraph,
   onShowHistory,
   hasReport = false,
   rightPanelView = 'report',
@@ -343,6 +344,29 @@ export function CalculatorNav({
               </button>
             </Tooltip>
 
+            {/* Valuation curve — the value-over-fiscal-years graph. Sits right
+                beside the report/eye toggle: same "review the result" cluster,
+                one shows the latest-year report, the other the full trend. */}
+            <Tooltip content={hasReport ? t('report.graph') : t('report.noReport')}>
+              <button
+                type="button"
+                onClick={onShowGraph}
+                disabled={!hasReport}
+                className={cn(
+                  'p-2 rounded-lg transition-all duration-200',
+                  rightPanelView === 'graph' && hasReport
+                    ? 'text-primary bg-primary/15 ring-1 ring-primary/30 shadow-sm'
+                    : hasReport
+                      ? 'text-foreground/60 hover:text-foreground hover:bg-foreground/[0.06]'
+                      : 'text-foreground/20 cursor-not-allowed'
+                )}
+                aria-label={t('report.graph')}
+                aria-pressed={rightPanelView === 'graph'}
+              >
+                <LineChart className="w-4 h-4" aria-hidden />
+              </button>
+            </Tooltip>
+
             <div className="h-5 w-px bg-foreground/[0.08] mx-1" />
 
             <ToolbarOverflowMenu
@@ -451,6 +475,7 @@ export function CalculatorNav({
               onRedownload={onRedownload}
               onFullscreen={onFullscreen}
               onPreview={onPreview}
+              onShowGraph={onShowGraph}
               onOpenNormalization={onOpenNormalization}
               normalizationCount={normalizationCount}
               normalizationFeatureLocked={normalizationFeatureLocked}

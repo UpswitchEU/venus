@@ -261,7 +261,16 @@ export function HistoricalYearCard({
         Number.isFinite(yearData.ebitda) &&
         yearData.revenue > 0 &&
         (() => {
-          const margin = (yearData.ebitda / yearData.revenue) * 100
+          // When a normalized EBITDA is shown above, the margin sits under THAT
+          // figure and must divide the normalized EBITDA (e.g. 57.358 / 177.376 =
+          // 32.3%), not the reported EBITDA (which would mislabel it 20.6%).
+          const marginEbitda =
+            hasNormalizedAdjustment &&
+            normalizedYear &&
+            Number.isFinite(normalizedYear.normalizedEbitda)
+              ? normalizedYear.normalizedEbitda
+              : yearData.ebitda
+          const margin = (marginEbitda / yearData.revenue) * 100
           if (!Number.isFinite(margin)) return null
           return (
             <p className="mt-2 text-[11px] text-foreground/40 font-mono tabular-nums">

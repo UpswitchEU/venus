@@ -31,6 +31,7 @@ export interface ManualLayoutNavProps {
   handlePreview: () => void
   handleSelectValuation: NonNullable<CalculatorNavProps['onSelectValuation']>
   handleSelectVersion?: NonNullable<CalculatorNavProps['onSelectVersion']>
+  handleShowGraph: () => void
   handleShowHistory: () => void
   handleSwitchWorkspace?: () => void
   hasReport: boolean
@@ -96,6 +97,7 @@ export function ManualLayoutNav({
   handlePreview,
   handleSelectValuation,
   handleSelectVersion,
+  handleShowGraph,
   handleShowHistory,
   handleSwitchWorkspace,
   hasReport,
@@ -141,6 +143,7 @@ export function ManualLayoutNav({
       onBack={handleBack}
       onDownload={handleExport}
       onPreview={handlePreview}
+      onShowGraph={handleShowGraph}
       onFullscreen={handleFullscreen}
       onShowHistory={handleShowHistory}
       hasReport={hasReport}

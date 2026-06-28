@@ -109,6 +109,15 @@ export function useManualNavigationController({
     setRightPanelView('history')
   }, [setRightPanelView])
 
+  const handleShowGraph = useCallback(() => {
+    setRightPanelView('graph')
+    // On mobile the report panel lives in the fullscreen modal — mirror preview
+    // so opening the curve actually surfaces it.
+    if (isMobile) {
+      setShowFullscreenModal(true)
+    }
+  }, [isMobile, setRightPanelView, setShowFullscreenModal])
+
   const handleFullscreen = useCallback(() => {
     trackFullscreenOpen()
     setShowFullscreenModal(true)
@@ -222,6 +231,7 @@ export function useManualNavigationController({
     handleOpenMercuryClientForInvite,
     handlePreview,
     handleSelectValuation,
+    handleShowGraph,
     handleShowHistory,
     handleSwitchWorkspace,
     isConfirmingNewValuation,

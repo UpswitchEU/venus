@@ -1,8 +1,4 @@
-import {
-  equalWeightsFor,
-  normalizeRemainderWeights,
-  rebalanceMethodWeights,
-} from '@/constants/methodFieldConfig'
+import { normalizeRemainderWeights, rebalanceMethodWeights } from '@/constants/methodFieldConfig'
 import type { BusinessTypeSegmentInput } from '../../../types/valuation/request'
 import { computeSegmentWeightedMultiple } from './segmentWeightedMultiple'
 
@@ -225,10 +221,6 @@ export function buildHistoricalWeightUpdate({
   return numericKeyedRecord(next)
 }
 
-export function buildEqualHistoricalWeights(yearKeys: string[]): Record<number, number> {
-  return numericKeyedRecord(equalWeightsFor(yearKeys))
-}
-
 /**
  * Default per-year weighting: a linear recency ramp (most recent year heaviest),
  * as whole-percent weights summing to 100. Mirrors ValuationIQ's engine default
@@ -329,7 +321,12 @@ function deriveRawHistoricalWeights({
   years: number[]
 }): Record<string, number> {
   const out: Record<string, number> = {}
-  const fallback = equalWeightsFor(yearKeys)
+  // Fall back to the recency ramp (not an equal split) so the sliders display the
+  // same basis the engine uses by default — keeps the panel and the headline aligned
+  // even when formData carries a 'weighted' mode but no per-year weights yet.
+  const fallback = Object.fromEntries(
+    Object.entries(buildRecencyHistoricalWeights(yearKeys))
+  ) as Record<string, number>
   for (const year of years) {
     const existing = historicalEbitdaWeights?.[year]
     out[String(year)] = Number.isFinite(Number(existing))

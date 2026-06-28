@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { IntegrationStatus } from '../../../services/api/accounting'
-import type { ValuationMethodResult } from '../../../types/valuation'
+import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
+import { getNextHistoricalYear } from '../../../utils/forecastYears'
+import { hasExplicitNumericValue } from '../../../utils/yearlyFinancials'
 import {
   getSeedBaseFilingYear,
   getSeedYearlyFinancials,
@@ -9,7 +11,10 @@ import {
   shouldAutoConfirmPrefilledFilingYear,
   venusLiveBatchImportProvider,
 } from '../ManualInputPanel'
+import type { NormalizationItem } from '../UnifiedNormalizationModal'
 import { getSelectedBelgianAuditEntries } from '../utils/manualBelgianAuditEntries'
+import { getLatestNonPlaceholderFinancialYear } from '../utils/manualFinancialSeeds'
+import { buildManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 
 describe('getSeedBaseFilingYear / getSeedYearlyFinancials (filing year rollover)', () => {
   afterEach(() => {
@@ -97,6 +102,147 @@ describe('getSeedBaseFilingYear / getSeedYearlyFinancials (filing year rollover)
       revenue: 910_000,
       ebitda: 120_000,
     })
+  })
+})
+
+// Mirrors the (post-fix) header adjustment computation in NormalizedEbitdaSummary
+// so the regression below proves the header reconciles with the per-year detail.
+function headerAverageAdjustment(
+  years: ReturnType<typeof buildManualInputNormalizedData>['years']
+): number {
+  const yearsWithEbitda = years.filter(
+    (y) => !y.isForecast && hasExplicitNumericValue(y.ebitda) && Number(y.ebitda) !== 0
+  )
+  const sum = yearsWithEbitda.reduce(
+    (acc, y) => acc + (Number.isFinite(y.totalAdjustment) ? y.totalAdjustment : 0),
+    0
+  )
+  return yearsWithEbitda.length > 0 ? sum / yearsWithEbitda.length : 0
+}
+
+describe('single-FY2023-only financial history (phantom-row regression)', () => {
+  // Real client file: the ONLY real data is FY2023 (revenue 177.376, reported
+  // EBITDA 36.451, normalized 57.358 via 3 normalisaties). The integration left a
+  // placeholder current_year_data at the calendar filing year (2025).
+  const now = new Date('2026-06-28T12:00:00.000Z') // filing year = 2025
+  const reportedEbitda = 36_451
+  const revenue = 177_376
+  // 3 normalisaties → +20.907 (57.358 − 36.451; the report shows +20.906 / 57.358,
+  // the 1-euro delta is report rounding). The point of this test is reconciliation.
+  const normalizations: NormalizationItem[] = [
+    {
+      id: 'n1',
+      ledgerCode: '618',
+      ledgerName: 'Management fee',
+      category: 'salary',
+      type: 'add',
+      value: 0,
+      adjustment: 12_000,
+      source: 'manual',
+      status: 'accepted',
+      applyAllYears: false,
+      year: 2023,
+    },
+    {
+      id: 'n2',
+      ledgerCode: '640',
+      ledgerName: 'Eenmalige kost',
+      category: 'one_time',
+      type: 'add',
+      value: 0,
+      adjustment: 5_000,
+      source: 'manual',
+      status: 'accepted',
+      applyAllYears: false,
+      year: 2023,
+    },
+    {
+      id: 'n3',
+      ledgerCode: '623',
+      ledgerName: 'Privégebruik',
+      category: 'personal',
+      type: 'add',
+      value: 0,
+      adjustment: 3_907,
+      source: 'manual',
+      status: 'accepted',
+      applyAllYears: false,
+      year: 2023,
+    },
+  ]
+
+  const initialData: Partial<ManualValuationFormData> = {
+    current_year_data: { year: 2025, revenue: 0, ebitda: 0 },
+    historical_years_data: [{ year: 2023, revenue, ebitda: reportedEbitda }],
+    filingYearConfirmed: false,
+  }
+
+  it('anchors the base year on the real FY2023 data, not the calendar filing year', () => {
+    expect(getLatestNonPlaceholderFinancialYear(initialData)).toBe(2023)
+    expect(getSeedBaseFilingYear(initialData, now)).toBe(2023)
+  })
+
+  it('seeds a ladder that LEADS with FY2023 (no phantom empty 2025/2024 rows)', () => {
+    const yf = getSeedYearlyFinancials(initialData, now)
+    // First (newest) row is the real 2023 "Basis" year — no leading 2025/2024.
+    expect(yf[0]).toMatchObject({ year: '2023', revenue, ebitda: reportedEbitda })
+    expect(yf.some((r) => r.year === '2025')).toBe(false)
+    expect(yf.some((r) => r.year === '2024')).toBe(false)
+  })
+
+  it('add-year offers the internal gap year before extending below the minimum', () => {
+    // Rows skip 2024 between 2025 and 2023 → offer 2024, not 2022.
+    const withGap = [
+      { year: '2025', revenue: 1, ebitda: 1 },
+      { year: '2023', revenue: 1, ebitda: 1 },
+    ]
+    expect(getNextHistoricalYear(withGap)).toBe(2024)
+    // Contiguous set → extend below the oldest.
+    expect(
+      getNextHistoricalYear([
+        { year: '2025', revenue: 1, ebitda: 1 },
+        { year: '2024', revenue: 1, ebitda: 1 },
+        { year: '2023', revenue: 1, ebitda: 1 },
+      ])
+    ).toBe(2022)
+  })
+
+  it('header adjustment reconciles with the per-year detail (+20.907, 1 jaar)', () => {
+    const yearlyFinancials = getSeedYearlyFinancials(initialData, now)
+    const normalizedData = buildManualInputNormalizedData({
+      estimatedMarketRent: undefined,
+      excludeRealEstate: false,
+      normalizationItems: normalizations,
+      yearlyFinancials,
+    })
+
+    // "(1 jaar)" — only the real FY2023 counts as a complete year.
+    expect(normalizedData.totalYearsWithData).toBe(1)
+
+    const year2023 = normalizedData.years.find((y) => y.year === '2023')
+    expect(year2023?.totalAdjustment).toBe(20_907)
+    expect(year2023?.normalizedEbitda).toBe(57_358)
+
+    // Header must equal the per-year detail — NOT half of it (the old bug divided
+    // the +20.907 by 2 because a phantom 0-EBITDA row inflated the denominator).
+    const header = headerAverageAdjustment(normalizedData.years)
+    expect(header).toBe(20_907)
+    expect(header).toBe(year2023?.totalAdjustment)
+  })
+
+  it('EBITDA margin shown under the normalized figure is 32.3% (not the reported 20.6%)', () => {
+    const yearlyFinancials = getSeedYearlyFinancials(initialData, now)
+    const normalizedData = buildManualInputNormalizedData({
+      estimatedMarketRent: undefined,
+      excludeRealEstate: false,
+      normalizationItems: normalizations,
+      yearlyFinancials,
+    })
+    const year2023 = normalizedData.years.find((y) => y.year === '2023')
+    const normalizedMargin = ((year2023?.normalizedEbitda ?? 0) / revenue) * 100
+    const reportedMargin = (reportedEbitda / revenue) * 100
+    expect(normalizedMargin.toFixed(1)).toBe('32.3')
+    expect(reportedMargin.toFixed(1)).toBe('20.6')
   })
 })
 

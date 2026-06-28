@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildAdvisorDiscountWeightUpdate,
-  buildEqualHistoricalWeights,
   buildHistoricalWeightingModeUpdates,
   buildHistoricalWeightUpdate,
   buildMultipleTypeWeightUpdate,
@@ -102,7 +101,15 @@ describe('advancedAdvisorControlsModel', () => {
       2019, 2020, 2021, 2022, 2023, 2024,
     ])
     expect(model.years).toEqual([2020, 2021, 2022, 2023, 2024])
-    expect(model.rawWeights).toEqual({ '2020': 20, '2021': 20, '2022': 20, '2023': 20, '2024': 20 })
+    // No stored weights -> the sliders fall back to the recency ramp (most recent
+    // year heaviest), matching the engine's default, not a flat equal split.
+    expect(model.rawWeights).toEqual({
+      '2020': 7,
+      '2021': 13,
+      '2022': 20,
+      '2023': 27,
+      '2024': 33,
+    })
   })
 
   it('derives the shared historical-year weighting model (caps at 5 years, recency-eligible at 3+)', () => {
@@ -144,11 +151,6 @@ describe('advancedAdvisorControlsModel', () => {
   })
 
   it('builds exact historical weighting update payloads for the section dispatcher', () => {
-    expect(buildEqualHistoricalWeights(['2023', '2024', '2025'])).toEqual({
-      2023: 34,
-      2024: 33,
-      2025: 33,
-    })
     expect(
       buildHistoricalWeightingModeUpdates({
         nextMode: 'weighted',

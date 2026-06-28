@@ -8,6 +8,7 @@ import type {
 import { getCurrentFilingYear, isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
 import {
   getHistoricalYearRange,
+  type YearlyFinancialLike,
   yearlyFinancialRowHasNonPlaceholderData,
   yearlyFinancialsContainsNonPlaceholderData,
 } from '../../../utils/yearlyFinancials'
@@ -61,6 +62,41 @@ const sessionHasNonPlaceholderFinancials = (d: Partial<ManualValuationFormData>)
   return false
 }
 
+/**
+ * Most recent fiscal year that actually carries real (non-placeholder, non-zero)
+ * revenue / EBITDA / FCFF across any persisted source (`yearlyFinancials`,
+ * `current_year_data`, `historical_years_data`). Returns null when no real data
+ * exists. This is the anchor for the "Basis" year and the displayed ladder, so a
+ * file whose only real data is FY2023 anchors on 2023 — not on a phantom calendar
+ * filing year with empty leading rows.
+ */
+export const getLatestNonPlaceholderFinancialYear = (
+  initialData: Partial<ManualValuationFormData>
+): number | null => {
+  let latest: number | null = null
+  const consider = (rawYear: unknown, row: YearlyFinancialLike & { isForecast?: boolean }) => {
+    if (row.isForecast) return
+    const yearNum = Number(rawYear)
+    if (!Number.isFinite(yearNum) || yearNum < 2000 || yearNum > 2100) return
+    if (!yearlyFinancialRowHasNonPlaceholderData({ ...row, isForecast: false, year: yearNum }))
+      return
+    if (latest === null || yearNum > latest) latest = yearNum
+  }
+  if (Array.isArray(initialData.yearlyFinancials)) {
+    for (const row of initialData.yearlyFinancials) {
+      if (row) consider(row.year, row)
+    }
+  }
+  const cyd = initialData.current_year_data
+  if (cyd && cyd.year != null) consider(cyd.year, cyd)
+  if (Array.isArray(initialData.historical_years_data)) {
+    for (const row of initialData.historical_years_data) {
+      if (row) consider(row.year, row)
+    }
+  }
+  return latest
+}
+
 export const getSeedBaseFilingYear = (
   initialData: Partial<ManualValuationFormData>,
   now: Date = new Date()
@@ -73,14 +109,24 @@ export const getSeedBaseFilingYear = (
   ) {
     return filingYear
   }
+
+  const maxSeedYear = isFilingYearConfirmedValue(initialData.filingYearConfirmed)
+    ? maxSelectableYear
+    : filingYear
+
+  // Anchor on the most recent year that has real figures (regardless of which
+  // source carries them), clamped to the filing-safe ceiling. This is what makes
+  // the FY2023-only file show 2023 as "Basis" instead of an empty calendar year.
+  const latestRealYear = getLatestNonPlaceholderFinancialYear(initialData)
+  if (latestRealYear !== null) {
+    return Math.min(latestRealYear, maxSeedYear)
+  }
+
   const explicitYear = Number(initialData.current_year_data?.year)
   if (!Number.isFinite(explicitYear) || explicitYear < 2000) {
     return filingYear
   }
 
-  const maxSeedYear = isFilingYearConfirmedValue(initialData.filingYearConfirmed)
-    ? maxSelectableYear
-    : filingYear
   return Math.min(explicitYear, maxSeedYear)
 }
 
@@ -155,6 +201,26 @@ const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
   return out.sort((a, b) => Number(b.year) - Number(a.year))
 }
 
+/**
+ * Drops the newest rows that sit ABOVE the anchor (latest-real-data) year and
+ * carry no real figures, so the displayed ladder leads with the real "Basis"
+ * year rather than phantom empty future rows. Forecast rows and any row from the
+ * base year down are preserved. No-op when every row is at/below the base.
+ */
+const stripLeadingPlaceholderRowsAboveBase = (
+  rows: YearlyFinancials[],
+  baseYear: number
+): YearlyFinancials[] => {
+  const kept = rows.filter((row) => {
+    if (row.isForecast) return true
+    const yearNum = Number(row.year)
+    if (!Number.isFinite(yearNum) || yearNum <= baseYear) return true
+    return yearlyFinancialRowHasNonPlaceholderData(row)
+  })
+  // Never strip down to nothing (defensive): keep original if filter emptied it.
+  return kept.length > 0 ? kept : rows
+}
+
 export const getSeedYearlyFinancials = (
   initialData: Partial<ManualValuationFormData>,
   now: Date = new Date()
@@ -169,14 +235,20 @@ export const getSeedYearlyFinancials = (
   const initialIsMeaningful =
     initialIsArray && hasMeaningfulYearlyFinancials(initialYearlyFinancials)
 
-  if (initialIsMeaningful) return initialYearlyFinancials
+  if (initialIsMeaningful) {
+    const baseYear = getSeedBaseFilingYear(initialData, now)
+    return stripLeadingPlaceholderRowsAboveBase(initialYearlyFinancials, baseYear)
+  }
 
   if (sessionHasNonPlaceholderFinancials(initialData)) {
     const baseYear = getSeedBaseFilingYear(initialData, now)
     const baseRows = initialIsArray
       ? initialYearlyFinancials
       : generateDefaultYearlyFinancials(baseYear)
-    return bridgeNonPlaceholderFinancialsIntoYearlyArray(baseRows, initialData, baseYear)
+    return stripLeadingPlaceholderRowsAboveBase(
+      bridgeNonPlaceholderFinancialsIntoYearlyArray(baseRows, initialData, baseYear),
+      baseYear
+    )
   }
 
   return generateDefaultYearlyFinancials(getSeedBaseFilingYear(initialData, now))

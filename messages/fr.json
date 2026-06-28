@@ -529,6 +529,33 @@
 		"hoursAgo": "{count, plural, one {#heure il y a} other {#heures il y a}}",
 		"daysAgo": "{count, plural, one {#jour il y a} other {#jours il y a}}"
 	},
+	"valuationCurve": {
+		"title": "Courbe de valorisation",
+		"subtitle": "Votre valeur estimée pour chaque exercice évalué par le moteur : historique, année en cours et prévision. La même méthode adaptative que le rapport.",
+		"emptyTitle": "Pas encore de courbe",
+		"emptyDescription": "Lancez une valorisation pour voir votre valeur sur chaque exercice.",
+		"singlePointHint": "Un seul exercice pour l'instant. À mesure que d'autres années sont évaluées, la courbe se construit.",
+		"ariaLabel": "Valorisation par exercice",
+		"tableCaption": "Valeur estimée par exercice",
+		"footnote": "Le rapport présente l'exercice le plus récent. Cette courbe recalcule chaque année selon la lentille de marché actuelle, de sorte que la tendance reflète l'évolution de l'entreprise et non un changement de méthode. Les années de prévision sont en pointillés.",
+		"labels": {
+			"date": "Année",
+			"range": "Fourchette",
+			"midpoint": "Valeur estimée",
+			"askingPrice": "Prix demandé",
+			"method": "Méthode",
+			"version": "Version",
+			"valuation": "Valorisation",
+			"status": "Type",
+			"triggerManual": "Mise à jour manuelle",
+			"triggerAutoRecalculation": "Recalcul automatique",
+			"triggerConversation": "Mise à jour de l'assistant",
+			"triggerAdjustment": "Ajustement",
+			"confidence": "Confiance",
+			"actual": "Réel",
+			"forecast": "Prévision"
+		}
+	},
 	"valuationEmptyState": {
 		"reportsWillAppearHere": "Les rapports apparaîtront ici",
 		"startConversationDesc": "Démarrez une conversation dans le chat pour générer des informations et des rapports sur votre estimation commerciale indicative."
@@ -641,6 +668,7 @@
 		"preview": "Aperçu",
 		"noReport": "Pas encore de rapport",
 		"history": "Historique des versions",
+		"graph": "Courbe de valorisation",
 		"generatingPDF": "Génération de PDF...",
 		"downloadPDF": "Télécharger le PDF",
 		"recentDownloads": "Téléchargements récents",

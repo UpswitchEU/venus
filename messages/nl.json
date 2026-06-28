@@ -529,6 +529,33 @@
 		"hoursAgo": "{count, plural, one {# uur geleden} other {# uur geleden}}",
 		"daysAgo": "{count, plural, one {# dag geleden} other {# dagen geleden}}"
 	},
+	"valuationCurve": {
+		"title": "Waarderingscurve",
+		"subtitle": "Je geschatte waarde voor elk boekjaar dat de engine waardeerde: historie, het huidige jaar en de prognose. Dezelfde adaptieve methode als het rapport.",
+		"emptyTitle": "Nog geen curve",
+		"emptyDescription": "Voer een waardering uit om je waarde over elk boekjaar te zien.",
+		"singlePointHint": "Voorlopig één boekjaar. Naarmate meer jaren worden gewaardeerd, bouwt de trendlijn zich op.",
+		"ariaLabel": "Waardering over boekjaren",
+		"tableCaption": "Geschatte waarde per boekjaar",
+		"footnote": "Het rapport toont het meest recente boekjaar. Deze curve herrekent elk jaar op de huidige marktlens, zodat de trend laat zien hoe de onderneming bewoog en niet hoe de methode veranderde. Prognosejaren worden gestippeld weergegeven.",
+		"labels": {
+			"date": "Jaar",
+			"range": "Bandbreedte",
+			"midpoint": "Geschatte waarde",
+			"askingPrice": "Vraagprijs",
+			"method": "Methode",
+			"version": "Versie",
+			"valuation": "Waardering",
+			"status": "Type",
+			"triggerManual": "Handmatige update",
+			"triggerAutoRecalculation": "Automatische herberekening",
+			"triggerConversation": "Assistent-update",
+			"triggerAdjustment": "Aanpassing",
+			"confidence": "Vertrouwen",
+			"actual": "Werkelijk",
+			"forecast": "Prognose"
+		}
+	},
 	"valuationEmptyState": {
 		"reportsWillAppearHere": "Rapporten verschijnen hier",
 		"startConversationDesc": "Start een gesprek in de chat om inzichten en rapporten over uw schatting te genereren"
@@ -641,6 +668,7 @@
 		"preview": "Voorbeeld",
 		"noReport": "Nog geen rapport",
 		"history": "Versiegeschiedenis",
+		"graph": "Waarderingscurve",
 		"generatingPDF": "PDF wordt gegenereerd...",
 		"downloadPDF": "PDF downloaden",
 		"recentDownloads": "Recente Downloads",

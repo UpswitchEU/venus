@@ -6,6 +6,7 @@ import {
   Eye,
   FileSpreadsheet,
   History,
+  LineChart,
   Loader2,
   Lock,
   Maximize2,
@@ -31,6 +32,7 @@ interface ToolbarOverflowMenuProps {
   onRedownload?: (item: DownloadHistoryItem) => void
   onFullscreen?: () => void
   onPreview?: () => void
+  onShowGraph?: () => void
   onOpenNormalization?: () => void
   normalizationCount?: number
   normalizationFeatureLocked?: boolean
@@ -63,6 +65,7 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
   onRedownload,
   onFullscreen,
   onPreview,
+  onShowGraph,
   onOpenNormalization,
   normalizationCount = 0,
   normalizationFeatureLocked = false,
@@ -86,6 +89,7 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
   const hasDownload = !!onDownload
   const hasFullscreen = !!onFullscreen
   const hasPreview = compactTouchTarget && !!onPreview
+  const hasGraph = compactTouchTarget && !!onShowGraph
   const hasNormalization = !!onOpenNormalization
   const hasSignAttest = showSignAttest && !!onSignAttest
   const hasApproveValuation = showApproveValuation && !!onApproveValuation
@@ -96,6 +100,7 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
     hasDownload ||
     hasFullscreen ||
     hasPreview ||
+    hasGraph ||
     hasNormalization ||
     hasSignAttest ||
     hasApproveValuation
@@ -114,7 +119,7 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
     hasPendingNormalization
   const showPanelDivider =
     (hasSourceData || hasHistory) &&
-    (hasDownload || hasFullscreen || hasPreview || hasSignAttest || hasApproveValuation)
+    (hasDownload || hasFullscreen || hasPreview || hasGraph || hasSignAttest || hasApproveValuation)
   return (
     <Dropdown
       align="end"
@@ -255,6 +260,30 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
           >
             <Eye className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
             <span className="flex-1">{t('report.preview')}</span>
+          </button>
+        )}
+
+        {hasGraph && (
+          <button
+            type="button"
+            role="menuitem"
+            aria-pressed={rightPanelView === 'graph'}
+            onClick={onShowGraph}
+            disabled={!hasReport}
+            className={cn(
+              'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
+              !hasReport
+                ? 'text-foreground/30 cursor-not-allowed'
+                : rightPanelView === 'graph'
+                  ? 'bg-primary/[0.06] text-foreground'
+                  : 'text-foreground/80 hover:text-foreground hover:bg-foreground/[0.04]'
+            )}
+          >
+            <LineChart className="w-4 h-4 shrink-0 text-foreground/55" aria-hidden />
+            <span className="flex-1">{t('report.graph')}</span>
+            {rightPanelView === 'graph' && hasReport && (
+              <Check className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
+            )}
           </button>
         )}
 

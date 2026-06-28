@@ -1,7 +1,8 @@
-import type { MutableRefObject } from 'react'
+import { lazy, type MutableRefObject, Suspense } from 'react'
 import {
   FullscreenReportModal,
   type NormalizationItem,
+  type RightPanelView,
   UnifiedNormalizationModal,
   type ValuationReportData,
 } from '../../../components/calculator'
@@ -16,6 +17,15 @@ import {
   type ManualStarterPaywallReason,
 } from './ManualStarterPaywallModal'
 import type { CollectedData } from './manualLayoutDataTypes'
+import { PanelSkeleton } from './manualLayoutShell'
+
+// Lazy so the visx curve bundle only loads when the graph view is actually shown
+// (on mobile this modal is the report surface, so it must render the curve too).
+const ManualValuationCurvePanel = lazy(() =>
+  import('./ManualValuationCurvePanel').then((module) => ({
+    default: module.ManualValuationCurvePanel,
+  }))
+)
 
 interface GuidedNormalizationPrefill {
   initialSearchQuery?: string
@@ -67,6 +77,7 @@ export interface ManualLayoutModalsProps {
   report: ValuationReportData | null
   reportId: string
   reportMethodHydrationError: ManualReportMethodHydrationError
+  rightPanelView: RightPanelView
   resolvedReportId?: string | null
   result: ValuationResponse | null
   retryReportMethodHydration: () => void
@@ -128,6 +139,7 @@ export function ManualLayoutModals({
   report,
   reportId,
   reportMethodHydrationError,
+  rightPanelView,
   resolvedReportId,
   result,
   retryReportMethodHydration,
@@ -154,6 +166,12 @@ export function ManualLayoutModals({
         report={report}
         onDownload={handleExport}
         isExporting={isExporting}
+        rightPanelView={rightPanelView}
+        graphSlot={
+          <Suspense fallback={<PanelSkeleton />}>
+            <ManualValuationCurvePanel loading={isGenerating || isCalculating} />
+          </Suspense>
+        }
         onShare={
           isAccountantMode && clientContextId
             ? () => {

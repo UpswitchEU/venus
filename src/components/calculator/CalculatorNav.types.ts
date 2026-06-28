@@ -1,4 +1,4 @@
-export type RightPanelView = 'report' | 'preview' | 'history'
+export type RightPanelView = 'report' | 'preview' | 'history' | 'graph'
 
 export interface RecentValuation {
   id: string
@@ -31,6 +31,8 @@ export interface CalculatorNavProps {
   onDownload?: () => void | Promise<void>
   onFullscreen?: () => void
   onPreview?: () => void
+  /** Opens the valuation curve (the value-over-fiscal-years graph). */
+  onShowGraph?: () => void
   onShowHistory?: () => void
   hasReport?: boolean
   rightPanelView?: RightPanelView

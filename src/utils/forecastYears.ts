@@ -58,7 +58,20 @@ export function getNextHistoricalYear<T extends ForecastYearLike>(
     .map((entry) => Number(entry.year))
     .filter((year) => Number.isFinite(year))
 
-  return historicalYears.length > 0 ? Math.min(...historicalYears) - 1 : fallbackYear - 1
+  if (historicalYears.length === 0) return fallbackYear - 1
+
+  // Prefer filling an internal gap (e.g. rows skip 2024 between 2025 and 2023)
+  // so the add-year button offers the missing year before extending below the
+  // oldest. Scan downward from the newest; the first absent year is the gap.
+  const present = new Set(historicalYears)
+  const max = Math.max(...historicalYears)
+  const min = Math.min(...historicalYears)
+  for (let year = max - 1; year > min; year--) {
+    if (!present.has(year)) return year
+  }
+
+  // Contiguous set → extend one year below the oldest.
+  return min - 1
 }
 
 export function countHistoricalYears<T extends ForecastYearLike>(yearlyFinancials: T[]): number {

@@ -35,8 +35,14 @@ export function NormalizedEbitdaSummary({
   const hasAdjustments = normalizedData.years.some(
     (year) => year.totalAdjustment !== 0 || (year.fictiveRentDeduction ?? 0) > 0
   )
-  const yearsWithEbitda = normalizedData.years.filter((year) =>
-    hasExplicitFinancialValue(year.ebitda)
+  // Reconcile the header adjustment with the per-year detail card: only count
+  // years that carry a REAL EBITDA figure (explicit and non-zero, non-forecast).
+  // An empty base row (ebitda = 0) would otherwise dilute the average — e.g. a
+  // single €20.906 adjustment shown as +€10.453 because a phantom 0-row doubled
+  // the denominator.
+  const yearsWithEbitda = normalizedData.years.filter(
+    (year) =>
+      !year.isForecast && hasExplicitFinancialValue(year.ebitda) && Number(year.ebitda) !== 0
   )
   const adjustmentSum = yearsWithEbitda.reduce(
     (sum, year) => sum + (Number.isFinite(year.totalAdjustment) ? year.totalAdjustment : 0),

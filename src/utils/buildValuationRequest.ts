@@ -387,29 +387,35 @@ export function buildValuationRequest(
     )
   }
 
+  // Prune the per-year weights to the years actually carried by THIS request, so
+  // weights left over from a year the advisor later added/removed in the financials
+  // never reach the engine (which would reject "year not in series" or silently
+  // misweight). The weights apply to both revenue and EBITDA.
+  const requestYearSet = new Set<number>(allDataYears)
   const historicalEbitdaWeights: Record<number, number> = {}
   if (fd.historical_ebitda_weights && typeof fd.historical_ebitda_weights === 'object') {
     for (const [year, weight] of Object.entries(fd.historical_ebitda_weights)) {
       const numericYear = Number(year)
       const numericWeight = toFiniteNumber(weight)
-      if (Number.isFinite(numericYear) && numericWeight != null) {
+      if (
+        Number.isFinite(numericYear) &&
+        requestYearSet.has(numericYear) &&
+        numericWeight != null
+      ) {
         historicalEbitdaWeights[numericYear] = numericWeight
       }
     }
   }
+  // Custom per-year weighting only ships when the advisor selected 'weighted' AND the
+  // pruned weights are still valid (3-5 present years summing to ~100). Otherwise we
+  // send 'standard' and let the engine apply its recency default — we never throw, so
+  // an advisor whose saved default is 'weighted' (or who edited the years) still gets
+  // a valuation instead of a hard error.
   const hasValidCustomHistoricalEbitdaWeights =
     fd.historical_ebitda_weighting_mode === 'weighted' &&
     hasValidHistoricalEbitdaWeights(historicalEbitdaWeights)
-  if (
-    fd.historical_ebitda_weighting_mode === 'weighted' &&
-    !hasValidCustomHistoricalEbitdaWeights
-  ) {
-    throw new ValidationError(
-      'Historical EBITDA weights must contain 3 to 5 fiscal years and sum to 100%.',
-      'historical_ebitda_weights',
-      fd.historical_ebitda_weights
-    )
-  }
+  const historicalEbitdaWeightingMode: 'standard' | 'weighted' =
+    hasValidCustomHistoricalEbitdaWeights ? 'weighted' : 'standard'
   const showEnterpriseToEquityBridge = toBooleanOrNull(fd.show_enterprise_to_equity_bridge)
   const ownerSalaryAddback = toFiniteNumber(fd.owner_salary_addback)
   const { registrationNumber, kboNumber, kvkNumber, vatNumber, legalForm, postalCode, city } =
@@ -501,7 +507,7 @@ export function buildValuationRequest(
       discount_floor_factor: discountFloorFactor,
     }),
     ...(fd.historical_ebitda_weighting_mode && {
-      historical_ebitda_weighting_mode: fd.historical_ebitda_weighting_mode,
+      historical_ebitda_weighting_mode: historicalEbitdaWeightingMode,
     }),
     ...(hasValidCustomHistoricalEbitdaWeights && {
       historical_ebitda_weights: historicalEbitdaWeights,

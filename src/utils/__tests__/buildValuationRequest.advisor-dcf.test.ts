@@ -46,6 +46,11 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
         },
         risk_analysis_enabled: false,
         discount_floor_factor: 0.4,
+        historical_years_data: [
+          { year: getCurrentFilingYear() - 3, revenue: 700_000, ebitda: 70_000 },
+          { year: getCurrentFilingYear() - 2, revenue: 800_000, ebitda: 80_000 },
+          { year: getCurrentFilingYear() - 1, revenue: 900_000, ebitda: 90_000 },
+        ],
         historical_ebitda_weighting_mode: 'weighted',
         historical_ebitda_weights: {
           [getCurrentFilingYear() - 3]: 10,
@@ -262,19 +267,46 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
     ).toThrow('Multiple-type blend weights must be between 0% and 100%.')
   })
 
-  it('rejects malformed historical EBITDA weights before calling the valuation engine', () => {
-    expect(() =>
-      buildValuationRequest(
-        makeFormData({
-          historical_ebitda_weighting_mode: 'weighted',
-          historical_ebitda_weights: {
-            [getCurrentFilingYear() - 2]: 40,
-            [getCurrentFilingYear() - 1]: Number.NaN,
-          },
-        }),
-        []
-      )
-    ).toThrow('Historical EBITDA weights must contain 3 to 5 fiscal years and sum to 100%.')
+  it('falls back to standard weighting when historical EBITDA weights are malformed (no throw)', () => {
+    // Graceful fallback, not a hard error: an advisor whose saved default is
+    // 'weighted' but carries no/partial weights must still get a valuation.
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_ebitda_weighting_mode: 'weighted',
+        historical_ebitda_weights: {
+          [getCurrentFilingYear() - 2]: 40,
+          [getCurrentFilingYear() - 1]: Number.NaN,
+        },
+      }),
+      []
+    )
+
+    expect(result.historical_ebitda_weighting_mode).toBe('standard')
+    expect(result.historical_ebitda_weights).toBeUndefined()
+  })
+
+  it('prunes per-year weights for years absent from the financials (no stale keys reach the engine)', () => {
+    // The advisor weighted 3 years, then removed one from the financials. The stale
+    // weight for the dropped year must not be sent; the surviving 2-year set is no
+    // longer valid (<3 years) so we fall back to standard.
+    const result = buildValuationRequest(
+      makeFormData({
+        historical_years_data: [
+          { year: getCurrentFilingYear() - 2, revenue: 800_000, ebitda: 80_000 },
+          { year: getCurrentFilingYear() - 1, revenue: 900_000, ebitda: 90_000 },
+        ],
+        historical_ebitda_weighting_mode: 'weighted',
+        historical_ebitda_weights: {
+          [getCurrentFilingYear() - 3]: 17, // stale: no financial row for this year
+          [getCurrentFilingYear() - 2]: 33,
+          [getCurrentFilingYear() - 1]: 50,
+        },
+      }),
+      []
+    )
+
+    expect(result.historical_ebitda_weighting_mode).toBe('standard')
+    expect(result.historical_ebitda_weights).toBeUndefined()
   })
 
   it('accepts fractional historical EBITDA weights that sum to one', () => {
@@ -282,6 +314,11 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
       makeFormData({
         multiple_calibration_adjustment: 0.5,
         multiple_calibration_note: 'Opslag wegens hoge omzetkwaliteit',
+        historical_years_data: [
+          { year: getCurrentFilingYear() - 3, revenue: 700_000, ebitda: 70_000 },
+          { year: getCurrentFilingYear() - 2, revenue: 800_000, ebitda: 80_000 },
+          { year: getCurrentFilingYear() - 1, revenue: 900_000, ebitda: 90_000 },
+        ],
         historical_ebitda_weighting_mode: 'weighted',
         historical_ebitda_weights: {
           [getCurrentFilingYear() - 3]: 0.1,

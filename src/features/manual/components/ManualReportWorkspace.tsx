@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { Suspense, useRef } from 'react'
+import { lazy, Suspense, useRef } from 'react'
 import {
   HistoryPanel,
   type HistoryPanelProps,
@@ -15,6 +15,15 @@ import { useSessionStore } from '../../../store/useSessionStore'
 import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import type { ManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
 import { PanelSkeleton } from './manualLayoutShell'
+
+// Lazy so the visx valuation-curve bundle only loads when the user opens the
+// graph view — they get the panel skeleton (Suspense fallback) on first open,
+// then the rendered curve.
+const ManualValuationCurvePanel = lazy(() =>
+  import('./ManualValuationCurvePanel').then((module) => ({
+    default: module.ManualValuationCurvePanel,
+  }))
+)
 
 type ManualReportWorkspaceTranslator = (key: string) => string
 
@@ -199,7 +208,20 @@ export function ManualReportWorkspace({
     <div ref={reportPanelRef} className="h-full bg-background flex flex-col">
       <div className="flex-1 min-h-0 overflow-hidden">
         <AnimatePresence mode="wait">
-          {rightPanelView === 'preview' ? (
+          {rightPanelView === 'graph' ? (
+            <motion.div
+              key="graph"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springDefault}
+              className="h-full bg-background"
+            >
+              <Suspense fallback={<PanelSkeleton />}>
+                <ManualValuationCurvePanel loading={isBusy} />
+              </Suspense>
+            </motion.div>
+          ) : rightPanelView === 'preview' ? (
             <motion.div
               key="preview"
               initial={{ opacity: 0 }}
