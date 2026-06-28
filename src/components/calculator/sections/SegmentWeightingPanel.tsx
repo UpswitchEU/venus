@@ -54,12 +54,12 @@ function MultipleSourceTooltip() {
         How is the multiple determined?
       </p>
       <p className="text-xs leading-relaxed text-background/75">
-        Multiples come from the Upswitch benchmark database — built from real SME transactions in
-        Belgium and the Netherlands, adjusted for sector and size.
+        Multiples come from the Upswitch index, built from real SME transactions in Belgium and the
+        Netherlands, adjusted for sector and size.
       </p>
       <div className="space-y-1 border-t border-background/20 pt-2 text-[11px] leading-relaxed text-background/60">
         <div>
-          <span className="font-medium text-background/80">Source:</span> Delphi benchmark index
+          <span className="font-medium text-background/80">Source:</span> Upswitch index
         </div>
         <div>
           <span className="font-medium text-background/80">Range:</span> p25 / median / p75 band per
@@ -70,6 +70,18 @@ function MultipleSourceTooltip() {
           depending on the business type
         </div>
       </div>
+      <p className="border-t border-background/20 pt-2 text-[11px] leading-relaxed text-background/60">
+        These are the sector benchmarks. Businesses with above-average margins earn a quality premium,
+        so the multiple applied in the report can sit above the benchmark shown here.
+      </p>
+      <a
+        href="https://index.upswitch.app/en/markets/business-types"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-background underline underline-offset-2 transition-colors hover:text-background/75"
+      >
+        View the Upswitch index
+      </a>
     </div>
   )
 }
@@ -234,7 +246,7 @@ export function SegmentWeightingPanel({
               ) : (
                 row.multiple != null && (
                   <Tooltip
-                    content="Benchmark multiple from the Delphi SME index"
+                    content="Benchmark multiple from the Upswitch index"
                     side="top"
                     sideOffset={6}
                   >

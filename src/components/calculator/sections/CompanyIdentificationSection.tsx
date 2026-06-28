@@ -30,12 +30,12 @@ function MultipleSourceTooltipContent() {
         Hoe wordt de multiple bepaald?
       </p>
       <p className="text-background/75 text-xs leading-relaxed">
-        Multiples komen uit de Upswitch benchmarkdatabase — opgebouwd uit echte KMO-transacties in
-        België en Nederland, gecorrigeerd voor sector en omvang.
+        Multiples komen uit de Upswitch index, opgebouwd uit echte KMO-transacties in België en
+        Nederland, gecorrigeerd voor sector en omvang.
       </p>
       <div className="border-t border-background/20 pt-2 text-background/60 text-[11px] leading-relaxed space-y-1">
         <div>
-          <span className="font-medium text-background/80">Bron:</span> Delphi benchmarkindex
+          <span className="font-medium text-background/80">Bron:</span> Upswitch index
         </div>
         <div>
           <span className="font-medium text-background/80">Marge:</span> p25 / mediaan / p75
@@ -46,6 +46,18 @@ function MultipleSourceTooltipContent() {
           afhankelijk van bedrijfstype
         </div>
       </div>
+      <p className="border-t border-background/20 pt-2 text-background/60 text-[11px] leading-relaxed">
+        Dit is de sectorbenchmark. Bedrijven met bovengemiddelde marges krijgen een kwaliteitspremie,
+        dus de toegepaste multiple in het rapport kan hoger liggen dan deze benchmark.
+      </p>
+      <a
+        href="https://index.upswitch.app/nl/markets/business-types"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-1 inline-flex items-center gap-1 text-background text-[11px] font-medium underline underline-offset-2 transition-colors hover:text-background/75"
+      >
+        Bekijk de Upswitch index
+      </a>
     </div>
   )
 }
