@@ -14,6 +14,7 @@
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useMemo } from 'react'
+import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import type { ChartLabels } from '../../../components/valuation-graph'
 import {
   buildHeadlineFallbackRows,
@@ -74,21 +75,30 @@ export function ManualValuationCurvePanel({ loading = false }: ManualValuationCu
     return buildHeadlineFallbackRows(result)
   }, [result])
 
+  const hasForecast = useMemo(() => rows.some((row) => row.isForecast === true), [rows])
   const isLoading = loading || isCalculating
 
-  const latest = rows.length > 0 ? rows[rows.length - 1] : null
-  // Compare the latest year against the previous ACTUAL year (skip forecasts) so
-  // the headline delta reflects realised movement, not a projection.
-  const previousActual = useMemo(() => {
-    for (let i = rows.length - 2; i >= 0; i--) {
+  // The header echoes the report headline — which is the latest ACTUAL year, never
+  // a forecast. The chart shows the full trajectory (incl. dashed forecast), but the
+  // headline number must match the report and not overstate via a projection.
+  const headlinePoint = useMemo(() => {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].isForecast !== true) return rows[i]
+    }
+    // Engine guarantees ≥1 actual (the current year); this is belt-and-suspenders.
+    return rows.length > 0 ? rows[rows.length - 1] : null
+  }, [rows])
+  // YoY delta vs the previous actual year (skip forecasts) — realised movement only.
+  const priorActual = useMemo(() => {
+    const headlineIdx = headlinePoint ? rows.indexOf(headlinePoint) : -1
+    for (let i = headlineIdx - 1; i >= 0; i--) {
       if (rows[i].isForecast !== true) return rows[i]
     }
     return null
-  }, [rows])
-  const delta =
-    latest && latest.isForecast !== true
-      ? formatDelta(latest.valueMid, previousActual?.valueMid ?? null, locale, currency)
-      : null
+  }, [rows, headlinePoint])
+  const delta = headlinePoint
+    ? formatDelta(headlinePoint.valueMid, priorActual?.valueMid ?? null, locale, currency)
+    : null
   const DeltaIcon =
     delta?.tone === 'up' ? TrendingUp : delta?.tone === 'down' ? TrendingDown : Minus
 
@@ -100,12 +110,15 @@ export function ManualValuationCurvePanel({ loading = false }: ManualValuationCu
             <h2 className="text-base font-semibold text-foreground">{t('title')}</h2>
             <p className="text-sm leading-relaxed text-foreground/55">{t('subtitle')}</p>
           </div>
-          {latest && !isLoading ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground/55">
+          {headlinePoint && !isLoading ? (
+            <div
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground/55"
+              data-testid="valuation-curve-headline"
+            >
               <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                {formatGraphCurrency(latest.valueMid, currency, locale)}
+                {formatGraphCurrency(headlinePoint.valueMid, currency, locale)}
               </span>
-              <span className="tabular-nums">{latest.label}</span>
+              <span className="tabular-nums">{headlinePoint.label}</span>
               {delta ? (
                 <span
                   className={cn(
@@ -125,29 +138,39 @@ export function ManualValuationCurvePanel({ loading = false }: ManualValuationCu
           ) : null}
         </header>
 
-        <div className="relative min-h-[20rem] flex-1 rounded-2xl border border-border bg-card p-4 sm:p-5">
-          <ValuationTrendChart
-            rows={rows}
-            locale={locale}
-            currency={currency}
-            labels={labels}
-            loading={isLoading}
-            dateMode="year"
-            showProjection={false}
-            showMethodCaption={false}
-            singlePointHint={t('singlePointHint')}
-            aria-label={t('ariaLabel')}
-            data-testid="valuation-curve-chart"
-            emptyState={
-              <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-2 text-center">
-                <p className="text-sm font-medium text-foreground/70">{t('emptyTitle')}</p>
-                <p className="max-w-[260px] text-xs leading-relaxed text-foreground/40">
-                  {t('emptyDescription')}
-                </p>
-              </div>
-            }
-          />
-        </div>
+        {/* A chart render error must never take down the report workspace — the
+            boundary keeps the header/footnote and degrades only the chart area. */}
+        <ErrorBoundary
+          fallback={
+            <div className="relative flex min-h-[20rem] flex-1 items-center justify-center rounded-2xl border border-border bg-card p-4 text-center sm:p-5">
+              <p className="text-sm text-foreground/55">{t('error')}</p>
+            </div>
+          }
+        >
+          <div className="relative min-h-[20rem] flex-1 rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <ValuationTrendChart
+              rows={rows}
+              locale={locale}
+              currency={currency}
+              labels={labels}
+              loading={isLoading}
+              dateMode="year"
+              showProjection={false}
+              showMethodCaption={false}
+              singlePointHint={t('singlePointHint')}
+              aria-label={t('ariaLabel')}
+              data-testid="valuation-curve-chart"
+              emptyState={
+                <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-2 text-center">
+                  <p className="text-sm font-medium text-foreground/70">{t('emptyTitle')}</p>
+                  <p className="max-w-[260px] text-xs leading-relaxed text-foreground/40">
+                    {t('emptyDescription')}
+                  </p>
+                </div>
+              }
+            />
+          </div>
+        </ErrorBoundary>
 
         {/* The SVG above is aria-hidden; this visually-hidden table is its
             accessible twin — every year's figures for screen-reader users. */}
@@ -161,7 +184,9 @@ export function ManualValuationCurvePanel({ loading = false }: ManualValuationCu
           />
         ) : null}
 
-        <p className="text-[11px] leading-relaxed text-foreground/40">{t('footnote')}</p>
+        <p className="text-[11px] leading-relaxed text-foreground/40">
+          {hasForecast ? `${t('footnote')} ${t('footnoteForecast')}` : t('footnote')}
+        </p>
       </div>
     </div>
   )

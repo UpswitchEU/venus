@@ -531,13 +531,15 @@
 	},
 	"valuationCurve": {
 		"title": "Valuation curve",
-		"subtitle": "Your estimated value across every financial year the engine valued: history, the current year, and forecast. Same adaptive method as the report.",
+		"subtitle": "Your estimated value for every financial year the engine valued: history, the current year, and any forecast, each restated on today's market lens.",
 		"emptyTitle": "No curve yet",
 		"emptyDescription": "Run a valuation to see your value plotted across every financial year.",
 		"singlePointHint": "One financial year so far. As more years are valued, the trend line builds out.",
 		"ariaLabel": "Valuation over financial years",
+		"error": "The valuation curve could not be displayed.",
 		"tableCaption": "Estimated value by financial year",
-		"footnote": "The report shows the most recent financial year. This curve restates each year on today's market lens, so the trend reflects how the business moved rather than a change in method. Forecast years are drawn dashed.",
+		"footnote": "The report shows the most recent financial year. This curve restates each year on today's market lens, so the trend reflects how the business moved rather than a change in method.",
+		"footnoteForecast": "Forecast years are drawn dashed.",
 		"labels": {
 			"date": "Year",
 			"range": "Range",

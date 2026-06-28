@@ -107,4 +107,13 @@ describe('resolveTimelineCurrency', () => {
       } as unknown as ValuationResponse)
     ).toBe('GBP')
   })
+
+  it('prefers the headline result currency over the engine-hardcoded timeline EUR', () => {
+    expect(
+      resolveTimelineCurrency({
+        currency: 'GBP',
+        valuation_timeline: [point({ fiscal_year: 2025, currency: 'EUR' })],
+      } as unknown as ValuationResponse)
+    ).toBe('GBP')
+  })
 })

@@ -117,10 +117,15 @@ export function buildHeadlineFallbackRows(
 }
 
 /**
- * Resolve the chart's display currency from the timeline (its first point) or the
- * headline result, defaulting to EUR.
+ * Resolve the chart's display currency. Prefer the headline result's currency:
+ * the engine hard-codes "EUR" on every timeline point regardless of the company's
+ * actual currency, but each year's value is computed on the same lens as the
+ * headline (no FX conversion), so the headline currency is the correct label for
+ * all of them. Falls back to a timeline point's currency, then EUR.
  */
 export function resolveTimelineCurrency(result: ValuationResponse | null | undefined): string {
+  const headline = typeof result?.currency === 'string' ? result.currency.trim() : ''
+  if (headline) return headline
   const fromTimeline = result?.valuation_timeline?.find(
     (point) => typeof point.currency === 'string' && point.currency.trim()
   )?.currency

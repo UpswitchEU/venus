@@ -531,13 +531,15 @@
 	},
 	"valuationCurve": {
 		"title": "Waarderingscurve",
-		"subtitle": "Je geschatte waarde voor elk boekjaar dat de engine waardeerde: historie, het huidige jaar en de prognose. Dezelfde adaptieve methode als het rapport.",
+		"subtitle": "Je geschatte waarde voor elk boekjaar dat de engine waardeerde: historie, het huidige jaar en eventuele prognose, elk herrekend op de huidige marktlens.",
 		"emptyTitle": "Nog geen curve",
 		"emptyDescription": "Voer een waardering uit om je waarde over elk boekjaar te zien.",
 		"singlePointHint": "Voorlopig één boekjaar. Naarmate meer jaren worden gewaardeerd, bouwt de trendlijn zich op.",
 		"ariaLabel": "Waardering over boekjaren",
+		"error": "De waarderingscurve kon niet worden weergegeven.",
 		"tableCaption": "Geschatte waarde per boekjaar",
-		"footnote": "Het rapport toont het meest recente boekjaar. Deze curve herrekent elk jaar op de huidige marktlens, zodat de trend laat zien hoe de onderneming bewoog en niet hoe de methode veranderde. Prognosejaren worden gestippeld weergegeven.",
+		"footnote": "Het rapport toont het meest recente boekjaar. Deze curve herrekent elk jaar op de huidige marktlens, zodat de trend laat zien hoe de onderneming bewoog en niet hoe de methode veranderde.",
+		"footnoteForecast": "Prognosejaren worden gestippeld weergegeven.",
 		"labels": {
 			"date": "Jaar",
 			"range": "Bandbreedte",

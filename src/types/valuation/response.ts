@@ -421,6 +421,9 @@ export interface ValuationResponse {
   /** Titan may persist full Jinja context; waterfall steps may appear here if top-level omitted */
   report_context?: Record<string, unknown>
 
+  /** ISO-4217 currency of the headline equity band (set by the restore hydrator from the pricing range). */
+  currency?: string
+
   /**
    * Per-year valuation timeline (the value-over-fiscal-years curve): one adaptive
    * valuation per year (historical actuals + current + forecast), restated on the

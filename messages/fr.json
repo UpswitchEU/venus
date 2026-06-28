@@ -531,13 +531,15 @@
 	},
 	"valuationCurve": {
 		"title": "Courbe de valorisation",
-		"subtitle": "Votre valeur estimée pour chaque exercice évalué par le moteur : historique, année en cours et prévision. La même méthode adaptative que le rapport.",
+		"subtitle": "Votre valeur estimée pour chaque exercice évalué par le moteur : historique, année en cours et éventuelle prévision, chacun recalculé selon la lentille de marché actuelle.",
 		"emptyTitle": "Pas encore de courbe",
 		"emptyDescription": "Lancez une valorisation pour voir votre valeur sur chaque exercice.",
 		"singlePointHint": "Un seul exercice pour l'instant. À mesure que d'autres années sont évaluées, la courbe se construit.",
 		"ariaLabel": "Valorisation par exercice",
+		"error": "La courbe de valorisation n'a pas pu être affichée.",
 		"tableCaption": "Valeur estimée par exercice",
-		"footnote": "Le rapport présente l'exercice le plus récent. Cette courbe recalcule chaque année selon la lentille de marché actuelle, de sorte que la tendance reflète l'évolution de l'entreprise et non un changement de méthode. Les années de prévision sont en pointillés.",
+		"footnote": "Le rapport présente l'exercice le plus récent. Cette courbe recalcule chaque année selon la lentille de marché actuelle, de sorte que la tendance reflète l'évolution de l'entreprise et non un changement de méthode.",
+		"footnoteForecast": "Les années de prévision sont en pointillés.",
 		"labels": {
 			"date": "Année",
 			"range": "Fourchette",

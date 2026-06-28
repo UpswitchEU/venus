@@ -46,6 +46,20 @@ describe('CalculatorNav', () => {
     vi.useRealTimers()
   })
 
+  it('renders the valuation curve button beside the report toggle and invokes onShowGraph', () => {
+    const onShowGraph = vi.fn()
+    render(<CalculatorNav hasReport onShowGraph={onShowGraph} />)
+    const graphButton = screen.getByLabelText('report.graph')
+    expect(graphButton).not.toBeDisabled()
+    fireEvent.click(graphButton)
+    expect(onShowGraph).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the valuation curve button until a report exists', () => {
+    render(<CalculatorNav hasReport={false} onShowGraph={vi.fn()} />)
+    expect(screen.getByLabelText('report.graph')).toBeDisabled()
+  })
+
   it('keeps the draft chip in the recent valuation title row without crowding the timestamp', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-02T09:37:30.000Z'))
