@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConnectAccountingInline } from './ConnectAccountingInline'
 
 // Translations echo the key (params ignored) so assertions read against the key.
@@ -53,9 +53,16 @@ vi.mock('@/design-system/components/Button', () => ({
 }))
 
 describe('ConnectAccountingInline (BET-316 Door 1)', () => {
+  beforeEach(() => {
+    openInNewTab.mockReset()
+    mercuryPath.mockClear()
+    mercuryPath.mockReturnValue('https://mercury.test/en/advisor/settings?tab=integrations')
+  })
+
   it('shows the verified provenance badge once figures are imported', () => {
     render(
       <ConnectAccountingInline
+        integrationsEnabled
         liveImportProviderName="Bizzcontrol"
         imported
         importBusy={false}
@@ -71,6 +78,7 @@ describe('ConnectAccountingInline (BET-316 Door 1)', () => {
     const onImport = vi.fn()
     render(
       <ConnectAccountingInline
+        integrationsEnabled
         liveImportProviderName="Bizzcontrol"
         imported={false}
         importBusy={false}
@@ -86,6 +94,7 @@ describe('ConnectAccountingInline (BET-316 Door 1)', () => {
   it('routes a not-yet-connected owner to the integrations settings', () => {
     render(
       <ConnectAccountingInline
+        integrationsEnabled
         liveImportProviderName={null}
         imported={false}
         importBusy={false}
@@ -100,6 +109,24 @@ describe('ConnectAccountingInline (BET-316 Door 1)', () => {
       tab: 'integrations',
       source: 'venus_financials',
     })
+    expect(openInNewTab).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a Grow upgrade prompt instead of the connect route when integrations are locked', () => {
+    render(
+      <ConnectAccountingInline
+        integrationsEnabled={false}
+        liveImportProviderName={null}
+        imported={false}
+        importBusy={false}
+        openingImport={false}
+        onImport={vi.fn()}
+      />
+    )
+    expect(screen.getByText('upgradeDescription')).toBeInTheDocument()
+    expect(screen.getByText('upgradeReassurance')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('upgradeCta'))
+    expect(mercuryPath).toHaveBeenCalledWith('en', '/pricing', { tab: 'business-owners' })
     expect(openInNewTab).toHaveBeenCalledTimes(1)
   })
 })

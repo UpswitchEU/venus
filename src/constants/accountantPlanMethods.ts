@@ -83,6 +83,15 @@ export function normalizeAccountantPlanTypeKey(planType: string | undefined): st
   // aliases as Starter-level so Venus unlocks file/manual workflows without granting
   // Pro-only live integration affordances during first-paint or degraded plan reads.
   switch (key) {
+    case 'owner_free':
+      return 'free'
+    case 'grow':
+    case 'owner_grow':
+      return 'owner_grow'
+    case 'sell':
+    case 'owner_sell':
+    case 'premium':
+      return 'owner_sell'
     case 'accountant_free':
       return 'free'
     case 'accountant_paid':

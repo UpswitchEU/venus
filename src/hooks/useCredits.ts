@@ -31,7 +31,14 @@ interface UserPlan {
   bonus_valuations?: number
 }
 
-const PAID_PLAN_TYPES = new Set(['premium', 'starter', 'pro', 'expert', 'enterprise'])
+const PAID_PLAN_TYPES = new Set([
+  'owner_grow',
+  'owner_sell',
+  'starter',
+  'pro',
+  'expert',
+  'enterprise',
+])
 
 /** Mirrors Titan `GET /api/v2/credits/plan` `plan_features` (fallback when field omitted). */
 export interface PlanFeatureFlags {
@@ -46,46 +53,67 @@ export interface PlanFeatureFlags {
   team_seat_addons: boolean
 }
 
+const FREE_PLAN_FEATURES: PlanFeatureFlags = {
+  ebitda_normalization: false,
+  tax_latencies: true,
+  version_control: false,
+  audit_trail: false,
+  integrations_enabled: false,
+  valuation_synthesis: false,
+  valuation_download: false,
+  live_benelux_sector_multiples: false,
+  team_seat_addons: false,
+}
+
+const OWNER_PAID_PLAN_FEATURES: PlanFeatureFlags = {
+  ebitda_normalization: true,
+  tax_latencies: true,
+  version_control: true,
+  audit_trail: true,
+  integrations_enabled: true,
+  valuation_synthesis: true,
+  valuation_download: true,
+  live_benelux_sector_multiples: true,
+  team_seat_addons: false,
+}
+
+const ADVISOR_STARTER_PLAN_FEATURES: PlanFeatureFlags = {
+  ebitda_normalization: true,
+  tax_latencies: true,
+  version_control: true,
+  audit_trail: true,
+  integrations_enabled: false,
+  valuation_synthesis: true,
+  valuation_download: true,
+  live_benelux_sector_multiples: true,
+  team_seat_addons: false,
+}
+
+const ADVISOR_PRO_PLAN_FEATURES: PlanFeatureFlags = {
+  ...ADVISOR_STARTER_PLAN_FEATURES,
+  integrations_enabled: true,
+}
+
+const ADVISOR_FIRM_PLAN_FEATURES: PlanFeatureFlags = {
+  ...ADVISOR_PRO_PLAN_FEATURES,
+  team_seat_addons: true,
+}
+
 export function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
   const pt = normalizeAccountantPlanTypeKey(planType)
-  if (pt === 'free') {
-    return {
-      ebitda_normalization: false,
-      tax_latencies: false,
-      version_control: false,
-      audit_trail: false,
-      integrations_enabled: false,
-      valuation_synthesis: false,
-      valuation_download: false,
-      live_benelux_sector_multiples: false,
-      team_seat_addons: false,
-    }
-  }
-  if (pt === 'starter') {
-    return {
-      ebitda_normalization: true,
-      tax_latencies: true,
-      version_control: true,
-      audit_trail: true,
-      integrations_enabled: false,
-      valuation_synthesis: true,
-      valuation_download: true,
-      live_benelux_sector_multiples: true,
-      team_seat_addons: true,
-    }
-  }
-  return {
-    ebitda_normalization: true,
-    tax_latencies: true,
-    version_control: true,
-    audit_trail: true,
-    integrations_enabled: ['pro', 'expert', 'enterprise'].includes(pt),
-    valuation_synthesis: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
-    valuation_download: true,
-    live_benelux_sector_multiples: ['premium', 'starter', 'pro', 'expert', 'enterprise'].includes(
-      pt
-    ),
-    team_seat_addons: ['starter', 'pro', 'expert', 'enterprise'].includes(pt),
+  switch (pt) {
+    case 'owner_grow':
+    case 'owner_sell':
+      return OWNER_PAID_PLAN_FEATURES
+    case 'starter':
+      return ADVISOR_STARTER_PLAN_FEATURES
+    case 'pro':
+      return ADVISOR_PRO_PLAN_FEATURES
+    case 'expert':
+    case 'enterprise':
+      return ADVISOR_FIRM_PLAN_FEATURES
+    default:
+      return FREE_PLAN_FEATURES
   }
 }
 

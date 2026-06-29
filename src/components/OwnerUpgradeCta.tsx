@@ -17,6 +17,7 @@ import { useLocale } from 'next-intl'
 import { buildManualMercuryPricingUrl } from '@/features/manual/utils/manualMercuryNavigation'
 import { useAuth } from '@/lib/auth/useAuth'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { normalizeAccountantPlanTypeKey } from '@/constants/accountantPlanMethods'
 
 export type OwnerUpgradeTier = 'grow' | 'sell'
 
@@ -31,7 +32,7 @@ export function isOwnerRole(role: string | null | undefined): boolean {
  * any non-owner plan upsell nothing.
  */
 export function ownerNextTier(planType: string | null | undefined): OwnerUpgradeTier | null {
-  const plan = (planType ?? '').trim().toLowerCase()
+  const plan = normalizeAccountantPlanTypeKey(planType ?? undefined)
   if (plan === '' || plan === 'free') return 'grow'
   if (plan === 'owner_grow') return 'sell'
   return null

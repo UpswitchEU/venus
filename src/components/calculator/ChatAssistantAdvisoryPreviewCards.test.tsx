@@ -51,6 +51,42 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
     )
   })
 
+  it('omits Belgian bootstrap accounting follow-ups when integrations are plan-locked', () => {
+    const onSendFollowUp = vi.fn()
+    const message: ChatMessage = {
+      id: 'msg-bootstrap-locked',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      belgianCompanyBootstraps: [
+        {
+          id: 'bootstrap-locked',
+          status: 'ok',
+          identity: {
+            legalName: 'Locked BV',
+            kboNumber: '0123456789',
+          },
+        },
+      ],
+    }
+
+    render(<ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />)
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'proposalCards.belgianBootstrap.connectAccountingAction',
+      })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'proposalCards.belgianBootstrap.startValuationAction' })
+    )
+
+    expect(onSendFollowUp).toHaveBeenCalledWith(
+      'Start a valuation for Locked BV using the public data, then ask me for any missing inputs.'
+    )
+  })
+
   it('uses listing preview gap hints as a conversational repair action', () => {
     const onSendFollowUp = vi.fn()
     const message: ChatMessage = {
@@ -76,6 +112,43 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
     )
 
     expect(onSendFollowUp).toHaveBeenCalledWith('Ask the owner for region and employee range.')
+  })
+
+  it('defaults missing client-data readiness to manual figures when integrations are locked', () => {
+    const onSendFollowUp = vi.fn()
+    const message: ChatMessage = {
+      id: 'msg-readiness-locked',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      clientDataReadinessPreviews: [
+        {
+          id: 'readiness-locked',
+          status: 'missing_financials',
+          clientId: 'client-locked',
+          businessName: 'Locked Client BV',
+          hasSyncedFinancials: false,
+        },
+      ],
+    }
+
+    render(<ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />)
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'proposalCards.clientDataReadiness.connectAccountingAction',
+      })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'proposalCards.clientDataReadiness.enterFiguresAction',
+      })
+    )
+
+    expect(onSendFollowUp).toHaveBeenCalledWith(
+      'Enter financials manually for Locked Client BV: revenue + EBITDA by fiscal year.'
+    )
   })
 
   it('routes buyer-profile cards toward listing creation or missing-field completion', () => {
@@ -159,7 +232,13 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
       ],
     }
 
-    render(<ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />)
+    render(
+      <ChatAssistantAdvisoryPreviewCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled
+      />
+    )
 
     fireEvent.click(
       screen.getByRole('button', { name: 'proposalCards.belgianBootstrap.createClientAction' })
@@ -257,7 +336,13 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
       ],
     }
 
-    render(<ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />)
+    render(
+      <ChatAssistantAdvisoryPreviewCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled
+      />
+    )
 
     fireEvent.click(
       screen.getByRole('button', { name: 'proposalCards.clientDataReadiness.openReviewAction' })

@@ -81,9 +81,17 @@ describe('ChatAssistantAdvisoryPreviewActions', () => {
         primary: true,
       },
     ])
-    expect(buildBelgianBootstrapActions(ready, translate).map((action) => action.prompt)).toEqual([
+    expect(
+      buildBelgianBootstrapActions(ready, translate, { integrationsEnabled: true }).map(
+        (action) => action.prompt
+      )
+    ).toEqual([
       'Create an advisor client for Acme BV from this KBO/NBB public-data bootstrap.',
       'Connect accounting data for Acme BV and continue onboarding.',
+      'Start a valuation for Acme BV using the public data, then ask me for any missing inputs.',
+    ])
+    expect(buildBelgianBootstrapActions(ready, translate).map((action) => action.prompt)).toEqual([
+      'Create an advisor client for Acme BV from this KBO/NBB public-data bootstrap.',
       'Start a valuation for Acme BV using the public data, then ask me for any missing inputs.',
     ])
   })
@@ -111,9 +119,16 @@ describe('ChatAssistantAdvisoryPreviewActions', () => {
     expect(buildClientDataReadinessActions(ready, translate)[0]?.prompt).toBe(
       'Start a valuation for Beta BV using the synced accounting data.'
     )
-    expect(buildClientDataReadinessActions(missing, translate)[0]?.prompt).toBe(
+    expect(
+      buildClientDataReadinessActions(missing, translate, { integrationsEnabled: true })[0]?.prompt
+    ).toBe(
       'Help me connect or import accounting data for client client-3.'
     )
+    expect(buildClientDataReadinessActions(missing, translate)[0]).toEqual({
+      label: 'proposalCards.clientDataReadiness.enterFiguresAction',
+      prompt: 'Enter financials manually for client client-3: revenue + EBITDA by fiscal year.',
+      primary: true,
+    })
   })
 
   it('limits method-readiness prompts to the first six methods', () => {

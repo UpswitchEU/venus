@@ -66,6 +66,7 @@ interface FinancialHistorySectionProps {
   importAccountingError: string | null
   integrationDerivedCapexPct: number | null
   integrationDerivedDaPct: number | null
+  integrationsEnabled: boolean
   isCalculating: boolean
   latestHistoricalEbitda?: number
   latestHistoricalRevenue?: number
@@ -124,6 +125,7 @@ export function FinancialHistorySection({
   importAccountingError,
   integrationDerivedCapexPct,
   integrationDerivedDaPct,
+  integrationsEnabled,
   isCalculating,
   latestHistoricalEbitda,
   latestHistoricalRevenue,
@@ -203,6 +205,7 @@ export function FinancialHistorySection({
       {showOwnerAutofillDoors && (
         <>
           <ConnectAccountingInline
+            integrationsEnabled={integrationsEnabled}
             liveImportProviderName={liveImportProviderName}
             imported={hasImportedAccountingData}
             importBusy={bizzcontrolImport.isImporting || octopusImport.isImporting}

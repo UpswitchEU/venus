@@ -18,11 +18,13 @@ import type { ChatMessage } from './ChatAssistantTypes'
 interface ChatAssistantAdvisoryPreviewCardsProps {
   message: ChatMessage
   onSendFollowUp?: (content: string) => void
+  integrationsEnabled?: boolean
 }
 
 export function ChatAssistantAdvisoryPreviewCards({
   message,
   onSendFollowUp,
+  integrationsEnabled = false,
 }: ChatAssistantAdvisoryPreviewCardsProps) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
@@ -35,6 +37,7 @@ export function ChatAssistantAdvisoryPreviewCards({
           bootstraps={message.belgianCompanyBootstraps}
           currencyLocale={currencyLocale}
           onSendFollowUp={onSendFollowUp}
+          integrationsEnabled={integrationsEnabled}
         />
       )}
 
@@ -42,6 +45,7 @@ export function ChatAssistantAdvisoryPreviewCards({
         <ChatAssistantClientDataReadinessCards
           previews={message.clientDataReadinessPreviews}
           onSendFollowUp={onSendFollowUp}
+          integrationsEnabled={integrationsEnabled}
         />
       )}
 

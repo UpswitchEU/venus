@@ -64,7 +64,13 @@ export function OwnerProfileCard({ request }: { request: OwnerProfileAnswerReque
   )
 }
 
-export function IntegrationCard({ request }: { request: IntegrationConnectRequest }) {
+export function IntegrationCard({
+  request,
+  integrationsEnabled = false,
+}: {
+  request: IntegrationConnectRequest
+  integrationsEnabled?: boolean
+}) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
   const provider = providerLabel(request.provider)
@@ -79,31 +85,49 @@ export function IntegrationCard({ request }: { request: IntegrationConnectReques
     <InlineActionCard
       id={request.id}
       title={
-        provider
-          ? ca('proposalCards.agent.integrationTitleWithProvider', { provider })
-          : ca('proposalCards.agent.integrationTitle')
+        !integrationsEnabled
+          ? ca('proposalCards.agent.integrationLocked')
+          : provider
+            ? ca('proposalCards.agent.integrationTitleWithProvider', { provider })
+            : ca('proposalCards.agent.integrationTitle')
       }
-      detail={request.message ?? request.reason}
+      detail={
+        integrationsEnabled
+          ? (request.message ?? request.reason)
+          : ca('proposalCards.agent.integrationPlanLocked')
+      }
       meta={compactParts([authMode, request.targetContext ?? undefined])}
+      tone={integrationsEnabled ? 'default' : 'blocked'}
       icon={<Link2 className="h-3.5 w-3.5" />}
-      actionLabel={ca('proposalCards.agent.integrationAction')}
+      actionLabel={integrationsEnabled ? ca('proposalCards.agent.integrationAction') : undefined}
       actionSuccessLabel={ca('proposalCards.agent.opened')}
-      onAction={async () => {
-        openInNewTab(
-          mercuryPath(locale, '/advisor/settings', {
-            tab: 'integrations',
-            source: 'venus_chat',
-            accounting_provider: request.provider,
-          })
-        )
-      }}
+      onAction={
+        integrationsEnabled
+          ? async () => {
+              openInNewTab(
+                mercuryPath(locale, '/advisor/settings', {
+                  tab: 'integrations',
+                  source: 'venus_chat',
+                  accounting_provider: request.provider,
+                })
+              )
+            }
+          : undefined
+      }
     />
   )
 }
 
-export function IntegrationSyncCard({ request }: { request: IntegrationSyncRequest }) {
+export function IntegrationSyncCard({
+  request,
+  integrationsEnabled = false,
+}: {
+  request: IntegrationSyncRequest
+  integrationsEnabled?: boolean
+}) {
   const ca = useTranslations('chatAssistant')
-  const isBlocked = request.status === 'blocked'
+  const planLocked = !integrationsEnabled
+  const isBlocked = request.status === 'blocked' || planLocked
   const provider = providerLabel(request.provider)
   const isClientScope = request.scope === 'client_scope'
 
@@ -117,7 +141,13 @@ export function IntegrationSyncCard({ request }: { request: IntegrationSyncReque
             ? ca('proposalCards.agent.integrationSyncTitleWithProvider', { provider })
             : ca('proposalCards.agent.integrationSyncTitle')
       }
-      detail={isBlocked ? (request.message ?? request.reason) : (request.message ?? request.reason)}
+      detail={
+        planLocked
+          ? ca('proposalCards.agent.integrationPlanLocked')
+          : isBlocked
+            ? (request.message ?? request.reason)
+            : (request.message ?? request.reason)
+      }
       meta={compactParts([
         isClientScope
           ? ca('proposalCards.agent.integrationSyncScopeClient')
@@ -127,9 +157,11 @@ export function IntegrationSyncCard({ request }: { request: IntegrationSyncReque
       tone={isBlocked ? 'blocked' : 'default'}
       icon={<RefreshCw className="h-3.5 w-3.5" />}
       actionLabel={
-        isClientScope
-          ? ca('proposalCards.agent.integrationSyncAction')
-          : ca('proposalCards.agent.integrationSyncProviderAction')
+        isBlocked
+          ? undefined
+          : isClientScope
+            ? ca('proposalCards.agent.integrationSyncAction')
+            : ca('proposalCards.agent.integrationSyncProviderAction')
       }
       actionSuccessLabel={ca('proposalCards.agent.integrationSyncStarted')}
       onAction={

@@ -24,6 +24,13 @@ describe('normalizeAccountantPlanTypeKey', () => {
     expect(normalizeAccountantPlanTypeKey('accountant_expert')).toBe('expert')
     expect(normalizeAccountantPlanTypeKey('accountant_enterprise')).toBe('enterprise')
   })
+  it('normalizes owner launch aliases to canonical lifecycle tiers', () => {
+    expect(normalizeAccountantPlanTypeKey('owner_free')).toBe('free')
+    expect(normalizeAccountantPlanTypeKey('grow')).toBe('owner_grow')
+    expect(normalizeAccountantPlanTypeKey('owner_grow')).toBe('owner_grow')
+    expect(normalizeAccountantPlanTypeKey('sell')).toBe('owner_sell')
+    expect(normalizeAccountantPlanTypeKey('premium')).toBe('owner_sell')
+  })
 })
 
 describe('isAccountantFreeOrStarterTier', () => {

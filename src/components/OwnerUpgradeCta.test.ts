@@ -17,11 +17,13 @@ describe('OwnerUpgradeCta logic', () => {
   describe('ownerNextTier', () => {
     it('upsells Grow from free/Know (incl. unset)', () => {
       expect(ownerNextTier('free')).toBe('grow')
+      expect(ownerNextTier('owner_free')).toBe('grow')
       expect(ownerNextTier('')).toBe('grow')
       expect(ownerNextTier(undefined)).toBe('grow')
       expect(ownerNextTier('FREE')).toBe('grow')
     })
     it('upsells Sell from Grow', () => {
+      expect(ownerNextTier('grow')).toBe('sell')
       expect(ownerNextTier('owner_grow')).toBe('sell')
     })
     it('upsells nothing from the top tier or legacy premium', () => {

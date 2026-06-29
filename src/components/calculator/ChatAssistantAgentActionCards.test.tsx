@@ -34,7 +34,13 @@ describe('ChatAssistantAgentActionCards', () => {
       ],
     }
 
-    render(<ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />)
+    render(
+      <ChatAssistantAgentActionCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled
+      />
+    )
     fireEvent.click(screen.getByRole('button', { name: 'proposalCards.agent.ownerProfileAction' }))
 
     await waitFor(() => {
@@ -55,6 +61,36 @@ describe('ChatAssistantAgentActionCards', () => {
       })
     )
     expect(onSendFollowUp).not.toHaveBeenCalled()
+  })
+
+  it('keeps secure credential requests inert when integrations are plan-locked', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const message: ChatMessage = {
+      id: 'msg-credential-locked',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      secureCredentialRequests: [
+        {
+          id: 'proposal-credential-locked',
+          status: 'pending_approval',
+          provider: 'yuki',
+          submitPath: '/api/integrations/accounting/yuki/connect',
+          fields: [{ key: 'apiKey', label: 'API key', masked: true, required: true }],
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+
+    expect(screen.getByText('proposalCards.agent.integrationLocked')).toBeInTheDocument()
+    expect(screen.getByText('proposalCards.agent.integrationPlanLocked')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/API key/)).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'proposalCards.agent.credentialAction' })
+    ).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('posts secure credentials directly and never echoes the secret through chat', async () => {
@@ -82,7 +118,13 @@ describe('ChatAssistantAgentActionCards', () => {
       ],
     }
 
-    render(<ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />)
+    render(
+      <ChatAssistantAgentActionCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled
+      />
+    )
     fireEvent.change(screen.getByLabelText(/API key/), { target: { value: 'secret-token' } })
     fireEvent.click(screen.getByRole('button', { name: 'proposalCards.agent.credentialAction' }))
 
@@ -125,7 +167,7 @@ describe('ChatAssistantAgentActionCards', () => {
       ],
     }
 
-    render(<ChatAssistantAgentActionCards message={message} />)
+    render(<ChatAssistantAgentActionCards message={message} integrationsEnabled />)
     fireEvent.change(screen.getByLabelText(/API key/), { target: { value: 'secret-token' } })
     fireEvent.click(screen.getByRole('button', { name: 'proposalCards.agent.credentialAction' }))
 
@@ -156,7 +198,13 @@ describe('ChatAssistantAgentActionCards', () => {
       ],
     }
 
-    render(<ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />)
+    render(
+      <ChatAssistantAgentActionCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled
+      />
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Upside' }))
     fireEvent.click(screen.getByRole('button', { name: 'proposalCards.agent.submitChoice' }))
 
@@ -268,7 +316,13 @@ describe('ChatAssistantAgentActionCards', () => {
       ],
     }
 
-    render(<ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />)
+    render(
+      <ChatAssistantAgentActionCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled
+      />
+    )
     fireEvent.click(
       screen.getByRole('button', { name: 'proposalCards.agent.integrationSyncProviderAction' })
     )
@@ -318,7 +372,7 @@ describe('ChatAssistantAgentActionCards', () => {
       ],
     }
 
-    render(<ChatAssistantAgentActionCards message={message} />)
+    render(<ChatAssistantAgentActionCards message={message} integrationsEnabled />)
     fireEvent.click(
       screen.getByRole('button', { name: 'proposalCards.agent.integrationSyncAction' })
     )
@@ -340,6 +394,37 @@ describe('ChatAssistantAgentActionCards', () => {
         'X-Upswitch-Agent-Proposal-Id': 'proposal-sync-client',
       })
     )
+  })
+
+  it('keeps integration sync proposals inert when integrations are plan-locked', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const message: ChatMessage = {
+      id: 'msg-sync-locked',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      integrationSyncRequests: [
+        {
+          id: 'proposal-sync-locked',
+          status: 'pending_approval',
+          provider: 'exact',
+          scope: 'provider_scope',
+          reason: 'The advisor asked to refresh every Exact client.',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+
+    expect(screen.getByText('proposalCards.agent.integrationSyncBlocked')).toBeInTheDocument()
+    expect(screen.getByText('proposalCards.agent.integrationPlanLocked')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', {
+        name: 'proposalCards.agent.integrationSyncProviderAction',
+      })
+    ).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('sends owner accountant invites through the Venus BFF', async () => {
@@ -508,7 +593,13 @@ describe('ChatAssistantAgentActionCards', () => {
       ],
     }
 
-    render(<ChatAssistantAgentActionCards message={message} onSendFollowUp={onSendFollowUp} />)
+    render(
+      <ChatAssistantAgentActionCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled
+      />
+    )
     fireEvent.click(screen.getByRole('button', { name: 'proposalCards.agent.integrationAction' }))
 
     await waitFor(() => {
@@ -520,6 +611,37 @@ describe('ChatAssistantAgentActionCards', () => {
     })
     expect(fetchMock).not.toHaveBeenCalled()
     expect(onSendFollowUp).not.toHaveBeenCalled()
+  })
+
+  it('keeps integration connect proposals inert when integrations are plan-locked', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const openMock = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const message: ChatMessage = {
+      id: 'msg-connect-locked',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      integrationConnectRequests: [
+        {
+          id: 'proposal-connect-locked',
+          status: 'pending_approval',
+          provider: 'xero',
+          authMode: 'oauth',
+          reason: 'The advisor asked to connect Xero.',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAgentActionCards message={message} />)
+
+    expect(screen.getByText('proposalCards.agent.integrationLocked')).toBeInTheDocument()
+    expect(screen.getByText('proposalCards.agent.integrationPlanLocked')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'proposalCards.agent.integrationAction' })
+    ).not.toBeInTheDocument()
+    expect(openMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('opens client-create proposals with registry-safe Mercury query params', async () => {

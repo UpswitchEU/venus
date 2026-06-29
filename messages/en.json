@@ -1484,6 +1484,9 @@
 			"descriptionDisconnected": "Connect Yuki, Exact, Silverfin and more — we pull 3 years of revenue and EBITDA for you. Verified, no typing.",
 			"connectCta": "Connect accounting",
 			"autofillReassurance": "Once connected, your figures fill in here automatically — just come back to this step.",
+			"upgradeDescription": "Grow unlocks accounting import — pull 3 years of revenue and EBITDA without typing.",
+			"upgradeCta": "Upgrade to Grow",
+			"upgradeReassurance": "You can keep entering figures manually or invite your accountant below.",
 			"verifiedTitle": "Verified from your accounting",
 			"verifiedBody": "Your figures came straight from {provider} — no manual entry.",
 			"genericProvider": "your accounting software"
@@ -2667,6 +2670,8 @@
 				"ownerProfileAction": "Save answer",
 				"integrationTitle": "Connect accounting data",
 				"integrationTitleWithProvider": "Connect {provider}",
+				"integrationLocked": "Live accounting is locked",
+				"integrationPlanLocked": "Live accounting integrations require Grow for owners or Pro for advisors.",
 				"integrationAction": "Continue",
 				"integrationSyncTitle": "Sync accounting data",
 				"integrationSyncTitleWithProvider": "Sync {provider}",

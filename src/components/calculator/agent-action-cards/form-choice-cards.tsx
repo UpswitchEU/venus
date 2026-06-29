@@ -28,7 +28,13 @@ import {
   safeBffPath,
 } from './shared'
 
-export function SecureCredentialCard({ request }: { request: SecureCredentialRequest }) {
+export function SecureCredentialCard({
+  request,
+  integrationsEnabled = false,
+}: {
+  request: SecureCredentialRequest
+  integrationsEnabled?: boolean
+}) {
   const ca = useTranslations('chatAssistant')
   const provider = providerLabel(request.provider)
   const fields = request.fields ?? []
@@ -85,12 +91,19 @@ export function SecureCredentialCard({ request }: { request: SecureCredentialReq
     <InlineActionCard
       id={request.id}
       title={
-        provider
-          ? ca('proposalCards.agent.credentialTitleWithProvider', { provider })
-          : ca('proposalCards.agent.credentialTitle')
+        !integrationsEnabled
+          ? ca('proposalCards.agent.integrationLocked')
+          : provider
+            ? ca('proposalCards.agent.credentialTitleWithProvider', { provider })
+            : ca('proposalCards.agent.credentialTitle')
       }
-      detail={request.message ?? request.reason ?? ca('proposalCards.agent.credentialSafeHint')}
+      detail={
+        integrationsEnabled
+          ? (request.message ?? request.reason ?? ca('proposalCards.agent.credentialSafeHint'))
+          : ca('proposalCards.agent.integrationPlanLocked')
+      }
       meta={compactParts([request.submitPath])}
+      tone={integrationsEnabled ? 'default' : 'blocked'}
       icon={<KeyRound className="h-3.5 w-3.5" />}
     >
       {state === 'submitted' && (
@@ -102,7 +115,7 @@ export function SecureCredentialCard({ request }: { request: SecureCredentialReq
         </p>
       )}
       {errorMessage && <p className="mt-1.5 text-xs text-destructive">{errorMessage}</p>}
-      {!isDone && (
+      {integrationsEnabled && !isDone && (
         <form
           className="mt-2 space-y-2"
           autoComplete="off"

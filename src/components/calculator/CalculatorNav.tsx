@@ -73,7 +73,7 @@ export function CalculatorNav({
   isExporting = false,
   downloadHistory = [],
   onRedownload,
-  canDownloadPdf = true,
+  canDownloadPdf = false,
   isAccountantMode = false,
   onExitClientView,
   showSourceDataToggle = false,

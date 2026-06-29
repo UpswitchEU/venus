@@ -9,7 +9,7 @@
  *   1. `FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS` — mirrors Titan Free's
  *      `allowed_methods: null` contract ("all methods allowed").
  *   2. `resolveAllowedMethodKeys(undefined, planType)` — assumes every known
- *      tier (`free`, `starter`, `pro`, `expert`, `enterprise`, `premium`)
+ *      tier (`free`, `owner_grow`, `owner_sell`, `starter`, `pro`, `expert`, `enterprise`, `premium`)
  *      returns `null` from Titan. If Titan starts returning a restricted list
  *      for any of these tiers, Venus would silently keep every method unlocked
  *      in the UI until the next deploy lands.
@@ -128,6 +128,8 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
   })
 
   it.each([
+    'OWNER_GROW',
+    'OWNER_SELL',
     'STARTER',
     'PRO',
     'EXPERT',
@@ -143,6 +145,8 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
   })
 
   it.each([
+    ['owner_grow', null],
+    ['owner_sell', null],
     ['starter', null],
     ['pro', null],
     ['expert', null],
@@ -154,6 +158,40 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
     // collapses to `null`. Without this, a degraded `/credits/plan`
     // response would lock paid users out of paid methods in the UI.
     expect(resolveAllowedMethodKeys(undefined, planType)).toEqual(expected)
+  })
+
+  it('owner Grow/Sell and advisor Starter/Pro feature split matches Titan', () => {
+    expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'tax_latencies')).toBe(true)
+    expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'integrations_enabled')).toBe(false)
+    expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'valuation_synthesis')).toBe(false)
+    expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'valuation_download')).toBe(false)
+
+    for (const planLiteral of ['OWNER_GROW', 'OWNER_SELL'] as const) {
+      expect(extractBooleanFeatureFromTitan(titanSource, planLiteral, 'integrations_enabled')).toBe(
+        true
+      )
+      expect(extractBooleanFeatureFromTitan(titanSource, planLiteral, 'valuation_synthesis')).toBe(
+        true
+      )
+      expect(extractBooleanFeatureFromTitan(titanSource, planLiteral, 'valuation_download')).toBe(
+        true
+      )
+      expect(
+        extractBooleanFeatureFromTitan(titanSource, planLiteral, 'live_benelux_sector_multiples')
+      ).toBe(true)
+      expect(extractBooleanFeatureFromTitan(titanSource, planLiteral, 'team_seat_addons')).toBe(
+        false
+      )
+    }
+
+    expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'integrations_enabled')).toBe(
+      false
+    )
+    expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'valuation_synthesis')).toBe(
+      true
+    )
+    expect(extractBooleanFeatureFromTitan(titanSource, 'PRO', 'integrations_enabled')).toBe(true)
+    expect(extractBooleanFeatureFromTitan(titanSource, 'PRO', 'valuation_synthesis')).toBe(true)
   })
 
   it('Venus advisor-tier role set matches Mercury ROLES_ALLOWED_ACCOUNTANT_ROUTES exactly', () => {

@@ -100,6 +100,7 @@ export function ChatAssistantDrawer({
   fieldContext,
   hasReport = false,
   hasEbitda = false,
+  integrationsEnabled = false,
   pendingNormalizationsCount = 0,
   acceptedNormalizationsCount = 0,
   hasCapBreach = false,
@@ -459,6 +460,7 @@ export function ChatAssistantDrawer({
                         onRejectListingCreate={onRejectListingCreate}
                         onApplyAgentChoice={onApplyAgentChoice}
                         onCommandPillClick={handleCommandPillClick}
+                        integrationsEnabled={integrationsEnabled}
                         onOpenConsent={handleOpenConsent}
                         onRetry={onRetry}
                         onSendFollowUp={(content) =>

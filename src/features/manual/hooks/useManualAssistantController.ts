@@ -492,6 +492,7 @@ export function useManualAssistantController({
     fieldContext,
     hasReport,
     hasEbitda,
+    integrationsEnabled,
     pendingNormalizationsCount: pendingNormalizationCount,
     acceptedNormalizationsCount: assistantSuggestionContext.acceptedNormalizationsCount,
     hasCapBreach: assistantSuggestionContext.hasCapBreach,

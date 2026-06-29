@@ -24,6 +24,7 @@ interface ChatAssistantProposalCardsProps {
   onRejectListingCreate?: (proposalId: string) => void
   onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   onSendFollowUp?: (content: string) => void
+  integrationsEnabled?: boolean
 }
 
 export function ChatAssistantProposalCards({
@@ -38,6 +39,7 @@ export function ChatAssistantProposalCards({
   onRejectListingCreate,
   onApplyAgentChoice,
   onSendFollowUp,
+  integrationsEnabled = false,
 }: ChatAssistantProposalCardsProps) {
   return (
     <>
@@ -53,9 +55,14 @@ export function ChatAssistantProposalCards({
         message={message}
         onApplyAgentChoice={onApplyAgentChoice}
         onSendFollowUp={onSendFollowUp}
+        integrationsEnabled={integrationsEnabled}
       />
 
-      <ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />
+      <ChatAssistantAdvisoryPreviewCards
+        message={message}
+        onSendFollowUp={onSendFollowUp}
+        integrationsEnabled={integrationsEnabled}
+      />
 
       <ChatAssistantBuyerReadyCards message={message} onSendFollowUp={onSendFollowUp} />
 

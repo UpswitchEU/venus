@@ -1484,6 +1484,9 @@
 			"descriptionDisconnected": "Connectez Yuki, Exact, Silverfin et plus — nous récupérons 3 ans de chiffre d'affaires et d'EBITDA pour vous. Vérifiés, sans saisie.",
 			"connectCta": "Connecter la comptabilité",
 			"autofillReassurance": "Une fois connecté, vos chiffres se remplissent ici automatiquement — revenez simplement à cette étape.",
+			"upgradeDescription": "Grow déverrouille l'import comptable — récupérez 3 ans de chiffre d'affaires et d'EBITDA sans saisie.",
+			"upgradeCta": "Passer à Grow",
+			"upgradeReassurance": "Vous pouvez continuer la saisie manuelle ou inviter votre comptable ci-dessous.",
 			"verifiedTitle": "Vérifié depuis votre comptabilité",
 			"verifiedBody": "Vos chiffres proviennent directement de {provider} — aucune saisie manuelle.",
 			"genericProvider": "votre logiciel comptable"
@@ -2667,6 +2670,8 @@
 				"ownerProfileAction": "Enregistrer la réponse",
 				"integrationTitle": "Connecter les données comptables",
 				"integrationTitleWithProvider": "Connectez {provider}",
+				"integrationLocked": "La comptabilité live est verrouillée",
+				"integrationPlanLocked": "Les connexions comptables live nécessitent Grow pour les propriétaires ou Pro pour les conseillers.",
 				"integrationAction": "Continuer",
 				"integrationSyncTitle": "Synchroniser les données comptables",
 				"integrationSyncTitleWithProvider": "Synchroniser {provider}",

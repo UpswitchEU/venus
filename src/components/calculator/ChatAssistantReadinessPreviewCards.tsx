@@ -14,11 +14,13 @@ import type { ClientDataReadinessPreview, MethodReadinessPreview } from './ChatA
 interface ReadinessCardsProps<TPreview> {
   previews: TPreview[]
   onSendFollowUp?: (content: string) => void
+  integrationsEnabled?: boolean
 }
 
 export function ChatAssistantClientDataReadinessCards({
   previews,
   onSendFollowUp,
+  integrationsEnabled = false,
 }: ReadinessCardsProps<ClientDataReadinessPreview>) {
   const ca = useTranslations('chatAssistant')
 
@@ -53,7 +55,9 @@ export function ChatAssistantClientDataReadinessCards({
             })
           )
         }
-        const followUpActions = buildClientDataReadinessActions(readiness, ca)
+        const followUpActions = buildClientDataReadinessActions(readiness, ca, {
+          integrationsEnabled,
+        })
 
         return (
           <motion.div

@@ -34,6 +34,8 @@ export interface ChatAssistantDrawerProps {
   fieldContext?: FieldContext
   hasReport?: boolean
   hasEbitda?: boolean
+  /** True only when the current plan can use live accounting integration actions. */
+  integrationsEnabled?: boolean
   pendingNormalizationsCount?: number
   acceptedNormalizationsCount?: number
   hasCapBreach?: boolean

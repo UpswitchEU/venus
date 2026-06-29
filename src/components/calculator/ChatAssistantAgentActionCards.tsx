@@ -42,12 +42,14 @@ interface ChatAssistantAgentActionCardsProps {
   message: ChatMessage
   onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   onSendFollowUp?: (content: string) => void
+  integrationsEnabled?: boolean
 }
 
 export function ChatAssistantAgentActionCards({
   message,
   onApplyAgentChoice,
   onSendFollowUp,
+  integrationsEnabled = false,
 }: ChatAssistantAgentActionCardsProps) {
   const hasCards = useMemo(
     () =>
@@ -89,10 +91,18 @@ export function ChatAssistantAgentActionCards({
           <OwnerProfileCard key={request.id} request={request} />
         ))}
         {message.integrationConnectRequests?.map((request) => (
-          <IntegrationCard key={request.id} request={request} />
+          <IntegrationCard
+            key={request.id}
+            request={request}
+            integrationsEnabled={integrationsEnabled}
+          />
         ))}
         {message.integrationSyncRequests?.map((request) => (
-          <IntegrationSyncCard key={request.id} request={request} />
+          <IntegrationSyncCard
+            key={request.id}
+            request={request}
+            integrationsEnabled={integrationsEnabled}
+          />
         ))}
         {message.syncStatusPreviews?.map((preview) => (
           <SyncStatusPreviewCard key={preview.id} preview={preview} />
@@ -137,7 +147,11 @@ export function ChatAssistantAgentActionCards({
           <AcknowledgeWarningCard key={request.id} request={request} />
         ))}
         {message.secureCredentialRequests?.map((request) => (
-          <SecureCredentialCard key={request.id} request={request} />
+          <SecureCredentialCard
+            key={request.id}
+            request={request}
+            integrationsEnabled={integrationsEnabled}
+          />
         ))}
         {message.csvUploadRequests?.map((request) => (
           <CsvUploadCard key={request.id} request={request} />

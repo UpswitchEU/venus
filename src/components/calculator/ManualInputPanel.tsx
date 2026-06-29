@@ -567,6 +567,7 @@ export function ManualInputPanel({
               importAccountingError={importAccountingError}
               integrationDerivedCapexPct={integrationDerivedCapexPct}
               integrationDerivedDaPct={integrationDerivedDaPct}
+              integrationsEnabled={integrationsEnabled}
               isCalculating={isCalculating}
               latestHistoricalEbitda={latestHistoricalEbitda}
               latestHistoricalRevenue={latestHistoricalRevenue}

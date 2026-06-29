@@ -68,6 +68,7 @@ export function MessageBubble({
   onRejectListingCreate,
   onApplyAgentChoice,
   onCommandPillClick,
+  integrationsEnabled = false,
   onOpenConsent,
   onRetry,
   onSendFollowUp,
@@ -92,6 +93,7 @@ export function MessageBubble({
   onRejectListingCreate?: (proposalId: string) => void
   onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   onCommandPillClick?: (command: string) => void
+  integrationsEnabled?: boolean
   onOpenConsent?: (messageId: string) => void
   onRetry?: (messageId: string) => void
   /**
@@ -424,6 +426,7 @@ export function MessageBubble({
           onRejectListingCreate={onRejectListingCreate}
           onApplyAgentChoice={onApplyAgentChoice}
           onSendFollowUp={onSendFollowUp}
+          integrationsEnabled={integrationsEnabled}
         />
 
         {/* Open tasks — quiet inline list, one line per task. */}

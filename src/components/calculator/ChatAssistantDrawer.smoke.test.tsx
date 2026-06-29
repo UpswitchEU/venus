@@ -333,6 +333,7 @@ describe('message rendering', () => {
         onOpenChange={onOpenChange}
         messages={[assistant]}
         onSendMessage={onSendMessage}
+        integrationsEnabled
       />
     )
 

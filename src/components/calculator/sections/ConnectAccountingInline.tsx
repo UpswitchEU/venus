@@ -7,6 +7,8 @@ import { AuroraButton } from '@/design-system/components/Button'
 import { mercuryPath, openInNewTab } from '../agent-action-cards/shared'
 
 interface ConnectAccountingInlineProps {
+  /** True only when Titan says this plan can use live accounting integrations. */
+  integrationsEnabled: boolean
   /** Display name of a Venus-importable provider (Bizzcontrol/Octopus) already connected, else null. */
   liveImportProviderName: string | null
   /** A batch has been pulled into the form this session → figures are accounting-verified. */
@@ -38,11 +40,13 @@ interface ConnectAccountingInlineProps {
  *      then auto-fill on return (bootstrap prefill + the controller's
  *      visibility refetch), so the owner never leaves the funnel for good.
  *
- * The plan-gate carve-out is already live: `PRICING_CONFIG[FREE]` and
- * `OWNER_FREE_BASE` both enable accounting integrations, so a free owner
- * reaches this door. Server enforces auth/validation; this is a thin surface.
+ * Plan gate: owner Free sees the manual/invite/registry doors, but live
+ * accounting import starts at owner Grow. The server remains authoritative;
+ * this surface mirrors the plan flag so Free users do not get a dead-end
+ * connect CTA.
  */
 export function ConnectAccountingInline({
+  integrationsEnabled,
   liveImportProviderName,
   imported,
   importBusy,
@@ -53,6 +57,33 @@ export function ConnectAccountingInline({
   const mi = useTranslations('manualInput')
   const ca = useTranslations('manualInput.connectAccounting')
   const locale = useLocale()
+
+  if (!integrationsEnabled) {
+    return (
+      <div className="ml-8 space-y-2 rounded-xl border border-foreground/[0.08] bg-foreground/[0.02] px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground/50" />
+            <p className="min-w-0 text-xs leading-snug text-foreground/70">
+              {ca('upgradeDescription')}
+            </p>
+          </div>
+          <AuroraButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
+            onClick={() => {
+              openInNewTab(mercuryPath(locale, '/pricing', { tab: 'business-owners' }))
+            }}
+          >
+            {ca('upgradeCta')}
+          </AuroraButton>
+        </div>
+        <p className="text-[11px] leading-snug text-foreground/45">{ca('upgradeReassurance')}</p>
+      </div>
+    )
+  }
 
   // State 1 — figures already pulled from accounting: show the provenance badge.
   if (imported) {

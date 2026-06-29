@@ -9,6 +9,7 @@ import type {
 
 export type ChatAssistantTranslator = ReturnType<typeof useTranslations>
 export type FollowUpAction = { label: string; prompt: string; primary?: boolean }
+export type IntegrationActionOptions = { integrationsEnabled?: boolean }
 
 export function formatMethodName(method: string) {
   return method
@@ -62,9 +63,11 @@ function bootstrapSubject(bootstrap: BelgianCompanyBootstrap) {
 
 export function buildBelgianBootstrapActions(
   bootstrap: BelgianCompanyBootstrap,
-  ca: ChatAssistantTranslator
+  ca: ChatAssistantTranslator,
+  options: IntegrationActionOptions = {}
 ): FollowUpAction[] {
   const subject = bootstrapSubject(bootstrap)
+  const integrationsEnabled = options.integrationsEnabled === true
   const isBlocked = bootstrap.status === 'blocked' || bootstrap.status === 'failed'
   if (isBlocked) {
     return [
@@ -75,21 +78,26 @@ export function buildBelgianBootstrapActions(
       },
     ]
   }
-  return [
+  const actions: FollowUpAction[] = [
     {
       label: ca('proposalCards.belgianBootstrap.createClientAction'),
       prompt: `Create an advisor client for ${subject} from this KBO/NBB public-data bootstrap.`,
       primary: true,
     },
-    {
+  ]
+  if (integrationsEnabled) {
+    actions.push({
       label: ca('proposalCards.belgianBootstrap.connectAccountingAction'),
       prompt: `Connect accounting data for ${subject} and continue onboarding.`,
-    },
+    })
+  }
+  actions.push(
     {
       label: ca('proposalCards.belgianBootstrap.startValuationAction'),
       prompt: `Start a valuation for ${subject} using the public data, then ask me for any missing inputs.`,
-    },
-  ]
+    }
+  )
+  return actions
 }
 
 function clientReadinessSubject(readiness: ClientDataReadinessPreview) {
@@ -100,9 +108,11 @@ function clientReadinessSubject(readiness: ClientDataReadinessPreview) {
 
 export function buildClientDataReadinessActions(
   readiness: ClientDataReadinessPreview,
-  ca: ChatAssistantTranslator
+  ca: ChatAssistantTranslator,
+  options: IntegrationActionOptions = {}
 ): FollowUpAction[] {
   const subject = clientReadinessSubject(readiness)
+  const integrationsEnabled = options.integrationsEnabled === true
   const needsReview =
     readiness.status === 'needs_import_review' ||
     readiness.recommendedNextTool === 'open_import_review'
@@ -133,21 +143,26 @@ export function buildClientDataReadinessActions(
       },
     ]
   }
-  return [
-    {
+  const actions: FollowUpAction[] = []
+  if (integrationsEnabled) {
+    actions.push({
       label: ca('proposalCards.clientDataReadiness.connectAccountingAction'),
       prompt: `Help me connect or import accounting data for ${subject}.`,
       primary: true,
-    },
+    })
+  }
+  actions.push(
     {
       label: ca('proposalCards.clientDataReadiness.enterFiguresAction'),
       prompt: `Enter financials manually for ${subject}: revenue + EBITDA by fiscal year.`,
+      primary: !integrationsEnabled,
     },
     {
       label: ca('proposalCards.clientDataReadiness.resolveDataAction'),
       prompt: `Help me resolve client data readiness for ${subject}.`,
-    },
-  ]
+    }
+  )
+  return actions
 }
 
 function methodReadinessSubject(preview: MethodReadinessPreview) {

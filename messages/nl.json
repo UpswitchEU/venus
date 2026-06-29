@@ -1484,6 +1484,9 @@
 			"descriptionDisconnected": "Koppel Yuki, Exact, Silverfin en meer — we halen 3 jaar omzet en EBITDA voor je op. Geverifieerd, zonder typen.",
 			"connectCta": "Boekhouding koppelen",
 			"autofillReassurance": "Eens gekoppeld vullen je cijfers zich hier automatisch in — kom gewoon terug naar deze stap.",
+			"upgradeDescription": "Grow ontgrendelt boekhoudimport — haal 3 jaar omzet en EBITDA op zonder te typen.",
+			"upgradeCta": "Upgrade naar Grow",
+			"upgradeReassurance": "Je kunt de cijfers handmatig blijven invullen of hieronder je boekhouder uitnodigen.",
 			"verifiedTitle": "Geverifieerd uit je boekhouding",
 			"verifiedBody": "Je cijfers komen rechtstreeks uit {provider} — geen handmatige invoer.",
 			"genericProvider": "je boekhoudsoftware"
@@ -2667,6 +2670,8 @@
 				"ownerProfileAction": "Antwoord opslaan",
 				"integrationTitle": "Boekhouddata koppelen",
 				"integrationTitleWithProvider": "{provider} koppelen",
+				"integrationLocked": "Live boekhouding is vergrendeld",
+				"integrationPlanLocked": "Live boekhoudkoppelingen vereisen Grow voor eigenaars of Pro voor adviseurs.",
 				"integrationAction": "Ga verder",
 				"integrationSyncTitle": "Boekhouddata synchroniseren",
 				"integrationSyncTitleWithProvider": "{provider} synchroniseren",

@@ -55,6 +55,24 @@ describe('CalculatorNav', () => {
     expect(onShowGraph).toHaveBeenCalledTimes(1)
   })
 
+  it('defaults PDF download to a plan-locked upgrade action unless explicitly enabled', () => {
+    const onDownload = vi.fn()
+    render(<CalculatorNav hasReport onDownload={onDownload} />)
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Meer acties' })[0])
+
+    const upgradeItem = screen.getByRole('menuitem', {
+      name: 'Upgrade voor PDF-download (Starter)',
+    })
+    expect(upgradeItem).toHaveAttribute(
+      'title',
+      'Read-only met watermerk — klik voor opties om de PDF zonder watermerk te ontgrendelen'
+    )
+
+    fireEvent.click(upgradeItem)
+    expect(onDownload).toHaveBeenCalledTimes(1)
+  })
+
   it('disables the valuation curve button until a report exists', () => {
     render(<CalculatorNav hasReport={false} onShowGraph={vi.fn()} />)
     expect(screen.getByLabelText('report.graph')).toBeDisabled()

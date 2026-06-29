@@ -13,6 +13,7 @@ interface ChatAssistantBelgianBootstrapCardsProps {
   bootstraps: BelgianCompanyBootstrap[]
   currencyLocale: string
   onSendFollowUp?: (content: string) => void
+  integrationsEnabled?: boolean
 }
 
 function isBootstrapBlocked(bootstrap: BelgianCompanyBootstrap) {
@@ -152,6 +153,7 @@ export function ChatAssistantBelgianBootstrapCards({
   bootstraps,
   currencyLocale,
   onSendFollowUp,
+  integrationsEnabled = false,
 }: ChatAssistantBelgianBootstrapCardsProps) {
   const ca = useTranslations('chatAssistant')
 
@@ -162,7 +164,9 @@ export function ChatAssistantBelgianBootstrapCards({
       {bootstraps.map((bootstrap) => {
         const blocked = isBootstrapBlocked(bootstrap)
         const summaryBits = bootstrapSummaryBits(bootstrap, ca, currencyLocale)
-        const followUpActions = buildBelgianBootstrapActions(bootstrap, ca)
+        const followUpActions = buildBelgianBootstrapActions(bootstrap, ca, {
+          integrationsEnabled,
+        })
 
         return (
           <motion.div

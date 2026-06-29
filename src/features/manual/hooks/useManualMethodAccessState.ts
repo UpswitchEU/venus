@@ -51,11 +51,11 @@ export function useManualMethodAccessState({
   }, [allowedMethodKeys, preSelectableMethodsForNav])
 
   const effectiveMethod = preSelectedMethod ?? selectedMethod
+  const ownerVenturePathDownload =
+    userRole === 'seller' && !isAccountantFlow && isVenturePathMethodKey(effectiveMethod)
 
   return {
-    canDownloadPdf:
-      planFeatures?.valuation_download !== false ||
-      (userRole === 'seller' && !isAccountantFlow && isVenturePathMethodKey(effectiveMethod)),
+    canDownloadPdf: planFeatures?.valuation_download === true || ownerVenturePathDownload,
     currentYearRevenueForMethodNav,
     ebitdaNormalizationLocked: Boolean(planFeatures && !planFeatures.ebitda_normalization),
     planLockedMethodKeys,
