@@ -131,7 +131,7 @@ function normalizeMethodToken(value: unknown): string {
     ? value
         .trim()
         .toLowerCase()
-        .replace(/[\s-]+/g, '_')
+        .replace(/[^a-z0-9]+/g, '_')
     : ''
 }
 
@@ -141,11 +141,12 @@ function methodTextContainsDcf(value: unknown): boolean {
   const tokens = normalized.split('_').filter(Boolean)
   if (tokens[0] === 'no' || tokens[0] === 'non' || tokens[0] === 'not') return false
   if (tokens.includes('dcf')) return true
+  if (tokens.includes('fcff')) return true
   for (let index = 0; index < tokens.length - 2; index += 1) {
     if (
       tokens[index] === 'discounted' &&
       tokens[index + 1] === 'cash' &&
-      tokens[index + 2] === 'flow'
+      (tokens[index + 2] === 'flow' || tokens[index + 2] === 'flows')
     ) {
       return true
     }
@@ -167,7 +168,7 @@ function toFiniteMethodWeight(value: unknown): number | null {
 function structuredMethodEvidenceIsDcfLed(result: ValuationResponse): boolean {
   const record = result as unknown as Record<string, unknown>
   const methodsUsed = toMethodTokens(record.methods_used)
-  if (methodsUsed.length === 1 && methodTextContainsDcf(methodsUsed[0])) return true
+  if (methodsUsed.length > 0 && methodsUsed.every(methodTextContainsDcf)) return true
 
   const selection = isRecord(result.methodology_selection) ? result.methodology_selection : null
   if (selection) {

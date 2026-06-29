@@ -42,7 +42,10 @@ describe('ManualValuationCurvePanel', () => {
     seed({ currency: 'EUR', valuation_timeline: timeline })
     const { container } = render(<ManualValuationCurvePanel />)
     expect(container.querySelector('[data-testid="valuation-chart-hitbox"]')).toBeTruthy()
-    expect(container.querySelector('table.sr-only')).toBeTruthy()
+    const table = container.querySelector('table.sr-only')
+    expect(table).toBeTruthy()
+    expect(table?.textContent).toMatch(/\b2022\b/)
+    expect(table?.textContent).not.toMatch(/31|Dec/)
     // Forecast present ⇒ the forecast legend + the data-table status cell render
     // the label (the i18n mock returns the key), so it appears more than once.
     expect(screen.getAllByText('labels.forecast').length).toBeGreaterThan(0)

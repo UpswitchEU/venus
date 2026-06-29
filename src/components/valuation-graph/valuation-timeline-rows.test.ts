@@ -131,7 +131,22 @@ describe('buildValuationCurveRows', () => {
     const result = {
       selected_valuation_method: 'upswitch_adaptive',
       methodology: 'Comprehensive Valuation',
-      methods_used: ['DCF'],
+      methods_used: ['DCF', 'FCFF'],
+      dcf_valuation: { enterprise_value: 586_761 },
+      valuation_timeline: [
+        point({ fiscal_year: 2024, equity_mid: 378_675 }),
+        point({ fiscal_year: 2025, equity_mid: 586_761 }),
+        point({ fiscal_year: 2026, equity_mid: 457_449, is_forecast: true }),
+      ],
+    } as unknown as ValuationResponse
+
+    expect(shouldSuppressForecastTimelineRowsForDcf(result)).toBe(true)
+    expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual(['2024', '2025'])
+  })
+
+  it('recognizes plural discounted cash flow labels from serialized payloads', () => {
+    const result = {
+      selected_valuation_method: 'Discounted Cash Flows (FCFF)',
       dcf_valuation: { enterprise_value: 586_761 },
       valuation_timeline: [
         point({ fiscal_year: 2024, equity_mid: 378_675 }),

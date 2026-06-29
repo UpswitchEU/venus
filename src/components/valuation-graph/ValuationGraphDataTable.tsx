@@ -5,10 +5,12 @@ import {
   resolvePointStatusLabel,
 } from './ValuationGraphVisuals.model'
 import {
+  type ChartDateMode,
   type ChartLabels,
   type ChartRow,
   formatGraphCurrency,
   formatTooltipDate,
+  formatYear,
 } from './valuation-graph-model'
 
 /**
@@ -23,12 +25,14 @@ export function ValuationDataTable({
   currency,
   labels,
   caption,
+  dateMode = 'date',
 }: {
   rows: ChartRow[]
   locale: string
   currency?: string | null
   labels: ChartLabels
   caption: string
+  dateMode?: ChartDateMode
 }) {
   return (
     <table className="sr-only">
@@ -50,7 +54,9 @@ export function ValuationDataTable({
           return (
             <tr key={row.id}>
               <th scope="row">
-                {formatTooltipDate(row.observedAt, locale)}
+                {dateMode === 'year'
+                  ? formatYear(row.observedAt)
+                  : formatTooltipDate(row.observedAt, locale)}
                 {row.source === 'valuation_version' && row.versionNumber != null
                   ? ` · ${labels.version} ${row.versionNumber}`
                   : ''}

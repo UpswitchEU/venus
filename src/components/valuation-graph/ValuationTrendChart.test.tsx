@@ -50,7 +50,11 @@ describe('ValuationTrendChart', () => {
       <ValuationTrendChart rows={rows} locale="en" labels={labels} dateMode="year" />
     )
     // The accessible <dl> twin always renders once the baseline mounts.
-    expect(container.querySelector('dl.sr-only')).toBeTruthy()
+    const accessibleTwin = container.querySelector('dl.sr-only')
+    expect(accessibleTwin).toBeTruthy()
+    expect(accessibleTwin?.textContent).toContain('2025')
+    expect(accessibleTwin?.textContent).not.toMatch(/31|Dec/)
+    expect(screen.getByRole('button').getAttribute('aria-label')).toContain('Year 2025')
   })
 
   it('renders the interactive visx chart for two or more fiscal years', () => {

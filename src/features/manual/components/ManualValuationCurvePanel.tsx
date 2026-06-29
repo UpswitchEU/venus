@@ -183,6 +183,7 @@ export function ManualValuationCurvePanel({ loading = false }: ManualValuationCu
             currency={currency}
             labels={labels}
             caption={t('tableCaption')}
+            dateMode="year"
           />
         ) : null}
 

@@ -59,7 +59,9 @@ export function SinglePointBaseline({
 }) {
   const [showDetails, setShowDetails] = useState(false)
   const hasRange = row.rangeHigh > row.rangeLow
-  const interactiveLabel = `${labels.midpoint} ${formatGraphCurrency(row.valueMid, currency, locale)}. ${
+  const pointDateLabel =
+    dateMode === 'year' ? formatYear(row.observedAt) : formatDate(row.observedAt, locale)
+  const interactiveLabel = `${labels.date} ${pointDateLabel}. ${labels.midpoint} ${formatGraphCurrency(row.valueMid, currency, locale)}. ${
     hasRange ? `${labels.range} ${formatGraphRange(row, currency, locale)}.` : ''
   }`
   return (
@@ -110,6 +112,8 @@ export function SinglePointBaseline({
 
       {/* The SVG above is aria-hidden; this <dl> is its accessible twin. */}
       <dl className="sr-only">
+        <dt>{labels.date}</dt>
+        <dd>{pointDateLabel}</dd>
         <dt>{labels.status}</dt>
         <dd>{resolvePointStatusLabel(row, labels)}</dd>
         <dt>{labels.midpoint}</dt>
