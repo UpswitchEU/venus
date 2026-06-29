@@ -329,6 +329,7 @@ export function buildValuationRequest(
     latestRevenue,
     countryCode,
     rawForecastData,
+    projectionYears,
     inputSource: requestInputSource,
   })
 

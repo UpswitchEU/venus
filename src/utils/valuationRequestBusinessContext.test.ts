@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { ValuationFormData } from '@/types/valuation'
 import {
   isExplicitUserDcfIntent,
+  normalizeDcfTaxShieldProjections,
   resolveDcfTerminalAssumptions,
 } from './valuationRequestBusinessContext'
 
@@ -100,5 +101,42 @@ describe('resolveDcfTerminalAssumptions', () => {
       exitMultiple: 6.5,
       hasTerminalInput: true,
     })
+  })
+})
+
+describe('normalizeDcfTaxShieldProjections', () => {
+  it('preserves yearly positions while aligning to the forecast horizon', () => {
+    expect(
+      normalizeDcfTaxShieldProjections(
+        [1500, 'bad', null, '750', 999],
+        [
+          { year: 2026, revenue: 1, ebitda: 1 },
+          { year: 2027, revenue: 1, ebitda: 1 },
+          { year: 2028, revenue: 1, ebitda: 1 },
+          { year: 2029, revenue: 1, ebitda: 1 },
+        ]
+      )
+    ).toEqual([1500, 0, 0, 750])
+  })
+
+  it('pads missing forecast-year projections with zero and omits all-zero arrays', () => {
+    expect(
+      normalizeDcfTaxShieldProjections(
+        [125],
+        [
+          { year: 2026, revenue: 1, ebitda: 1 },
+          { year: 2027, revenue: 1, ebitda: 1 },
+          { year: 2028, revenue: 1, ebitda: 1 },
+        ]
+      )
+    ).toEqual([125, 0, 0])
+
+    expect(
+      normalizeDcfTaxShieldProjections([0, null, 'bad'], [{ year: 2026, revenue: 1, ebitda: 1 }])
+    ).toEqual([])
+  })
+
+  it('uses the computed projection horizon when no explicit forecast rows exist', () => {
+    expect(normalizeDcfTaxShieldProjections([125, 75], [], 5)).toEqual([125, 75, 0, 0, 0])
   })
 })

@@ -9,6 +9,7 @@ interface BuildValuationBusinessContextOptions {
   latestRevenue: number | undefined
   countryCode: string
   rawForecastData: NonNullable<ValuationFormData['historical_years_data']>
+  projectionYears: number
   inputSource?: string
 }
 
@@ -17,6 +18,7 @@ export function buildValuationBusinessContext({
   latestRevenue,
   countryCode,
   rawForecastData,
+  projectionYears,
   inputSource,
 }: BuildValuationBusinessContextOptions): {
   businessContext: ValuationRequest['business_context']
@@ -46,11 +48,11 @@ export function buildValuationBusinessContext({
   ) {
     adaptiveFields.dcf_discounting_convention = fd.dcf_discounting_convention
   }
-  const dcfTaxShieldProjections = Array.isArray(fd.dcf_tax_shield_projections)
-    ? fd.dcf_tax_shield_projections
-        .map((value) => parseFlexibleNumber(value))
-        .filter((value): value is number => value !== undefined)
-    : []
+  const dcfTaxShieldProjections = normalizeDcfTaxShieldProjections(
+    fd.dcf_tax_shield_projections,
+    rawForecastData,
+    projectionYears
+  )
   if (dcfTaxShieldProjections.length > 0) {
     adaptiveFields.dcf_tax_shield_projections = dcfTaxShieldProjections
   }
@@ -213,6 +215,32 @@ function copyFiniteAdaptiveFields(
     const value = parseFlexibleNumber(source[key])
     if (value !== undefined) target[key] = value
   }
+}
+
+export function normalizeDcfTaxShieldProjections(
+  value: unknown,
+  rawForecastData: NonNullable<ValuationFormData['historical_years_data']>,
+  projectionYears?: number
+): number[] {
+  if (!Array.isArray(value)) return []
+
+  const forecastYearCount = rawForecastData.filter(
+    (year) => Number.isFinite(year.year) && year.year >= 2000 && year.year <= 2100
+  ).length
+  const explicitProjectionYears =
+    typeof projectionYears === 'number' && Number.isFinite(projectionYears) && projectionYears > 0
+      ? Math.floor(projectionYears)
+      : undefined
+  const projectionCount =
+    forecastYearCount > 0 ? forecastYearCount : (explicitProjectionYears ?? value.length)
+  if (projectionCount <= 0) return []
+
+  const projections = Array.from(
+    { length: projectionCount },
+    (_, index) => parseFlexibleNumber(value[index]) ?? 0
+  )
+
+  return projections.some((amount) => amount !== 0) ? projections : []
 }
 
 type DcfTerminalValueMethod = 'perpetual_growth' | 'exit_multiple'

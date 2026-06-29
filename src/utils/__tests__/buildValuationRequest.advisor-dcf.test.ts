@@ -444,6 +444,54 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
     ).toThrow('Terminal growth must be lower than WACC')
   })
 
+  it('aligns APV tax-shield projections to the forecast-year horizon without shifting values', () => {
+    const filingYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        selected_method: 'dcf',
+        dcf_wacc_pct: 9,
+        dcf_terminal_growth_pct: 2,
+        dcf_tax_shield_projections: [1500, 'bad' as unknown as number, 750, 999],
+        forecast_years_data: [
+          { year: filingYear + 1, revenue: 1_050_000, ebitda: 105_000 },
+          { year: filingYear + 2, revenue: 1_100_000, ebitda: 110_000 },
+          { year: filingYear + 3, revenue: 1_155_000, ebitda: 115_500 },
+        ],
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.business_context).toMatchObject({
+      dcf_tax_shield_projections: [1500, 0, 750],
+      apv_input_source: 'manual',
+      dcf_tax_shield_source: 'manual',
+      dcf_bridge_policy: 'apv_tax_shield_inside_dcf',
+      dcf_double_counting_guard: true,
+    })
+    expect(result.forecast_years_data).toHaveLength(3)
+    expect(result.user_configured_dcf).toBe(true)
+  })
+
+  it('pads APV tax-shield projections to the default DCF horizon when forecast rows are absent', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        selected_method: 'dcf',
+        dcf_wacc_pct: 9,
+        dcf_terminal_growth_pct: 2,
+        dcf_tax_shield_projections: [1500, 750],
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.projection_years).toBe(5)
+    expect(result.forecast_years_data).toEqual([])
+    expect(result.business_context).toMatchObject({
+      dcf_tax_shield_projections: [1500, 750, 0, 0, 0],
+      apv_input_source: 'manual',
+      dcf_double_counting_guard: true,
+    })
+  })
+
   it('defaults DCF projection_years to 5 and expands with explicit forecast rows', () => {
     const baseResult = buildValuationRequest(makeFormData({}), [])
     expect(baseResult.projection_years).toBe(5)
