@@ -170,6 +170,9 @@ describe('deriveDcfProjectionPreview', () => {
     expect(result[0].free_cash_flow).toBe(projectedRows[0].fcff)
     expect(result[0].revenue).toBe(0)
     expect(result[0].ebitda).toBe(0)
+    expect(result[0].capex).toBeUndefined()
+    expect(result[0].depreciation).toBeUndefined()
+    expect(result[0].nwc_change).toBeUndefined()
   })
 
   it('buildProjectionRowFromForecastRow matches deriveDcfProjectionPreview for same inputs', () => {

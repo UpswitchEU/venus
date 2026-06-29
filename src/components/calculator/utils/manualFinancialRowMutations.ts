@@ -26,7 +26,17 @@ export function updateManualYearlyFinancialsRows({
   return yearlyFinancials.map((row) =>
     String(row.year) === yearKey && !!row.isForecast === isForecast
       ? field === 'free_cash_flow'
-        ? { ...row, free_cash_flow: value }
+        ? isForecast
+          ? {
+              ...row,
+              revenue: 0,
+              ebitda: 0,
+              capex: undefined,
+              depreciation: undefined,
+              nwc_change: undefined,
+              free_cash_flow: value,
+            }
+          : { ...row, free_cash_flow: value }
         : { ...row, [field]: value ?? 0 }
       : row
   )

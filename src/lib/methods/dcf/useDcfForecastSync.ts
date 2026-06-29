@@ -134,10 +134,10 @@ export function useDcfForecastSync({
           forecastYears: nextFinancials.filter((r) => r.isForecast).map((r) => Number(r.year)),
         })
         if (preview.length > 0) {
-          nextFinancials = applyDcfProjectionPreviewToForecastRows(
-            nextFinancials,
-            preview
-          ) as typeof nextFinancials
+          const mode = current.dcf_input_mode === 'fcff_only' ? 'fcff_only' : 'ebitda'
+          nextFinancials = applyDcfProjectionPreviewToForecastRows(nextFinancials, preview, {
+            mode,
+          }) as typeof nextFinancials
         }
         return { ...current, yearlyFinancials: nextFinancials as YearlyFinancials[] }
       })

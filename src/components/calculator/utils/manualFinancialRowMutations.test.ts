@@ -42,6 +42,43 @@ describe('manual financial row mutations', () => {
     ])
   })
 
+  it('cleans EBITDA bridge residue when editing forecast FCFF directly', () => {
+    const rows = [
+      { year: '2024', revenue: 100, ebitda: 20 },
+      {
+        year: '2025',
+        revenue: 120,
+        ebitda: 24,
+        capex: 5,
+        depreciation: 4,
+        nwc_change: 3,
+        isForecast: true,
+      },
+    ] as YearlyFinancials[]
+
+    expect(
+      updateManualYearlyFinancialsRows({
+        yearlyFinancials: rows,
+        year: '2025',
+        isForecast: true,
+        field: 'free_cash_flow',
+        value: 42,
+      })
+    ).toEqual([
+      { year: '2024', revenue: 100, ebitda: 20 },
+      {
+        year: '2025',
+        revenue: 0,
+        ebitda: 0,
+        capex: undefined,
+        depreciation: undefined,
+        nwc_change: undefined,
+        isForecast: true,
+        free_cash_flow: 42,
+      },
+    ])
+  })
+
   it('rebuilds historical rows and current-year data when a filing year is selected', () => {
     const result = applyManualFilingYearSelection(
       makeForm([{ year: '2024', revenue: 100, ebitda: 20 }]),

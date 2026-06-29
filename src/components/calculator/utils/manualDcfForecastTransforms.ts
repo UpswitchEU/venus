@@ -61,11 +61,13 @@ export function countManualDcfForecastManualEdits(yearlyFinancials: YearlyFinanc
 export function applyManualDcfProjectionAutofill(
   formData: ManualValuationFormData
 ): ManualValuationFormData {
+  const mode = formData.dcf_input_mode === 'fcff_only' ? 'fcff_only' : 'ebitda'
   return {
     ...formData,
     yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
       formData.yearlyFinancials,
-      deriveManualDcfProjectionRowsFromForm(formData)
+      deriveManualDcfProjectionRowsFromForm(formData),
+      { mode }
     ) as YearlyFinancials[],
   }
 }
@@ -211,11 +213,18 @@ export function switchManualDcfInputMode(
             capex: row.capex,
             depreciation: row.depreciation,
             nwc_change: row.nwc_change,
-            free_cash_flow: row.free_cash_flow,
           },
           { ...globals, previousRevenue: previousRevenueByYear.get(String(row.year)) }
         ).fcff
-        return { ...row, revenue: 0, ebitda: 0, free_cash_flow: fcff }
+        return {
+          ...row,
+          revenue: 0,
+          ebitda: 0,
+          capex: undefined,
+          depreciation: undefined,
+          nwc_change: undefined,
+          free_cash_flow: fcff,
+        }
       }),
     }
   }
@@ -236,9 +245,8 @@ export function switchManualDcfInputMode(
   return {
     ...formData,
     dcf_input_mode: 'ebitda',
-    yearlyFinancials: applyDcfProjectionPreviewToForecastRows(
-      cleared,
-      projectionRows
-    ) as YearlyFinancials[],
+    yearlyFinancials: applyDcfProjectionPreviewToForecastRows(cleared, projectionRows, {
+      mode: 'ebitda',
+    }) as YearlyFinancials[],
   }
 }

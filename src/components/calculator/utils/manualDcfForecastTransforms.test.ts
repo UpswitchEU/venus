@@ -44,6 +44,31 @@ describe('manual DCF forecast transforms', () => {
     expect(forecast?.free_cash_flow).toBe(122_875)
   })
 
+  it('ignores stale FCFF residue when switching EBITDA bridge rows to FCFF-only', () => {
+    const result = switchManualDcfInputMode(
+      makeForm({
+        yearlyFinancials: [
+          { year: '2024', revenue: 1_000_000, ebitda: 200_000 },
+          {
+            year: '2025',
+            revenue: 1_050_000,
+            ebitda: 210_000,
+            free_cash_flow: 1,
+            isForecast: true,
+          },
+        ] as YearlyFinancials[],
+      }),
+      'fcff_only'
+    )
+
+    const forecast = result.yearlyFinancials.find((row) => row.isForecast)
+    expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
+    expect(forecast?.free_cash_flow).toBe(122_875)
+    expect(forecast?.capex).toBeUndefined()
+    expect(forecast?.depreciation).toBeUndefined()
+    expect(forecast?.nwc_change).toBeUndefined()
+  })
+
   it('switches localized restored forecast rows to FCFF-only without producing NaN', () => {
     const result = switchManualDcfInputMode(
       makeForm({
@@ -119,6 +144,34 @@ describe('manual DCF forecast transforms', () => {
     const forecast = result.yearlyFinancials.find((row) => row.isForecast)
     expect(forecast?.revenue).toBeGreaterThan(1_000_000)
     expect(forecast?.ebitda).toBeGreaterThan(0)
+  })
+
+  it('applies DCF projection autofill as direct FCFF rows in FCFF-only mode', () => {
+    const form = makeForm({
+      dcf_input_mode: 'fcff_only',
+      yearlyFinancials: [
+        { year: '2024', revenue: 1_000_000, ebitda: 200_000 },
+        {
+          year: '2025',
+          revenue: 1_050_000,
+          ebitda: 210_000,
+          capex: 99_999,
+          depreciation: 99_999,
+          nwc_change: 99_999,
+          isForecast: true,
+        },
+      ] as YearlyFinancials[],
+    })
+
+    const result = applyManualDcfProjectionAutofill(form)
+
+    expect(result.yearlyFinancials[0]).toEqual(form.yearlyFinancials[0])
+    const forecast = result.yearlyFinancials.find((row) => row.isForecast)
+    expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
+    expect(forecast?.free_cash_flow).toBe(128_250)
+    expect(forecast?.capex).toBeUndefined()
+    expect(forecast?.depreciation).toBeUndefined()
+    expect(forecast?.nwc_change).toBeUndefined()
   })
 
   it('hydrates suggested CapEx only into blank forecast rows', () => {

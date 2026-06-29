@@ -267,6 +267,9 @@ export function applyDcfProjectionPreviewToForecastRows<T extends DcfProjectionA
         ...row,
         revenue: 0,
         ebitda: 0,
+        capex: undefined,
+        depreciation: undefined,
+        nwc_change: undefined,
         free_cash_flow: projection.fcff,
       }
     }

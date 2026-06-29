@@ -11,19 +11,11 @@ import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { DcfFcffOnlyTable } from './DcfFcffOnlyTable'
 import type { DcfForecastRow } from './DcfForecastTypes'
 import { DcfProjectionTable } from './DcfProjectionTable'
-import {
-  DCF_DEFAULT_CAPEX_PCT,
-  DCF_DEFAULT_DA_PCT,
-  DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
-} from './dcfEngineDefaults'
-import {
-  buildProjectionRowFromForecastRow,
-  type DcfProjectionPreviewRow,
-} from './dcfProjectionPreview'
+import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
+import { buildDcfWorkspaceProjectionRows, type DcfInputMode } from './dcfWorkspaceProjectionRows'
 import { ValuationSectionHeader } from './ValuationSectionHeader'
 
-export type DcfInputMode = 'ebitda' | 'fcff_only'
+export type { DcfInputMode }
 
 function finiteValue(value: unknown): number | undefined {
   return parseFlexibleNumber(value)
@@ -123,43 +115,15 @@ export function DcfForecastWorkspace({
   }, [sortedRows])
 
   const projectionRows: DcfProjectionPreviewRow[] = useMemo(() => {
-    if (sortedRows.length === 0) return []
-    const globals = {
-      daPct: finiteValue(globalDaPct) ?? DCF_DEFAULT_DA_PCT,
-      capexPct: finiteValue(globalCapexPct) ?? DCF_DEFAULT_CAPEX_PCT,
-      nwcPct: finiteValue(globalNwcPct) ?? DCF_DEFAULT_NWC_PCT,
-      taxRatePct: finiteValue(globalTaxRatePct) ?? DCF_DEFAULT_TAX_RATE_PCT,
-    }
-    const build = (row: DcfForecastRow, index: number) => {
-      const previousRevenue =
-        index === 0
-          ? (finiteValue(latestHistoricalRevenue) ?? finiteValue(row.revenue) ?? 0)
-          : (finiteValue(sortedRows[index - 1]?.revenue) ??
-            finiteValue(latestHistoricalRevenue) ??
-            finiteValue(row.revenue) ??
-            0)
-      return buildProjectionRowFromForecastRow(row, { ...globals, previousRevenue })
-    }
-
-    if (dcfInputMode !== 'ebitda' || !derivedProjectionPreview?.length) {
-      return sortedRows.map((row, index) => build(row, index))
-    }
-
-    const derivedByYear = new Map(derivedProjectionPreview.map((r) => [r.year, r]))
-    return sortedRows.map((row, index) => {
-      const derivedRow = derivedByYear.get(Number(row.year))
-      // Prefer stored row whenever the user has entered any forecast line (not only revenue).
-      const hasStoredForecastInput =
-        (finiteValue(row.revenue) ?? 0) !== 0 ||
-        (finiteValue(row.ebitda) ?? 0) !== 0 ||
-        finiteValue(row.free_cash_flow) !== undefined ||
-        finiteValue(row.capex) !== undefined ||
-        finiteValue(row.depreciation) !== undefined ||
-        finiteValue(row.nwc_change) !== undefined
-      if (derivedRow && !hasStoredForecastInput) {
-        return derivedRow
-      }
-      return build(row, index)
+    return buildDcfWorkspaceProjectionRows({
+      sortedRows,
+      latestHistoricalRevenue,
+      globalCapexPct,
+      globalDaPct,
+      globalNwcPct,
+      globalTaxRatePct,
+      dcfInputMode,
+      derivedProjectionPreview,
     })
   }, [
     sortedRows,

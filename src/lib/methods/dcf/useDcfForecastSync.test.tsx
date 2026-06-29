@@ -110,6 +110,40 @@ describe('useDcfForecastSync', () => {
       })
     })
 
+    it('injects direct FCFF forecast rows when restored in FCFF-only mode', () => {
+      const { formStateRef } = setup(
+        {
+          effectiveMethod: 'dcf',
+          hasDcfSelected: false,
+        },
+        {
+          dcf_input_mode: 'fcff_only',
+          dcf_revenue_growth_pct: 5,
+          dcf_ebitda_margin_pct: 10,
+          dcf_capex_pct: 2,
+          dcf_da_pct: 2,
+          dcf_nwc_pct: 1.5,
+          dcf_tax_rate_pct: 25,
+          yearlyFinancials: [
+            { year: '2023', revenue: 800_000, ebitda: 80_000 },
+            { year: '2024', revenue: 900_000, ebitda: 90_000 },
+            { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          ] as YearlyFinancials[],
+        }
+      )
+
+      const forecastRows = formStateRef.current.yearlyFinancials.filter((r) => r.isForecast)
+      expect(forecastRows[0]).toMatchObject({
+        year: '2026',
+        revenue: 0,
+        ebitda: 0,
+        free_cash_flow: 62_250,
+      })
+      expect(forecastRows[0].capex).toBeUndefined()
+      expect(forecastRows[0].depreciation).toBeUndefined()
+      expect(forecastRows[0].nwc_change).toBeUndefined()
+    })
+
     it('injects forecast rows on mount when DCF is part of a multi-method selection', () => {
       const { setFormData, formStateRef } = setup({
         effectiveMethod: 'ebitda_multiple',
