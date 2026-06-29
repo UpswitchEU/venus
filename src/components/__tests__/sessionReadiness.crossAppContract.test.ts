@@ -587,7 +587,9 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(dockSource).toMatch(/useAdvisorDockResolvedClient\(\{/)
     expect(hookSource).toMatch(/queryClient\.getQueryData/)
     expect(hookSource).toMatch(/accountantClientQueryKeys\.detail\(clientId\)/)
-    expect(hookSource).toMatch(/queryFn:\s*\(\)\s*=>\s*fetchAccountantClientDetail\(clientId\)/)
+    expect(hookSource).toMatch(
+      /queryFn:\s*\(\)\s*=>\s*[\s\S]*fetchAccountantClientDetail\(\s*clientId\s*,\s*undefined\s*,\s*\{\s*priority:\s*true,?\s*\}\s*\)/
+    )
     expect(hookSource).toMatch(/clientDetailRequestRef/)
   })
 
