@@ -191,4 +191,89 @@ describe('syncBootstrapSession', () => {
       { year: '2023', revenue: 11_282_327, ebitda: 1_045_723 },
     ])
   })
+
+  it('does not hydrate stale package financials when CBSO rejected all official operating inputs', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-29T12:00:00Z'))
+
+    syncBootstrapSession(
+      makeBootstrapState({
+        report: {
+          mode: 'existing',
+          reportId: 'val_keuken_cbso_rejected',
+          hasExistingData: true,
+          status: 'active',
+        },
+        valuationPackage: {
+          formData: {
+            company_name: 'KEUKEN',
+            revenue: 1_000_000,
+            ebitda: 100_000,
+            current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
+            historical_years_data: [{ year: 2024, revenue: 900_000, ebitda: 90_000 }],
+            yearlyFinancials: [
+              { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+              { year: '2024', revenue: 900_000, ebitda: 90_000 },
+            ],
+          },
+        },
+        prefillData: {
+          sources: ['session', 'nbb_cbso_multi_year'],
+          confidence: 0.73,
+          fieldsPopulated: ['company_name', 'official_financials'],
+          fieldsRemaining: [],
+          companyInfo: {
+            companyName: 'KEUKEN',
+            countryCode: 'BE',
+            kboNumber: '0719.944.490',
+            naceCode: '71112',
+            naceDescription: 'Architecten',
+          },
+          financials: {
+            revenue: 1_000_000,
+            ebitda: 100_000,
+            yearData: {
+              2025: { revenue: 1_000_000, ebitda: 100_000 },
+              2024: { revenue: 900_000, ebitda: 90_000 },
+            },
+          },
+          officialFinancials: {
+            historicalYears: [
+              {
+                fiscalYear: 2024,
+                revenue: 244_665.68,
+                ebitda: -34_970.07,
+                revenueSource: 'gross_margin',
+              },
+              {
+                fiscalYear: 2023,
+                revenue: 220_000,
+                ebitda: -12_000,
+                revenueSource: 'gross_margin',
+              },
+            ],
+            valuationInputYears: [],
+            excludedValuationYears: [
+              { fiscalYear: 2024, reason: 'gross_margin_revenue_proxy' },
+              { fiscalYear: 2023, reason: 'gross_margin_revenue_proxy' },
+            ],
+            valuationInputStatus: 'all_rejected',
+          },
+        },
+      })
+    )
+
+    const formData = useManualFormStore.getState().formData
+    expect(formData.company_name).toBe('KEUKEN')
+    expect(formData.official_financials?.valuationInputStatus).toBe('all_rejected')
+    expect(formData.current_year_data).not.toMatchObject({
+      revenue: 1_000_000,
+      ebitda: 100_000,
+    })
+    expect(formData.historical_years_data).toBeUndefined()
+    expect(formData.yearlyFinancials).toBeUndefined()
+    expect(useSessionStore.getState().session?.sessionData).not.toMatchObject({
+      current_year_data: { revenue: 1_000_000, ebitda: 100_000 },
+    })
+  })
 })

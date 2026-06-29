@@ -1,5 +1,6 @@
 import type { SessionBootstrapState } from '../lib/bootstrap/types'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
+import { shouldBlockUntrustedFinancialPrefill } from '../utils/officialValuationInputPolicy'
 import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
 
 type PrefillDataParam = SessionBootstrapState['prefillData']
@@ -105,6 +106,10 @@ export function resolveCountryCode(
 
 export function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string, unknown> {
   const fields: Record<string, unknown> = {}
+  const allowFinancialPrefill = !shouldBlockUntrustedFinancialPrefill(
+    prefillData.officialFinancials,
+    prefillData.financials?.dataSource
+  )
   if (prefillData.companyInfo?.companyName)
     fields.company_name = prefillData.companyInfo.companyName
   else if (prefillData.kboData?.companyName) fields.company_name = prefillData.kboData.companyName
@@ -148,43 +153,46 @@ export function buildPrefillSessionFields(prefillData: PrefillDataParam): Record
     fields.business_type_id = normalizeBusinessTypeId(prefillData.companyInfo.businessTypeId)
   if (prefillData.businessType?.industry) fields.industry = prefillData.businessType.industry
   if (prefillData.businessType?.category) fields.subIndustry = prefillData.businessType.category
-  if (prefillData.financials?.revenue !== undefined) fields.revenue = prefillData.financials.revenue
-  if (prefillData.financials?.ebitda !== undefined) fields.ebitda = prefillData.financials.ebitda
-  if (prefillData.financials?.netIncome !== undefined)
-    fields.net_income = prefillData.financials.netIncome
-  if (prefillData.financials?.employeeCount !== undefined)
-    fields.number_of_employees = prefillData.financials.employeeCount
-  if (prefillData.financials?.employeeCount !== undefined)
-    fields.employee_count = prefillData.financials.employeeCount
-  if (
-    prefillData.financials?.yearData &&
-    typeof prefillData.financials.yearData === 'object' &&
-    Object.keys(prefillData.financials.yearData).length > 0
-  ) {
-    fields.year_data = prefillData.financials.yearData
-  }
-  if (prefillData.financials?.importQuality) {
-    fields.import_quality = prefillData.financials.importQuality
-    fields._import_quality = prefillData.financials.importQuality
-  }
-  if (prefillData.financials?.importedLedgerAnalysis) {
-    fields._imported_ledger_analysis = prefillData.financials.importedLedgerAnalysis
-    fields.business_context = {
-      ...((fields.business_context as Record<string, unknown> | undefined) ?? {}),
-      _imported_ledger_analysis: prefillData.financials.importedLedgerAnalysis,
+  if (allowFinancialPrefill) {
+    if (prefillData.financials?.revenue !== undefined)
+      fields.revenue = prefillData.financials.revenue
+    if (prefillData.financials?.ebitda !== undefined) fields.ebitda = prefillData.financials.ebitda
+    if (prefillData.financials?.netIncome !== undefined)
+      fields.net_income = prefillData.financials.netIncome
+    if (prefillData.financials?.employeeCount !== undefined)
+      fields.number_of_employees = prefillData.financials.employeeCount
+    if (prefillData.financials?.employeeCount !== undefined)
+      fields.employee_count = prefillData.financials.employeeCount
+    if (
+      prefillData.financials?.yearData &&
+      typeof prefillData.financials.yearData === 'object' &&
+      Object.keys(prefillData.financials.yearData).length > 0
+    ) {
+      fields.year_data = prefillData.financials.yearData
     }
-  }
-  if (prefillData.financials?.saasMetrics)
-    fields._imported_saas_metrics = prefillData.financials.saasMetrics
-  if (prefillData.financials?.saasMetricsProvenance) {
-    fields._imported_saas_provenance = prefillData.financials.saasMetricsProvenance
-    fields.business_context = {
-      ...((fields.business_context as Record<string, unknown> | undefined) ?? {}),
-      _imported_saas_provenance: prefillData.financials.saasMetricsProvenance,
+    if (prefillData.financials?.importQuality) {
+      fields.import_quality = prefillData.financials.importQuality
+      fields._import_quality = prefillData.financials.importQuality
     }
+    if (prefillData.financials?.importedLedgerAnalysis) {
+      fields._imported_ledger_analysis = prefillData.financials.importedLedgerAnalysis
+      fields.business_context = {
+        ...((fields.business_context as Record<string, unknown> | undefined) ?? {}),
+        _imported_ledger_analysis: prefillData.financials.importedLedgerAnalysis,
+      }
+    }
+    if (prefillData.financials?.saasMetrics)
+      fields._imported_saas_metrics = prefillData.financials.saasMetrics
+    if (prefillData.financials?.saasMetricsProvenance) {
+      fields._imported_saas_provenance = prefillData.financials.saasMetricsProvenance
+      fields.business_context = {
+        ...((fields.business_context as Record<string, unknown> | undefined) ?? {}),
+        _imported_saas_provenance: prefillData.financials.saasMetricsProvenance,
+      }
+    }
+    if (prefillData.financials?.dataSource)
+      fields._financial_data_source = prefillData.financials.dataSource
   }
-  if (prefillData.financials?.dataSource)
-    fields._financial_data_source = prefillData.financials.dataSource
   const companyAddress = formatBootstrapCompanyAddress({
     address: prefillData.companyInfo?.address || prefillData.kboData?.address,
     postalCode: prefillData.companyInfo?.postalCode || prefillData.kboData?.postalCode,

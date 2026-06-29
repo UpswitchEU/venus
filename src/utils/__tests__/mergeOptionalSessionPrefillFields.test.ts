@@ -474,6 +474,38 @@ describe('mergeOptionalSessionPrefillFields', () => {
     expect(patch.official_financials).toBeUndefined()
   })
 
+  it('blocks stale operating gap-fill when official filing rejects valuation inputs', () => {
+    const patch = mergeOptionalSessionPrefillFields(
+      {
+        _financial_data_source: 'nbb_cbso',
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
+        historical_years_data: [{ year: 2024, revenue: 900_000, ebitda: 90_000 }],
+        official_financials: {
+          source: 'nbb',
+          historicalYears: [
+            {
+              fiscalYear: 2024,
+              revenue: 244_665.68,
+              ebitda: -34_970.07,
+              revenueSource: 'gross_margin',
+            },
+          ],
+          excludedValuationYears: [{ fiscalYear: 2024, reason: 'gross_margin_revenue_proxy' }],
+          valuationInputStatus: 'all_rejected',
+        },
+      },
+      baseForm
+    )
+
+    expect(patch.revenue).toBeUndefined()
+    expect(patch.ebitda).toBeUndefined()
+    expect(patch.current_year_data).toBeUndefined()
+    expect(patch.historical_years_data).toBeUndefined()
+    expect(patch.official_financials).toMatchObject({ valuationInputStatus: 'all_rejected' })
+  })
+
   it('merges comparables when form has none', () => {
     const patch = mergeOptionalSessionPrefillFields(
       {

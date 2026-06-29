@@ -164,6 +164,15 @@ export interface OfficialFinancialsYearPayload {
   rubricsUsed?: Record<string, string>
 }
 
+export type OfficialFinancialsValuationInputExclusionReason =
+  | 'gross_margin_revenue_proxy'
+  | 'implausible_ebitda_margin'
+
+export interface OfficialFinancialsExcludedValuationYearPayload {
+  fiscalYear: number
+  reason: OfficialFinancialsValuationInputExclusionReason
+}
+
 export interface OfficialFinancialsPayload {
   source?: string
   sourceLabel?: string
@@ -188,6 +197,9 @@ export interface OfficialFinancialsPayload {
   varianceAnalysis?: OfficialVarianceAnalysis
   verificationBadge?: OfficialVerificationBadge
   historicalYears?: OfficialFinancialsYearPayload[]
+  valuationInputYears?: number[]
+  excludedValuationYears?: OfficialFinancialsExcludedValuationYearPayload[]
+  valuationInputStatus?: 'accepted' | 'partial_rejected' | 'all_rejected'
 }
 
 export interface ValuationRequest {

@@ -18,6 +18,7 @@ import type {
 } from '../types/valuation'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from './fiscalYear'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
+import { stripBlockedUntrustedOperatingFinancialSurface } from './officialValuationInputPolicy'
 import {
   OPTIONAL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
@@ -131,10 +132,11 @@ function removeIdentityGapFillFields(out: Partial<ValuationFormData>): Partial<V
 }
 
 export function mergeOptionalSessionPrefillFields(
-  mergedData: Record<string, unknown>,
+  rawMergedData: Record<string, unknown>,
   /** Zustand store, session JSON, or panel local state — overlapping keys, distinct TS types. */
   formData: unknown
 ): Partial<ValuationFormData> {
+  const mergedData = stripBlockedUntrustedOperatingFinancialSurface(rawMergedData)
   const out: Partial<ValuationFormData> = {}
 
   const fd = formData as Record<string, unknown>

@@ -30,6 +30,7 @@ import {
   mergeOptionalSessionPrefillFields,
   mergeSessionSurfaceForOptionalPrefill,
 } from '../utils/mergeOptionalSessionPrefillFields'
+import { stripBlockedUntrustedOperatingFinancialSurface } from '../utils/officialValuationInputPolicy'
 import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
 import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
 import { formatRegistryCompanyLocation } from '../utils/registryCompanyDisplay'
@@ -160,10 +161,13 @@ export function useSessionDataPrefill() {
       lastOptionalPrefillSigRef.current = optionalPrefillSig
       hasPrefilledRef.current = false
     }
-    const sessionFlat =
+    const sessionFlatRaw =
       sessionData && typeof sessionData === 'object'
         ? mergeSessionSurfaceForOptionalPrefill(sessionData)
         : null
+    const sessionFlat = sessionFlatRaw
+      ? stripBlockedUntrustedOperatingFinancialSurface(sessionFlatRaw)
+      : null
     const sessionHasData = !!(
       sessionFlat?.company_name?.toString().trim() ||
       sessionFlat?.kbo_number ||
@@ -238,9 +242,7 @@ export function useSessionDataPrefill() {
       return
     }
 
-    const mergedData = mergeSessionSurfaceForOptionalPrefill(
-      sessionData
-    ) as SessionPrefillMergedData
+    const mergedData = (sessionFlat ?? {}) as SessionPrefillMergedData
     const rawBi = sessionData._businessInfo
     const businessInfo =
       rawBi && typeof rawBi === 'object' && !Array.isArray(rawBi)
@@ -297,13 +299,8 @@ export function useSessionDataPrefill() {
 
     const formLive = useManualFormStore.getState().formData
     const hasGapFillFromOptional =
-      sessionData && typeof sessionData === 'object'
-        ? Object.keys(
-            mergeOptionalSessionPrefillFields(
-              mergeSessionSurfaceForOptionalPrefill(sessionData),
-              formLive
-            )
-          ).length > 0
+      sessionFlat && typeof sessionFlat === 'object'
+        ? Object.keys(mergeOptionalSessionPrefillFields(sessionFlat, formLive)).length > 0
         : false
 
     if (!hasBusinessCardData && !hasMethodOrFinancialCues && !hasGapFillFromOptional) {

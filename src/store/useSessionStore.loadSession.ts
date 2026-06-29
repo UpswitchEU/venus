@@ -5,6 +5,11 @@ import { SessionRestorationService } from '../services/session/SessionRestoratio
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
 import { sessionEnvelopeHasIdentitySignals } from '../utils/mergeOptionalSessionPrefillFields'
+import {
+  officialFinancialsFromSurface,
+  officialFinancialsRejectsValuationInputs,
+  stripBlockedUntrustedOperatingFinancialSurface,
+} from '../utils/officialValuationInputPolicy'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import type { SessionStatus, SessionStore } from './useSessionStore'
 import {
@@ -30,6 +35,41 @@ type PaywallLoadError = Error & {
 const SESSION_NOT_READY_MESSAGE = 'Session not ready. Please wait for initialization or retry.'
 const loadingPromises = new Map<string, Promise<void>>()
 let activeLoadSequence = 0
+
+export function preserveRejectedOfficialFinancialsOnSessionLoad(
+  session: ValuationSession,
+  previousSessionData: Record<string, unknown> | undefined
+): ValuationSession {
+  const nextData = asSessionDataRecord(session.sessionData)
+  const nextOfficial = officialFinancialsFromSurface(nextData)
+  const previousOfficial = officialFinancialsFromSurface(previousSessionData)
+  const nextRejects = officialFinancialsRejectsValuationInputs(nextOfficial)
+  const previousRejects = officialFinancialsRejectsValuationInputs(previousOfficial)
+
+  if (nextOfficial && !nextRejects) return session
+  if (!nextRejects && !previousRejects) return session
+
+  const officialToKeep = nextRejects ? nextOfficial : previousOfficial
+  if (!officialToKeep) return session
+
+  const mergedData: Record<string, unknown> = { ...nextData }
+  if (!nextOfficial) {
+    mergedData.official_financials = officialToKeep
+  }
+  if (!mergedData.official_variance_analysis && previousSessionData?.official_variance_analysis) {
+    mergedData.official_variance_analysis = previousSessionData.official_variance_analysis
+  }
+  if (!mergedData.official_verification_badge && previousSessionData?.official_verification_badge) {
+    mergedData.official_verification_badge = previousSessionData.official_verification_badge
+  }
+
+  return {
+    ...session,
+    sessionData: stripBlockedUntrustedOperatingFinancialSurface(
+      mergedData
+    ) as ValuationSession['sessionData'],
+  }
+}
 
 export function invalidateActiveLoads(reportId?: string): void {
   activeLoadSequence += 1
@@ -136,6 +176,7 @@ export function createLoadSessionAction(set: StoreSet, get: StoreGet): SessionSt
         }
 
         session = preserveRecoveredHtmlOnSessionCommit(session, get().session ?? state.session)
+        session = preserveRejectedOfficialFinancialsOnSessionLoad(session, previousSessionData)
 
         const sessionData = asSessionDataRecord(session.sessionData)
         const sessionRecord = session as ValuationSession & Record<string, unknown>

@@ -204,6 +204,65 @@ describe('State Machine Transitions', () => {
     )
   })
 
+  it('preserves rejected official filing metadata when refreshing a bootstrap session', async () => {
+    const reportId = 'val_cbso_rejected_refresh'
+    const rejectedOfficialFinancials = {
+      source: 'nbb',
+      historicalYears: [
+        {
+          fiscalYear: 2024,
+          revenue: 244_665.68,
+          ebitda: -34_970.07,
+          revenueSource: 'gross_margin',
+        },
+      ],
+      excludedValuationYears: [{ fiscalYear: 2024, reason: 'gross_margin_revenue_proxy' }],
+      valuationInputYears: [],
+      valuationInputStatus: 'all_rejected',
+    }
+    const minimalSession = {
+      reportId,
+      sessionData: {
+        _bootstrapPrefill: true,
+        company_name: 'KEUKEN',
+        official_financials: rejectedOfficialFinancials,
+      },
+      updatedAt: new Date(),
+    }
+    const staleServerSession = {
+      reportId,
+      sessionData: {
+        company_name: 'KEUKEN',
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
+        historical_years_data: [{ year: 2024, revenue: 900_000, ebitda: 90_000 }],
+      },
+      updatedAt: new Date(),
+    }
+
+    mockLoadSession.mockResolvedValue(staleServerSession)
+    useSessionStore.setState({
+      session: minimalSession,
+      status: 'loaded' as SessionStatus,
+      errorMessage: null,
+    })
+    useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+    await useSessionStore.getState().loadSession(reportId)
+
+    const sessionData = useSessionStore.getState().session?.sessionData as Record<string, unknown>
+    expect(sessionData.official_financials).toMatchObject({
+      valuationInputStatus: 'all_rejected',
+      valuationInputYears: [],
+    })
+    expect(sessionData.revenue).toBeUndefined()
+    expect(sessionData.ebitda).toBeUndefined()
+    expect(sessionData.current_year_data).toBeUndefined()
+    expect(sessionData.historical_years_data).toBeUndefined()
+    expect(sessionData.company_name).toBe('KEUKEN')
+  })
+
   it('preserves in-flight recovered HTML when loadSession returns stale server payload', async () => {
     const reportId = 'val_recovered_race'
     const recoveredHtml = '<main>Recovered during load</main>'

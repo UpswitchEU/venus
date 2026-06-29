@@ -27,6 +27,10 @@ import {
   mergeSessionSurfaceForOptionalPrefill,
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { hasUsableOfficialFinancialsContent } from '../utils/officialFinancialsContent'
+import {
+  shouldBlockUntrustedFinancialPrefill,
+  stripUntrustedOperatingFinancialPrefill,
+} from '../utils/officialValuationInputPolicy'
 import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
 import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
 import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
@@ -175,11 +179,16 @@ export function applyBootstrapPrefillToForm(
     allData.country_code = authoritativeCountryCode
   }
 
-  applyFinancialPrefill(allData, financials)
+  const blockUntrustedFinancialPrefill = shouldBlockUntrustedFinancialPrefill(
+    officialFinancials,
+    financials?.dataSource
+  )
+
+  applyFinancialPrefill(allData, blockUntrustedFinancialPrefill ? undefined : financials)
   applyOfficialFinancialsPrefill(allData, officialFinancials)
   applyBusinessTypePrefill(allData, businessType)
   ensureCompanyName(allData, companyInfo, kboData)
-  applySessionFallbackPrefill(allData)
+  applySessionFallbackPrefill(allData, blockUntrustedFinancialPrefill)
 
   if (Object.keys(allData).length > 0) {
     logger.debug('Applying prefill data to form', {
@@ -446,13 +455,22 @@ function ensureCompanyName(
   })
 }
 
-function applySessionFallbackPrefill(allData: BootstrapPrefillPatch): void {
+function applySessionFallbackPrefill(
+  allData: BootstrapPrefillPatch,
+  blockUntrustedFinancialPrefill: boolean
+): void {
   const sessionRaw = useSessionStore.getState().session?.sessionData as
     | Record<string, unknown>
     | undefined
   if (!sessionRaw || typeof sessionRaw !== 'object') return
 
-  const mergedSession = mergeSessionSurfaceForOptionalPrefill(sessionRaw) as Record<string, unknown>
+  const mergedSessionRaw = mergeSessionSurfaceForOptionalPrefill(sessionRaw) as Record<
+    string,
+    unknown
+  >
+  const mergedSession = blockUntrustedFinancialPrefill
+    ? stripUntrustedOperatingFinancialPrefill(mergedSessionRaw)
+    : mergedSessionRaw
   const currentFormData = useManualFormStore.getState().formData
   const sessionRegistryConflicts = hasConflictingRegistryIdentity(
     { ...currentFormData, ...allData },

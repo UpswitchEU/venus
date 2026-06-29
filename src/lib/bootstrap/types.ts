@@ -211,6 +211,15 @@ export interface OfficialFinancialsYear {
   rubricsUsed?: Record<string, string>
 }
 
+export type OfficialFinancialsValuationInputExclusionReason =
+  | 'gross_margin_revenue_proxy'
+  | 'implausible_ebitda_margin'
+
+export interface OfficialFinancialsExcludedValuationYear {
+  fiscalYear: number
+  reason: OfficialFinancialsValuationInputExclusionReason
+}
+
 export interface OfficialFinancials {
   source?: string
   sourceLabel?: string
@@ -247,6 +256,11 @@ export interface OfficialFinancials {
   }
   /** Multi-year NBB CBSO data with proper EBITDA breakdown. */
   historicalYears?: OfficialFinancialsYear[]
+  /** Closed filing years accepted as valuation-grade operating inputs. */
+  valuationInputYears?: number[]
+  /** Filing years retained as official evidence but rejected as valuation inputs. */
+  excludedValuationYears?: OfficialFinancialsExcludedValuationYear[]
+  valuationInputStatus?: 'accepted' | 'partial_rejected' | 'all_rejected'
 }
 
 export interface BusinessTypeInfo {

@@ -16,6 +16,11 @@ import {
   buildIdentityFingerprint,
   readNewValuationPrefill,
 } from '../utils/newValuationPrefillStorage'
+import {
+  isTrustedFinancialDataSource,
+  shouldBlockUntrustedFinancialPrefill,
+  stripUntrustedOperatingFinancialPrefill,
+} from '../utils/officialValuationInputPolicy'
 import { extractRenderableHtmlFromSessionPayload } from '../utils/reportHtmlRecovery'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import {
@@ -54,6 +59,20 @@ function pricingRangeToValuationResult(
     equity_value_high: pricingRange.max,
     currency: pricingRange.currency,
   } as unknown as ValuationSession['valuationResult']
+}
+
+function financialSourceFromSurface(surface: Record<string, unknown>): unknown {
+  return surface._financial_data_source ?? surface.financial_data_source ?? surface.dataSource
+}
+
+function stripBlockedFinancialSurface(
+  surface: Record<string, unknown>,
+  blockUntrustedFinancialPrefill: boolean
+): Record<string, unknown> {
+  if (!blockUntrustedFinancialPrefill) return surface
+  return isTrustedFinancialDataSource(financialSourceFromSurface(surface))
+    ? surface
+    : stripUntrustedOperatingFinancialPrefill(surface)
 }
 
 /** Country-only prefill can score below 0.05 confidence; still hydrate form store for new reports. */
@@ -117,6 +136,10 @@ export function syncBootstrapSession(state: SessionBootstrapState): void {
   try {
     const { report, prefillData, identity } = state
     const sessionStore = useSessionStore.getState()
+    const blockUntrustedFinancialPrefill = shouldBlockUntrustedFinancialPrefill(
+      prefillData.officialFinancials,
+      prefillData.financials?.dataSource
+    )
 
     const storeHasSession = sessionStore.session?.reportId === report.reportId
 
@@ -132,10 +155,14 @@ export function syncBootstrapSession(state: SessionBootstrapState): void {
       const prefillFormFields = hasPrefill ? buildPrefillFormFields(prefillData) : {}
       const pkg = state.valuationPackage
       const packageRenderableHtml = getFirstRenderableReportHtml(pkg?.htmlReport)
-      const packageSurface =
+      const packageSurfaceRaw =
         pkg?.formData && typeof pkg.formData === 'object'
           ? mergeSessionSurfaceForOptionalPrefill(pkg.formData)
           : {}
+      const packageSurface = stripBlockedFinancialSurface(
+        packageSurfaceRaw,
+        blockUntrustedFinancialPrefill
+      )
       const hasPackage = Boolean(
         pkg &&
           (packageRenderableHtml ||
@@ -288,7 +315,9 @@ export function syncBootstrapSession(state: SessionBootstrapState): void {
           const targetIdentity = buildIdentityFingerprint(prefillData.companyInfo)
           const restored = readNewValuationPrefill(targetIdentity)
           if (restored) {
-            const sanitized = restored.data
+            const sanitized = blockUntrustedFinancialPrefill
+              ? stripUntrustedOperatingFinancialPrefill(restored.data)
+              : restored.data
             const filingYearConfirmed = isFilingYearConfirmedValue(
               sanitized.filing_year_confirmed ?? sanitized.filingYearConfirmed
             )
@@ -363,7 +392,13 @@ export function syncBootstrapSession(state: SessionBootstrapState): void {
         if (pkg.pdf?.url) sessionData.pdfUrl = pkg.pdf.url
         if (pkg.buyerReadiness) sessionData._buyerReadiness = pkg.buyerReadiness
         if (pkg.formData && Object.keys(pkg.formData).length > 0) {
-          Object.assign(sessionData, mergeSessionSurfaceForOptionalPrefill(pkg.formData))
+          Object.assign(
+            sessionData,
+            stripBlockedFinancialSurface(
+              mergeSessionSurfaceForOptionalPrefill(pkg.formData),
+              blockUntrustedFinancialPrefill
+            )
+          )
         }
       }
       if (hasPrefill) {

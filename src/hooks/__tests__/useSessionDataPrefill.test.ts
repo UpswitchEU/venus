@@ -190,6 +190,44 @@ describe('useSessionDataPrefill (React #185 feedback-loop guard)', () => {
     })
   })
 
+  it('does not restore untrusted operating rows when official filing rejected valuation inputs', async () => {
+    bootstrapWithoutMeaningfulPrefill('val_rejected_official_financials')
+    seedExistingReportSession('val_rejected_official_financials', {
+      company_name: 'Rejected CBSO BV',
+      revenue: 1_000_000,
+      ebitda: 100_000,
+      current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
+      historical_years_data: [{ year: 2024, revenue: 900_000, ebitda: 90_000 }],
+      official_financials: {
+        source: 'nbb',
+        historicalYears: [
+          {
+            fiscalYear: 2024,
+            revenue: 244_665.68,
+            ebitda: -34_970.07,
+            revenueSource: 'gross_margin',
+          },
+        ],
+        excludedValuationYears: [{ fiscalYear: 2024, reason: 'gross_margin_revenue_proxy' }],
+        valuationInputYears: [],
+        valuationInputStatus: 'all_rejected',
+      },
+    })
+
+    renderHook(() => useSessionDataPrefill())
+
+    await waitFor(() => {
+      expect(useManualFormStore.getState().formData.company_name).toBe('Rejected CBSO BV')
+    })
+
+    const formData = useManualFormStore.getState().formData
+    expect(formData.revenue).toBeUndefined()
+    expect(formData.ebitda).toBeUndefined()
+    expect(formData.current_year_data?.revenue).toBe(0)
+    expect(formData.current_year_data?.ebitda).toBe(0)
+    expect(formData.historical_years_data).toBeUndefined()
+  })
+
   it('strips stale FCFF from fallback session forecast rows in default EBITDA mode', async () => {
     bootstrapWithoutMeaningfulPrefill('val_dcf_default_forecast')
     seedExistingReportSession('val_dcf_default_forecast', {
