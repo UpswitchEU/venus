@@ -97,6 +97,7 @@ describe('DcfGlobalAssumptionsModel', () => {
       variant: 'forecastDefaultsOnly',
       dcfInputMode: 'ebitda',
       terminalValueMethod: 'perpetual_growth',
+      repairZeroEbitdaMarginPlaceholder: true,
       currentValues: {
         dcfRevenueGrowthPct: 4.2,
       },
@@ -114,6 +115,53 @@ describe('DcfGlobalAssumptionsModel', () => {
       dcf_capex_pct: 5.7,
       dcf_da_pct: 2.1,
     })
+  })
+
+  it('repairs a restored zero EBITDA margin placeholder when history implies a positive margin', () => {
+    const patch = buildDcfGlobalAssumptionsSeedPatch({
+      variant: 'forecastDefaultsOnly',
+      dcfInputMode: 'ebitda',
+      terminalValueMethod: 'perpetual_growth',
+      repairZeroEbitdaMarginPlaceholder: true,
+      currentValues: {
+        dcfRevenueGrowthPct: 5,
+        dcfEbitdaMarginPct: 0,
+        dcfCapexPct: 4,
+        dcfDaPct: 3,
+        dcfNwcPct: 1.5,
+        dcfTaxRatePct: 25,
+      },
+      smartDefaults: {
+        revenueGrowthPct: 11.8,
+        ebitdaMarginPct: 10,
+      },
+    })
+
+    expect(patch).toEqual({
+      dcf_ebitda_margin_pct: 10,
+    })
+  })
+
+  it('keeps an explicit zero EBITDA margin when zero-placeholder repair is not active', () => {
+    const patch = buildDcfGlobalAssumptionsSeedPatch({
+      variant: 'forecastDefaultsOnly',
+      dcfInputMode: 'ebitda',
+      terminalValueMethod: 'perpetual_growth',
+      currentValues: {
+        dcfRevenueGrowthPct: 5,
+        dcfEbitdaMarginPct: 0,
+        dcfCapexPct: 4,
+        dcfDaPct: 3,
+        dcfNwcPct: 1.5,
+        dcfTaxRatePct: 25,
+      },
+      smartDefaults: {
+        revenueGrowthPct: 11.8,
+        ebitdaMarginPct: 10,
+      },
+    })
+
+    expect(patch).toEqual({})
   })
 
   it('normalizes restored numeric strings without replacing them with defaults', () => {

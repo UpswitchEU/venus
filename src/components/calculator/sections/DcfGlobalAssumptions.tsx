@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslations } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { cn } from '@/design-system/utils'
 import { AcademicValidationNotice } from './AcademicValidationNotice'
@@ -124,6 +124,7 @@ export function DcfGlobalAssumptions({
   waccSectorBand,
 }: DcfGlobalAssumptionsProps) {
   const t = useTranslations('manualInput.methodSelector')
+  const canRepairInitialZeroEbitdaMarginRef = useRef(dcfEbitdaMarginPct === 0)
 
   // Cap-ack state for the >5% terminal-growth hard-stop. Local-only (we don't
   // persist this on the request) — re-firing the gate after a fresh entry is
@@ -180,11 +181,16 @@ export function DcfGlobalAssumptions({
   // Only writes when the field is currently undefined (no overwrite of user edits).
   // Gated by `variant` / `dcfInputMode` so we don't seed irrelevant fields.
   useEffect(() => {
+    const shouldRepairZeroEbitdaMargin =
+      canRepairInitialZeroEbitdaMarginRef.current &&
+      dcfEbitdaMarginPct === 0 &&
+      (smartDefaultsForSeed?.ebitdaMarginPct ?? 0) > 0
     const seedPatch = buildDcfGlobalAssumptionsSeedPatch({
       disabled,
       variant,
       dcfInputMode,
       terminalValueMethod,
+      repairZeroEbitdaMarginPlaceholder: shouldRepairZeroEbitdaMargin,
       currentValues: {
         dcfRevenueGrowthPct,
         dcfEbitdaMarginPct,
@@ -200,6 +206,9 @@ export function DcfGlobalAssumptions({
       integrationCapexPct,
       integrationDaPct,
     })
+    if (dcfEbitdaMarginPct !== 0 || 'dcf_ebitda_margin_pct' in seedPatch) {
+      canRepairInitialZeroEbitdaMarginRef.current = false
+    }
     for (const [field, value] of Object.entries(seedPatch)) {
       onFieldChange(field, value)
     }

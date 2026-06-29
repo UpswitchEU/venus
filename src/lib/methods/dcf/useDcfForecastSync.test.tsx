@@ -24,8 +24,13 @@ function makeForm(overrides: Partial<ManualValuationFormData> = {}): ManualValua
   } as ManualValuationFormData
 }
 
-function setup(initial: Partial<UseDcfForecastSyncParams>) {
-  const formStateRef: { current: ManualValuationFormData } = { current: makeForm() }
+function setup(
+  initial: Partial<UseDcfForecastSyncParams>,
+  formOverrides: Partial<ManualValuationFormData> = {}
+) {
+  const formStateRef: { current: ManualValuationFormData } = {
+    current: makeForm(formOverrides),
+  }
   const setFormData = vi.fn((arg: ManualValuationFormData | Updater) => {
     formStateRef.current = typeof arg === 'function' ? (arg as Updater)(formStateRef.current) : arg
   })
@@ -74,6 +79,35 @@ describe('useDcfForecastSync', () => {
       expect(setShowForecastRemovalConfirm).toHaveBeenCalledWith(false)
       const forecastRows = formStateRef.current.yearlyFinancials.filter((r) => r.isForecast)
       expect(forecastRows.length).toBeGreaterThan(0)
+    })
+
+    it('uses historical smart margin instead of stale restored 0% margin during injection', () => {
+      const { formStateRef } = setup(
+        {
+          effectiveMethod: 'dcf',
+          hasDcfSelected: false,
+        },
+        {
+          dcf_revenue_growth_pct: 5,
+          dcf_ebitda_margin_pct: 0,
+          dcf_capex_pct: 2,
+          dcf_da_pct: 2,
+          dcf_nwc_pct: 1.5,
+          dcf_tax_rate_pct: 25,
+          yearlyFinancials: [
+            { year: '2023', revenue: 800_000, ebitda: 80_000 },
+            { year: '2024', revenue: 900_000, ebitda: 90_000 },
+            { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          ] as YearlyFinancials[],
+        }
+      )
+
+      const forecastRows = formStateRef.current.yearlyFinancials.filter((r) => r.isForecast)
+      expect(forecastRows[0]).toMatchObject({
+        year: '2026',
+        revenue: 1_050_000,
+        ebitda: 105_000,
+      })
     })
 
     it('injects forecast rows on mount when DCF is part of a multi-method selection', () => {

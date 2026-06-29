@@ -62,6 +62,33 @@ describe('useManualDcfForecastController', () => {
     })
   })
 
+  it('repairs stale zero-margin forecast rows from the latest historical base', async () => {
+    const { formStateRef } = setup({
+      dcf_revenue_growth_pct: 5,
+      dcf_ebitda_margin_pct: 0,
+      dcf_capex_pct: 2,
+      dcf_da_pct: 2,
+      dcf_nwc_pct: 1.5,
+      dcf_tax_rate_pct: 25,
+      yearlyFinancials: [
+        { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+        { year: '2024', revenue: 900_000, ebitda: 90_000 },
+        { year: '2023', revenue: 800_000, ebitda: 80_000 },
+        { year: '2026', revenue: 105_000, ebitda: 0, isForecast: true },
+        { year: '2027', revenue: 110_250, ebitda: 0, isForecast: true },
+      ] as YearlyFinancials[],
+    })
+
+    await waitFor(() => {
+      expect(formStateRef.current.dcf_ebitda_margin_pct).toBe(10)
+      const forecast = formStateRef.current.yearlyFinancials.find((row) => row.year === '2026')
+      expect(forecast).toMatchObject({
+        revenue: 1_050_000,
+        ebitda: 105_000,
+      })
+    })
+  })
+
   it('normalizes invalid restored terminal value method before rendering assumptions', () => {
     const { result } = setup({
       dcf_terminal_value_method: 'unexpected' as unknown as 'perpetual_growth',

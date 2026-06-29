@@ -5,6 +5,10 @@ import type {
   OfficialVerificationBadge,
 } from '../../../types/valuation'
 import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
+import {
+  buildForecastYearDataFromYearlyFinancials,
+  yearlyFinancialsContainForecastRows,
+} from '../../../utils/yearData'
 
 interface ManualInputSubmitTrustData {
   official_financials?: OfficialFinancialsPayload | null
@@ -23,10 +27,14 @@ export function buildManualInputSubmitPayload({
 }): ManualValuationFormData {
   const officialFinancials = trustFormData.official_financials
   const trustOfficialUsable = hasUsableOfficialFinancialsContent(officialFinancials)
+  const forecastYearsData = yearlyFinancialsContainForecastRows(formData.yearlyFinancials)
+    ? buildForecastYearDataFromYearlyFinancials(formData.yearlyFinancials)
+    : formData.forecast_years_data
 
   return {
     ...formData,
     averageNormalizedEbitda,
+    ...(forecastYearsData !== undefined && { forecast_years_data: forecastYearsData }),
     ...(trustOfficialUsable && officialFinancials && { official_financials: officialFinancials }),
     ...(trustOfficialUsable &&
       trustFormData.official_variance_analysis != null && {

@@ -1,3 +1,4 @@
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import type { SubmittedFinancialSnapshot, SubmittedFinancialYear } from './manualFinancialSnapshot'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -5,12 +6,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function readNumber(value: unknown, fallback = 0): number {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : fallback
+  return parseFlexibleNumber(value) ?? fallback
 }
 
 function readOptionalNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+  return parseFlexibleNumber(value)
 }
 
 function rowHasFinancials(row: Record<string, unknown>): boolean {
@@ -18,7 +18,12 @@ function rowHasFinancials(row: Record<string, unknown>): boolean {
 }
 
 function forecastRowHasFinancials(row: Record<string, unknown>): boolean {
-  return rowHasFinancials(row) || row.capex != null || row.nwc_change != null
+  return (
+    rowHasFinancials(row) ||
+    row.capex != null ||
+    row.nwc_change != null ||
+    row.free_cash_flow != null
+  )
 }
 
 function toSubmittedYear(row: Record<string, unknown>, isForecast = false): SubmittedFinancialYear {

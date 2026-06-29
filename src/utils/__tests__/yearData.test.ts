@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCurrentYearData,
+  buildForecastYearDataFromYearlyFinancials,
   isYearRowForecast,
   mergeYearDataRows,
   pickDefinedYearDataFields,
@@ -146,5 +147,19 @@ describe('yearData helpers', () => {
     ).toEqual({
       depreciation: 20_000,
     })
+  })
+
+  it('extracts meaningful forecast rows from localized yearly financial strings', () => {
+    expect(
+      buildForecastYearDataFromYearlyFinancials([
+        { year: '2025', revenue: '1.000.000', ebitda: '100.000' },
+        { year: '2026', revenue: '1.050.000', ebitda: '105.000', isForecast: true },
+        { year: '2027', revenue: 0, ebitda: 0, isForecast: true },
+        { year: '2028', revenue: 0, ebitda: 0, free_cash_flow: '0', isForecast: true },
+      ])
+    ).toEqual([
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true },
+      { year: 2028, revenue: 0, ebitda: 0, free_cash_flow: 0, is_forecast: true },
+    ])
   })
 })

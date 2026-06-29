@@ -16,10 +16,11 @@ function assignParsedOrDefault<TField extends keyof ManualValuationFormData>(
   patch: Partial<ManualValuationFormData>,
   formData: ManualValuationFormData,
   field: TField,
-  fallback: number
+  fallback: number,
+  options?: { treatZeroAsMissing?: boolean }
 ) {
   const parsed = parseFlexibleNumber(formData[field])
-  if (parsed == null) {
+  if (parsed == null || (options?.treatZeroAsMissing && parsed === 0)) {
     patch[field] = fallback as ManualValuationFormData[TField]
     return
   }
@@ -90,16 +91,16 @@ export function buildManualDcfDefaultsPatch({
     'dcf_revenue_growth_pct',
     smartDefaults?.revenueGrowthPct ?? DCF_DEFAULT_REVENUE_GROWTH_PCT
   )
-  assignParsedOrDefault(
-    patch,
-    formData,
-    'dcf_ebitda_margin_pct',
+  const ebitdaMarginFallback =
     smartDefaults?.ebitdaMarginPct ??
-      deriveHistoricalEbitdaMarginPct({
-        latestHistoricalRevenue,
-        latestHistoricalEbitda,
-      })
-  )
+    deriveHistoricalEbitdaMarginPct({
+      latestHistoricalRevenue,
+      latestHistoricalEbitda,
+    })
+
+  assignParsedOrDefault(patch, formData, 'dcf_ebitda_margin_pct', ebitdaMarginFallback, {
+    treatZeroAsMissing: ebitdaMarginFallback > 0,
+  })
   assignParsedOrDefault(
     patch,
     formData,

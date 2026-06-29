@@ -61,4 +61,22 @@ describe('buildManualInputSubmitPayload', () => {
     expect(payload.official_variance_analysis).toBeUndefined()
     expect(payload.official_verification_badge).toBeUndefined()
   })
+
+  it('rewrites stale forecast_years_data from the repaired forecast grid', () => {
+    const payload = buildManualInputSubmitPayload({
+      averageNormalizedEbitda: 100_000,
+      formData: makeForm({
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          { year: '2026', revenue: 1_050_000, ebitda: 105_000, isForecast: true },
+        ],
+        forecast_years_data: [{ year: 2026, revenue: 105_000, ebitda: 0 }],
+      }),
+      trustFormData: {},
+    })
+
+    expect(payload.forecast_years_data).toEqual([
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true },
+    ])
+  })
 })

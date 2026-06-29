@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef } from 'react'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { coerceFiniteNumber } from '../../../utils/isFiniteNumeric'
+import { isYearRowForecast } from '../../../utils/yearData'
 import type { DcfForecastModelSnapshot } from '../sections/dcfForecastModelSync'
 import {
   deriveManualDcfProjectionRowsFromForm,
@@ -33,6 +34,22 @@ export function useManualDcfProjectionModelSync({
     [dcfForecastRows]
   )
 
+  const dcfHistoricalBasisKey = useMemo(
+    () =>
+      formData.yearlyFinancials
+        .filter((row) => !isYearRowForecast(row))
+        .map((row) =>
+          [
+            String(row.year ?? ''),
+            coerceFiniteNumber(row.revenue) ?? '',
+            coerceFiniteNumber(row.ebitda) ?? '',
+          ].join(':')
+        )
+        .sort()
+        .join('|'),
+    [formData.yearlyFinancials]
+  )
+
   useEffect(() => {
     const allowed = new Set(dcfForecastYearKeys.length > 0 ? dcfForecastYearKeys.split(',') : [])
     const next: Record<string, DcfForecastModelSnapshot> = {}
@@ -58,6 +75,7 @@ export function useManualDcfProjectionModelSync({
     void formData.dcf_nwc_pct
     void formData.dcf_tax_rate_pct
     void dcfForecastYearKeys
+    void dcfHistoricalBasisKey
 
     if (!hasDcfSelected || formData.dcf_input_mode === 'fcff_only') return
     if (dcfForecastRows.length === 0) return
@@ -92,6 +110,7 @@ export function useManualDcfProjectionModelSync({
     formData.dcf_nwc_pct,
     formData.dcf_tax_rate_pct,
     dcfForecastYearKeys,
+    dcfHistoricalBasisKey,
     dcfForecastRows.length,
     setFormData,
   ])

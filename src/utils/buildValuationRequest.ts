@@ -35,7 +35,11 @@ import {
   applyTaxLatencyBalanceSheetAdjustments,
 } from './valuationRequestSpecialInputs'
 import { buildValuationRequestYearData } from './valuationRequestYearData'
-import { isYearRowForecast } from './yearData'
+import {
+  buildForecastYearDataFromYearlyFinancials,
+  isYearRowForecast,
+  yearlyFinancialsContainForecastRows,
+} from './yearData'
 
 type FormDataRecord = ValuationFormData & Record<string, unknown>
 
@@ -232,8 +236,14 @@ export function buildValuationRequest(
   const actualHistoricalData = promotedCurrentFromHistorical
     ? normalizedHistoricalData.filter((year) => Number(year.year) !== currentFiscalYear)
     : normalizedHistoricalData
-  const rawForecastData =
-    formData.forecast_years_data && formData.forecast_years_data.length > 0
+  const yearlyFinancialsForecastData = buildForecastYearDataFromYearlyFinancials(
+    (formData as FormDataRecord).yearlyFinancials
+  )
+  const rawForecastData = yearlyFinancialsContainForecastRows(
+    (formData as FormDataRecord).yearlyFinancials
+  )
+    ? yearlyFinancialsForecastData
+    : formData.forecast_years_data && formData.forecast_years_data.length > 0
       ? formData.forecast_years_data
       : (formData.historical_years_data?.filter((y) => isYearRowForecast(y)) ?? [])
 

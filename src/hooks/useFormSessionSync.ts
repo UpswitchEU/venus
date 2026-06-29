@@ -42,8 +42,10 @@ import {
 import { NameGenerator } from '../utils/nameGenerator'
 import {
   buildCurrentYearData,
+  buildForecastYearDataFromYearlyFinancials,
   isYearRowForecast,
   OPTIONAL_YEAR_DATA_FIELDS,
+  yearlyFinancialsContainForecastRows,
 } from '../utils/yearData'
 import {
   getMercurySourceApp,
@@ -96,6 +98,27 @@ function fingerprintYearRows(rows: unknown): string[] {
       }
       return a.localeCompare(b)
     })
+}
+
+function resolveAutosyncForecastRows(record: Record<string, unknown>): unknown[] {
+  const yearlyFinancials = record['yearlyFinancials']
+  if (yearlyFinancialsContainForecastRows(yearlyFinancials)) {
+    return buildForecastYearDataFromYearlyFinancials(yearlyFinancials)
+  }
+
+  const forecastRows = record['forecast_years_data']
+  return Array.isArray(forecastRows) ? forecastRows : []
+}
+
+export function resolveFormForecastYearsDataForAutosync(
+  data: ValuationFormData
+): ValuationFormData['forecast_years_data'] | undefined {
+  const yearlyFinancials = (data as Record<string, unknown>)['yearlyFinancials']
+  if (yearlyFinancialsContainForecastRows(yearlyFinancials)) {
+    return buildForecastYearDataFromYearlyFinancials(yearlyFinancials)
+  }
+
+  return data.forecast_years_data
 }
 
 function autosyncWritableSignature(record: Record<string, unknown>): string {
@@ -242,10 +265,8 @@ export function areFormAndSessionDataEqualForAutosync(
   const sessStr = JSON.stringify(fingerprintYearRows(sessHistNorm))
   if (formStr !== sessStr) return false
 
-  const formFc = Array.isArray(fd.forecast_years_data) ? fd.forecast_years_data : []
-  const sessFc = Array.isArray(sessionSurface.forecast_years_data)
-    ? sessionSurface.forecast_years_data
-    : []
+  const formFc = resolveAutosyncForecastRows(fd)
+  const sessFc = resolveAutosyncForecastRows(sessionSurface)
   if (formFc.length !== sessFc.length) return false
   const fcFormStr = JSON.stringify(fingerprintYearRows(formFc))
   const fcSessStr = JSON.stringify(fingerprintYearRows(sessFc))
@@ -376,6 +397,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           data,
           normalizedCurrentYear
         )
+        const forecastYearsData = resolveFormForecastYearsDataForAutosync(data)
 
         const dataRecord = data as unknown as Record<string, unknown>
         const sessionUpdate: Record<string, unknown> = {
@@ -394,8 +416,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           filing_year_confirmed: data.filing_year_confirmed,
           current_year_data: financialSessionFields.current_year_data,
           historical_years_data: normalizedHistoricalYears,
-          ...(data.forecast_years_data !== undefined && {
-            forecast_years_data: data.forecast_years_data,
+          ...(forecastYearsData !== undefined && {
+            forecast_years_data: forecastYearsData,
           }),
           number_of_employees: data.number_of_employees,
           number_of_owners: data.number_of_owners,

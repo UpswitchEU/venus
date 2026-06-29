@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   areFormAndSessionDataEqualForAutosync,
   resolveAutosyncFinancialSessionFields,
+  resolveFormForecastYearsDataForAutosync,
 } from '../useFormSessionSync'
 
 const base = {
@@ -277,6 +278,21 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
     expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
   })
 
+  it('compares repaired yearlyFinancials forecast rows against stale session forecast_years_data', () => {
+    const staleForecast = [{ year: 2026, revenue: 105_000, ebitda: 0 }]
+    const form = {
+      ...base,
+      forecast_years_data: staleForecast,
+      yearlyFinancials: [
+        { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+        { year: '2026', revenue: 1_050_000, ebitda: 105_000, isForecast: true },
+      ],
+    }
+    const sess = { ...base, forecast_years_data: staleForecast }
+
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
+  })
+
   it('returns false when tax latencies differ (third argument)', () => {
     const form = { ...base }
     const sess = { ...base, _taxLatencies: [{ id: 'a' }] }
@@ -366,5 +382,20 @@ describe('resolveAutosyncFinancialSessionFields', () => {
         ebitda: 0,
       },
     })
+  })
+})
+
+describe('resolveFormForecastYearsDataForAutosync', () => {
+  it('serializes repaired yearlyFinancials forecast rows instead of stale forecast_years_data', () => {
+    expect(
+      resolveFormForecastYearsDataForAutosync({
+        ...base,
+        forecast_years_data: [{ year: 2026, revenue: 105_000, ebitda: 0 }],
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          { year: '2026', revenue: 1_050_000, ebitda: 105_000, isForecast: true },
+        ],
+      })
+    ).toEqual([{ year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true }])
   })
 })

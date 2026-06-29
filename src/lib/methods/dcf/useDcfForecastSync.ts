@@ -25,6 +25,7 @@ import {
 import { methodKeyRequiresForecastYears } from '@/lib/methods/registry'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
 import { dcfInjectionAddedRowCount, injectDefaultDcfForecastYears } from '@/utils/forecastYears'
+import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import { dcfSmartDefaultsFromForm } from './smartDefaultsFromForm'
 
 /**
@@ -61,6 +62,17 @@ export interface UseDcfForecastSyncParams {
   setShowForecastRemovalConfirm: Dispatch<SetStateAction<boolean>>
   /** Translation function for the toast message (typed to the keys we use). */
   translate: DcfTranslator
+}
+
+function autoProjectionEbitdaMarginPct(
+  value: unknown,
+  smartDefault: number | undefined
+): number | undefined {
+  const parsed = parseFlexibleNumber(value)
+  if (parsed === 0 && smartDefault != null && smartDefault > 0) {
+    return undefined
+  }
+  return parsed
 }
 
 export function useDcfForecastSync({
@@ -111,7 +123,10 @@ export function useDcfForecastSync({
           yearlyFinancials: nextFinancials,
           smartDefaults: smart,
           revenueGrowthPct: current.dcf_revenue_growth_pct as number | undefined,
-          ebitdaMarginPct: current.dcf_ebitda_margin_pct as number | undefined,
+          ebitdaMarginPct: autoProjectionEbitdaMarginPct(
+            current.dcf_ebitda_margin_pct,
+            smart?.ebitdaMarginPct
+          ),
           capexPct: current.dcf_capex_pct as number | undefined,
           daPct: current.dcf_da_pct as number | undefined,
           nwcPct: current.dcf_nwc_pct as number | undefined,

@@ -6,6 +6,7 @@ import type {
   YearlyFinancials,
 } from '../../../types/valuation'
 import { getCurrentFilingYear, isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import {
   getHistoricalYearRange,
   type YearlyFinancialLike,
@@ -170,17 +171,16 @@ const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
     const baseRow: Record<string, unknown> = existing
       ? { ...(existing as unknown as Record<string, unknown>) }
       : { year: yearStr, revenue: 0, ebitda: 0 }
+    const revenue = parseFlexibleNumber(src.revenue)
+    const ebitda = parseFlexibleNumber(src.ebitda)
     baseRow.year = yearStr
-    baseRow.revenue = Number.isFinite(Number(src.revenue))
-      ? Number(src.revenue)
-      : (existing?.revenue ?? 0)
-    baseRow.ebitda = Number.isFinite(Number(src.ebitda))
-      ? Number(src.ebitda)
-      : (existing?.ebitda ?? 0)
+    baseRow.revenue = revenue ?? existing?.revenue ?? 0
+    baseRow.ebitda = ebitda ?? existing?.ebitda ?? 0
     for (const key of passthroughKeys) {
       const v = src[key]
-      if (v != null && Number.isFinite(Number(v))) {
-        baseRow[key] = Number(v)
+      const parsed = parseFlexibleNumber(v)
+      if (parsed !== undefined) {
+        baseRow[key] = parsed
       }
     }
     const nextRow = baseRow as unknown as YearlyFinancials

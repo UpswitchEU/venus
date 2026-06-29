@@ -1,15 +1,16 @@
 import type { YearDataInput, YearlyFinancials } from '../types/valuation'
 import { getCurrentFilingYear } from './fiscalYear'
+import { parseFlexibleNumber } from './isFiniteNumeric'
 
 export interface YearlyFinancialLike {
   year?: string | number | null
-  revenue?: number | null
-  ebitda?: number | null
-  free_cash_flow?: number | null
+  revenue?: unknown
+  ebitda?: unknown
+  free_cash_flow?: unknown
 }
 
 export function hasExplicitNumericValue(value: unknown): boolean {
-  return value !== '' && value !== null && value !== undefined && Number.isFinite(Number(value))
+  return parseFlexibleNumber(value) !== undefined
 }
 
 function parseYear(value: string | number | null | undefined): number {
@@ -42,10 +43,12 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
         ? yearRaw
         : Number.parseInt(String(yearRaw ?? ''), 10)
     if (!Number.isFinite(y) || y < 2000 || y > 2100) return
+    const parsedRevenue = parseFlexibleNumber(revenue)
+    const parsedEbitda = parseFlexibleNumber(ebitda)
     byYear.set(y, {
       year: String(y),
-      revenue: Number.isFinite(Number(revenue)) ? Number(revenue) : 0,
-      ebitda: Number.isFinite(Number(ebitda)) ? Number(ebitda) : 0,
+      revenue: parsedRevenue ?? 0,
+      ebitda: parsedEbitda ?? 0,
     })
   }
   if (current?.year != null) upsert(current.year, current.revenue, current.ebitda)
@@ -69,14 +72,14 @@ export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T
   const ebitE = hasExplicitNumericValue(year.ebitda)
   const fcffE = hasExplicitNumericValue(year.free_cash_flow)
 
-  const revenue = revE ? Number(year.revenue) : NaN
-  const ebitda = ebitE ? Number(year.ebitda) : NaN
-  const fcff = fcffE ? Number(year.free_cash_flow) : NaN
+  const revenue = revE ? parseFlexibleNumber(year.revenue) : undefined
+  const ebitda = ebitE ? parseFlexibleNumber(year.ebitda) : undefined
+  const fcff = fcffE ? parseFlexibleNumber(year.free_cash_flow) : undefined
 
   const revEbitComplete = revE && ebitE && (revenue !== 0 || ebitda !== 0)
   if (revEbitComplete) return true
 
-  if (fcffE && Number.isFinite(fcff)) {
+  if (fcffE && fcff !== undefined) {
     if (revE && ebitE && revenue === 0 && ebitda === 0 && fcff === 0) return false
     if (!revE && !ebitE) return fcff !== 0
     if (revE && ebitE) return true
@@ -91,12 +94,11 @@ export function yearlyFinancialRowHasNonPlaceholderData(
   row: YearlyFinancialLike & { isForecast?: boolean }
 ): boolean {
   if (row.isForecast) return true
-  const rev = Number(row.revenue)
-  const ebit = Number(row.ebitda)
-  const fcff = Number(row.free_cash_flow)
-  const fcffSignal =
-    hasExplicitNumericValue(row.free_cash_flow) && Number.isFinite(fcff) && fcff !== 0
-  return (Number.isFinite(rev) && rev !== 0) || (Number.isFinite(ebit) && ebit !== 0) || fcffSignal
+  const rev = parseFlexibleNumber(row.revenue)
+  const ebit = parseFlexibleNumber(row.ebitda)
+  const fcff = parseFlexibleNumber(row.free_cash_flow)
+  const fcffSignal = fcff !== undefined && fcff !== 0
+  return (rev !== undefined && rev !== 0) || (ebit !== undefined && ebit !== 0) || fcffSignal
 }
 
 export function yearlyFinancialsContainsNonPlaceholderData(
@@ -146,11 +148,12 @@ export function historicalYearRowNeedsRemovalWarning(
   normalizationCountForYear: number
 ): boolean {
   if (normalizationCountForYear > 0) return true
-  const revN = Number(row.revenue)
-  if (Number.isFinite(revN) && revN !== 0) return true
+  const revN = parseFlexibleNumber(row.revenue)
+  if (revN !== undefined && revN !== 0) return true
   // Treat explicit 0 as empty default (seed rows); non-zero EBITDA / FCFF still confirm.
-  if (hasExplicitNumericValue(row.ebitda) && Number(row.ebitda) !== 0) return true
-  if (hasExplicitNumericValue(row.free_cash_flow) && Number(row.free_cash_flow) !== 0) return true
+  if (hasExplicitNumericValue(row.ebitda) && parseFlexibleNumber(row.ebitda) !== 0) return true
+  if (hasExplicitNumericValue(row.free_cash_flow) && parseFlexibleNumber(row.free_cash_flow) !== 0)
+    return true
 
   const numericKeys = [
     'capex',
@@ -168,7 +171,8 @@ export function historicalYearRowNeedsRemovalWarning(
   ] as const
   for (const k of numericKeys) {
     const v = row[k]
-    if (typeof v === 'number' && Number.isFinite(v) && v !== 0) return true
+    const parsed = parseFlexibleNumber(v)
+    if (parsed !== undefined && parsed !== 0) return true
   }
   return false
 }

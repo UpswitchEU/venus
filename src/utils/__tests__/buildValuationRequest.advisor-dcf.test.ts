@@ -483,6 +483,52 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
     ])
   })
 
+  it('prefers repaired yearlyFinancials forecast rows over stale explicit forecast_years_data', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: 2025,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 900_000, ebitda: 90_000 },
+          { year: 2023, revenue: 800_000, ebitda: 80_000 },
+        ],
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          { year: '2024', revenue: 900_000, ebitda: 90_000 },
+          { year: '2023', revenue: 800_000, ebitda: 80_000 },
+          {
+            year: '2026',
+            revenue: 1_050_000,
+            ebitda: 105_000,
+            capex: 21_000,
+            depreciation: 21_000,
+            nwc_change: 750,
+            isForecast: true,
+          },
+        ],
+        forecast_years_data: [{ year: 2026, revenue: 105_000, ebitda: 0 }],
+        dcf_revenue_growth_pct: 5,
+        dcf_ebitda_margin_pct: 10,
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.forecast_years_data).toEqual([
+      {
+        year: 2026,
+        revenue: 1_050_000,
+        ebitda: 105_000,
+        capex: 21_000,
+        depreciation: 21_000,
+        nwc_change: 750,
+        is_forecast: true,
+      },
+    ])
+  })
+
   it('preserves manual forecast edits after DCF autofill when building the request', () => {
     const lastFullYear = getCurrentFilingYear()
     const autofilledForecasts = applyDcfProjectionPreviewToForecastRows(

@@ -54,6 +54,26 @@ describe('manualRestoredFinancialSnapshot', () => {
     })
   })
 
+  it('preserves Belgian/Dutch persisted number strings when restoring financial rows', () => {
+    expect(
+      buildManualRestoredFinancialSnapshot({
+        current_year_data: { year: 2025, revenue: '1.000.000', ebitda: '100.000' },
+        historical_years_data: [{ year: 2024, revenue: '900.000', ebitda: '90.000' }],
+        forecast_years_data: [
+          { year: 2026, revenue: '1.050.000', ebitda: '105.000', capex: '21.000' },
+        ],
+      })
+    ).toMatchObject({
+      revenue: 1_000_000,
+      ebitda: 100_000,
+      yearlyFinancials: [
+        { year: '2026', revenue: 1_050_000, ebitda: 105_000, capex: 21_000, isForecast: true },
+        { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+        { year: '2024', revenue: 900_000, ebitda: 90_000 },
+      ],
+    })
+  })
+
   it('returns null when no restored financial rows are meaningful', () => {
     expect(buildManualRestoredFinancialSnapshot(null)).toBeNull()
     expect(

@@ -1,4 +1,5 @@
 import type { YearDataInput } from '../types/valuation'
+import { parseFlexibleNumber } from './isFiniteNumeric'
 
 /** True when a year row is marked as forecast (camelCase UI or snake_case API). */
 export function isYearRowForecast(
@@ -50,8 +51,8 @@ export function pickDefinedYearDataFields(
   const result: Partial<YearDataInput> = {}
 
   for (const field of OPTIONAL_YEAR_DATA_FIELDS) {
-    const value = source[field]
-    if (typeof value === 'number' && Number.isFinite(value)) {
+    const value = parseFlexibleNumber(source[field])
+    if (value !== undefined) {
       ;(result as Record<string, number>)[field] = value
     }
   }
@@ -69,31 +70,21 @@ export function buildCurrentYearData(args: {
 
   return {
     year: args.year,
-    revenue:
-      typeof args.revenue === 'number' && Number.isFinite(args.revenue)
-        ? args.revenue
-        : typeof current.revenue === 'number' && Number.isFinite(current.revenue)
-          ? current.revenue
-          : 0,
-    ebitda:
-      typeof args.ebitda === 'number' && Number.isFinite(args.ebitda)
-        ? args.ebitda
-        : typeof current.ebitda === 'number' && Number.isFinite(current.ebitda)
-          ? current.ebitda
-          : 0,
+    revenue: parseFlexibleNumber(args.revenue) ?? parseFlexibleNumber(current.revenue) ?? 0,
+    ebitda: parseFlexibleNumber(args.ebitda) ?? parseFlexibleNumber(current.ebitda) ?? 0,
     ...pickDefinedYearDataFields(current),
   }
 }
 
 export function mergeYearDataRows(
   rows: Array<{
-    year: number | string
-    revenue?: number | null
-    ebitda?: number | null
-    capex?: number | null
-    depreciation?: number | null
-    nwc_change?: number | null
-    free_cash_flow?: number | null
+    year: unknown
+    revenue?: unknown
+    ebitda?: unknown
+    capex?: unknown
+    depreciation?: unknown
+    nwc_change?: unknown
+    free_cash_flow?: unknown
     isForecast?: boolean
     is_forecast?: boolean
   }>,
@@ -120,37 +111,79 @@ export function mergeYearDataRows(
       }
 
       const existing = existingByYear.get(year)
+      const revenue = parseFlexibleNumber(row.revenue) ?? parseFlexibleNumber(existing?.revenue)
+      const ebitda = parseFlexibleNumber(row.ebitda) ?? parseFlexibleNumber(existing?.ebitda)
+      const capex = parseFlexibleNumber(row.capex)
+      const depreciation = parseFlexibleNumber(row.depreciation)
+      const nwcChange = parseFlexibleNumber(row.nwc_change)
+      const freeCashFlow = parseFlexibleNumber(row.free_cash_flow)
       return {
         year,
-        revenue:
-          typeof row.revenue === 'number' && Number.isFinite(row.revenue)
-            ? row.revenue
-            : typeof existing?.revenue === 'number' && Number.isFinite(existing.revenue)
-              ? existing.revenue
-              : 0,
-        ebitda:
-          typeof row.ebitda === 'number' && Number.isFinite(row.ebitda)
-            ? row.ebitda
-            : typeof existing?.ebitda === 'number' && Number.isFinite(existing.ebitda)
-              ? existing.ebitda
-              : 0,
+        revenue: revenue ?? 0,
+        ebitda: ebitda ?? 0,
         ...pickDefinedYearDataFields(existing),
-        ...(typeof row.capex === 'number' && Number.isFinite(row.capex)
-          ? { capex: row.capex }
-          : {}),
-        ...(typeof row.depreciation === 'number' && Number.isFinite(row.depreciation)
-          ? { depreciation: row.depreciation }
-          : {}),
-        ...(typeof row.nwc_change === 'number' && Number.isFinite(row.nwc_change)
-          ? { nwc_change: row.nwc_change }
-          : {}),
-        ...(typeof row.free_cash_flow === 'number' && Number.isFinite(row.free_cash_flow)
-          ? { free_cash_flow: row.free_cash_flow }
-          : {}),
+        ...(capex !== undefined ? { capex } : {}),
+        ...(depreciation !== undefined ? { depreciation } : {}),
+        ...(nwcChange !== undefined ? { nwc_change: nwcChange } : {}),
+        ...(freeCashFlow !== undefined ? { free_cash_flow: freeCashFlow } : {}),
         ...(isYearRowForecast(row) && { is_forecast: true }),
       }
     })
     .filter((row): row is YearDataInput => row !== null)
+}
+
+type ForecastYearlyFinancialRow = {
+  year?: unknown
+  revenue?: unknown
+  ebitda?: unknown
+  capex?: unknown
+  depreciation?: unknown
+  nwc_change?: unknown
+  free_cash_flow?: unknown
+  isForecast?: boolean
+  is_forecast?: boolean
+}
+
+function forecastRowHasMeaningfulFinancials(row: ForecastYearlyFinancialRow): boolean {
+  const revenue = parseFlexibleNumber(row.revenue)
+  const ebitda = parseFlexibleNumber(row.ebitda)
+  if (revenue !== undefined && revenue > 0) return true
+  if (ebitda !== undefined && ebitda !== 0) return true
+
+  const explicitFcff = parseFlexibleNumber(row.free_cash_flow)
+  if (explicitFcff !== undefined) return true
+
+  return ['capex', 'depreciation', 'nwc_change'].some((field) => {
+    const parsed = parseFlexibleNumber(row[field as keyof ForecastYearlyFinancialRow])
+    return parsed !== undefined && parsed !== 0
+  })
+}
+
+export function buildForecastYearDataFromYearlyFinancials(
+  yearlyFinancials: unknown
+): YearDataInput[] {
+  if (!Array.isArray(yearlyFinancials)) return []
+
+  const forecastRows = yearlyFinancials.filter(
+    (row): row is ForecastYearlyFinancialRow =>
+      row != null &&
+      typeof row === 'object' &&
+      !Array.isArray(row) &&
+      isYearRowForecast(row) &&
+      forecastRowHasMeaningfulFinancials(row)
+  )
+
+  return mergeYearDataRows(forecastRows)
+}
+
+export function yearlyFinancialsContainForecastRows(yearlyFinancials: unknown): boolean {
+  return (
+    Array.isArray(yearlyFinancials) &&
+    yearlyFinancials.some(
+      (row) =>
+        row != null && typeof row === 'object' && !Array.isArray(row) && isYearRowForecast(row)
+    )
+  )
 }
 
 export function calculateWorkingCapitalBase(
