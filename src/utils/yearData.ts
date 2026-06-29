@@ -133,7 +133,7 @@ export function mergeYearDataRows(
 }
 
 type ForecastYearlyFinancialRow = {
-  year?: unknown
+  year: unknown
   revenue?: unknown
   ebitda?: unknown
   capex?: unknown
@@ -169,6 +169,7 @@ export function buildForecastYearDataFromYearlyFinancials(
       row != null &&
       typeof row === 'object' &&
       !Array.isArray(row) &&
+      'year' in row &&
       isYearRowForecast(row) &&
       forecastRowHasMeaningfulFinancials(row)
   )

@@ -71,8 +71,8 @@ function MultipleSourceTooltip() {
         </div>
       </div>
       <p className="border-t border-background/20 pt-2 text-[11px] leading-relaxed text-background/60">
-        These are the sector benchmarks. Businesses with above-average margins earn a quality premium,
-        so the multiple applied in the report can sit above the benchmark shown here.
+        These are the sector benchmarks. Businesses with above-average margins earn a quality
+        premium, so the multiple applied in the report can sit above the benchmark shown here.
       </p>
       <a
         href="https://index.upswitch.app/en/markets/business-types"

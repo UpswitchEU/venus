@@ -113,7 +113,7 @@ function resolveAutosyncForecastRows(record: Record<string, unknown>): unknown[]
 export function resolveFormForecastYearsDataForAutosync(
   data: ValuationFormData
 ): ValuationFormData['forecast_years_data'] | undefined {
-  const yearlyFinancials = (data as Record<string, unknown>)['yearlyFinancials']
+  const yearlyFinancials = (data as unknown as Record<string, unknown>)['yearlyFinancials']
   if (yearlyFinancialsContainForecastRows(yearlyFinancials)) {
     return buildForecastYearDataFromYearlyFinancials(yearlyFinancials)
   }

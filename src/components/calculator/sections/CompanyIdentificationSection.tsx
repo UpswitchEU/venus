@@ -47,8 +47,9 @@ function MultipleSourceTooltipContent() {
         </div>
       </div>
       <p className="border-t border-background/20 pt-2 text-background/60 text-[11px] leading-relaxed">
-        Dit is de sectorbenchmark. Bedrijven met bovengemiddelde marges krijgen een kwaliteitspremie,
-        dus de toegepaste multiple in het rapport kan hoger liggen dan deze benchmark.
+        Dit is de sectorbenchmark. Bedrijven met bovengemiddelde marges krijgen een
+        kwaliteitspremie, dus de toegepaste multiple in het rapport kan hoger liggen dan deze
+        benchmark.
       </p>
       <a
         href="https://index.upswitch.app/nl/markets/business-types"
