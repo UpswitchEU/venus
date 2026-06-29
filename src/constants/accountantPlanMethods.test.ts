@@ -17,6 +17,13 @@ describe('normalizeAccountantPlanTypeKey', () => {
   it('trims and lowercases', () => {
     expect(normalizeAccountantPlanTypeKey('  Pro  ')).toBe('pro')
   })
+  it('normalizes legacy accountant aliases to safe launch tiers', () => {
+    expect(normalizeAccountantPlanTypeKey('accountant_free')).toBe('free')
+    expect(normalizeAccountantPlanTypeKey('accountant_paid')).toBe('starter')
+    expect(normalizeAccountantPlanTypeKey('accountant_pro')).toBe('starter')
+    expect(normalizeAccountantPlanTypeKey('accountant_expert')).toBe('expert')
+    expect(normalizeAccountantPlanTypeKey('accountant_enterprise')).toBe('enterprise')
+  })
 })
 
 describe('isAccountantFreeOrStarterTier', () => {
@@ -24,10 +31,14 @@ describe('isAccountantFreeOrStarterTier', () => {
     expect(isAccountantFreeOrStarterTier('free')).toBe(true)
     expect(isAccountantFreeOrStarterTier('starter')).toBe(true)
     expect(isAccountantFreeOrStarterTier('STARTER')).toBe(true)
+    expect(isAccountantFreeOrStarterTier('accountant_free')).toBe(true)
+    expect(isAccountantFreeOrStarterTier('accountant_paid')).toBe(true)
+    expect(isAccountantFreeOrStarterTier('accountant_pro')).toBe(true)
   })
   it('is false for pro and other paid tiers', () => {
     expect(isAccountantFreeOrStarterTier('pro')).toBe(false)
     expect(isAccountantFreeOrStarterTier('premium')).toBe(false)
+    expect(isAccountantFreeOrStarterTier('accountant_expert')).toBe(false)
   })
 })
 

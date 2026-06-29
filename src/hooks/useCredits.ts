@@ -6,7 +6,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { resolveAllowedMethodKeys } from '../constants/accountantPlanMethods'
+import {
+  normalizeAccountantPlanTypeKey,
+  resolveAllowedMethodKeys,
+} from '../constants/accountantPlanMethods'
 import { MERCURY_TO_ENGINE_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { useAuthStore } from '../lib/auth'
 import { backendAPI } from '../services/backendApi'
@@ -43,8 +46,8 @@ export interface PlanFeatureFlags {
   team_seat_addons: boolean
 }
 
-function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
-  const pt = planType || 'free'
+export function defaultPlanFeatures(planType: string | undefined): PlanFeatureFlags {
+  const pt = normalizeAccountantPlanTypeKey(planType)
   if (pt === 'free') {
     return {
       ebitda_normalization: false,
@@ -306,7 +309,10 @@ export const useCredits = (): CreditContextValue => {
 
   const allowedMethodKeys = useMemo(() => {
     if (UNLIMITED_CREDITS_MODE) return null
-    return resolveAllowedMethodKeys(plan?.allowed_methods, plan?.plan_type)
+    return resolveAllowedMethodKeys(
+      plan?.allowed_methods,
+      normalizeAccountantPlanTypeKey(plan?.plan_type)
+    )
   }, [plan?.allowed_methods, plan?.plan_type])
 
   const planFeatures = useMemo((): PlanFeatureFlags | null => {
@@ -347,7 +353,7 @@ export const useCredits = (): CreditContextValue => {
   return {
     plan,
     creditsRemaining: plan?.credits_remaining || 0,
-    isPremium: PAID_PLAN_TYPES.has(plan?.plan_type ?? ''),
+    isPremium: PAID_PLAN_TYPES.has(normalizeAccountantPlanTypeKey(plan?.plan_type)),
     allowedMethodKeys,
     planFeatures,
     yearlyDiscountPercent,

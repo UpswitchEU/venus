@@ -78,7 +78,24 @@ export function filterPreSelectableMethodsForOwnerFounder(
 /** Trim + lowercase; empty input resolves like Titan free tier. */
 export function normalizeAccountantPlanTypeKey(planType: string | undefined): string {
   if (planType == null || planType === '') return 'free'
-  return planType.trim().toLowerCase()
+  const key = planType.trim().toLowerCase()
+  // Legacy advisor upgrade tokens predate the Starter/Pro split. Treat generic paid
+  // aliases as Starter-level so Venus unlocks file/manual workflows without granting
+  // Pro-only live integration affordances during first-paint or degraded plan reads.
+  switch (key) {
+    case 'accountant_free':
+      return 'free'
+    case 'accountant_paid':
+    case 'accountant_pro':
+    case 'accountant_starter':
+      return 'starter'
+    case 'accountant_expert':
+      return 'expert'
+    case 'accountant_enterprise':
+      return 'enterprise'
+    default:
+      return key
+  }
 }
 
 /**
