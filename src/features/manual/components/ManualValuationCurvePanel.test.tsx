@@ -59,6 +59,36 @@ describe('ManualValuationCurvePanel', () => {
     expect(headline).not.toMatch(/790/)
   })
 
+  it('keeps DCF forecast rows out of the valuation-snapshot curve', () => {
+    seed({
+      currency: 'EUR',
+      selected_valuation_method: 'dcf',
+      dcf_valuation: { enterprise_value: 610000 },
+      valuation_timeline: timeline,
+    } as unknown as Partial<ValuationResponse>)
+    render(<ManualValuationCurvePanel />)
+
+    expect(screen.queryByText('labels.forecast')).toBeNull()
+    expect(screen.getByText(/footnoteDcfForecast/)).toBeTruthy()
+  })
+
+  it('keeps serialized DCF forecast rows out of the valuation-snapshot curve', () => {
+    const serializedTimeline = [
+      ...timeline.slice(0, 3),
+      { ...timeline[3], is_forecast: 'true' },
+    ] as unknown as ValuationResponse['valuation_timeline']
+    seed({
+      currency: 'EUR',
+      selected_valuation_method: 'dcf',
+      dcf_valuation: { enterprise_value: 610000 },
+      valuation_timeline: serializedTimeline,
+    } as unknown as Partial<ValuationResponse>)
+    render(<ManualValuationCurvePanel />)
+
+    expect(screen.queryByText('labels.forecast')).toBeNull()
+    expect(screen.getByText(/footnoteDcfForecast/)).toBeTruthy()
+  })
+
   it('falls back to the headline equity band when there is no timeline', () => {
     seed({
       currency: 'EUR',

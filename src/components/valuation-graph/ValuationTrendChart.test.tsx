@@ -82,4 +82,26 @@ describe('ValuationTrendChart', () => {
     expect(container.querySelector('[data-testid="valuation-forecast-line"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="valuation-forecast-divider"]')).toBeTruthy()
   })
+
+  it('emphasizes the latest actual point instead of the forecast tail', () => {
+    const rows = buildTimelineChartRows([
+      { fiscal_year: 2023, equity_low: 70, equity_mid: 90, equity_high: 110 },
+      { fiscal_year: 2024, equity_low: 80, equity_mid: 100, equity_high: 120 },
+      { fiscal_year: 2025, equity_low: 90, equity_mid: 110, equity_high: 130, is_forecast: true },
+      { fiscal_year: 2026, equity_low: 95, equity_mid: 115, equity_high: 135, is_forecast: true },
+    ])
+    const { container } = render(
+      <ValuationTrendChart rows={rows} locale="en" labels={labels} dateMode="year" />
+    )
+
+    const actualPoints = Array.from(
+      container.querySelectorAll('[data-testid="valuation-actual-point"]')
+    )
+    const forecastPoints = Array.from(
+      container.querySelectorAll('[data-testid="valuation-forecast-point"]')
+    )
+
+    expect(actualPoints.map((point) => point.getAttribute('r'))).toEqual(['3.25', '4'])
+    expect(forecastPoints.map((point) => point.getAttribute('r'))).toEqual(['3.25', '3.25'])
+  })
 })

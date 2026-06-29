@@ -5,7 +5,10 @@ import type { ValuationResponse, ValuationTimelinePoint } from '@/types/valuatio
 import {
   buildHeadlineFallbackRows,
   buildTimelineChartRows,
+  buildValuationCurveRows,
   resolveTimelineCurrency,
+  shouldSuppressForecastTimelineRowsForDcf,
+  valuationTimelineHasForecastRows,
 } from './valuation-timeline-rows'
 
 const point = (
@@ -63,6 +66,35 @@ describe('buildTimelineChartRows', () => {
     expect(rows.map((row) => row.isForecast)).toEqual([false, false, true])
   })
 
+  it('recognizes serialized forecast/projection markers from drifted report payloads', () => {
+    const timeline = [
+      point({ fiscal_year: 2023, is_forecast: 'false' as unknown as boolean }),
+      point({ fiscal_year: 2024, is_forecast: 'true' as unknown as boolean }),
+      {
+        fiscal_year: 2025,
+        equity_low: 80,
+        equity_mid: 100,
+        equity_high: 120,
+        isProjection: 1,
+      } as unknown as ValuationTimelinePoint,
+      {
+        fiscal_year: 2026,
+        equity_low: 80,
+        equity_mid: 100,
+        equity_high: 120,
+        period_type: 'prognosis',
+      } as unknown as ValuationTimelinePoint,
+    ]
+
+    expect(valuationTimelineHasForecastRows(timeline)).toBe(true)
+    expect(buildTimelineChartRows(timeline).map((row) => row.isForecast)).toEqual([
+      false,
+      true,
+      true,
+      true,
+    ])
+  })
+
   it('dedupes a fiscal year (last entry wins) and drops malformed points', () => {
     const rows = buildTimelineChartRows([
       point({ fiscal_year: '2024' as unknown as number, equity_mid: 150 }),
@@ -75,6 +107,169 @@ describe('buildTimelineChartRows', () => {
     ])
     expect(rows.map((row) => row.label)).toEqual(['2024', '2025'])
     expect(rows.map((row) => row.valueMid)).toEqual([150, 200])
+  })
+})
+
+describe('buildValuationCurveRows', () => {
+  it('suppresses projected valuation snapshots for DCF-led reports', () => {
+    const result = {
+      selected_valuation_method: 'dcf',
+      dcf_valuation: { enterprise_value: 586_761 },
+      valuation_timeline: [
+        point({ fiscal_year: 2024, equity_mid: 378_675 }),
+        point({ fiscal_year: 2025, equity_mid: 586_761 }),
+        point({ fiscal_year: 2026, equity_mid: 457_449, is_forecast: true }),
+        point({ fiscal_year: 2027, equity_mid: 471_172, is_forecast: true }),
+      ],
+    } as unknown as ValuationResponse
+
+    expect(shouldSuppressForecastTimelineRowsForDcf(result)).toBe(true)
+    expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual(['2024', '2025'])
+  })
+
+  it('suppresses projected snapshots when adaptive reports were actually DCF-led', () => {
+    const result = {
+      selected_valuation_method: 'upswitch_adaptive',
+      methodology: 'Comprehensive Valuation',
+      methods_used: ['DCF'],
+      dcf_valuation: { enterprise_value: 586_761 },
+      valuation_timeline: [
+        point({ fiscal_year: 2024, equity_mid: 378_675 }),
+        point({ fiscal_year: 2025, equity_mid: 586_761 }),
+        point({ fiscal_year: 2026, equity_mid: 457_449, is_forecast: true }),
+      ],
+    } as unknown as ValuationResponse
+
+    expect(shouldSuppressForecastTimelineRowsForDcf(result)).toBe(true)
+    expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual(['2024', '2025'])
+  })
+
+  it('suppresses serialized forecast markers for DCF-led reports', () => {
+    const result = {
+      selected_valuation_method: 'dcf',
+      dcf_valuation: { enterprise_value: 586_761 },
+      valuation_timeline: [
+        point({ fiscal_year: 2024, equity_mid: 378_675 }),
+        point({ fiscal_year: 2025, equity_mid: 586_761 }),
+        point({
+          fiscal_year: 2026,
+          equity_mid: 457_449,
+          is_forecast: 'true' as unknown as boolean,
+        }),
+        {
+          fiscal_year: 2027,
+          equity_low: 80,
+          equity_mid: 471_172,
+          equity_high: 120,
+          kind: 'projection',
+        } as unknown as ValuationTimelinePoint,
+      ],
+    } as unknown as ValuationResponse
+
+    expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual(['2024', '2025'])
+  })
+
+  it('suppresses projected snapshots when DCF has the full methodology weight', () => {
+    const result = {
+      dcf_weight: '1.0',
+      multiples_weight: '0',
+      dcf_valuation: { enterprise_value: 586_761 },
+      valuation_timeline: [
+        point({ fiscal_year: 2024 }),
+        point({ fiscal_year: 2025 }),
+        point({ fiscal_year: 2026, is_forecast: true }),
+      ],
+    } as unknown as ValuationResponse
+
+    expect(shouldSuppressForecastTimelineRowsForDcf(result)).toBe(true)
+    expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual(['2024', '2025'])
+  })
+
+  it('keeps forecast rows for non-DCF valuation timelines', () => {
+    const result = {
+      selected_valuation_method: 'ebitda_multiple',
+      valuation_timeline: [
+        point({ fiscal_year: 2024 }),
+        point({ fiscal_year: 2025 }),
+        point({ fiscal_year: 2026, is_forecast: true }),
+      ],
+    } as unknown as ValuationResponse
+
+    expect(shouldSuppressForecastTimelineRowsForDcf(result)).toBe(false)
+    expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual([
+      '2024',
+      '2025',
+      '2026',
+    ])
+  })
+
+  it('keeps projected snapshots for mixed adaptive valuations with DCF details', () => {
+    const result = {
+      selected_valuation_method: 'upswitch_adaptive',
+      dcf_weight: 0.5,
+      multiples_weight: 0.5,
+      dcf_valuation: { enterprise_value: 586_761 },
+      valuation_timeline: [
+        point({ fiscal_year: 2024 }),
+        point({ fiscal_year: 2025 }),
+        point({ fiscal_year: 2026, is_forecast: true }),
+      ],
+    } as unknown as ValuationResponse
+
+    expect(shouldSuppressForecastTimelineRowsForDcf(result)).toBe(false)
+    expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual([
+      '2024',
+      '2025',
+      '2026',
+    ])
+  })
+
+  it('does not treat explicit negative method labels as DCF-led', () => {
+    for (const selected_valuation_method of [
+      'not_dcf',
+      'not_dcf_method',
+      'non_discounted_cash_flow',
+    ]) {
+      const result = {
+        selected_valuation_method,
+        dcf_valuation: { enterprise_value: 586_761 },
+        valuation_timeline: [
+          point({ fiscal_year: 2024 }),
+          point({ fiscal_year: 2025 }),
+          point({ fiscal_year: 2026, is_forecast: true }),
+        ],
+      } as unknown as ValuationResponse
+
+      expect(shouldSuppressForecastTimelineRowsForDcf(result)).toBe(false)
+      expect(buildValuationCurveRows(result).map((row) => row.label)).toEqual([
+        '2024',
+        '2025',
+        '2026',
+      ])
+    }
+  })
+
+  it('falls back to the headline band when a DCF timeline only contains forecasts', () => {
+    const rows = buildValuationCurveRows({
+      selected_valuation_method: 'dcf',
+      dcf_valuation: { enterprise_value: 586_761 },
+      equity_value_low: 480_000,
+      equity_value_mid: 586_761,
+      equity_value_high: 692_000,
+      valuation_date: '2025-12-31T00:00:00.000Z',
+      valuation_timeline: [
+        point({ fiscal_year: 2026, equity_mid: 457_449, is_forecast: true }),
+        point({ fiscal_year: 2027, equity_mid: 471_172, is_forecast: true }),
+      ],
+    } as unknown as ValuationResponse)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      id: 'headline:2025',
+      label: '2025',
+      valueMid: 586_761,
+      isForecast: false,
+    })
   })
 })
 

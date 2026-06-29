@@ -17,13 +17,14 @@ import { useMemo } from 'react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import type { ChartLabels } from '../../../components/valuation-graph'
 import {
-  buildHeadlineFallbackRows,
-  buildTimelineChartRows,
+  buildValuationCurveRows,
   formatDelta,
   formatGraphCurrency,
   resolveTimelineCurrency,
+  shouldSuppressForecastTimelineRowsForDcf,
   ValuationDataTable,
   ValuationTrendChart,
+  valuationTimelineHasForecastRows,
 } from '../../../components/valuation-graph'
 import { cn } from '../../../design-system/utils'
 import { useManualResultsStore } from '../../../store/manual'
@@ -68,14 +69,15 @@ export function ManualValuationCurvePanel({ loading = false }: ManualValuationCu
   const labels = useMemo(() => buildCurveLabels(t), [t])
   const currency = useMemo(() => resolveTimelineCurrency(result), [result])
 
-  const rows = useMemo(() => {
-    const timelineRows = buildTimelineChartRows(result?.valuation_timeline)
-    if (timelineRows.length > 0) return timelineRows
-    // Legacy result without a timeline → still show the headline as one point.
-    return buildHeadlineFallbackRows(result)
-  }, [result])
+  const rows = useMemo(() => buildValuationCurveRows(result), [result])
 
   const hasForecast = useMemo(() => rows.some((row) => row.isForecast === true), [rows])
+  const dcfForecastSuppressed = useMemo(
+    () =>
+      shouldSuppressForecastTimelineRowsForDcf(result) &&
+      valuationTimelineHasForecastRows(result?.valuation_timeline),
+    [result]
+  )
   const isLoading = loading || isCalculating
 
   // The header echoes the report headline — which is the latest ACTUAL year, never
@@ -185,7 +187,11 @@ export function ManualValuationCurvePanel({ loading = false }: ManualValuationCu
         ) : null}
 
         <p className="text-[11px] leading-relaxed text-foreground/40">
-          {hasForecast ? `${t('footnote')} ${t('footnoteForecast')}` : t('footnote')}
+          {dcfForecastSuppressed
+            ? `${t('footnote')} ${t('footnoteDcfForecast')}`
+            : hasForecast
+              ? `${t('footnote')} ${t('footnoteForecast')}`
+              : t('footnote')}
         </p>
       </div>
     </div>

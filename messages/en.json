@@ -539,7 +539,8 @@
 		"error": "The valuation curve could not be displayed.",
 		"tableCaption": "Estimated value by financial year",
 		"footnote": "The report shows the most recent financial year. This curve restates each year on today's market lens, so the trend reflects how the business moved rather than a change in method.",
-		"footnoteForecast": "Forecast years are drawn dashed.",
+		"footnoteForecast": "Forecast years are projected valuation snapshots, not DCF cash-flow rows.",
+		"footnoteDcfForecast": "DCF forecast cash flows are shown in the report table, not in this valuation-snapshot curve.",
 		"labels": {
 			"date": "Year",
 			"range": "Range",

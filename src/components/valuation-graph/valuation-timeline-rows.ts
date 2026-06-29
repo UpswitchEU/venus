@@ -29,6 +29,50 @@ function toFiscalYear(value: unknown): number | null {
   return null
 }
 
+function hasTruthyForecastMarker(value: unknown): boolean {
+  if (value === true) return true
+  if (typeof value === 'number') return value === 1
+  if (typeof value !== 'string') return false
+  const normalized = value.trim().toLowerCase()
+  return (
+    normalized === 'true' ||
+    normalized === '1' ||
+    normalized === 'yes' ||
+    normalized === 'forecast' ||
+    normalized === 'projected' ||
+    normalized === 'projection' ||
+    normalized === 'prognosis' ||
+    normalized === 'forward'
+  )
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isForecastTimelinePoint(point: unknown): boolean {
+  if (!isRecord(point)) return false
+  if (
+    hasTruthyForecastMarker(point.is_forecast) ||
+    hasTruthyForecastMarker(point.isForecast) ||
+    hasTruthyForecastMarker(point.forecast) ||
+    hasTruthyForecastMarker(point.is_projection) ||
+    hasTruthyForecastMarker(point.isProjection) ||
+    hasTruthyForecastMarker(point.projection)
+  ) {
+    return true
+  }
+  return ['year_type', 'period_type', 'data_type', 'kind', 'type'].some((key) =>
+    hasTruthyForecastMarker(point[key])
+  )
+}
+
+export function valuationTimelineHasForecastRows(
+  timeline: ValuationTimelinePoint[] | null | undefined
+): boolean {
+  return timeline?.some((point) => isForecastTimelinePoint(point)) ?? false
+}
+
 /** Dec-31 (UTC) fiscal-year anchor — matches the canonical observation date. */
 function fiscalYearAnchorIso(year: number): string {
   return `${year}-12-31T00:00:00.000Z`
@@ -75,11 +119,105 @@ export function buildTimelineChartRows(
       confidenceScore: toFiniteNumber(point.confidence_score),
       source: 'valuation_report' as const,
       label: String(year),
-      isForecast: point.is_forecast === true,
+      isForecast: isForecastTimelinePoint(point),
     }
   })
 
   return buildChartRows(points)
+}
+
+function normalizeMethodToken(value: unknown): string {
+  return typeof value === 'string'
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_')
+    : ''
+}
+
+function methodTextContainsDcf(value: unknown): boolean {
+  const normalized = normalizeMethodToken(value)
+  if (!normalized) return false
+  const tokens = normalized.split('_').filter(Boolean)
+  if (tokens[0] === 'no' || tokens[0] === 'non' || tokens[0] === 'not') return false
+  if (tokens.includes('dcf')) return true
+  for (let index = 0; index < tokens.length - 2; index += 1) {
+    if (
+      tokens[index] === 'discounted' &&
+      tokens[index + 1] === 'cash' &&
+      tokens[index + 2] === 'flow'
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function toMethodTokens(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(normalizeMethodToken).filter(Boolean)
+  const normalized = normalizeMethodToken(value)
+  return normalized ? [normalized] : []
+}
+
+function toFiniteMethodWeight(value: unknown): number | null {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function structuredMethodEvidenceIsDcfLed(result: ValuationResponse): boolean {
+  const record = result as unknown as Record<string, unknown>
+  const methodsUsed = toMethodTokens(record.methods_used)
+  if (methodsUsed.length === 1 && methodTextContainsDcf(methodsUsed[0])) return true
+
+  const selection = isRecord(result.methodology_selection) ? result.methodology_selection : null
+  if (selection) {
+    if (methodTextContainsDcf(selection.selected_methodology)) return true
+    const dcfWeight = toFiniteMethodWeight(selection.dcf_weight)
+    const multiplesWeight = toFiniteMethodWeight(selection.multiples_weight)
+    if (
+      dcfWeight != null &&
+      dcfWeight >= 0.99 &&
+      (multiplesWeight == null || multiplesWeight <= 0.01)
+    ) {
+      return true
+    }
+  }
+
+  const dcfWeight = toFiniteMethodWeight(result.dcf_weight)
+  const multiplesWeight = toFiniteMethodWeight(result.multiples_weight)
+  return (
+    dcfWeight != null && dcfWeight >= 0.99 && (multiplesWeight == null || multiplesWeight <= 0.01)
+  )
+}
+
+/**
+ * DCF-led reports have their forecast mechanics in the report's FCFF/DCF table.
+ * The engine timeline's forecast rows are independent projected valuation
+ * snapshots, so showing them as a tail beside a DCF report reads as the wrong
+ * object. Keep the actual/current curve and leave DCF forecasts to the report.
+ */
+export function shouldSuppressForecastTimelineRowsForDcf(
+  result: ValuationResponse | null | undefined
+): boolean {
+  if (!result?.dcf_valuation) return false
+  return (
+    methodTextContainsDcf(result.selected_valuation_method) ||
+    methodTextContainsDcf(result.primary_method) ||
+    methodTextContainsDcf(result.methodology) ||
+    structuredMethodEvidenceIsDcfLed(result)
+  )
+}
+
+export function buildValuationCurveRows(result: ValuationResponse | null | undefined): ChartRow[] {
+  const timelineRows = buildTimelineChartRows(result?.valuation_timeline)
+  if (timelineRows.length > 0) {
+    if (shouldSuppressForecastTimelineRowsForDcf(result)) {
+      const actualRows = timelineRows.filter((row) => row.isForecast !== true)
+      return actualRows.length > 0 ? actualRows : buildHeadlineFallbackRows(result)
+    }
+    return timelineRows
+  }
+  return buildHeadlineFallbackRows(result)
 }
 
 /**

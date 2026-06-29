@@ -20,5 +20,8 @@ export {
 export {
   buildHeadlineFallbackRows,
   buildTimelineChartRows,
+  buildValuationCurveRows,
   resolveTimelineCurrency,
+  shouldSuppressForecastTimelineRowsForDcf,
+  valuationTimelineHasForecastRows,
 } from './valuation-timeline-rows'

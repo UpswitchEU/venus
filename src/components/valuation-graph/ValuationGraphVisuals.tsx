@@ -91,7 +91,16 @@ export function ValuationVisxChart({
 
   const tooltip = useTooltip<ChartRow>()
   const activeRow = tooltip.tooltipData ?? null
-  const latestRow = rows[rows.length - 1] ?? null
+  const primaryRow = useMemo(() => {
+    for (let idx = rows.length - 1; idx >= 0; idx -= 1) {
+      if (rows[idx]?.isForecast !== true) return rows[idx] ?? null
+    }
+    return rows[rows.length - 1] ?? null
+  }, [rows])
+  const primaryRowIndex = useMemo(
+    () => (primaryRow ? rows.findIndex((row) => row.id === primaryRow.id) : -1),
+    [primaryRow, rows]
+  )
 
   const hasRangeBand = rows.some((row) => row.rangeHigh > row.rangeLow)
   const hasAskingPrice = rows.some((row) => row.askingPrice != null)
@@ -187,7 +196,7 @@ export function ValuationVisxChart({
             0,
             rows.findIndex((row) => row.id === tooltip.tooltipData?.id)
           )
-        : rows.length - 1
+        : Math.max(0, primaryRowIndex)
     let nextIndex: number | null = null
 
     if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
@@ -221,7 +230,7 @@ export function ValuationVisxChart({
       role="button"
       aria-label={interactiveLabel}
       onFocus={() => {
-        if (!tooltip.tooltipData && latestRow) showRowTooltip(latestRow)
+        if (!tooltip.tooltipData && primaryRow) showRowTooltip(primaryRow)
       }}
       onBlur={() => tooltip.hideTooltip()}
       onPointerLeave={handlePointerLeave}
@@ -394,8 +403,8 @@ export function ValuationVisxChart({
             const cx = xScale(row.observedAtDate) ?? 0
             const cy = yScale(row.valueMid) ?? 0
             const isHovered = activeRow?.id === row.id
-            const isLatest = latestRow?.id === row.id
-            const baseRadius = isLatest ? 4 : 3.25
+            const isPrimary = primaryRow?.id === row.id
+            const baseRadius = isPrimary ? 4 : 3.25
             return (
               <g key={row.id}>
                 {isHovered ? (
@@ -405,6 +414,9 @@ export function ValuationVisxChart({
                     solid (primary fill, card ring) — a projected year reads as
                     provisional at a glance. */}
                 <circle
+                  data-testid={
+                    row.isForecast === true ? 'valuation-forecast-point' : 'valuation-actual-point'
+                  }
                   cx={cx}
                   cy={cy}
                   r={isHovered ? 5 : baseRadius}

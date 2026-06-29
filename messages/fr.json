@@ -539,7 +539,8 @@
 		"error": "La courbe de valorisation n'a pas pu être affichée.",
 		"tableCaption": "Valeur estimée par exercice",
 		"footnote": "Le rapport présente l'exercice le plus récent. Cette courbe recalcule chaque année selon la lentille de marché actuelle, de sorte que la tendance reflète l'évolution de l'entreprise et non un changement de méthode.",
-		"footnoteForecast": "Les années de prévision sont en pointillés.",
+		"footnoteForecast": "Les années de prévision sont des instantanés de valorisation projetés, pas des lignes de flux de trésorerie DCF.",
+		"footnoteDcfForecast": "Les flux de trésorerie prévisionnels DCF sont affichés dans le tableau du rapport, pas dans cette courbe d'instantanés de valorisation.",
 		"labels": {
 			"date": "Année",
 			"range": "Fourchette",

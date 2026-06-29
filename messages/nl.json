@@ -539,7 +539,8 @@
 		"error": "De waarderingscurve kon niet worden weergegeven.",
 		"tableCaption": "Geschatte waarde per boekjaar",
 		"footnote": "Het rapport toont het meest recente boekjaar. Deze curve herrekent elk jaar op de huidige marktlens, zodat de trend laat zien hoe de onderneming bewoog en niet hoe de methode veranderde.",
-		"footnoteForecast": "Prognosejaren worden gestippeld weergegeven.",
+		"footnoteForecast": "Prognosejaren zijn geprojecteerde waarderingsmomenten, geen DCF-kasstroomrijen.",
+		"footnoteDcfForecast": "DCF-prognosekasstromen staan in de rapporttabel, niet in deze curve met waarderingsmomenten.",
 		"labels": {
 			"date": "Jaar",
 			"range": "Bandbreedte",
