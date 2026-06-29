@@ -47,4 +47,28 @@ describe('SessionPackageHydrator', () => {
     expect(mapped).not.toHaveProperty('dcfWaccPct')
     expect(mapped).not.toHaveProperty('dcfTerminalValueMethod')
   })
+
+  it('strips stale FCFF from camelCase forecast package fields in default EBITDA mode', () => {
+    const mapped = mapPackageFormData({
+      dcfInputMode: 'unexpected',
+      forecastYearsData: [{ year: 2026, revenue: 1_050_000, ebitda: 105_000, free_cash_flow: 1 }],
+    })
+
+    expect(mapped.dcf_input_mode).toBe('ebitda')
+    expect(mapped.forecast_years_data).toEqual([
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000 },
+    ])
+  })
+
+  it('preserves camelCase FCFF forecast package fields in explicit FCFF-only mode', () => {
+    const mapped = mapPackageFormData({
+      dcfInputMode: 'fcff_only',
+      forecastYearsData: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 }],
+    })
+
+    expect(mapped.dcf_input_mode).toBe('fcff_only')
+    expect(mapped.forecast_years_data).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 },
+    ])
+  })
 })

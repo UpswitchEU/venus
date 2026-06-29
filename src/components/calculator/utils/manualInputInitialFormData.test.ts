@@ -32,6 +32,27 @@ describe('buildManualInputInitialFormData', () => {
     expect(result.filingYearConfirmed).toBe(true)
   })
 
+  it('strips stale FCFF from initial forecast rows in default EBITDA mode', () => {
+    const result = buildManualInputInitialFormData({
+      forecast_years_data: [{ year: 2026, revenue: 1_050_000, ebitda: 105_000, free_cash_flow: 1 }],
+    } as Partial<ManualValuationFormData>)
+
+    expect(result.forecast_years_data).toEqual([
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000 },
+    ])
+  })
+
+  it('preserves initial forecast FCFF in explicit FCFF-only mode', () => {
+    const result = buildManualInputInitialFormData({
+      dcf_input_mode: 'fcff_only',
+      forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 }],
+    } as Partial<ManualValuationFormData>)
+
+    expect(result.forecast_years_data).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 },
+    ])
+  })
+
   it('keeps restored advisor controls when normalizing manual defaults', () => {
     const result = buildManualInputInitialFormData({
       real_estate_treatment: 'included',

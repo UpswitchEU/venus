@@ -144,6 +144,23 @@ type ForecastYearlyFinancialRow = {
   is_forecast?: boolean
 }
 
+export type ForecastYearDataOptions = {
+  dcfInputMode?: unknown
+}
+
+export function sanitizeForecastRowsForDcfInputMode<TRows extends unknown[]>(
+  rows: TRows,
+  options: ForecastYearDataOptions = {}
+): TRows {
+  if (options.dcfInputMode !== 'ebitda') return rows
+
+  return rows.map((row) => {
+    if (row == null || typeof row !== 'object' || Array.isArray(row)) return row
+    const { free_cash_flow: _staleFreeCashFlow, ...ebitdaModeRow } = row as Record<string, unknown>
+    return ebitdaModeRow
+  }) as TRows
+}
+
 function forecastRowHasMeaningfulFinancials(row: ForecastYearlyFinancialRow): boolean {
   const revenue = parseFlexibleNumber(row.revenue)
   const ebitda = parseFlexibleNumber(row.ebitda)
@@ -160,7 +177,8 @@ function forecastRowHasMeaningfulFinancials(row: ForecastYearlyFinancialRow): bo
 }
 
 export function buildForecastYearDataFromYearlyFinancials(
-  yearlyFinancials: unknown
+  yearlyFinancials: unknown,
+  options: ForecastYearDataOptions = {}
 ): YearDataInput[] {
   if (!Array.isArray(yearlyFinancials)) return []
 
@@ -174,7 +192,7 @@ export function buildForecastYearDataFromYearlyFinancials(
       forecastRowHasMeaningfulFinancials(row)
   )
 
-  return mergeYearDataRows(forecastRows)
+  return sanitizeForecastRowsForDcfInputMode(mergeYearDataRows(forecastRows), options)
 }
 
 export function yearlyFinancialsContainForecastRows(yearlyFinancials: unknown): boolean {

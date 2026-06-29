@@ -197,6 +197,49 @@ describe('mergeOptionalSessionPrefillFields', () => {
     expect(patch.forecast_years_data).toEqual(fc)
   })
 
+  it('sanitizes stale FCFF when merging default EBITDA-mode forecast_years_data', () => {
+    const patch = mergeOptionalSessionPrefillFields(
+      {
+        forecast_years_data: [
+          { year: 2026, revenue: 1_050_000, ebitda: 105_000, free_cash_flow: 1 },
+        ],
+      },
+      baseForm
+    )
+    expect(patch.forecast_years_data).toEqual([{ year: 2026, revenue: 1_050_000, ebitda: 105_000 }])
+  })
+
+  it('preserves FCFF when merging FCFF-only forecast_years_data', () => {
+    const patch = mergeOptionalSessionPrefillFields(
+      {
+        dcf_input_mode: 'fcff_only',
+        forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 }],
+      },
+      baseForm
+    )
+    expect(patch.dcf_input_mode).toBe('fcff_only')
+    expect(patch.forecast_years_data).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 },
+    ])
+  })
+
+  it('treats default EBITDA mode as empty when restoring explicit FCFF-only forecast_years_data', () => {
+    const patch = mergeOptionalSessionPrefillFields(
+      {
+        dcf_input_mode: 'fcff_only',
+        forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 }],
+      },
+      {
+        ...baseForm,
+        dcf_input_mode: 'ebitda',
+      }
+    )
+    expect(patch.dcf_input_mode).toBe('fcff_only')
+    expect(patch.forecast_years_data).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 },
+    ])
+  })
+
   it('derives historical rows from year_data when historical_years_data absent', () => {
     const fy = getCurrentFilingYear()
     const patch = mergeOptionalSessionPrefillFields(

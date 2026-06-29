@@ -79,4 +79,69 @@ describe('buildManualInputSubmitPayload', () => {
       { year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true },
     ])
   })
+
+  it('does not persist stale FCFF when the DCF input mode is omitted and defaults to EBITDA', () => {
+    const payload = buildManualInputSubmitPayload({
+      averageNormalizedEbitda: 100_000,
+      formData: makeForm({
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          {
+            year: '2026',
+            revenue: 1_050_000,
+            ebitda: 105_000,
+            free_cash_flow: 1,
+            isForecast: true,
+          },
+        ],
+        forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 1 }],
+      }),
+      trustFormData: {},
+    })
+
+    expect(payload.forecast_years_data).toEqual([
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true },
+    ])
+  })
+
+  it('sanitizes fallback forecast_years_data when no grid forecast rows exist', () => {
+    const payload = buildManualInputSubmitPayload({
+      averageNormalizedEbitda: 100_000,
+      formData: makeForm({
+        yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+        forecast_years_data: [
+          { year: 2026, revenue: 1_050_000, ebitda: 105_000, free_cash_flow: 1 },
+        ],
+      }),
+      trustFormData: {},
+    })
+
+    expect(payload.forecast_years_data).toEqual([
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000 },
+    ])
+  })
+
+  it('persists explicit FCFF when the DCF input mode is FCFF-only', () => {
+    const payload = buildManualInputSubmitPayload({
+      averageNormalizedEbitda: 100_000,
+      formData: makeForm({
+        dcf_input_mode: 'fcff_only',
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          {
+            year: '2026',
+            revenue: 0,
+            ebitda: 0,
+            free_cash_flow: 75_000,
+            isForecast: true,
+          },
+        ],
+      }),
+      trustFormData: {},
+    })
+
+    expect(payload.forecast_years_data).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000, is_forecast: true },
+    ])
+  })
 })

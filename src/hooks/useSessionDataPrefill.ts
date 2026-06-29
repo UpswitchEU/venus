@@ -34,6 +34,7 @@ import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefil
 import { shouldSuppressMercurySessionPrefill } from '../utils/prefillRestorationGate'
 import { formatRegistryCompanyLocation } from '../utils/registryCompanyDisplay'
 import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
+import { sanitizeForecastRowsForDcfInputMode } from '../utils/yearData'
 import { queueOptionalGapFillFlush } from './sessionOptionalGapFillFlush'
 
 type SessionPrefillMergedData = Record<string, unknown> & {
@@ -422,7 +423,14 @@ export function useSessionDataPrefill() {
         mergedData.forecast_years_data.length > 0 &&
         (!formData.forecast_years_data || formData.forecast_years_data.length === 0)
       ) {
-        updates.forecast_years_data = mergedData.forecast_years_data
+        const dcfInputMode = mergedData.dcf_input_mode ?? formData.dcf_input_mode ?? 'ebitda'
+        updates.forecast_years_data = sanitizeForecastRowsForDcfInputMode(
+          mergedData.forecast_years_data,
+          { dcfInputMode }
+        )
+      }
+      if (mergedData.dcf_input_mode === 'fcff_only' && formData.dcf_input_mode !== 'fcff_only') {
+        updates.dcf_input_mode = 'fcff_only'
       }
       if (mergedData.filing_year_confirmed != null && formData.filing_year_confirmed == null) {
         updates.filing_year_confirmed = mergedData.filing_year_confirmed

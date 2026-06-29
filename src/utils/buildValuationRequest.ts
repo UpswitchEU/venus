@@ -38,6 +38,7 @@ import { buildValuationRequestYearData } from './valuationRequestYearData'
 import {
   buildForecastYearDataFromYearlyFinancials,
   isYearRowForecast,
+  sanitizeForecastRowsForDcfInputMode,
   yearlyFinancialsContainForecastRows,
 } from './yearData'
 
@@ -236,16 +237,21 @@ export function buildValuationRequest(
   const actualHistoricalData = promotedCurrentFromHistorical
     ? normalizedHistoricalData.filter((year) => Number(year.year) !== currentFiscalYear)
     : normalizedHistoricalData
+  const dcfInputMode = (formData as ValuationFormData).dcf_input_mode ?? 'ebitda'
   const yearlyFinancialsForecastData = buildForecastYearDataFromYearlyFinancials(
-    (formData as FormDataRecord).yearlyFinancials
+    (formData as FormDataRecord).yearlyFinancials,
+    { dcfInputMode }
   )
   const rawForecastData = yearlyFinancialsContainForecastRows(
     (formData as FormDataRecord).yearlyFinancials
   )
     ? yearlyFinancialsForecastData
     : formData.forecast_years_data && formData.forecast_years_data.length > 0
-      ? formData.forecast_years_data
-      : (formData.historical_years_data?.filter((y) => isYearRowForecast(y)) ?? [])
+      ? sanitizeForecastRowsForDcfInputMode(formData.forecast_years_data, { dcfInputMode })
+      : sanitizeForecastRowsForDcfInputMode(
+          formData.historical_years_data?.filter((y) => isYearRowForecast(y)) ?? [],
+          { dcfInputMode }
+        )
 
   const historicalYears = actualHistoricalData
     .filter((y) => toFiniteNumber(y.ebitda) != null && y.year >= 2000 && y.year <= 2100)
@@ -267,7 +273,6 @@ export function buildValuationRequest(
     yearEbitdaMap,
   })
 
-  const dcfInputMode = (formData as ValuationFormData).dcf_input_mode ?? 'ebitda'
   const { currentYearData, historicalYearsData, forecastYearsData, projectionYears } =
     buildValuationRequestYearData({
       currentFiscalYear,

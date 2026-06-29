@@ -293,6 +293,29 @@ describe('areFormAndSessionDataEqualForAutosync', () => {
     expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(false)
   })
 
+  it('treats stale FCFF residue as absent when comparing default EBITDA-mode forecast rows', () => {
+    const canonicalForecast = [
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true },
+    ]
+    const form = {
+      ...base,
+      forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 1 }],
+      yearlyFinancials: [
+        { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+        {
+          year: '2026',
+          revenue: 1_050_000,
+          ebitda: 105_000,
+          free_cash_flow: 1,
+          isForecast: true,
+        },
+      ],
+    }
+    const sess = { ...base, forecast_years_data: canonicalForecast }
+
+    expect(areFormAndSessionDataEqualForAutosync(form, sess)).toBe(true)
+  })
+
   it('returns false when tax latencies differ (third argument)', () => {
     const form = { ...base }
     const sess = { ...base, _taxLatencies: [{ id: 'a' }] }
@@ -397,5 +420,55 @@ describe('resolveFormForecastYearsDataForAutosync', () => {
         ],
       })
     ).toEqual([{ year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true }])
+  })
+
+  it('serializes default EBITDA-mode forecast rows without stale FCFF residue', () => {
+    expect(
+      resolveFormForecastYearsDataForAutosync({
+        ...base,
+        forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 1 }],
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          {
+            year: '2026',
+            revenue: 1_050_000,
+            ebitda: 105_000,
+            free_cash_flow: 1,
+            isForecast: true,
+          },
+        ],
+      })
+    ).toEqual([{ year: 2026, revenue: 1_050_000, ebitda: 105_000, is_forecast: true }])
+  })
+
+  it('sanitizes fallback forecast_years_data when no grid forecast rows exist', () => {
+    expect(
+      resolveFormForecastYearsDataForAutosync({
+        ...base,
+        yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+        forecast_years_data: [
+          { year: 2026, revenue: 1_050_000, ebitda: 105_000, free_cash_flow: 1 },
+        ],
+      })
+    ).toEqual([{ year: 2026, revenue: 1_050_000, ebitda: 105_000 }])
+  })
+
+  it('serializes FCFF-only forecast rows with explicit free cash flow', () => {
+    expect(
+      resolveFormForecastYearsDataForAutosync({
+        ...base,
+        dcf_input_mode: 'fcff_only',
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          {
+            year: '2026',
+            revenue: 0,
+            ebitda: 0,
+            free_cash_flow: 75_000,
+            isForecast: true,
+          },
+        ],
+      })
+    ).toEqual([{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000, is_forecast: true }])
   })
 })

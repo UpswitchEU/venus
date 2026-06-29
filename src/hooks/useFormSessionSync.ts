@@ -45,6 +45,7 @@ import {
   buildForecastYearDataFromYearlyFinancials,
   isYearRowForecast,
   OPTIONAL_YEAR_DATA_FIELDS,
+  sanitizeForecastRowsForDcfInputMode,
   yearlyFinancialsContainForecastRows,
 } from '../utils/yearData'
 import {
@@ -102,23 +103,33 @@ function fingerprintYearRows(rows: unknown): string[] {
 
 function resolveAutosyncForecastRows(record: Record<string, unknown>): unknown[] {
   const yearlyFinancials = record['yearlyFinancials']
+  const dcfInputMode = record['dcf_input_mode'] ?? 'ebitda'
   if (yearlyFinancialsContainForecastRows(yearlyFinancials)) {
-    return buildForecastYearDataFromYearlyFinancials(yearlyFinancials)
+    return buildForecastYearDataFromYearlyFinancials(yearlyFinancials, {
+      dcfInputMode,
+    })
   }
 
   const forecastRows = record['forecast_years_data']
-  return Array.isArray(forecastRows) ? forecastRows : []
+  return Array.isArray(forecastRows)
+    ? sanitizeForecastRowsForDcfInputMode(forecastRows, { dcfInputMode })
+    : []
 }
 
 export function resolveFormForecastYearsDataForAutosync(
   data: ValuationFormData
 ): ValuationFormData['forecast_years_data'] | undefined {
   const yearlyFinancials = (data as unknown as Record<string, unknown>)['yearlyFinancials']
+  const dcfInputMode = data.dcf_input_mode ?? 'ebitda'
   if (yearlyFinancialsContainForecastRows(yearlyFinancials)) {
-    return buildForecastYearDataFromYearlyFinancials(yearlyFinancials)
+    return buildForecastYearDataFromYearlyFinancials(yearlyFinancials, {
+      dcfInputMode,
+    })
   }
 
   return data.forecast_years_data
+    ? sanitizeForecastRowsForDcfInputMode(data.forecast_years_data, { dcfInputMode })
+    : data.forecast_years_data
 }
 
 function autosyncWritableSignature(record: Record<string, unknown>): string {

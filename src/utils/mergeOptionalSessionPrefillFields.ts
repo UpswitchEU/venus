@@ -31,6 +31,7 @@ import {
   historicalRowsFromYearDataBlob,
   mergeSessionSurfaceForOptionalPrefill,
 } from './sessionSurfacePrefill'
+import { sanitizeForecastRowsForDcfInputMode } from './yearData'
 import type { YearlyFinancialLike } from './yearlyFinancials'
 import {
   buildYearlyFinancialsFromCurrentAndHistorical,
@@ -76,6 +77,14 @@ function isOptionalZeroPlaceholder(key: string, existing: unknown): boolean {
   if (key === 'owner_salary_addback') return true
   if (key === 'preparer_ev_ebitda_median') return true
   return false
+}
+
+function isDefaultDcfInputModePlaceholder(
+  key: string,
+  existing: unknown,
+  incoming: unknown
+): boolean {
+  return key === 'dcf_input_mode' && existing === 'ebitda' && incoming === 'fcff_only'
 }
 
 function isEmptyStructSlot(existing: unknown): boolean {
@@ -137,7 +146,12 @@ export function mergeOptionalSessionPrefillFields(
     if (!isEmptySlot(existing)) {
       const canBackfillZeroPlaceholder =
         isOptionalZeroPlaceholder(key, existing) && isFiniteNumber(incoming) && incoming !== 0
-      if (!canBackfillZeroPlaceholder) continue
+      const canBackfillDefaultDcfInputMode = isDefaultDcfInputModePlaceholder(
+        key,
+        existing,
+        incoming
+      )
+      if (!canBackfillZeroPlaceholder && !canBackfillDefaultDcfInputMode) continue
     }
     ;(out as Record<string, unknown>)[key] = incoming
   }
@@ -204,8 +218,10 @@ export function mergeOptionalSessionPrefillFields(
     for (const key of OPTIONAL_SCALAR_KEYS) {
       if (SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE.has(key)) continue
       if ((out as Record<string, unknown>)[key] !== undefined) continue
-      if (!isEmptySlot(fd[key])) continue
       const incoming = bc[key]
+      if (!isEmptySlot(fd[key]) && !isDefaultDcfInputModePlaceholder(key, fd[key], incoming)) {
+        continue
+      }
       if (hasScalarValue(incoming)) {
         ;(out as Record<string, unknown>)[key] = incoming
       }
@@ -459,8 +475,10 @@ export function mergeOptionalSessionPrefillFields(
     mergedData.forecast_years_data.length > 0 &&
     (!Array.isArray(existingForecast) || existingForecast.length === 0)
   ) {
-    out.forecast_years_data =
-      mergedData.forecast_years_data as ValuationFormData['forecast_years_data']
+    const dcfInputMode = mergedData.dcf_input_mode ?? fd['dcf_input_mode'] ?? 'ebitda'
+    out.forecast_years_data = sanitizeForecastRowsForDcfInputMode(mergedData.forecast_years_data, {
+      dcfInputMode,
+    }) as ValuationFormData['forecast_years_data']
   }
 
   const filingConfirmedExisting = fd['filing_year_confirmed']

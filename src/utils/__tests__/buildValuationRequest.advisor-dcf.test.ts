@@ -529,6 +529,130 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
     ])
   })
 
+  it('drops stale FCFF residue from EBITDA-mode DCF forecast rows', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: 2025,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 900_000, ebitda: 90_000 },
+          { year: 2023, revenue: 800_000, ebitda: 80_000 },
+        ],
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          {
+            year: '2026',
+            revenue: 1_050_000,
+            ebitda: 105_000,
+            free_cash_flow: 1,
+            capex: 21_000,
+            depreciation: 21_000,
+            nwc_change: 750,
+            isForecast: true,
+          },
+        ],
+        forecast_years_data: [
+          {
+            year: 2026,
+            revenue: 0,
+            ebitda: 0,
+            free_cash_flow: 1,
+          },
+        ],
+        dcf_input_mode: 'ebitda',
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.forecast_years_data).toEqual([
+      {
+        year: 2026,
+        revenue: 1_050_000,
+        ebitda: 105_000,
+        capex: 21_000,
+        depreciation: 21_000,
+        nwc_change: 750,
+        is_forecast: true,
+      },
+    ])
+  })
+
+  it('drops stale FCFF residue from explicit fallback forecast_years_data in EBITDA mode', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: 2025,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 900_000, ebitda: 90_000 },
+          { year: 2023, revenue: 800_000, ebitda: 80_000 },
+        ],
+        yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+        forecast_years_data: [
+          {
+            year: 2026,
+            revenue: 1_050_000,
+            ebitda: 105_000,
+            free_cash_flow: 1,
+          },
+        ],
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.forecast_years_data).toEqual([
+      {
+        year: 2026,
+        revenue: 1_050_000,
+        ebitda: 105_000,
+        is_forecast: true,
+      },
+    ])
+  })
+
+  it('keeps explicit FCFF only when the DCF input mode is FCFF-only', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        current_year_data: {
+          year: 2025,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+        historical_years_data: [
+          { year: 2024, revenue: 900_000, ebitda: 90_000 },
+          { year: 2023, revenue: 800_000, ebitda: 80_000 },
+        ],
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          {
+            year: '2026',
+            revenue: 1_050_000,
+            ebitda: 105_000,
+            free_cash_flow: 75_000,
+            isForecast: true,
+          },
+        ],
+        dcf_input_mode: 'fcff_only',
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.forecast_years_data).toEqual([
+      {
+        year: 2026,
+        revenue: 0,
+        ebitda: 0,
+        free_cash_flow: 75_000,
+        is_forecast: true,
+      },
+    ])
+  })
+
   it('preserves manual forecast edits after DCF autofill when building the request', () => {
     const lastFullYear = getCurrentFilingYear()
     const autofilledForecasts = applyDcfProjectionPreviewToForecastRows(

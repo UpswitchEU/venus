@@ -4,6 +4,7 @@ import {
   isFilingYearConfirmedValue,
   normalizeHistoricalYearsForFiling,
 } from '../../../utils/fiscalYear'
+import { sanitizeForecastRowsForDcfInputMode } from '../../../utils/yearData'
 import {
   getSeedCurrentYearData,
   getSeedYearlyFinancials,
@@ -13,6 +14,7 @@ import {
 export function buildManualInputInitialFormData(
   initialData: Partial<ManualValuationFormData>
 ): ManualValuationFormData {
+  const dcfInputMode = initialData.dcf_input_mode ?? 'ebitda'
   return {
     ...initialData,
     companyName: initialData.companyName || '',
@@ -37,10 +39,12 @@ export function buildManualInputInitialFormData(
       initialData.historical_years_data,
       initialData.filingYearConfirmed
     ),
-    forecast_years_data: initialData.forecast_years_data,
+    forecast_years_data: initialData.forecast_years_data
+      ? sanitizeForecastRowsForDcfInputMode(initialData.forecast_years_data, { dcfInputMode })
+      : initialData.forecast_years_data,
     filingYearConfirmed: isSessionSeedYearStale(initialData)
       ? false
       : isFilingYearConfirmedValue(initialData.filingYearConfirmed),
-    dcf_input_mode: initialData.dcf_input_mode ?? 'ebitda',
+    dcf_input_mode: dcfInputMode,
   } as ManualValuationFormData
 }

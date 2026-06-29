@@ -1,4 +1,5 @@
 import { parseFlexibleNumber } from '../../utils/isFiniteNumeric'
+import { sanitizeForecastRowsForDcfInputMode } from '../../utils/yearData'
 
 const DCF_NUMERIC_SESSION_KEYS = [
   'dcf_revenue_growth_pct',
@@ -46,6 +47,12 @@ export function normalizeDcfSessionFields(fd: Record<string, unknown>): void {
 
   if ('dcf_input_mode' in fd) {
     fd.dcf_input_mode = fd.dcf_input_mode === 'fcff_only' ? 'fcff_only' : 'ebitda'
+  }
+
+  if (Array.isArray(fd.forecast_years_data)) {
+    fd.forecast_years_data = sanitizeForecastRowsForDcfInputMode(fd.forecast_years_data, {
+      dcfInputMode: fd.dcf_input_mode ?? 'ebitda',
+    })
   }
 
   if ('dcf_discounting_convention' in fd) {

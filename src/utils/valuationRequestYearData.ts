@@ -123,11 +123,14 @@ function buildForecastYearsData(args: {
         )
       }
 
+      const optionalFields = pickOptionalYearDataFields(year)
+      delete optionalFields.free_cash_flow
+
       return {
         year: clampedYear,
         revenue,
         ebitda: toFiniteNumber(year.ebitda) ?? 0,
-        ...pickOptionalYearDataFields(year),
+        ...optionalFields,
         is_forecast: true,
       }
     })

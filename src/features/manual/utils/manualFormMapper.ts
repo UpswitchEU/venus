@@ -7,7 +7,12 @@ import {
   normalizeCurrentYearForFiling,
 } from '@/utils/fiscalYear'
 import { hasUsableOfficialFinancialsContent } from '@/utils/officialFinancialsContent'
-import { buildCurrentYearData, isYearRowForecast, mergeYearDataRows } from '@/utils/yearData'
+import {
+  buildCurrentYearData,
+  isYearRowForecast,
+  mergeYearDataRows,
+  sanitizeForecastRowsForDcfInputMode,
+} from '@/utils/yearData'
 import { getCompleteYearlyFinancialsDesc } from '@/utils/yearlyFinancials'
 
 export interface ManualPanelYearlyFinancial {
@@ -52,6 +57,7 @@ export function mapClarityFormToVenusStore(
   const yearlyFinancials = (data.yearlyFinancials || []) as ManualPanelYearlyFinancial[]
   const historicalRows = yearlyFinancials.filter((yf) => !isYearRowForecast(yf))
   const forecastRows = yearlyFinancials.filter((yf) => isYearRowForecast(yf))
+  const dcfInputMode = data.dcf_input_mode ?? storeForm.dcf_input_mode ?? 'ebitda'
 
   const completeHistorical = getCompleteYearlyFinancialsDesc(historicalRows)
   const current = completeHistorical[0]
@@ -142,17 +148,20 @@ export function mapClarityFormToVenusStore(
           : existingHistoricalYears,
     forecast_years_data:
       forecastRows.length > 0
-        ? mergeYearDataRows(
-            forecastRows.map((f) => ({
-              year: Number.parseInt(String(f.year), 10),
-              revenue: f.revenue,
-              ebitda: f.ebitda,
-              capex: f.capex,
-              nwc_change: f.nwc_change,
-              free_cash_flow: f.free_cash_flow,
-              isForecast: true,
-            })),
-            existingForecastYears
+        ? sanitizeForecastRowsForDcfInputMode(
+            mergeYearDataRows(
+              forecastRows.map((f) => ({
+                year: Number.parseInt(String(f.year), 10),
+                revenue: f.revenue,
+                ebitda: f.ebitda,
+                capex: f.capex,
+                nwc_change: f.nwc_change,
+                free_cash_flow: f.free_cash_flow,
+                isForecast: true,
+              })),
+              existingForecastYears
+            ),
+            { dcfInputMode }
           )
         : existingForecastYears,
     ...(data.filingYearConfirmed !== undefined && {

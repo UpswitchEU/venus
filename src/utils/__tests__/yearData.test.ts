@@ -162,4 +162,37 @@ describe('yearData helpers', () => {
       { year: 2028, revenue: 0, ebitda: 0, free_cash_flow: 0, is_forecast: true },
     ])
   })
+
+  it('strips stale free cash flow from EBITDA-mode forecast rows only', () => {
+    const yearlyFinancials = [
+      { year: '2025', revenue: '1.000.000', ebitda: '100.000' },
+      {
+        year: '2026',
+        revenue: '1.050.000',
+        ebitda: '105.000',
+        free_cash_flow: '1',
+        isForecast: true,
+      },
+    ]
+
+    expect(buildForecastYearDataFromYearlyFinancials(yearlyFinancials)).toEqual([
+      {
+        year: 2026,
+        revenue: 1_050_000,
+        ebitda: 105_000,
+        free_cash_flow: 1,
+        is_forecast: true,
+      },
+    ])
+    expect(
+      buildForecastYearDataFromYearlyFinancials(yearlyFinancials, { dcfInputMode: 'ebitda' })
+    ).toEqual([
+      {
+        year: 2026,
+        revenue: 1_050_000,
+        ebitda: 105_000,
+        is_forecast: true,
+      },
+    ])
+  })
 })

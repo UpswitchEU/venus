@@ -189,4 +189,38 @@ describe('useSessionDataPrefill (React #185 feedback-loop guard)', () => {
       expect(useManualFormStore.getState().formData.business_type_id).toBe('fintech-lending')
     })
   })
+
+  it('strips stale FCFF from fallback session forecast rows in default EBITDA mode', async () => {
+    bootstrapWithoutMeaningfulPrefill('val_dcf_default_forecast')
+    seedExistingReportSession('val_dcf_default_forecast', {
+      company_name: 'Default DCF BV',
+      forecast_years_data: [{ year: 2026, revenue: 1_050_000, ebitda: 105_000, free_cash_flow: 1 }],
+    })
+
+    renderHook(() => useSessionDataPrefill())
+
+    await waitFor(() => {
+      expect(useManualFormStore.getState().formData.forecast_years_data).toEqual([
+        { year: 2026, revenue: 1_050_000, ebitda: 105_000 },
+      ])
+    })
+  })
+
+  it('restores explicit FCFF-only session forecasts even when the empty form starts in default EBITDA mode', async () => {
+    bootstrapWithoutMeaningfulPrefill('val_dcf_fcff_forecast')
+    seedExistingReportSession('val_dcf_fcff_forecast', {
+      company_name: 'FCFF DCF BV',
+      dcf_input_mode: 'fcff_only',
+      forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 }],
+    })
+
+    renderHook(() => useSessionDataPrefill())
+
+    await waitFor(() => {
+      expect(useManualFormStore.getState().formData.dcf_input_mode).toBe('fcff_only')
+      expect(useManualFormStore.getState().formData.forecast_years_data).toEqual([
+        { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 },
+      ])
+    })
+  })
 })

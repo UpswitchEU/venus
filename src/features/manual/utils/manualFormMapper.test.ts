@@ -59,6 +59,54 @@ describe('mapClarityFormToVenusStore', () => {
     ])
   })
 
+  it('strips stale FCFF from mapped forecast rows in default EBITDA mode', () => {
+    const mapped = mapClarityFormToVenusStore(
+      {
+        companyName: 'Acme',
+        yearlyFinancials: [
+          { year: '2024', revenue: 90, ebitda: 9 },
+          {
+            year: '2026',
+            revenue: 120,
+            ebitda: 12,
+            free_cash_flow: 1,
+            isForecast: true,
+          },
+        ],
+      },
+      storeForm()
+    )
+
+    expect(mapped.forecast_years_data).toEqual([
+      { year: 2026, revenue: 120, ebitda: 12, is_forecast: true },
+    ])
+  })
+
+  it('preserves mapped FCFF forecast rows in explicit FCFF-only mode', () => {
+    const mapped = mapClarityFormToVenusStore(
+      {
+        companyName: 'Acme',
+        dcf_input_mode: 'fcff_only',
+        yearlyFinancials: [
+          { year: '2024', revenue: 90, ebitda: 9 },
+          {
+            year: '2026',
+            revenue: 0,
+            ebitda: 0,
+            free_cash_flow: 75_000,
+            isForecast: true,
+          },
+        ],
+      },
+      storeForm()
+    )
+
+    expect(mapped.dcf_input_mode).toBe('fcff_only')
+    expect(mapped.forecast_years_data).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000, is_forecast: true },
+    ])
+  })
+
   it('ignores newer zero placeholders when selecting the current valuation year', () => {
     const mapped = mapClarityFormToVenusStore(
       {

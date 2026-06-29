@@ -25,6 +25,7 @@ import {
   OPTIONAL_SESSION_PREFILL_SCALAR_KEYS,
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
 } from '../../utils/optionalSessionPrefillKeys'
+import { sanitizeForecastRowsForDcfInputMode } from '../../utils/yearData'
 import { isLegalFormBusinessTypeValue } from '../naceBusinessTypeService'
 
 const logger = createContextLogger('SessionSparseBackfill')
@@ -199,6 +200,10 @@ function shouldBackfillSparseValue(
 
   if (currentValue == null || currentValue === '') return true
 
+  if (key === 'dcf_input_mode') {
+    return currentValue === 'ebitda' && seedValue === 'fcff_only'
+  }
+
   if (
     typeof currentValue === 'number' &&
     isZeroPlaceholderNumericKey(key) &&
@@ -239,6 +244,33 @@ function shouldBackfillSparseValue(
   return false
 }
 
+function pushMergedKey(mergedKeys: string[], key: string): void {
+  if (!mergedKeys.includes(key)) {
+    mergedKeys.push(key)
+  }
+}
+
+function canonicalizeSparseDcfForecastRows(
+  merged: Record<string, unknown>,
+  mergedKeys: string[]
+): void {
+  const rawMode = merged.dcf_input_mode
+  const dcfInputMode = rawMode === 'fcff_only' ? 'fcff_only' : 'ebitda'
+  if (rawMode !== undefined && rawMode !== dcfInputMode) {
+    merged.dcf_input_mode = dcfInputMode
+    pushMergedKey(mergedKeys, 'dcf_input_mode')
+  }
+
+  if (!Array.isArray(merged.forecast_years_data)) return
+
+  const before = merged.forecast_years_data
+  const after = sanitizeForecastRowsForDcfInputMode(before, { dcfInputMode })
+  if (JSON.stringify(before) === JSON.stringify(after)) return
+
+  merged.forecast_years_data = after
+  pushMergedKey(mergedKeys, 'forecast_years_data')
+}
+
 export async function backfillSparseSessionFromStoreSeed(
   reportId: string,
   session: ValuationSession
@@ -258,9 +290,11 @@ export async function backfillSparseSessionFromStoreSeed(
       if (seedValue === undefined) continue
       if (shouldBackfillSparseValue(key, merged[key], seedValue)) {
         merged[key] = seedValue
-        mergedKeys.push(key)
+        pushMergedKey(mergedKeys, key)
       }
     }
+
+    canonicalizeSparseDcfForecastRows(merged, mergedKeys)
 
     if (mergedKeys.length > 0) {
       session.sessionData = merged as Partial<ValuationRequest>

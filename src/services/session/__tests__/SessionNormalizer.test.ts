@@ -554,6 +554,38 @@ describe('normalizeSessionData', () => {
     })
   })
 
+  it('strips stale FCFF from restored forecast rows when DCF mode is default EBITDA', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_dcf_default_forecast_restore',
+      session_data: {
+        dcf_input_mode: 'unexpected',
+        forecast_years_data: [
+          { year: 2026, revenue: 1_050_000, ebitda: 105_000, free_cash_flow: 1 },
+        ],
+      },
+    })
+
+    expect(normalized.formData.dcf_input_mode).toBe('ebitda')
+    expect(normalized.formData.forecast_years_data).toEqual([
+      { year: 2026, revenue: 1_050_000, ebitda: 105_000 },
+    ])
+  })
+
+  it('preserves restored FCFF forecast rows when DCF mode is explicit FCFF-only', () => {
+    const normalized = normalizeSessionData({
+      session_key: 'val_dcf_fcff_forecast_restore',
+      session_data: {
+        dcf_input_mode: 'fcff_only',
+        forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 }],
+      },
+    })
+
+    expect(normalized.formData.dcf_input_mode).toBe('fcff_only')
+    expect(normalized.formData.forecast_years_data).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, free_cash_flow: 75_000 },
+    ])
+  })
+
   it('extracts user_configured_dcf from session (snake or camel alias)', () => {
     const snake = normalizeSessionData({
       session_key: 'val_ucd_snake',

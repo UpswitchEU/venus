@@ -7,6 +7,7 @@ import type {
 import { hasUsableOfficialFinancialsContent } from '../../../utils/officialFinancialsContent'
 import {
   buildForecastYearDataFromYearlyFinancials,
+  sanitizeForecastRowsForDcfInputMode,
   yearlyFinancialsContainForecastRows,
 } from '../../../utils/yearData'
 
@@ -27,9 +28,14 @@ export function buildManualInputSubmitPayload({
 }): ManualValuationFormData {
   const officialFinancials = trustFormData.official_financials
   const trustOfficialUsable = hasUsableOfficialFinancialsContent(officialFinancials)
+  const dcfInputMode = formData.dcf_input_mode ?? 'ebitda'
   const forecastYearsData = yearlyFinancialsContainForecastRows(formData.yearlyFinancials)
-    ? buildForecastYearDataFromYearlyFinancials(formData.yearlyFinancials)
+    ? buildForecastYearDataFromYearlyFinancials(formData.yearlyFinancials, {
+        dcfInputMode,
+      })
     : formData.forecast_years_data
+      ? sanitizeForecastRowsForDcfInputMode(formData.forecast_years_data, { dcfInputMode })
+      : formData.forecast_years_data
 
   return {
     ...formData,
