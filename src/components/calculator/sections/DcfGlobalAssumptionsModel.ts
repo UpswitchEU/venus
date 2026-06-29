@@ -129,6 +129,16 @@ function isPositiveFinite(value: unknown): boolean {
   return parsed !== undefined && parsed > 0
 }
 
+export function isDcfPerpetualSpreadValid(
+  dcfWaccPct: unknown,
+  dcfTerminalGrowthPct: unknown
+): boolean {
+  const wacc = toFinite(dcfWaccPct)
+  const terminalGrowth = toFinite(dcfTerminalGrowthPct)
+  if (wacc === undefined || terminalGrowth === undefined) return true
+  return terminalGrowth < wacc
+}
+
 export function buildDcfGlobalAssumptionsSectionState({
   variant,
   dcfInputMode,
@@ -149,7 +159,7 @@ export function buildDcfGlobalAssumptionsSectionState({
     dcfInputMode === 'fcff_only' ? 'perpetual_growth' : terminalValueMethod
   const terminalComplete =
     effectiveTerminalMethod === 'perpetual_growth'
-      ? finite(dcfTerminalGrowthPct)
+      ? finite(dcfTerminalGrowthPct) && isDcfPerpetualSpreadValid(dcfWaccPct, dcfTerminalGrowthPct)
       : isPositiveFinite(dcfExitMultiple)
   const globalAssumptionsComplete = isPositiveFinite(dcfWaccPct) && terminalComplete
 

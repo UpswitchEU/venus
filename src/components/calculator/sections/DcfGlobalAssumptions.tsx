@@ -15,6 +15,7 @@ import {
   type DcfDiscountingConvention,
   type DcfGlobalAssumptionsVariant,
   type DcfSeedSmartDefaults,
+  isDcfPerpetualSpreadValid,
   TERMINAL_METHOD_VALUES,
   type TerminalValueMethod,
 } from './DcfGlobalAssumptionsModel'
@@ -245,6 +246,15 @@ export function DcfGlobalAssumptions({
     value,
     label: t(`dcfDiscountingConvention.${value}` as const),
   }))
+  const onPerpetualTerminal =
+    dcfInputMode === 'fcff_only' || terminalValueMethod === 'perpetual_growth'
+  const terminalGrowthSpreadInvalid =
+    onPerpetualTerminal &&
+    dcfWaccPct != null &&
+    Number.isFinite(dcfWaccPct) &&
+    dcfTerminalGrowthPct != null &&
+    Number.isFinite(dcfTerminalGrowthPct) &&
+    !isDcfPerpetualSpreadValid(dcfWaccPct, dcfTerminalGrowthPct)
 
   const { sectionComplete, showForecastDefaultsBlock, showDiscountTerminalBlock } = useMemo(
     () =>
@@ -415,6 +425,7 @@ export function DcfGlobalAssumptions({
                     {dcfTerminalGrowthPct != null &&
                       Number.isFinite(dcfTerminalGrowthPct) &&
                       dcfTerminalGrowthPct > 3 &&
+                      !terminalGrowthSpreadInvalid &&
                       dcfTerminalGrowthPct <= 5 && (
                         <p
                           className="text-[10px] leading-snug text-amber-800 dark:text-amber-200/90"
@@ -423,6 +434,19 @@ export function DcfGlobalAssumptions({
                           {t('terminalGrowthHighWarning')}
                         </p>
                       )}
+                    {terminalGrowthSpreadInvalid && (
+                      <p
+                        className="text-[10px] leading-snug text-red-700 dark:text-red-300"
+                        role="alert"
+                      >
+                        {t('terminalGrowthWaccSpreadWarning', {
+                          wacc:
+                            dcfWaccPct != null && Number.isFinite(dcfWaccPct)
+                              ? dcfWaccPct.toFixed(1)
+                              : '',
+                        })}
+                      </p>
+                    )}
                     {dcfTerminalGrowthPct != null &&
                       Number.isFinite(dcfTerminalGrowthPct) &&
                       dcfTerminalGrowthPct > 5 &&

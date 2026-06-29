@@ -1,4 +1,5 @@
 import { readPreSelectedValuationMethods } from '../constants/sessionUiKeys'
+import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { parseFlexibleNumber } from './isFiniteNumeric'
@@ -31,9 +32,6 @@ export function buildValuationBusinessContext({
     'dcf_da_pct',
     'dcf_nwc_pct',
     'dcf_tax_rate_pct',
-    'dcf_wacc_pct',
-    'dcf_terminal_growth_pct',
-    'dcf_exit_multiple',
     'dcf_risk_free_rate_pct',
     'dcf_equity_risk_premium_pct',
     'dcf_beta',
@@ -41,6 +39,7 @@ export function buildValuationBusinessContext({
     'dcf_debt_equity_pct',
     'dcf_tax_shield_pct',
   ])
+  copyDcfTerminalAssumptionFields(adaptiveFields, fd)
   if (
     fd.dcf_discounting_convention === 'mid_year' ||
     fd.dcf_discounting_convention === 'year_end'
@@ -213,6 +212,129 @@ function copyFiniteAdaptiveFields(
   for (const key of keys) {
     const value = parseFlexibleNumber(source[key])
     if (value !== undefined) target[key] = value
+  }
+}
+
+type DcfTerminalValueMethod = 'perpetual_growth' | 'exit_multiple'
+
+interface DcfTerminalAssumptions {
+  method: DcfTerminalValueMethod
+  waccPct?: number
+  terminalGrowthPct?: number
+  exitMultiple?: number
+  hasTerminalInput: boolean
+}
+
+function isDcfTerminalValueMethod(value: unknown): value is DcfTerminalValueMethod {
+  return value === 'perpetual_growth' || value === 'exit_multiple'
+}
+
+function resolveDcfTerminalValueMethod(
+  source: Record<string, unknown>,
+  terminalGrowthPct: number | undefined,
+  exitMultiple: number | undefined
+): DcfTerminalValueMethod {
+  if (source.dcf_input_mode === 'fcff_only') return 'perpetual_growth'
+  if (isDcfTerminalValueMethod(source.dcf_terminal_value_method)) {
+    return source.dcf_terminal_value_method
+  }
+  if (exitMultiple !== undefined && terminalGrowthPct === undefined) return 'exit_multiple'
+  return 'perpetual_growth'
+}
+
+export function resolveDcfTerminalAssumptions(
+  source: Record<string, unknown>
+): DcfTerminalAssumptions {
+  const terminalGrowthPct = parseFlexibleNumber(source.dcf_terminal_growth_pct)
+  const exitMultiple = parseFlexibleNumber(source.dcf_exit_multiple)
+  const method = resolveDcfTerminalValueMethod(source, terminalGrowthPct, exitMultiple)
+  const hasExplicitMethod = isDcfTerminalValueMethod(source.dcf_terminal_value_method)
+  const hasTerminalInput =
+    hasExplicitMethod ||
+    source.dcf_input_mode === 'fcff_only' ||
+    terminalGrowthPct !== undefined ||
+    exitMultiple !== undefined
+  const selectedMethod = typeof source.selected_method === 'string' ? source.selected_method : ''
+  const hasDcfContract = hasTerminalInput || selectedMethod.toLowerCase().includes('dcf')
+
+  const parsedWaccPct = parseFlexibleNumber(source.dcf_wacc_pct)
+  if (parsedWaccPct !== undefined && parsedWaccPct <= 0) {
+    if (!hasDcfContract) {
+      return {
+        method,
+        terminalGrowthPct,
+        exitMultiple,
+        hasTerminalInput,
+      }
+    }
+    throw new ValidationError(
+      'DCF WACC must be greater than 0%.',
+      'dcf_wacc_pct',
+      source.dcf_wacc_pct,
+      { dcf_wacc_pct: parsedWaccPct }
+    )
+  }
+  const waccPct = parsedWaccPct
+
+  if (method === 'perpetual_growth') {
+    if (terminalGrowthPct !== undefined && waccPct !== undefined && terminalGrowthPct >= waccPct) {
+      throw new ValidationError(
+        'Terminal growth must be lower than WACC for perpetual-growth DCF.',
+        'dcf_terminal_growth_pct',
+        source.dcf_terminal_growth_pct,
+        { dcf_wacc_pct: waccPct, dcf_terminal_growth_pct: terminalGrowthPct }
+      )
+    }
+    return {
+      method,
+      waccPct,
+      terminalGrowthPct,
+      hasTerminalInput,
+    }
+  }
+
+  if (hasExplicitMethod && exitMultiple === undefined) {
+    throw new ValidationError(
+      'Exit multiple is required for DCF exit-multiple terminal value.',
+      'dcf_exit_multiple',
+      source.dcf_exit_multiple
+    )
+  }
+  if (exitMultiple !== undefined && exitMultiple <= 0) {
+    throw new ValidationError(
+      'Exit multiple must be greater than 0.0x for DCF exit-multiple terminal value.',
+      'dcf_exit_multiple',
+      source.dcf_exit_multiple,
+      { dcf_exit_multiple: exitMultiple }
+    )
+  }
+
+  return {
+    method,
+    waccPct,
+    exitMultiple,
+    hasTerminalInput,
+  }
+}
+
+function copyDcfTerminalAssumptionFields(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>
+): void {
+  const assumptions = resolveDcfTerminalAssumptions(source)
+  if (assumptions.waccPct !== undefined) target.dcf_wacc_pct = assumptions.waccPct
+  if (!assumptions.hasTerminalInput) return
+
+  target.dcf_terminal_value_method = assumptions.method
+  if (assumptions.method === 'perpetual_growth') {
+    if (assumptions.terminalGrowthPct !== undefined) {
+      target.dcf_terminal_growth_pct = assumptions.terminalGrowthPct
+    }
+    return
+  }
+
+  if (assumptions.exitMultiple !== undefined) {
+    target.dcf_exit_multiple = assumptions.exitMultiple
   }
 }
 

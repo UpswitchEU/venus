@@ -2163,6 +2163,7 @@
 				"kebabMenuItem": "Contrôles du conseiller"
 			},
 			"terminalGrowthHighWarning": "Une croissance perpétuelle supérieure au PIB à long terme est rare ; les auditeurs remettent souvent en question les taux supérieurs à 3 %. Utilisez un taux plus élevé uniquement si vous pouvez le défendre dans le dossier.",
+			"terminalGrowthWaccSpreadWarning": "La croissance terminale doit rester inférieure au WACC ({wacc} %) pour un DCF à croissance perpétuelle.",
 			"terminalGrowthCapTitle": "Croissance des terminaux supérieure à 5 % – hors bande",
 			"terminalGrowthCapBody": "Un taux de croissance final supérieur à 5 % implique que l’entreprise dépasse définitivement l’économie. Les critiques du Big-4 rejetteront cela sans défense explicite. Confirmez pour conserver la valeur, ou diminuez-la.",
 			"terminalGrowthCapAck": "Je comprends et je le défendrai dans le dossier",

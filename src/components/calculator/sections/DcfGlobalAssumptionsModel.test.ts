@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildDcfGlobalAssumptionsSectionState,
   buildDcfGlobalAssumptionsSeedPatch,
+  isDcfPerpetualSpreadValid,
 } from './DcfGlobalAssumptionsModel'
 
 describe('DcfGlobalAssumptionsModel', () => {
@@ -282,6 +283,32 @@ describe('DcfGlobalAssumptionsModel', () => {
     ).toBe(false)
   })
 
+  it('marks perpetual terminal sections incomplete when growth is at or above WACC', () => {
+    expect(isDcfPerpetualSpreadValid(9, 8.99)).toBe(true)
+    expect(isDcfPerpetualSpreadValid('9,0', '9,0')).toBe(false)
+
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'discountTerminalOnly',
+        dcfInputMode: 'ebitda',
+        terminalValueMethod: 'perpetual_growth',
+        dcfWaccPct: 9,
+        dcfTerminalGrowthPct: 9,
+      }).sectionComplete
+    ).toBe(false)
+
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'discountTerminalOnly',
+        dcfInputMode: 'ebitda',
+        terminalValueMethod: 'exit_multiple',
+        dcfWaccPct: 9,
+        dcfTerminalGrowthPct: 12,
+        dcfExitMultiple: 6,
+      }).sectionComplete
+    ).toBe(true)
+  })
+
   it('forces the perpetual terminal completion path for FCFF-only discount sections', () => {
     expect(
       buildDcfGlobalAssumptionsSectionState({
@@ -292,5 +319,16 @@ describe('DcfGlobalAssumptionsModel', () => {
         dcfTerminalGrowthPct: 2,
       }).sectionComplete
     ).toBe(true)
+
+    expect(
+      buildDcfGlobalAssumptionsSectionState({
+        variant: 'discountTerminalOnly',
+        dcfInputMode: 'fcff_only',
+        terminalValueMethod: 'exit_multiple',
+        dcfWaccPct: 9,
+        dcfTerminalGrowthPct: 9,
+        dcfExitMultiple: 6,
+      }).sectionComplete
+    ).toBe(false)
   })
 })

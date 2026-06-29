@@ -2161,6 +2161,7 @@
 				"kebabMenuItem": "Advisor controls"
 			},
 			"terminalGrowthHighWarning": "Perpetual growth above long-run GDP is uncommon; auditors often question rates above 3%. Use a higher rate only if you can defend it in the file.",
+			"terminalGrowthWaccSpreadWarning": "Terminal growth must stay below WACC ({wacc}%) for perpetual-growth DCF.",
 			"terminalGrowthCapTitle": "Terminal growth above 5% — out-of-band",
 			"terminalGrowthCapBody": "A terminal growth rate above 5% implies the company outgrows the economy forever. Big-4 reviewers will reject this without an explicit defense. Acknowledge to keep the value, or lower it.",
 			"terminalGrowthCapAck": "I understand and will defend this in the file",

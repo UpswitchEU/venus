@@ -2163,6 +2163,7 @@
 				"kebabMenuItem": "Adviseurcontrole"
 			},
 			"terminalGrowthHighWarning": "Eeuwigdurende groei boven het langetermijngroeipad van de economie is zeldzaam; controleurs bekritiseren vaak tarieven boven 3%. Gebruik enkel hoger als je het in het dossier kunt onderbouwen.",
+			"terminalGrowthWaccSpreadWarning": "Eeuwigdurende groei moet lager blijven dan de WACC ({wacc}%) voor DCF met eeuwigdurende groei.",
 			"terminalGrowthCapTitle": "Eeuwigdurende groei boven 5% — buiten bandbreedte",
 			"terminalGrowthCapBody": "Eeuwigdurende groei boven 5% impliceert dat het bedrijf de economie blijvend overtreft. Big-4 reviewers verwerpen dit zonder expliciete onderbouwing. Bevestig om de waarde te behouden, of verlaag.",
 			"terminalGrowthCapAck": "Ik begrijp dit en zal het in het dossier verdedigen",

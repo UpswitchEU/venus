@@ -362,7 +362,7 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
         dcf_tax_rate_pct: 25,
         dcf_wacc_pct: 9,
         dcf_terminal_growth_pct: 2,
-        dcf_exit_multiple: 6,
+        dcf_terminal_value_method: 'perpetual_growth',
         dcf_risk_free_rate_pct: 3,
         dcf_equity_risk_premium_pct: 5.5,
         dcf_beta: 1.1,
@@ -390,7 +390,7 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
       dcf_tax_rate_pct: 25,
       dcf_wacc_pct: 9,
       dcf_terminal_growth_pct: 2,
-      dcf_exit_multiple: 6,
+      dcf_terminal_value_method: 'perpetual_growth',
       dcf_risk_free_rate_pct: 3,
       dcf_equity_risk_premium_pct: 5.5,
       dcf_beta: 1.1,
@@ -405,6 +405,43 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
       saas_sm_spend: 120_000,
       rev_top_client_concentration_pct: 18,
     })
+    expect(result.business_context?.dcf_exit_multiple).toBeUndefined()
+  })
+
+  it('serializes only the exit multiple for DCF exit-multiple terminal value', () => {
+    const result = buildValuationRequest(
+      makeFormData({
+        business_type_id: 'saas',
+        dcf_wacc_pct: 9,
+        dcf_terminal_growth_pct: 2,
+        dcf_terminal_value_method: 'exit_multiple',
+        dcf_exit_multiple: 6,
+      } as Partial<ValuationFormData>),
+      []
+    )
+
+    expect(result.business_context).toMatchObject({
+      business_type_id: 'saas',
+      dcf_wacc_pct: 9,
+      dcf_terminal_value_method: 'exit_multiple',
+      dcf_exit_multiple: 6,
+    })
+    expect(result.business_context?.dcf_terminal_growth_pct).toBeUndefined()
+  })
+
+  it('rejects perpetual-growth DCF terminal assumptions when terminal growth is not below WACC', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          business_type_id: 'saas',
+          selected_method: 'dcf',
+          dcf_wacc_pct: 2,
+          dcf_terminal_growth_pct: 2,
+          dcf_terminal_value_method: 'perpetual_growth',
+        } as Partial<ValuationFormData>),
+        []
+      )
+    ).toThrow('Terminal growth must be lower than WACC')
   })
 
   it('defaults DCF projection_years to 5 and expands with explicit forecast rows', () => {
