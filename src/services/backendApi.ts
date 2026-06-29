@@ -64,7 +64,7 @@ type UserPlanResponse = {
     version_control: boolean
     audit_trail: boolean
     integrations_enabled: boolean
-    valuation_synthesis: boolean
+    valuation_synthesis?: boolean
     valuation_download?: boolean
     live_benelux_sector_multiples?: boolean
     team_seat_addons?: boolean

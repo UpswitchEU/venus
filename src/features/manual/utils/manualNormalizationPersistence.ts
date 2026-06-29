@@ -5,9 +5,23 @@ export type ManualNormalizationYearItem = Pick<NormalizationItem, 'year'> &
 
 export type ManualNormalizationSignatureItem = Pick<
   NormalizationItem,
-  'id' | 'type' | 'status' | 'year'
+  'category' | 'id' | 'source' | 'status' | 'type' | 'year'
 > &
-  Partial<Pick<NormalizationItem, 'value' | 'adjustment' | 'applyAllYears' | 'applyYears'>>
+  Partial<
+    Pick<
+      NormalizationItem,
+      | 'adjustment'
+      | 'applyAllYears'
+      | 'applyYears'
+      | 'backendCategory'
+      | 'confidence'
+      | 'ledgerCode'
+      | 'ledgerName'
+      | 'reason'
+      | 'reviewedAt'
+      | 'value'
+    >
+  >
 
 export function getManualNormalizationYearsToPersist(
   item: ManualNormalizationYearItem,
@@ -26,10 +40,18 @@ export function buildAcceptedNormalizationSignature(
       .filter((item) => item.status === 'accepted')
       .map((item) => ({
         id: item.id,
+        category: item.category,
+        backendCategory: item.backendCategory,
         type: item.type,
         value: item.value,
         adjustment: item.adjustment,
         year: item.year,
+        source: item.source,
+        ledgerCode: item.ledgerCode,
+        ledgerName: item.ledgerName,
+        reason: item.reason,
+        confidence: item.confidence,
+        reviewedAt: item.reviewedAt,
         applyAllYears: item.applyAllYears,
         applyYears: item.applyYears ?? [],
       }))

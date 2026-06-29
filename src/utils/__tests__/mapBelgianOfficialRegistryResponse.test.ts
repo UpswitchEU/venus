@@ -32,6 +32,7 @@ describe('mapBelgianOfficialRegistryResponseToOfficialFinancials', () => {
         source_label: 'NBB',
         filing_year: 2023,
         revenue: 1_000_000,
+        revenue_source: 'turnover',
         ebitda: 100_000,
         total_assets: 500_000,
         equity: 300_000,
@@ -40,11 +41,30 @@ describe('mapBelgianOfficialRegistryResponseToOfficialFinancials', () => {
     })
     expect(mapped?.filingYear).toBe(2023)
     expect(mapped?.revenue).toBe(1_000_000)
+    expect(mapped?.revenueSource).toBe('turnover')
     expect(mapped?.ebitda).toBe(100_000)
     expect(mapped?.totalAssets).toBe(500_000)
     expect(mapped?.equity).toBe(300_000)
     expect(mapped?.verificationBadge?.state).toBe('verified')
     expect(mapped?.sourceLinks?.[0]).toBe('https://example.com/pdf')
+  })
+
+  it('maps gross-margin revenue source as partial evidence, not verified turnover', () => {
+    const mapped = mapBelgianOfficialRegistryResponseToOfficialFinancials({
+      status: 'ok',
+      official_financials: {
+        filing_year: 2024,
+        revenue: 102_368.9,
+        revenue_source: 'gross_margin',
+        ebitda: 99_658.93,
+      },
+    })
+
+    expect(mapped?.revenueSource).toBe('gross_margin')
+    expect(mapped?.verificationBadge).toEqual({
+      state: 'partial',
+      label: 'NBB filing uses gross margin',
+    })
   })
 
   it('coerces numeric strings from JSON', () => {

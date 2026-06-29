@@ -11,15 +11,15 @@
  * SaaS ``CapitalHistorySection``).  Adding a third method later is
  * a no-op here — the gate inspects ``details``, not the method key.
  *
- * Advisor flows are explicitly excluded (they keep the pure HTML
+ * Advisor-audience flows are explicitly excluded (they keep the pure HTML
  * report) so accountant-side workflows are untouched.
  */
 
 import type { ValuationMethodResult } from '@/types/valuation'
 
 export interface SelectCapTableSimulatorResultOptions {
-  /** Active "advisor" surface flag — when true, never render the slider. */
-  showFullAdvisorMethodNav: boolean
+  /** Active advisor/client surface flag — when true, never render the slider. */
+  isAdvisorAudience: boolean
   /** Currently selected method key (e.g. ``'arr_multiple'``, ``'startup_valuation'``). */
   selectedMethod: string | null | undefined
   /** Full ``valuation_results`` map from the engine response. */
@@ -29,7 +29,7 @@ export interface SelectCapTableSimulatorResultOptions {
 export function selectCapTableSimulatorResult(
   opts: SelectCapTableSimulatorResultOptions
 ): ValuationMethodResult | null {
-  if (opts.showFullAdvisorMethodNav) return null
+  if (opts.isAdvisorAudience) return null
   if (!opts.selectedMethod) return null
   const candidate = opts.valuationResults?.[opts.selectedMethod] ?? null
   if (!candidate) return null

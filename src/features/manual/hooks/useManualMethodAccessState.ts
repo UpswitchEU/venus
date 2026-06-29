@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   filterPreSelectableMethodsForOwnerFounder,
   showAdvisorCalculatorSurface,
+  showFullValuationMethodAccess,
 } from '../../../constants/accountantPlanMethods'
 import type { PlanFeatureFlags } from '../../../hooks/useCredits'
 import { useUpfrontMethodNavInputs } from '../../../hooks/useUpfrontMethodNavInputs'
@@ -15,6 +16,7 @@ interface UseManualMethodAccessStateParams {
   isAccountantFlow: boolean
   isAccountantMode: boolean
   planFeatures: PlanFeatureFlags | null
+  planType?: string | null
   preSelectedMethod?: string | null
   selectedMethod?: string | null
   userRole?: string | null
@@ -27,6 +29,7 @@ export function useManualMethodAccessState({
   isAccountantFlow,
   isAccountantMode,
   planFeatures,
+  planType,
   preSelectedMethod,
   selectedMethod,
   userRole,
@@ -34,7 +37,12 @@ export function useManualMethodAccessState({
   const { currentYearRevenueForMethodNav, preSelectableMethodsForNav: firmPreSelectableMethods } =
     useUpfrontMethodNavInputs(formStoreData, firmCountryCode)
 
-  const showFullAdvisorMethodNav = showAdvisorCalculatorSurface(isAccountantFlow, userRole)
+  const isAdvisorAudience = showAdvisorCalculatorSurface(isAccountantFlow, userRole)
+  const showFullAdvisorMethodNav = showFullValuationMethodAccess({
+    isAccountantForClient: isAccountantFlow,
+    planType,
+    userRole,
+  })
   const preSelectableMethodsForNav = useMemo(
     () =>
       filterPreSelectableMethodsForOwnerFounder(firmPreSelectableMethods, showFullAdvisorMethodNav),
@@ -58,6 +66,7 @@ export function useManualMethodAccessState({
     canDownloadPdf: planFeatures?.valuation_download === true || ownerVenturePathDownload,
     currentYearRevenueForMethodNav,
     ebitdaNormalizationLocked: Boolean(planFeatures && !planFeatures.ebitda_normalization),
+    isAdvisorAudience,
     planLockedMethodKeys,
     preSelectableMethodsForNav,
     showFullAdvisorMethodNav,

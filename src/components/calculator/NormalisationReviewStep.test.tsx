@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NormalisationReviewStep } from './NormalisationReviewStep'
+import type { SuggestedNormalisation } from './NormalisationReviewStep.types'
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
@@ -25,12 +26,12 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function renderReviewStep(onContinue = vi.fn()) {
+function renderReviewStep(onContinue = vi.fn(), suggestions: SuggestedNormalisation[] = []) {
   return {
     onContinue,
     ...render(
       <NormalisationReviewStep
-        suggestions={[]}
+        suggestions={suggestions}
         originalEbitda={250000}
         companyName="Acme"
         onAccept={vi.fn()}
@@ -65,6 +66,32 @@ describe('NormalisationReviewStep', () => {
     const continueButton = screen.getByRole('button', { name: /continueToEstimate/ })
 
     fireEvent.click(continueButton)
+    fireEvent.click(continueButton)
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(onContinue).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows continuing with pending suggestions left unapplied', () => {
+    vi.useFakeTimers()
+    const { onContinue } = renderReviewStep(vi.fn(), [
+      {
+        id: 'pending-imported-addback',
+        code: '610000',
+        description: 'Services et biens divers',
+        category: 'other',
+        amount: 221_500,
+        reason: 'Benchmark excess',
+        status: 'pending',
+        source: 'auto',
+      },
+    ])
+    const continueButton = screen.getByRole('button', { name: /continueToEstimate/ })
+
+    expect(continueButton).not.toBeDisabled()
     fireEvent.click(continueButton)
 
     act(() => {

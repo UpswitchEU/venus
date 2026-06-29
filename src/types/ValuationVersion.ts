@@ -65,6 +65,15 @@ export interface ValuationVersion {
         category: string // e.g., "owner_compensation_adjustment"
         amount: number
         note?: string
+        confidence?: string
+        ledger_code?: string
+        ledger_name?: string
+        source?: string
+        source_ref?: string
+        reviewed_at?: string
+        frontend_id?: string
+        normalization_type?: string
+        normalization_value?: number
       }>
       custom_adjustments?: Array<{
         description: string

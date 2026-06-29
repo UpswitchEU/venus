@@ -23,6 +23,7 @@
 import { render } from '@testing-library/react'
 import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { StudioIssue } from '@/features/startup-studio/hooks/useStudioIssues'
 
 // Per-file next-intl mock. The global mock in `src/__tests__/setup.ts`
 // covers most cases, but vitest's hoisted-mock module cache lets the
@@ -261,6 +262,12 @@ describe('StartupAwareInputPanel', () => {
       expect(getByTestId('startup-valuation-panel').getAttribute('data-mode')).toBe('advisor')
     })
 
+    it('renders advisor mode for paid owner Pro valuation access', () => {
+      resultsStoreState.selectedMethod = 'startup_valuation'
+      const { getByTestId } = render(<StartupAwareInputPanel hasAdvisorProValuationAccess />)
+      expect(getByTestId('startup-valuation-panel').getAttribute('data-mode')).toBe('advisor')
+    })
+
     it('renders advisor mode when bootstrap is accountant-for-client', () => {
       resultsStoreState.selectedMethod = 'startup_valuation'
       useBootstrapSafeMock.mockReturnValue({ isAccountantFlow: true } as never)
@@ -270,22 +277,22 @@ describe('StartupAwareInputPanel', () => {
 
     it('passes assistant launcher wiring props through to StartupValuationPanel', () => {
       resultsStoreState.selectedMethod = 'startup_valuation'
-      const startupLauncherIssues = [
+      const startupLauncherIssues: StudioIssue[] = [
         {
           id: 'no_berkus_milestone',
           severity: 'block',
           step: 'berkus',
-          title: { en: 'x', nl: 'x' },
-          body: { en: 'x', nl: 'x' },
-          action: { en: 'x', nl: 'x' },
-          assistantPrompt: { en: 'x', nl: 'x' },
+          title: { en: 'x', nl: 'x', fr: 'x' },
+          body: { en: 'x', nl: 'x', fr: 'x' },
+          action: { en: 'x', nl: 'x', fr: 'x' },
+          assistantPrompt: { en: 'x', nl: 'x', fr: 'x' },
         },
-      ] as const
+      ]
       const { getByTestId } = render(
         <StartupAwareInputPanel
           isAssistantOpen
           startupLauncherScopeId="rep_123"
-          startupLauncherIssues={startupLauncherIssues as any}
+          startupLauncherIssues={startupLauncherIssues}
         />
       )
       const panel = getByTestId('startup-valuation-panel')

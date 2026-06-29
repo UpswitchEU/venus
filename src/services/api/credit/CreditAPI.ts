@@ -66,7 +66,7 @@ export class CreditAPI extends HttpClient {
       version_control: boolean
       audit_trail: boolean
       integrations_enabled: boolean
-      valuation_synthesis: boolean
+      valuation_synthesis?: boolean
       valuation_download?: boolean
       live_benelux_sector_multiples?: boolean
       team_seat_addons?: boolean
@@ -126,7 +126,9 @@ export class CreditAPI extends HttpClient {
                 version_control: rawFeatures.version_control,
                 audit_trail: rawFeatures.audit_trail,
                 integrations_enabled: rawFeatures.integrations_enabled,
-                valuation_synthesis: rawFeatures.valuation_synthesis ?? false,
+                ...(typeof rawFeatures.valuation_synthesis === 'boolean'
+                  ? { valuation_synthesis: rawFeatures.valuation_synthesis }
+                  : {}),
                 ...(typeof rawFeatures.valuation_download === 'boolean'
                   ? { valuation_download: rawFeatures.valuation_download }
                   : {}),

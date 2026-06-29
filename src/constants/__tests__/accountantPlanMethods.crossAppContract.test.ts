@@ -187,9 +187,7 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
     expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'integrations_enabled')).toBe(
       false
     )
-    expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'valuation_synthesis')).toBe(
-      true
-    )
+    expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'valuation_synthesis')).toBe(true)
     expect(extractBooleanFeatureFromTitan(titanSource, 'PRO', 'integrations_enabled')).toBe(true)
     expect(extractBooleanFeatureFromTitan(titanSource, 'PRO', 'valuation_synthesis')).toBe(true)
   })

@@ -165,6 +165,88 @@ describe('useVersionHistoryStore', () => {
 
       expect(version.normalization_data?.['2025']?.reported_ebitda).toBe(100000)
     })
+
+    it('does not snapshot unreviewed imported addbacks that the valuation request would demote', async () => {
+      const { createVersion } = useVersionHistoryStore.getState()
+
+      useNormalizationStore.setState({
+        items: [
+          {
+            id: 'imported_sde_2025_610000_0',
+            ledgerCode: '610000',
+            ledgerName: 'Services et biens divers',
+            category: 'other',
+            type: 'add',
+            value: 221_500,
+            adjustment: 221_500,
+            status: 'accepted',
+            source: 'auto',
+            applyAllYears: false,
+            applyYears: [2025],
+            year: 2025,
+            confidence: 'high',
+          },
+        ],
+      })
+
+      const version = await createVersion({
+        reportId: 'val_test_123',
+        formData: {
+          filing_year_confirmed: true,
+          current_year_data: { year: 2025, revenue: 1_540_000, ebitda: 120_000 },
+        } as any,
+      })
+
+      expect(version.normalization_data).toBeUndefined()
+    })
+
+    it('snapshots imported addbacks after explicit review', async () => {
+      const { createVersion } = useVersionHistoryStore.getState()
+
+      useNormalizationStore.setState({
+        items: [
+          {
+            id: 'imported_sde_2025_610000_0',
+            ledgerCode: '610000',
+            ledgerName: 'Services et biens divers',
+            category: 'other',
+            type: 'add',
+            value: 221_500,
+            adjustment: 221_500,
+            status: 'accepted',
+            reviewedAt: '2026-06-29T10:00:00.000Z',
+            source: 'auto',
+            applyAllYears: false,
+            applyYears: [2025],
+            year: 2025,
+            confidence: 'high',
+          },
+        ],
+      })
+
+      const version = await createVersion({
+        reportId: 'val_test_123',
+        formData: {
+          filing_year_confirmed: true,
+          current_year_data: { year: 2025, revenue: 1_540_000, ebitda: 120_000 },
+        } as any,
+      })
+
+      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe(120_000)
+      expect(version.normalization_data?.['2025']?.total_adjustments).toBe(221_500)
+      expect(version.normalization_data?.['2025']?.adjustments[0]).toMatchObject({
+        amount: 221_500,
+        category: 'other_adjustments',
+        confidence: 'high',
+        frontend_id: 'imported_sde_2025_610000_0',
+        ledger_code: '610000',
+        ledger_name: 'Services et biens divers',
+        normalization_type: 'add',
+        normalization_value: 221_500,
+        reviewed_at: '2026-06-29T10:00:00.000Z',
+        source: 'auto',
+      })
+    })
   })
 
   describe('getActiveVersion', () => {

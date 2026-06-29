@@ -5,6 +5,7 @@ import {
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
+import { normalizeImportedLedgerReviewStatuses } from '../utils/importedLedgerNormalization'
 import { getNormalizationAmountForBase } from '../utils/normalizationMath'
 import { mapFrontendCategoryToBackend, useNormalizationStore } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
@@ -23,8 +24,8 @@ type VersionCurrentYearData = {
 function buildVersionSnapshotNormalizationData(
   request: CreateVersionRequest
 ): ValuationVersion['normalization_data'] | undefined {
-  const accepted = useNormalizationStore.getState().items.filter((n) => n.status === 'accepted')
-  if (accepted.length === 0) return undefined
+  const rawItems = useNormalizationStore.getState().items
+  if (rawItems.length === 0) return undefined
 
   const normalizedHistoricalYearData = normalizeHistoricalYearsForFiling(
     request.formData?.historical_years_data,
@@ -56,6 +57,12 @@ function buildVersionSnapshotNormalizationData(
     }
   })
 
+  const allDataYearsSet = new Set(allDataYears)
+  const accepted = normalizeImportedLedgerReviewStatuses(rawItems, yearEbitdaMap).filter(
+    (n) => n.status === 'accepted'
+  )
+  if (accepted.length === 0) return undefined
+
   const yearGroups: Record<number, typeof accepted> = {}
   for (const item of accepted) {
     const yearsToApply: number[] = item.applyAllYears
@@ -64,6 +71,7 @@ function buildVersionSnapshotNormalizationData(
         ? item.applyYears
         : [item.year]
     for (const year of yearsToApply) {
+      if (!allDataYearsSet.has(year)) continue
       if (!yearGroups[year]) yearGroups[year] = []
       yearGroups[year].push(item)
     }
@@ -84,8 +92,15 @@ function buildVersionSnapshotNormalizationData(
         category: mapFrontendCategoryToBackend(item.category, item.backendCategory),
         amount: getNormalizationAmountForBase(item, reportedEbitda),
         note: item.reason,
+        confidence: item.confidence,
         ledger_code: item.ledgerCode || undefined,
         ledger_name: item.ledgerName || undefined,
+        source: item.source,
+        source_ref: item.sourceRef || undefined,
+        reviewed_at: item.reviewedAt,
+        frontend_id: item.id,
+        normalization_type: item.type,
+        normalization_value: item.value,
       })),
       custom_adjustments: [],
       confidence_score: items[0]?.confidence || 'medium',

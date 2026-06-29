@@ -23,6 +23,13 @@ export const OWNER_FOUNDER_METHOD_KEYS = [
  * literals in sync; the matrix is part of the cross-app role contract.
  */
 const ACCOUNTANT_TIER_ROLE_KEYS = new Set<string>(['accountant', 'expert', 'enterprise', 'admin'])
+const ADVISOR_PRO_VALUATION_ACCESS_PLAN_KEYS = new Set<string>([
+  'owner_grow',
+  'owner_sell',
+  'pro',
+  'expert',
+  'enterprise',
+])
 
 /**
  * True when the user's role grants the full advisor method navigation.
@@ -59,12 +66,38 @@ export function showAdvisorCalculatorSurface(
 }
 
 /**
+ * Plan-level capability gate for the Pro valuation surface.
+ *
+ * This is intentionally separate from {@link showAdvisorCalculatorSurface}:
+ * a Grow owner should get the Pro method/control set without becoming an
+ * advisor audience for copy, client-context actions, or attest/approval flows.
+ */
+export function planGrantsAdvisorProValuationAccess(planType: string | null | undefined): boolean {
+  return ADVISOR_PRO_VALUATION_ACCESS_PLAN_KEYS.has(normalizeAccountantPlanTypeKey(planType))
+}
+
+export function showFullValuationMethodAccess({
+  isAccountantForClient,
+  planType,
+  userRole,
+}: {
+  isAccountantForClient: boolean
+  planType: string | null | undefined
+  userRole: string | null | undefined
+}): boolean {
+  return (
+    showAdvisorCalculatorSurface(isAccountantForClient, userRole) ||
+    planGrantsAdvisorProValuationAccess(planType)
+  )
+}
+
+/**
  * Nav methods shown to owners; accountants keep full firm list.
  *
- * `showFullAdvisorList` should be `true` whenever the *current viewer* is an
- * accountant-tier role **or** is acting on behalf of a client. Prefer
- * {@link showAdvisorCalculatorSurface} at call sites so startup panel mode
- * and nav stay aligned.
+ * `showFullAdvisorList` should be `true` whenever the current viewer has the
+ * full valuation method capability: advisor audience, client-context advisor,
+ * or paid owner lifecycle plan. Prefer {@link showFullValuationMethodAccess}
+ * for method nav; keep audience-only UI on {@link showAdvisorCalculatorSurface}.
  */
 export function filterPreSelectableMethodsForOwnerFounder(
   methods: readonly string[],
@@ -76,7 +109,7 @@ export function filterPreSelectableMethodsForOwnerFounder(
 }
 
 /** Trim + lowercase; empty input resolves like Titan free tier. */
-export function normalizeAccountantPlanTypeKey(planType: string | undefined): string {
+export function normalizeAccountantPlanTypeKey(planType: string | null | undefined): string {
   if (planType == null || planType === '') return 'free'
   const key = planType.trim().toLowerCase()
   // Legacy advisor upgrade tokens predate the Starter/Pro split. Treat generic paid

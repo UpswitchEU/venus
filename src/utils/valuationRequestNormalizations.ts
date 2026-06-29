@@ -29,31 +29,27 @@ export function buildValuationRequestNormalizations({
 }: BuildValuationRequestNormalizationsParams): Record<number, NormYearEntry> {
   const allItems = normalizeImportedLedgerReviewStatuses(rawNormalizationItems, yearEbitdaMap)
   const acceptedNorms = allItems.filter((n) => n.status === 'accepted')
+  const pendingNorms = allItems.filter((n) => n.status === 'pending')
 
-  // Prevent visible-but-unaccepted adjustments from silently disappearing from the valuation.
-  if (
-    allItems.length > 0 &&
-    acceptedNorms.length === 0 &&
-    Object.keys(legacyNormalizations || {}).length === 0
-  ) {
-    const visibleAdjustment = allItems.reduce(
+  // Pending suggestions are advisory until accepted. Do not block the report:
+  // run on reported EBITDA, while logging enough context to explain why the
+  // visible pending addbacks were not included in normalized EBITDA.
+  if (pendingNorms.length > 0) {
+    const visibleAdjustment = pendingNorms.reduce(
       (sum, n) => sum + (toFiniteNumber(n.adjustment) ?? 0),
       0
     )
     generalLogger.warn(
-      '[buildValuationRequest] Normalization integrity guard: items visible to user but none applied to request',
+      '[buildValuationRequest] Pending normalizations left unapplied; proceeding with reported EBITDA',
       {
         business_name: companyName,
-        visible_count: allItems.length,
-        visible_total_adjustment: visibleAdjustment,
+        pending_count: pendingNorms.length,
+        pending_total_adjustment: visibleAdjustment,
+        accepted_count: acceptedNorms.length,
+        legacy_normalization_years: Object.keys(legacyNormalizations || {}).length,
         statuses: Array.from(new Set(allItems.map((n) => n.status ?? 'undefined'))),
-        note: 'Valuation will use unnormalized EBITDA. Confirm the user accepted these adjustments before submitting.',
+        note: 'Pending adjustments are omitted from normalized EBITDA until accepted.',
       }
-    )
-    throw new ValidationError(
-      'Normalizations are present but none are accepted. Review, accept, or remove them before generating the valuation report.',
-      'normalizations',
-      allItems.map((n) => ({ id: n.id, status: n.status ?? 'undefined', year: n.year }))
     )
   }
 

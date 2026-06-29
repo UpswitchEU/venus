@@ -35,6 +35,18 @@ describe('applyUserVsOfficialVariance', () => {
     expect(out.varianceAnalysis?.explanationRequired).toBe(false)
   })
 
+  it('ignores revenue variance when the official filing value is a gross-margin proxy', () => {
+    const out = applyUserVsOfficialVariance(
+      { ...baseOfficial, revenue: 102_368.9, revenueSource: 'gross_margin' },
+      1_000_000,
+      100_000
+    )
+
+    expect(out.varianceAnalysis?.revenueVariancePercent).toBeUndefined()
+    expect(out.varianceAnalysis?.state).toBe('not_required')
+    expect(out.varianceAnalysis?.explanationRequired).toBe(false)
+  })
+
   it('keeps explained state when variance stays material and explanation exists', () => {
     const out = applyUserVsOfficialVariance({ ...baseOfficial }, 1_200_000, 100_000, {
       state: 'explained',

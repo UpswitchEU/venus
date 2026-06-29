@@ -381,8 +381,18 @@ function applyOfficialFinancialsPrefill(
 
   if (officialFinancials?.historicalYears && officialFinancials.historicalYears.length > 0) {
     useNbbPrefillStore.getState().setFromHistoricalYears(officialFinancials.historicalYears)
+    const snapshotsCount = Object.keys(useNbbPrefillStore.getState().yearSnapshots).length
+    if (snapshotsCount === 0) {
+      logger.info('Skipped NBB prefill store population from CBSO multi-year data', {
+        yearsCount: officialFinancials.historicalYears.length,
+        years: officialFinancials.historicalYears.map((y) => y.fiscalYear),
+        reason: 'no_usable_revenue_or_ebitda',
+      })
+      return
+    }
     logger.info('Populated NBB prefill store from CBSO multi-year data', {
       yearsCount: officialFinancials.historicalYears.length,
+      snapshotsCount,
       years: officialFinancials.historicalYears.map((y) => y.fiscalYear),
     })
   }

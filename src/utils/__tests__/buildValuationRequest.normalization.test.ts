@@ -9,53 +9,53 @@ describe('buildValuationRequest normalization integrity guards', () => {
     vi.useRealTimers()
   })
 
-  // ─── Normalization integrity guard ─────────────────────────────────────────
-  // Regression for the Metaalbewerking / Silverfin demo class of incidents:
-  // visible normalizations in the store with status !== 'accepted' would
-  // silently drop from the request, the valuation would run on unnormalized
-  // EBITDA, and the report would look successful but be wrong.
-  it('blocks report generation when items are visible but none reach the request', async () => {
+  // ─── Pending normalization handling ────────────────────────────────────────
+  // Pending suggestions are advisory. They should not silently alter EBITDA, but
+  // they also should not trap the advisor when the intended path is to continue
+  // on reported EBITDA.
+  it('continues on reported EBITDA when visible items are still pending', async () => {
     const loggerModule = await import('../logger')
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
 
     const lastFullYear = getCurrentFilingYear()
-    expect(() =>
-      buildValuationRequest(
-        makeFormData({
+    const result = buildValuationRequest(
+      makeFormData({
+        ebitda: 290_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_950_000,
           ebitda: 290_000,
-          current_year_data: {
-            year: lastFullYear,
-            revenue: 1_950_000,
-            ebitda: 290_000,
-          },
-        }),
-        [
-          // Pending — displayed to the advisor but not safe for the report.
-          {
-            id: 'norm-pending-1',
-            title: 'Owner compensation',
-            rationale: 'Above-market owner salary',
-            category: 'salary',
-            type: 'add',
-            value: 280_000,
-            adjustment: 280_000,
-            year: lastFullYear,
-            status: 'pending',
-            source: 'manual',
-            confidence: 'high',
-            createdAt: new Date().toISOString(),
-          },
-        ]
-      )
-    ).toThrow(/Normalizations are present but none are accepted/)
+        },
+      }),
+      [
+        // Pending — displayed to the advisor but not applied to the report.
+        {
+          id: 'norm-pending-1',
+          title: 'Owner compensation',
+          rationale: 'Above-market owner salary',
+          category: 'salary',
+          type: 'add',
+          value: 280_000,
+          adjustment: 280_000,
+          year: lastFullYear,
+          status: 'pending',
+          source: 'manual',
+          confidence: 'high',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    )
+
+    expect(result.current_year_data.ebitda).toBe(290_000)
+    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
 
     const matched = warnSpy.mock.calls.find(
-      ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
+      ([msg]) => typeof msg === 'string' && msg.includes('Pending normalizations left unapplied')
     )
     expect(matched).toBeDefined()
     const ctx = matched?.[1] as Record<string, unknown> | undefined
-    expect(ctx?.visible_count).toBe(1)
-    expect(ctx?.visible_total_adjustment).toBe(280_000)
+    expect(ctx?.pending_count).toBe(1)
+    expect(ctx?.pending_total_adjustment).toBe(280_000)
 
     warnSpy.mockRestore()
   })
@@ -93,50 +93,51 @@ describe('buildValuationRequest normalization integrity guards', () => {
     )
 
     const matched = warnSpy.mock.calls.find(
-      ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
+      ([msg]) => typeof msg === 'string' && msg.includes('Pending normalizations left unapplied')
     )
     expect(matched).toBeUndefined()
 
     warnSpy.mockRestore()
   })
 
-  it('rechecks legacy accepted imported addbacks before applying them to EBITDA', async () => {
+  it('demotes unreviewed legacy imported addbacks and continues on reported EBITDA', async () => {
     const loggerModule = await import('../logger')
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
 
     const lastFullYear = getCurrentFilingYear()
-    expect(() =>
-      buildValuationRequest(
-        makeFormData({
+    const result = buildValuationRequest(
+      makeFormData({
+        ebitda: 260_000,
+        current_year_data: {
+          year: lastFullYear,
+          revenue: 1_800_000,
           ebitda: 260_000,
-          current_year_data: {
-            year: lastFullYear,
-            revenue: 1_800_000,
-            ebitda: 260_000,
-          },
-        }),
-        [
-          {
-            id: `imported_sde_${lastFullYear}_610000_0`,
-            ledgerCode: '610000',
-            ledgerName: 'Services and other goods',
-            category: 'other',
-            type: 'add',
-            value: 206_000,
-            adjustment: 206_000,
-            year: lastFullYear,
-            applyAllYears: false,
-            applyYears: [lastFullYear],
-            status: 'accepted',
-            source: 'auto',
-            confidence: 'high',
-          },
-        ]
-      )
-    ).toThrow(/Normalizations are present but none are accepted/)
+        },
+      }),
+      [
+        {
+          id: `imported_sde_${lastFullYear}_610000_0`,
+          ledgerCode: '610000',
+          ledgerName: 'Services and other goods',
+          category: 'other',
+          type: 'add',
+          value: 206_000,
+          adjustment: 206_000,
+          year: lastFullYear,
+          applyAllYears: false,
+          applyYears: [lastFullYear],
+          status: 'accepted',
+          source: 'auto',
+          confidence: 'high',
+        },
+      ]
+    )
+
+    expect(result.current_year_data.ebitda).toBe(260_000)
+    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
 
     const matched = warnSpy.mock.calls.find(
-      ([msg]) => typeof msg === 'string' && msg.includes('Normalization integrity guard')
+      ([msg]) => typeof msg === 'string' && msg.includes('Pending normalizations left unapplied')
     )
     expect(matched).toBeDefined()
 

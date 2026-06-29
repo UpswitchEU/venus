@@ -124,6 +124,8 @@ interface ManualInputPanelProps {
   onSynthesisPaywall?: () => void
   /** Live accounting integrations are Pro+; skip background status polling when locked. */
   integrationsEnabled?: boolean
+  /** Grow owners and advisor Pro+ users get the full Pro valuation controls. */
+  hasAdvisorProValuationAccess?: boolean
 }
 
 export function ManualInputPanel({
@@ -146,13 +148,14 @@ export function ManualInputPanel({
   synthesisValuationResults,
   onSynthesisPaywall,
   integrationsEnabled = false,
+  hasAdvisorProValuationAccess = false,
 }: ManualInputPanelProps) {
   const { user } = useAuth()
-  // A professional operator (accountant/advisor acting for a client, or an
-  // accountant-tier role) enters figures directly: hide the owner self-serve
-  // autofill doors and surface the preparer multiple override instead.
+  // Professional operators and Grow/Sell owners can use the Pro valuation
+  // controls: segment-level multiple overrides and advisor expert defaults.
   const isActingAsClient = useClientContext((s) => s.isActingAsClient && Boolean(s.relationshipId))
   const isProfessionalOperator = isActingAsClient || isAccountantTierRole(user?.role)
+  const advisorProValuationControlsEnabled = hasAdvisorProValuationAccess || isProfessionalOperator
   const t = useTranslations()
   const mi = useTranslations('manualInput')
   const tKbo = useTranslations('forms.kboLookup')
@@ -190,12 +193,10 @@ export function ManualInputPanel({
   )
   const {
     bizzcontrolImport,
-    handleOpenLiveAccountingImport,
     importAccountingError,
     importBatchData,
     liveImportProviderName,
     octopusImport,
-    openingLiveAccountingImport,
   } = useManualAccountingImportController({
     currentFilingYear,
     integrationsEnabled,
@@ -524,7 +525,7 @@ export function ManualInputPanel({
               selectedBusinessTypeIds={selectedBusinessTypeIds}
               effectiveMethods={effectiveMethods}
               handleBusinessTypeSelectionChange={handleBusinessTypeSelectionChange}
-              allowMultipleOverride={isProfessionalOperator}
+              allowMultipleOverride={advisorProValuationControlsEnabled}
             />
 
             <OwnershipStructureSection
@@ -540,7 +541,6 @@ export function ManualInputPanel({
               acceptedNormCount={acceptedNormCount}
               adaptiveDcfGlobalStep={adaptiveHeaderSteps.dcfGlobal}
               baseFilingYearForLabels={baseFilingYearForLabels}
-              bizzcontrolImport={bizzcontrolImport}
               currentFilingYear={currentFilingYear}
               dcfDefaultsProvenance={dcfDefaultsProvenance}
               dcfForecastDefaultsStep={dcfForecastDefaultsStep}
@@ -555,34 +555,28 @@ export function ManualInputPanel({
               formData={formData}
               formatCurrency={formatCurrency}
               handleDcfInputModeChange={handleDcfInputModeChange}
-              handleOpenLiveAccountingImport={handleOpenLiveAccountingImport}
               handleSelectFilingYear={handleSelectFilingYear}
               handleTerminalValueMethodChange={handleTerminalValueMethodChange}
               hasBusinessType={hasBusinessType}
               hasDcfSelected={hasDcfSelected}
               hasEbitdaValue={hasEbitdaValue}
               hasFinancials={hasFinancials}
-              hasImportedAccountingData={importBatchData != null}
               historicalCardRows={historicalCardRows}
               importAccountingError={importAccountingError}
               integrationDerivedCapexPct={integrationDerivedCapexPct}
               integrationDerivedDaPct={integrationDerivedDaPct}
-              integrationsEnabled={integrationsEnabled}
               isCalculating={isCalculating}
               latestHistoricalEbitda={latestHistoricalEbitda}
               latestHistoricalRevenue={latestHistoricalRevenue}
               liveImportProviderName={liveImportProviderName}
               normalizedData={normalizedData}
-              octopusImport={octopusImport}
               onFieldHelpRequest={onFieldHelpRequest}
               onViewAllNormalizations={onViewAllNormalizations}
-              openingLiveAccountingImport={openingLiveAccountingImport}
               partialYears={partialYears}
               requestRemoveHistoricalYear={requestRemoveHistoricalYear}
               selectedCompany={selectedCompany}
               setFormData={setFormData}
               setShowForecastRemovalConfirm={setShowForecastRemovalConfirm}
-              showOwnerAutofillDoors={!isProfessionalOperator}
               taxLatencyCount={taxLatencyCount}
               terminalValueMethod={terminalValueMethod}
               totalYearsWithEbitda={totalYearsWithEbitda}
@@ -593,7 +587,7 @@ export function ManualInputPanel({
             <ManualInputMethodSections
               adaptiveHeaderSteps={adaptiveHeaderSteps}
               advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
-              advisorExpertModeDefault={isAccountantTierRole(user?.role)}
+              advisorExpertModeDefault={advisorProValuationControlsEnabled}
               balanceSheetCarveOutStep={balanceSheetCarveOutStep}
               canApplyDcfProjectionAutofill={canApplyDcfProjectionAutofill}
               disabled={isCalculating}

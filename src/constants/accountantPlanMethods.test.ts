@@ -5,8 +5,10 @@ import {
   isAccountantTierRole,
   normalizeAccountantPlanTypeKey,
   OWNER_FOUNDER_METHOD_KEYS,
+  planGrantsAdvisorProValuationAccess,
   resolveAllowedMethodKeys,
   showAdvisorCalculatorSurface,
+  showFullValuationMethodAccess,
 } from './accountantPlanMethods'
 
 describe('normalizeAccountantPlanTypeKey', () => {
@@ -115,6 +117,66 @@ describe('showAdvisorCalculatorSurface', () => {
     expect(showAdvisorCalculatorSurface(false, 'seller')).toBe(false)
     expect(showAdvisorCalculatorSurface(false, null)).toBe(false)
     expect(showAdvisorCalculatorSurface(false, undefined)).toBe(false)
+  })
+})
+
+describe('planGrantsAdvisorProValuationAccess', () => {
+  it.each([
+    'grow',
+    'owner_grow',
+    'sell',
+    'owner_sell',
+    'premium',
+    'pro',
+    'expert',
+    'enterprise',
+  ])('grants Pro valuation access for %s', (planType) => {
+    expect(planGrantsAdvisorProValuationAccess(planType)).toBe(true)
+  })
+
+  it.each([
+    'free',
+    'owner_free',
+    'starter',
+    'accountant_paid',
+    'accountant_pro',
+    null,
+    undefined,
+  ])('does not grant Pro valuation access for %s', (planType) => {
+    expect(planGrantsAdvisorProValuationAccess(planType)).toBe(false)
+  })
+})
+
+describe('showFullValuationMethodAccess', () => {
+  it('lets a Grow business owner use the full advisor valuation method surface', () => {
+    expect(
+      showFullValuationMethodAccess({
+        isAccountantForClient: false,
+        planType: 'owner_grow',
+        userRole: 'seller',
+      })
+    ).toBe(true)
+    expect(showAdvisorCalculatorSurface(false, 'seller')).toBe(false)
+  })
+
+  it('keeps a Free business owner on the founder method surface', () => {
+    expect(
+      showFullValuationMethodAccess({
+        isAccountantForClient: false,
+        planType: 'free',
+        userRole: 'seller',
+      })
+    ).toBe(false)
+  })
+
+  it('still grants full valuation access for advisor audience roles', () => {
+    expect(
+      showFullValuationMethodAccess({
+        isAccountantForClient: false,
+        planType: 'free',
+        userRole: 'accountant',
+      })
+    ).toBe(true)
   })
 })
 

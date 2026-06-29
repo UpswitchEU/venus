@@ -85,7 +85,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   useManualPanelStorageReset()
   useManualToastMessageLifecycle(t)
   const { user } = useAuth()
-  const { allowedMethodKeys, planFeatures } = useCredits()
+  const { allowedMethodKeys, normalizedPlanType, planFeatures } = useCredits()
   const { identity, isAccountantFlow } = useBootstrap()
   const { readOnlyKbo, autoAdvancePastPrefilledSteps } = useBootstrapPrefill()
   useSessionOptionalMethodPrefill()
@@ -143,6 +143,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     canDownloadPdf,
     currentYearRevenueForMethodNav,
     ebitdaNormalizationLocked,
+    isAdvisorAudience,
     planLockedMethodKeys,
     preSelectableMethodsForNav,
     showFullAdvisorMethodNav,
@@ -155,6 +156,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     isAccountantFlow,
     isAccountantMode,
     planFeatures,
+    planType: normalizedPlanType,
     preSelectedMethod,
     selectedMethod,
     userRole: user?.role,
@@ -674,6 +676,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
       handleRetry,
       handleShowNormalisationReview,
       hasReport: !!report,
+      hasAdvisorProValuationAccess: showFullAdvisorMethodNav,
       isAccountantMode,
       isCalculating,
       isChatGenerating,
@@ -860,6 +863,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
         handleUnifiedNormalizationModalOpenChange,
         hasImportedNormalizationData,
         isAccountantMode,
+        isAdvisorAudience,
         isCalculating,
         isConfirmingNewValuation,
         isExporting,

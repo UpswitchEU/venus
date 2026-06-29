@@ -10,10 +10,9 @@
  * Keeps the venture flow modular: the SME panel stays untouched and the
  * startup form does not have to share its 4.6k-line shell.
  *
- * The startup panel supports ``founder`` vs ``advisor`` surfaces; mode is
- * ``showAdvisorCalculatorSurface(isAccountantForClient, user.role)`` so it
- * stays aligned with ``ManualLayout`` nav filtering and founder-dashboard
- * gating (single contract — no drift).
+ * The startup panel supports ``founder`` vs ``advisor`` surfaces. Advisor mode
+ * is enabled for advisor audience and paid-owner Pro valuation access because
+ * some sections hide advanced valuation controls behind that mode.
  *
  * Single shell: prior versions of this orchestrator redirected
  * pre-revenue users to a separate `/[locale]/startup-valuation` Studio
@@ -405,16 +404,15 @@ export function StartupAwareInputPanel(props: StartupAwareInputPanelProps) {
   } = props
   const effectiveMethod = useManualResultsStore((s) => s.preSelectedMethod ?? s.selectedMethod)
   // ``useBootstrapSafe`` may be null (tests, Storybook). ``useAuth`` supplies
-  // role for standalone advisors — same helper as ``ManualLayout``'s
-  // ``showFullAdvisorMethodNav`` (`showAdvisorCalculatorSurface`).
+  // role for standalone advisors. Paid-owner Pro access also enables the
+  // advanced startup valuation controls, while modal/paywall audience copy is
+  // still handled separately in ManualLayout.
   const bootstrap = useBootstrapSafe()
   const { user } = useAuth()
-  const startupMode: 'founder' | 'advisor' = showAdvisorCalculatorSurface(
-    Boolean(bootstrap?.isAccountantFlow),
-    user?.role
-  )
-    ? 'advisor'
-    : 'founder'
+  const hasStartupAdvisorControls =
+    showAdvisorCalculatorSurface(Boolean(bootstrap?.isAccountantFlow), user?.role) ||
+    manualInputPanelProps.hasAdvisorProValuationAccess === true
+  const startupMode: 'founder' | 'advisor' = hasStartupAdvisorControls ? 'advisor' : 'founder'
 
   const isCalculating = useManualResultsStore((s) => s.isCalculating)
 

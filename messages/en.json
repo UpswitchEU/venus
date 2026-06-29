@@ -1460,46 +1460,6 @@
 		"determiningValue": "Determining value...",
 		"updatingValue": "Updating value...",
 		"liveAccountingImportHint": "Pull or refresh historical figures from your connected {provider} account.",
-		"inviteAccountant": {
-			"prompt": "Don't have the figures to hand? Ask your accountant to fill them in.",
-			"cta": "Ask my accountant",
-			"title": "Invite your accountant",
-			"description": "Enter their email — we'll send a secure link to connect their tool or type the figures for you.",
-			"emailLabel": "Accountant email",
-			"emailPlaceholder": "name@accountancy.be",
-			"messageLabel": "Personal note (optional)",
-			"messagePlaceholder": "A short note for context. Leave empty to send the default invite.",
-			"send": "Send invite",
-			"sending": "Sending…",
-			"cancel": "Cancel",
-			"invalidEmail": "Enter a valid email address.",
-			"missingEmail": "Accountant email is required.",
-			"tooLong": "Personal note must be {max} characters or fewer.",
-			"sentTitle": "Invite sent",
-			"sentBody": "We'll let you know when {email} connects or fills in your figures.",
-			"genericError": "Could not send the invite. Please try again."
-		},
-		"connectAccounting": {
-			"descriptionConnected": "{provider} is connected — import your last 3 years of revenue and EBITDA, verified.",
-			"descriptionDisconnected": "Connect Yuki, Exact, Silverfin and more — we pull 3 years of revenue and EBITDA for you. Verified, no typing.",
-			"connectCta": "Connect accounting",
-			"autofillReassurance": "Once connected, your figures fill in here automatically — just come back to this step.",
-			"upgradeDescription": "Grow unlocks accounting import — pull 3 years of revenue and EBITDA without typing.",
-			"upgradeCta": "Upgrade to Grow",
-			"upgradeReassurance": "You can keep entering figures manually or invite your accountant below.",
-			"verifiedTitle": "Verified from your accounting",
-			"verifiedBody": "Your figures came straight from {provider} — no manual entry.",
-			"genericProvider": "your accounting software"
-		},
-		"registryEstimate": {
-			"prompt": "Don't know your figures? Get a ballpark from public registry data.",
-			"cta": "Estimate it for me",
-			"loading": "Estimating from public data…",
-			"bandTitle": "Provisional estimate (public data)",
-			"bandCaveat": "A rough band derived from registry data — low confidence. Connect your accounting or invite your accountant above for an accurate number.",
-			"unavailableTitle": "No public estimate available",
-			"unavailableBody": "We couldn't derive a band from public data for this company. Connect your accounting or invite your accountant above to get your number."
-		},
 		"silverfin": {
 			"importBatchSuccessTitle": "Imported {years} fiscal years from {provider}",
 			"importBatchSuccessDescription": "Trial balance mapped: {score}% match with Belgian MAR"
@@ -2254,14 +2214,7 @@
 		"methodDataPlan": {
 			"title": "Recommended data",
 			"subtitle": "What you can still provide to unlock or sharpen each selected method.",
-			"allUnlocked": "All selected methods have enough data.",
-			"doorsTitle": "Autofill",
-			"comingSoon": "Coming soon",
-			"doors": {
-				"connectAccounting": "Connect accounting",
-				"inviteAccountant": "Invite accountant",
-				"registryEstimate": "Estimate via registry"
-			}
+			"allUnlocked": "All selected methods have enough data."
 		}
 	},
 	"toast": {
@@ -3003,10 +2956,7 @@
 		"openHub": "Open Normalization Hub",
 		"pendingSuggestions": "{count} suggestion awaiting review",
 		"pendingSuggestionsPlural": "{count} suggestions awaiting review",
-		"bulkAcceptImportedBlocked": "{count} import correction must be accepted individually.",
-		"bulkAcceptImportedBlockedPlural": "{count} import corrections must be accepted individually.",
 		"back": "Back",
-		"reviewFirst": "Review first ({count} pending)",
 		"continueToEstimate": "Continue to Estimate",
 		"ebitdaNormalizations": "EBITDA Normalizations",
 		"modalTitle": "Normalizations & Adjustments",
@@ -3047,7 +2997,6 @@
 		"allYears": "All years",
 		"totalImpact": "Total impact",
 		"pendingToReview": "to review",
-		"reviewAllToContinue": "Review all normalizations to continue",
 		"noNormalizationsDetected": "No normalizations detected",
 		"noAdjustmentsInData": "The imported data shows no adjustment opportunities.",
 		"addManually": "Add manually",

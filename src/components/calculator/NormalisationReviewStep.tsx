@@ -379,18 +379,16 @@ export function NormalisationReviewStep({
             className="flex-1 gap-2"
             onClick={handleContinue}
             loading={isProcessing}
-            disabled={isProcessing || pendingCount > 0}
+            disabled={isProcessing}
           >
-            {pendingCount > 0
-              ? `${pendingCount} ${nh('pendingToReview')}`
-              : nh('continueToEstimate')}
-            {pendingCount === 0 && <ChevronRight className="w-4 h-4" />}
+            {nh('continueToEstimate')}
+            <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
 
         {pendingCount > 0 && (
           <p className="text-center text-[10px] md:text-xs text-foreground/40 mt-2">
-            {nh('reviewAllToContinue')}
+            {pendingCount} {nh('pendingToReview')}
           </p>
         )}
       </div>

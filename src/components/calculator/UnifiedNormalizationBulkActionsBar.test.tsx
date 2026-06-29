@@ -7,12 +7,6 @@ vi.mock('next-intl', () => ({
     if (namespace === 'normalizationHub') {
       if (key === 'bulkSelected') return `${values?.count ?? '?'} selected`
       if (key === 'bulkDeselect') return 'Deselect'
-      if (key === 'bulkAcceptImportedBlocked') {
-        return `${values?.count ?? '?'} import correction must be accepted individually.`
-      }
-      if (key === 'bulkAcceptImportedBlockedPlural') {
-        return `${values?.count ?? '?'} import corrections must be accepted individually.`
-      }
     }
     if (namespace === 'chatAssistant') {
       if (key === 'accept') return 'Accept'
@@ -24,13 +18,12 @@ vi.mock('next-intl', () => ({
 }))
 
 describe('UnifiedNormalizationBulkActionsBar', () => {
-  it('blocks bulk accept for imported ledger corrections that need row-level review', () => {
+  it('allows bulk accept for selected rows', () => {
     const onBulkUpdateStatus = vi.fn()
 
     render(
       <UnifiedNormalizationBulkActionsBar
         selectedCount={2}
-        bulkAcceptBlockedCount={1}
         onDeselectAll={vi.fn()}
         onBulkUpdateStatus={onBulkUpdateStatus}
         onBulkDelete={vi.fn()}
@@ -38,28 +31,27 @@ describe('UnifiedNormalizationBulkActionsBar', () => {
     )
 
     const acceptButton = screen.getByRole('button', { name: 'Accept' })
-    expect(acceptButton).toBeDisabled()
-    expect(
-      screen.getByText('1 import correction must be accepted individually.')
-    ).toBeInTheDocument()
-
     fireEvent.click(acceptButton)
-    expect(onBulkUpdateStatus).not.toHaveBeenCalled()
+    expect(onBulkUpdateStatus).toHaveBeenCalledWith('accepted')
   })
 
-  it('allows bulk accept when selected rows do not need individual import review', () => {
+  it('keeps reject and remove actions available beside accept', () => {
     const onBulkUpdateStatus = vi.fn()
+    const onBulkDelete = vi.fn()
 
     render(
       <UnifiedNormalizationBulkActionsBar
         selectedCount={2}
         onDeselectAll={vi.fn()}
         onBulkUpdateStatus={onBulkUpdateStatus}
-        onBulkDelete={vi.fn()}
+        onBulkDelete={onBulkDelete}
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
-    expect(onBulkUpdateStatus).toHaveBeenCalledWith('accepted')
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(onBulkUpdateStatus).toHaveBeenCalledWith('rejected')
+    expect(onBulkDelete).toHaveBeenCalled()
   })
 })

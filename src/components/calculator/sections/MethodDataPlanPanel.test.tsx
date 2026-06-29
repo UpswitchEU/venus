@@ -8,12 +8,6 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
-// Controllable BET-312 door capability (hoisted so the mock factory can read it).
-const { doorsEnabledRef } = vi.hoisted(() => ({ doorsEnabledRef: { value: false } }))
-vi.mock('@/config/features', () => ({
-  isBet312AutofillDoorsEnabled: () => doorsEnabledRef.value,
-}))
-
 // Tiny method-label map so the test doesn't pull the whole method registry.
 vi.mock('@/constants/methodLabels', () => ({
   METHOD_LABEL_KEYS: {
@@ -34,7 +28,6 @@ const planNeedingInput: MethodWeightsDataPlan = {
 describe('MethodDataPlanPanel', () => {
   afterEach(() => {
     cleanup()
-    doorsEnabledRef.value = false
     vi.clearAllMocks()
   })
 
@@ -72,23 +65,8 @@ describe('MethodDataPlanPanel', () => {
     expect(screen.getByText('methodDataPlan.allUnlocked')).toBeInTheDocument()
   })
 
-  it('greys the BET-312 doors with a coming-soon badge while the flag is off', () => {
+  it('does not render owner autofill doors', () => {
     render(<MethodDataPlanPanel methodDataPlan={planNeedingInput} />)
-    expect(screen.getByText('methodDataPlan.comingSoon')).toBeInTheDocument()
-    expect(
-      screen.getByText('methodDataPlan.doors.connectAccounting').closest('button')
-    ).toBeDisabled()
-    expect(
-      screen.getByText('methodDataPlan.doors.inviteAccountant').closest('button')
-    ).toBeDisabled()
-  })
-
-  it('enables the doors and drops the badge when the BET-312 flag is on', () => {
-    doorsEnabledRef.value = true
-    render(<MethodDataPlanPanel methodDataPlan={planNeedingInput} />)
-    expect(screen.queryByText('methodDataPlan.comingSoon')).not.toBeInTheDocument()
-    expect(
-      screen.getByText('methodDataPlan.doors.connectAccounting').closest('button')
-    ).not.toBeDisabled()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })

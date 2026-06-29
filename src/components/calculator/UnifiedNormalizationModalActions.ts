@@ -46,17 +46,13 @@ export function bulkUpdateNormalizationStatus({
     if (!selectedIds.has(item.id)) return item
 
     const requiresIndividualReview = requiresIndividualImportedNormalizationReview(item)
-    const isBlockedImportedBulkAccept =
-      status === 'accepted' && item.status !== 'accepted' && requiresIndividualReview
 
     return {
       ...item,
-      status: isBlockedImportedBulkAccept ? item.status : status,
+      status,
       ...(requiresIndividualReview
         ? reviewedAt
-          ? item.status !== 'accepted'
-            ? {}
-            : { reviewedAt }
+          ? { reviewedAt }
           : { reviewedAt: undefined }
         : {}),
     }

@@ -117,8 +117,19 @@ export function defaultPlanFeatures(planType: string | undefined): PlanFeatureFl
   }
 }
 
+export function resolvePlanFeatures(
+  planType: string | undefined,
+  planFeatures: Partial<PlanFeatureFlags> | null | undefined
+): PlanFeatureFlags {
+  const base = defaultPlanFeatures(planType)
+  if (!planFeatures) return base
+  return { ...base, ...planFeatures }
+}
+
 interface CreditContextValue {
   plan: UserPlan | null
+  /** Canonical plan key once a plan source has resolved; null while unknown. */
+  normalizedPlanType: string | null
   creditsRemaining: number
   isPremium: boolean
   /** Null = all methods; string[] = only these keys (Free tier) */
@@ -335,13 +346,12 @@ export const useCredits = (): CreditContextValue => {
     return () => window.removeEventListener('message', handler)
   }, [loadCredits])
 
+  const normalizedPlanType = plan ? normalizeAccountantPlanTypeKey(plan.plan_type) : null
+
   const allowedMethodKeys = useMemo(() => {
     if (UNLIMITED_CREDITS_MODE) return null
-    return resolveAllowedMethodKeys(
-      plan?.allowed_methods,
-      normalizeAccountantPlanTypeKey(plan?.plan_type)
-    )
-  }, [plan?.allowed_methods, plan?.plan_type])
+    return resolveAllowedMethodKeys(plan?.allowed_methods, normalizedPlanType ?? 'free')
+  }, [plan?.allowed_methods, normalizedPlanType])
 
   const planFeatures = useMemo((): PlanFeatureFlags | null => {
     if (UNLIMITED_CREDITS_MODE) {
@@ -358,11 +368,7 @@ export const useCredits = (): CreditContextValue => {
       }
     }
     if (!plan) return null
-    const base = defaultPlanFeatures(plan.plan_type)
-    if (plan.plan_features) {
-      return { ...base, ...plan.plan_features }
-    }
-    return base
+    return resolvePlanFeatures(plan.plan_type, plan.plan_features)
   }, [plan])
 
   const yearlyDiscountPercent = useMemo((): number | null => {
@@ -380,8 +386,9 @@ export const useCredits = (): CreditContextValue => {
 
   return {
     plan,
+    normalizedPlanType,
     creditsRemaining: plan?.credits_remaining || 0,
-    isPremium: PAID_PLAN_TYPES.has(normalizeAccountantPlanTypeKey(plan?.plan_type)),
+    isPremium: normalizedPlanType !== null && PAID_PLAN_TYPES.has(normalizedPlanType),
     allowedMethodKeys,
     planFeatures,
     yearlyDiscountPercent,

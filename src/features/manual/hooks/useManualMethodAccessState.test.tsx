@@ -23,6 +23,7 @@ function renderAccess(overrides: Partial<Parameters<typeof useManualMethodAccess
       isAccountantFlow: false,
       isAccountantMode: false,
       planFeatures: null,
+      planType: null,
       selectedMethod: 'dcf',
       userRole: 'seller',
       ...overrides,
@@ -55,5 +56,41 @@ describe('useManualMethodAccessState plan gates', () => {
       userRole: 'seller',
     })
     expect(result.current.canDownloadPdf).toBe(true)
+  })
+
+  it('keeps Free business owners on the founder method surface', () => {
+    const { result } = renderAccess({ planType: 'free', userRole: 'seller' })
+    expect(result.current.showFullAdvisorMethodNav).toBe(false)
+    expect(result.current.isAdvisorAudience).toBe(false)
+    expect(result.current.preSelectableMethodsForNav).toEqual([
+      'upswitch_adaptive',
+      'arr_multiple',
+      'startup_valuation',
+    ])
+  })
+
+  it('unlocks the full advisor valuation surface for Grow business owners', () => {
+    const { result } = renderAccess({
+      planFeatures: unlockedFeatures,
+      planType: 'owner_grow',
+      userRole: 'seller',
+    })
+    expect(result.current.showFullAdvisorMethodNav).toBe(true)
+    expect(result.current.isAdvisorAudience).toBe(false)
+    expect(result.current.showPreparerMultiplePanel).toBe(true)
+    expect(result.current.preSelectableMethodsForNav).toEqual(
+      expect.arrayContaining([
+        'upswitch_adaptive',
+        'omzet_multiple',
+        'arr_multiple',
+        'ebitda_multiple',
+        'dcf',
+        'sde_multiple',
+        'adjusted_nav',
+        'fiscal_4x',
+        'startup_valuation',
+        'liquidation_analysis',
+      ])
+    )
   })
 })

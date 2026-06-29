@@ -23,9 +23,21 @@ export function seedNbbPrefillFromFormData(
   if (!Array.isArray(years) || years.length === 0) return
 
   useNbbPrefillStore.getState().setFromHistoricalYears(years)
+  const snapshotsCount = Object.keys(useNbbPrefillStore.getState().yearSnapshots).length
+  if (snapshotsCount === 0) {
+    generalLogger.info('[SessionRestoration] NBB prefill snapshots skipped', {
+      reportId: reportId.substring(0, 30),
+      source,
+      yearsCount: years.length,
+      reason: 'no_usable_revenue_or_ebitda',
+    })
+    return
+  }
+
   generalLogger.info('[SessionRestoration] NBB prefill snapshots hydrated', {
     reportId: reportId.substring(0, 30),
     source,
     yearsCount: years.length,
+    snapshotsCount,
   })
 }

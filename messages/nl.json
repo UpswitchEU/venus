@@ -1460,46 +1460,6 @@
 		"determiningValue": "Waarde bepalen...",
 		"updatingValue": "Waarde bijwerken...",
 		"liveAccountingImportHint": "Haal historische cijfers op of vernieuw ze vanuit uw gekoppelde {provider}-account.",
-		"inviteAccountant": {
-			"prompt": "Heb je de cijfers niet bij de hand? Vraag je boekhouder om ze in te vullen.",
-			"cta": "Mijn boekhouder vragen",
-			"title": "Boekhouder uitnodigen",
-			"description": "Geef het e-mailadres in — we sturen een beveiligde link om hun tool te koppelen of de cijfers voor jou in te vullen.",
-			"emailLabel": "E-mail boekhouder",
-			"emailPlaceholder": "naam@boekhouder.be",
-			"messageLabel": "Persoonlijke noot (optioneel)",
-			"messagePlaceholder": "Een korte noot ter context. Leeg laten = standaard uitnodiging.",
-			"send": "Uitnodiging sturen",
-			"sending": "Versturen…",
-			"cancel": "Annuleren",
-			"invalidEmail": "Voer een geldig e-mailadres in.",
-			"missingEmail": "E-mail boekhouder is verplicht.",
-			"tooLong": "Persoonlijke noot mag maximaal {max} tekens zijn.",
-			"sentTitle": "Uitnodiging verzonden",
-			"sentBody": "We laten het je weten zodra {email} koppelt of je cijfers invult.",
-			"genericError": "Uitnodiging kon niet worden verzonden. Probeer opnieuw."
-		},
-		"connectAccounting": {
-			"descriptionConnected": "{provider} is gekoppeld — importeer je laatste 3 jaar omzet en EBITDA, geverifieerd.",
-			"descriptionDisconnected": "Koppel Yuki, Exact, Silverfin en meer — we halen 3 jaar omzet en EBITDA voor je op. Geverifieerd, zonder typen.",
-			"connectCta": "Boekhouding koppelen",
-			"autofillReassurance": "Eens gekoppeld vullen je cijfers zich hier automatisch in — kom gewoon terug naar deze stap.",
-			"upgradeDescription": "Grow ontgrendelt boekhoudimport — haal 3 jaar omzet en EBITDA op zonder te typen.",
-			"upgradeCta": "Upgrade naar Grow",
-			"upgradeReassurance": "Je kunt de cijfers handmatig blijven invullen of hieronder je boekhouder uitnodigen.",
-			"verifiedTitle": "Geverifieerd uit je boekhouding",
-			"verifiedBody": "Je cijfers komen rechtstreeks uit {provider} — geen handmatige invoer.",
-			"genericProvider": "je boekhoudsoftware"
-		},
-		"registryEstimate": {
-			"prompt": "Ken je je cijfers niet? Krijg een richtbedrag op basis van publieke registergegevens.",
-			"cta": "Schat het voor mij",
-			"loading": "Schatten op basis van publieke data…",
-			"bandTitle": "Voorlopige schatting (publieke data)",
-			"bandCaveat": "Een ruwe band op basis van registergegevens — lage betrouwbaarheid. Koppel je boekhouding of nodig je boekhouder hierboven uit voor een nauwkeurig getal.",
-			"unavailableTitle": "Geen publieke schatting beschikbaar",
-			"unavailableBody": "We konden geen band afleiden uit publieke data voor dit bedrijf. Koppel je boekhouding of nodig je boekhouder hierboven uit om je getal te krijgen."
-		},
 		"silverfin": {
 			"importBatchSuccessTitle": "{years} boekjaren geïmporteerd uit {provider}",
 			"importBatchSuccessDescription": "Grootboek gemapt: {score}% overeenstemming met Belgische MAR"
@@ -2256,14 +2216,7 @@
 		"methodDataPlan": {
 			"title": "Aanbevolen gegevens",
 			"subtitle": "Wat je nog kunt aanleveren om elke gekozen methode te ontgrendelen of te verscherpen.",
-			"allUnlocked": "Alle gekozen methodes hebben voldoende gegevens.",
-			"doorsTitle": "Automatisch aanvullen",
-			"comingSoon": "Binnenkort",
-			"doors": {
-				"connectAccounting": "Boekhouding koppelen",
-				"inviteAccountant": "Accountant uitnodigen",
-				"registryEstimate": "Schatting via KBO/KVK"
-			}
+			"allUnlocked": "Alle gekozen methodes hebben voldoende gegevens."
 		}
 	},
 	"toast": {
@@ -3003,10 +2956,7 @@
 		"openHub": "Open Normalisatie Hub",
 		"pendingSuggestions": "{count} suggestie wacht op beoordeling",
 		"pendingSuggestionsPlural": "{count} suggesties wachten op beoordeling",
-		"bulkAcceptImportedBlocked": "{count} importcorrectie moet afzonderlijk worden geaccepteerd.",
-		"bulkAcceptImportedBlockedPlural": "{count} importcorrecties moeten afzonderlijk worden geaccepteerd.",
 		"back": "Terug",
-		"reviewFirst": "Beoordeel eerst ({count} openstaand)",
 		"continueToEstimate": "Doorgaan naar Schatting",
 		"ebitdaNormalizations": "EBITDA Normalisaties",
 		"modalTitle": "Normalisaties & Correcties",
@@ -3047,7 +2997,6 @@
 		"allYears": "Alle jaren",
 		"totalImpact": "Totale impact",
 		"pendingToReview": "nog te beoordelen",
-		"reviewAllToContinue": "Beoordeel alle normalisaties om door te gaan",
 		"noNormalizationsDetected": "Geen normalisaties gedetecteerd",
 		"noAdjustmentsInData": "De geïmporteerde gegevens tonen geen aanpassingsmogelijkheden.",
 		"addManually": "Handmatig toevoegen",

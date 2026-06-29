@@ -19,27 +19,19 @@ import { FilingYearPrompt } from '../FilingYearPrompt'
 import type { ManualInputFieldValidation } from '../utils/manualInputFieldValidation'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 import type { UpdateManualYearlyFinancials } from '../utils/manualYearlyFinancialUpdates'
-import { ConnectAccountingInline } from './ConnectAccountingInline'
 import type { DcfInputMode } from './DcfForecastWorkspace'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
 import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
 import type { DcfSmartDefaults, WaccSectorBand } from './dcfSmartDefaults'
 import { EmbeddedDcfControls } from './EmbeddedDcfControls'
 import { HistoricalYearCard } from './HistoricalYearCard'
-import { InviteAccountantInline } from './InviteAccountantInline'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 import { NormalizedEbitdaSummary } from './NormalizedEbitdaSummary'
-import { RegistryEstimateInline } from './RegistryEstimateInline'
-
-interface AccountingImportState {
-  isImporting: boolean
-}
 
 interface FinancialHistorySectionProps {
   adaptiveDcfGlobalStep?: number
   acceptedNormCount: number
   baseFilingYearForLabels: number
-  bizzcontrolImport: AccountingImportState
   currentFilingYear: number
   dcfDefaultsProvenance: 'none' | 'integration' | 'history' | 'both'
   dcfForecastDefaultsStep: number
@@ -54,39 +46,28 @@ interface FinancialHistorySectionProps {
   formData: ManualValuationFormData
   formatCurrency: (amount: number) => string
   handleDcfInputModeChange: (mode: DcfInputMode) => void
-  handleOpenLiveAccountingImport: () => void | Promise<void>
   handleSelectFilingYear: (selectedYear: number) => void
   handleTerminalValueMethodChange: (method: TerminalValueMethod) => void
   hasBusinessType: boolean
   hasDcfSelected: boolean
   hasEbitdaValue: boolean
   hasFinancials: boolean
-  hasImportedAccountingData: boolean
   historicalCardRows: YearlyFinancials[]
   importAccountingError: string | null
   integrationDerivedCapexPct: number | null
   integrationDerivedDaPct: number | null
-  integrationsEnabled: boolean
   isCalculating: boolean
   latestHistoricalEbitda?: number
   latestHistoricalRevenue?: number
   liveImportProviderName: string | null
   normalizedData: ManualInputNormalizedData
-  octopusImport: AccountingImportState
   onFieldHelpRequest?: (context: FieldHelpContext) => void
   onViewAllNormalizations?: () => void
-  openingLiveAccountingImport: boolean
   partialYears: string[]
   requestRemoveHistoricalYear: (year: string) => void
   selectedCompany: unknown
   setFormData: React.Dispatch<React.SetStateAction<ManualValuationFormData>>
   setShowForecastRemovalConfirm: (open: boolean) => void
-  /**
-   * Owner self-serve autofill doors (connect accounting / invite accountant /
-   * registry estimate). These are an owner funnel — hidden when a professional
-   * (accountant / advisor acting for a client) is entering the figures directly.
-   */
-  showOwnerAutofillDoors: boolean
   taxLatencyCount: number
   terminalValueMethod: TerminalValueMethod
   totalYearsWithEbitda: number
@@ -98,7 +79,6 @@ export function FinancialHistorySection({
   adaptiveDcfGlobalStep,
   acceptedNormCount,
   baseFilingYearForLabels,
-  bizzcontrolImport,
   currentFilingYear,
   dcfDefaultsProvenance,
   dcfForecastDefaultsStep,
@@ -113,34 +93,28 @@ export function FinancialHistorySection({
   formData,
   formatCurrency,
   handleDcfInputModeChange,
-  handleOpenLiveAccountingImport,
   handleSelectFilingYear,
   handleTerminalValueMethodChange,
   hasBusinessType,
   hasDcfSelected,
   hasEbitdaValue,
   hasFinancials,
-  hasImportedAccountingData,
   historicalCardRows,
   importAccountingError,
   integrationDerivedCapexPct,
   integrationDerivedDaPct,
-  integrationsEnabled,
   isCalculating,
   latestHistoricalEbitda,
   latestHistoricalRevenue,
   liveImportProviderName,
   normalizedData,
-  octopusImport,
   onFieldHelpRequest,
   onViewAllNormalizations,
-  openingLiveAccountingImport,
   partialYears,
   requestRemoveHistoricalYear,
   selectedCompany,
   setFormData,
   setShowForecastRemovalConfirm,
-  showOwnerAutofillDoors,
   taxLatencyCount,
   terminalValueMethod,
   totalYearsWithEbitda,
@@ -198,27 +172,6 @@ export function FinancialHistorySection({
         taxLatencyCount={taxLatencyCount}
         totalYearsWithEbitda={totalYearsWithEbitda}
       />
-
-      {/* BET-312/317/318 autofill doors — an OWNER funnel (pull from accounting →
-          invite accountant → registry estimate). Hidden for professionals, who
-          enter the figures directly rather than self-serving through a door. */}
-      {showOwnerAutofillDoors && (
-        <>
-          <ConnectAccountingInline
-            integrationsEnabled={integrationsEnabled}
-            liveImportProviderName={liveImportProviderName}
-            imported={hasImportedAccountingData}
-            importBusy={bizzcontrolImport.isImporting || octopusImport.isImporting}
-            openingImport={openingLiveAccountingImport}
-            onImport={handleOpenLiveAccountingImport}
-          />
-          <InviteAccountantInline />
-          <RegistryEstimateInline
-            company={selectedCompany}
-            fallbackCountry={formData.country ?? null}
-          />
-        </>
-      )}
 
       <div className="space-y-3">
         {historicalCardRows.map((yearData) => {

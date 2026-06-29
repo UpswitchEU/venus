@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { defaultPlanFeatures } from './useCredits'
 import { normalizeAccountantPlanTypeKey } from '../constants/accountantPlanMethods'
+import { defaultPlanFeatures, resolvePlanFeatures } from './useCredits'
 
 describe('useCredits plan fallback gates', () => {
   it('normalizes owner and advisor launch aliases before feature fallback', () => {
@@ -75,6 +75,27 @@ describe('useCredits plan fallback gates', () => {
     expect(defaultPlanFeatures('pro').integrations_enabled).toBe(true)
     expect(defaultPlanFeatures('accountant_expert').integrations_enabled).toBe(true)
     expect(defaultPlanFeatures('accountant_enterprise').integrations_enabled).toBe(true)
+  })
+
+  it('keeps owner Grow aligned with advisor Pro valuation capabilities', () => {
+    expect(defaultPlanFeatures('owner_grow')).toEqual(defaultPlanFeatures('pro'))
+  })
+
+  it('fills omitted optional feature keys from the Grow baseline instead of downgrading them', () => {
+    expect(
+      resolvePlanFeatures('owner_grow', {
+        ebitda_normalization: true,
+        tax_latencies: true,
+        version_control: true,
+        audit_trail: true,
+        integrations_enabled: true,
+      })
+    ).toMatchObject({
+      valuation_synthesis: true,
+      valuation_download: true,
+      live_benelux_sector_multiples: true,
+      team_seat_addons: false,
+    })
   })
 
   it('keeps free aliases integration-disabled and paid features locked', () => {

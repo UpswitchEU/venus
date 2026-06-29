@@ -137,7 +137,7 @@ describe('normalizationStoreModel', () => {
     })
   })
 
-  it('keeps bulk accept from bypassing imported-ledger review while single accept records review', () => {
+  it('bulk accept records imported-ledger review just like single accept', () => {
     const imported = makeItem({
       id: 'imported_sde_owner_salary',
       source: 'yuki',
@@ -146,7 +146,10 @@ describe('normalizationStoreModel', () => {
     const manual = makeItem({ id: 'manual-rent', category: 'rent', status: 'pending' })
 
     const bulkAccepted = acceptNormalizationItems([imported, manual], [imported.id, manual.id])
-    expect(bulkAccepted.find((item) => item.id === imported.id)?.status).toBe('pending')
+    expect(bulkAccepted.find((item) => item.id === imported.id)).toMatchObject({
+      status: 'accepted',
+      reviewedAt: expect.any(String),
+    })
     expect(bulkAccepted.find((item) => item.id === manual.id)?.status).toBe('accepted')
 
     const individuallyAccepted = acceptNormalizationItem(imported)

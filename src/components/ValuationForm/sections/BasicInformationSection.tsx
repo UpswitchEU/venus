@@ -10,7 +10,6 @@
 import { useTranslations } from 'next-intl'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TARGET_COUNTRIES } from '../../../config/countries'
-import { showAdvisorCalculatorSurface } from '../../../constants/accountantPlanMethods'
 import {
   AuroraFormAlert,
   AuroraFormGrid,
@@ -22,6 +21,7 @@ import {
 import { SegmentedControl } from '../../../design-system/components/SegmentedControl'
 import { useAuth } from '../../../hooks/useAuth'
 import { useBootstrapStatus } from '../../../hooks/useBootstrapStatus'
+import { useCredits } from '../../../hooks/useCredits'
 import { useSectorMismatchWarning } from '../../../hooks/useSectorMismatchWarning'
 import type { BusinessType } from '../../../services/businessTypesApi'
 import { fetchBusinessTypeById } from '../../../services/fetchBusinessTypeById'
@@ -37,6 +37,7 @@ import {
   buildBusinessTypeFormData,
   buildBusinessTypeSegmentsFormData,
 } from '../utils/businessTypeFormData'
+import { shouldDefaultBasicInformationExpertMode } from './BasicInformationExpertModeModel'
 import {
   buildInitialSelectedCompany,
   buildSelectedCompanyFormUpdates,
@@ -74,12 +75,14 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
   const t = useTranslations()
   const { user } = useAuth()
   const bootstrapStatus = useBootstrapStatus()
-  const roleDefaultsToExpertMode = showAdvisorCalculatorSurface(
-    bootstrapStatus.isAccountantFlow,
-    user?.role
-  )
+  const { normalizedPlanType } = useCredits()
+  const defaultsToExpertMode = shouldDefaultBasicInformationExpertMode({
+    isAccountantForClient: bootstrapStatus.isAccountantFlow,
+    planType: normalizedPlanType,
+    userRole: user?.role,
+  })
   const [expertModeOverride, setExpertModeOverride] = useState<boolean | null>(null)
-  const expertModeEnabled = expertModeOverride ?? roleDefaultsToExpertMode
+  const expertModeEnabled = expertModeOverride ?? defaultsToExpertMode
   // Track which fields were auto-filled from registry
   const [autoFilledFields, setAutoFilledFields] = useState<string[]>([])
   const registryBusinessTypeSyncRef = useRef<{

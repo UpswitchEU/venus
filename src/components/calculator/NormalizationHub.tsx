@@ -306,25 +306,11 @@ export function NormalizationHub({
             </Button>
             <Button
               onClick={onContinue}
-              disabled={stats.pending > 0}
-              className={cn(
-                'flex-1 gap-2',
-                stats.pending > 0 &&
-                  'bg-warning/15 text-warning border border-warning/30 hover:bg-warning/20'
-              )}
-              variant={stats.pending > 0 ? 'outline' : 'primary'}
+              className={cn('flex-1 gap-2', stats.pending > 0 && 'shadow-lg shadow-primary/10')}
+              variant="primary"
             >
-              {stats.pending > 0 ? (
-                <>
-                  <Clock className="w-4 h-4" />
-                  {nh('reviewFirst', { count: stats.pending })}
-                </>
-              ) : (
-                <>
-                  {nh('continueToEstimate')}
-                  <ChevronRight className="w-4 h-4" />
-                </>
-              )}
+              {nh('continueToEstimate')}
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>

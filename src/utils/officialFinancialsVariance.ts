@@ -40,7 +40,10 @@ export function applyUserVsOfficialVariance(
   const ur = userRevenue == null ? undefined : Number(userRevenue)
   const ue = userEbitda == null ? undefined : Number(userEbitda)
 
-  const revenueVariance = calculateVariancePercent(ur, official.revenue)
+  const revenueVariance =
+    official.revenueSource === 'gross_margin'
+      ? undefined
+      : calculateVariancePercent(ur, official.revenue)
   const ebitdaVariance = calculateVariancePercent(ue, official.ebitda)
   const maxVariance = [revenueVariance, ebitdaVariance]
     .filter((value): value is number => value != null)

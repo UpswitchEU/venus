@@ -786,6 +786,7 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
           sourceLabel: 'NBB filing via Staatsbladmonitor',
           filingYear: 2024,
           revenue: 1_100_000,
+          revenueSource: 'turnover',
           ebitda: 120_000,
           verificationBadge: {
             state: 'verified',
@@ -813,6 +814,7 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
       sourceLabel: 'NBB filing via Staatsbladmonitor',
       filingYear: 2024,
       revenue: 1_100_000,
+      revenueSource: 'turnover',
       ebitda: 120_000,
     })
     expect(result.official_variance_analysis).toEqual({

@@ -8,7 +8,6 @@ import type { NormalizationStatus } from './UnifiedNormalizationTypes'
 
 interface UnifiedNormalizationBulkActionsBarProps {
   selectedCount: number
-  bulkAcceptBlockedCount?: number
   onDeselectAll: () => void
   onBulkUpdateStatus: (status: NormalizationStatus) => void
   onBulkDelete: () => void
@@ -16,7 +15,6 @@ interface UnifiedNormalizationBulkActionsBarProps {
 
 export function UnifiedNormalizationBulkActionsBar({
   selectedCount,
-  bulkAcceptBlockedCount = 0,
   onDeselectAll,
   onBulkUpdateStatus,
   onBulkDelete,
@@ -24,15 +22,6 @@ export function UnifiedNormalizationBulkActionsBar({
   const nh = useTranslations('normalizationHub')
   const ca = useTranslations('chatAssistant')
   const tCommon = useTranslations('common.actions')
-  const bulkAcceptBlocked = bulkAcceptBlockedCount > 0
-  const bulkAcceptBlockedText = bulkAcceptBlocked
-    ? nh(
-        bulkAcceptBlockedCount === 1
-          ? 'bulkAcceptImportedBlocked'
-          : 'bulkAcceptImportedBlockedPlural',
-        { count: bulkAcceptBlockedCount }
-      )
-    : undefined
 
   return (
     <AnimatePresence>
@@ -56,9 +45,6 @@ export function UnifiedNormalizationBulkActionsBar({
                   {nh('bulkDeselect')}
                 </button>
               </div>
-              {bulkAcceptBlockedText ? (
-                <span className="text-xs text-warning">{bulkAcceptBlockedText}</span>
-              ) : null}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -74,8 +60,6 @@ export function UnifiedNormalizationBulkActionsBar({
                 variant="ghost"
                 size="sm"
                 onClick={() => onBulkUpdateStatus('accepted')}
-                disabled={bulkAcceptBlocked}
-                title={bulkAcceptBlockedText}
                 className="text-xs h-8 px-3 text-success hover:text-success hover:bg-success/10"
               >
                 <Check className="w-3.5 h-3.5 mr-1.5" />

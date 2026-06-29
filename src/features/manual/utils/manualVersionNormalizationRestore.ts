@@ -1,4 +1,8 @@
-import type { NormalizationItem } from '@/components/calculator'
+import type {
+  NormalizationItem,
+  NormalizationSource,
+  NormalizationType,
+} from '@/components/calculator'
 import { mapBackendCategoryToFrontend } from '@/store/useNormalizationStore'
 
 const FRONTEND_NORMALIZATION_CATEGORIES = new Set<NormalizationItem['category']>([
@@ -9,6 +13,29 @@ const FRONTEND_NORMALIZATION_CATEGORIES = new Set<NormalizationItem['category']>
   'personal',
   'depreciation',
   'other',
+])
+
+const NORMALIZATION_SOURCES = new Set<NormalizationSource>([
+  'manual',
+  'yuki',
+  'exact',
+  'silverfin',
+  'bizzcontrol',
+  'odoo',
+  'octopus',
+  'expertm',
+  'accountable',
+  'csv',
+  'ai',
+  'auto',
+])
+
+const NORMALIZATION_TYPES = new Set<NormalizationType>([
+  'add',
+  'subtract',
+  'add_percent',
+  'subtract_percent',
+  'absolute',
 ])
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -30,6 +57,18 @@ function restoreNormalizationCategory(rawCategory: string): NormalizationItem['c
     : mapBackendCategoryToFrontend(rawCategory)
 }
 
+function readNormalizationSource(value: unknown): NormalizationSource | undefined {
+  return NORMALIZATION_SOURCES.has(value as NormalizationSource)
+    ? (value as NormalizationSource)
+    : undefined
+}
+
+function readNormalizationType(value: unknown): NormalizationType | undefined {
+  return NORMALIZATION_TYPES.has(value as NormalizationType)
+    ? (value as NormalizationType)
+    : undefined
+}
+
 export function buildManualNormalizationsFromVersionSnapshot(
   normalizationData: unknown
 ): NormalizationItem[] {
@@ -49,6 +88,18 @@ export function buildManualNormalizationsFromVersionSnapshot(
 
       const amount = readFiniteNumber(adjustmentRecord.amount ?? adjustmentRecord.adjustment)
       const rawCategory = readString(adjustmentRecord.category) || ''
+      const normalizationType =
+        readNormalizationType(
+          adjustmentRecord.normalization_type ?? adjustmentRecord.normalizationType
+        ) || (amount >= 0 ? 'add' : 'subtract')
+      const reviewedAt =
+        readString(adjustmentRecord.reviewed_at) || readString(adjustmentRecord.reviewedAt)
+      const confidence =
+        adjustmentRecord.confidence === 'high' ||
+        adjustmentRecord.confidence === 'medium' ||
+        adjustmentRecord.confidence === 'low'
+          ? adjustmentRecord.confidence
+          : undefined
 
       items.push({
         id: `version-${year}-${index}`,
@@ -61,15 +112,24 @@ export function buildManualNormalizationsFromVersionSnapshot(
           rawCategory,
         category: restoreNormalizationCategory(rawCategory),
         backendCategory: rawCategory,
-        type: amount >= 0 ? 'add' : 'subtract',
-        value: Math.abs(amount),
+        type: normalizationType,
+        value: readFiniteNumber(
+          adjustmentRecord.normalization_value ??
+            adjustmentRecord.normalizationValue ??
+            Math.abs(amount)
+        ),
         adjustment: amount,
         reason: readString(adjustmentRecord.note) || readString(adjustmentRecord.reason),
-        source: 'manual',
-        sourceRef: 'version',
+        source: readNormalizationSource(adjustmentRecord.source) || 'manual',
+        sourceRef:
+          readString(adjustmentRecord.source_ref) ||
+          readString(adjustmentRecord.sourceRef) ||
+          'version',
         status: 'accepted',
+        ...(reviewedAt ? { reviewedAt } : {}),
         applyAllYears: false,
         year,
+        ...(confidence ? { confidence } : {}),
       })
     })
   }

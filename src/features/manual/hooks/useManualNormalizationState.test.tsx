@@ -81,7 +81,7 @@ describe('useManualNormalizationState', () => {
     expect(rejected.reviewedAt).toBeUndefined()
   })
 
-  it('does not bulk-accept imported ledger review items', () => {
+  it('bulk-accepts imported ledger review items and marks them reviewed', () => {
     useNormalizationStore
       .getState()
       .setItems([importedPendingItem, accountingImportPendingItem, manualPendingItem])
@@ -93,18 +93,18 @@ describe('useManualNormalizationState', () => {
     expect(items).toEqual([
       expect.objectContaining({
         id: importedPendingItem.id,
-        status: 'pending',
+        status: 'accepted',
       }),
       expect.objectContaining({
         id: accountingImportPendingItem.id,
-        status: 'pending',
+        status: 'accepted',
       }),
       expect.objectContaining({
         id: manualPendingItem.id,
         status: 'accepted',
       }),
     ])
-    expect(items[0]?.reviewedAt).toBeUndefined()
-    expect(items[1]?.reviewedAt).toBeUndefined()
+    expect(items[0]?.reviewedAt).toEqual(expect.any(String))
+    expect(items[1]?.reviewedAt).toEqual(expect.any(String))
   })
 })

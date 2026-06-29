@@ -19,6 +19,10 @@ function toOptionalFilingYear(value: unknown): number | undefined {
   return y >= 1800 && y <= 2200 ? y : undefined
 }
 
+function toRevenueSource(value: unknown): 'turnover' | 'gross_margin' | undefined {
+  return value === 'turnover' || value === 'gross_margin' ? value : undefined
+}
+
 export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
   response: Record<string, unknown> | null | undefined
 ): OfficialFinancials | undefined {
@@ -33,6 +37,21 @@ export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
   }
 
   const official = (response.official_financials as Record<string, unknown>) || {}
+  const revenueSource = toRevenueSource(official.revenueSource ?? official.revenue_source)
+  const badgeState =
+    response.status === 'ok' && revenueSource !== 'gross_margin'
+      ? 'verified'
+      : response.status === 'ok' || response.status === 'partial'
+        ? 'partial'
+        : 'unavailable'
+  const badgeLabel =
+    revenueSource === 'gross_margin'
+      ? 'NBB filing uses gross margin'
+      : response.status === 'ok'
+        ? 'Verified by NBB'
+        : response.status === 'partial'
+          ? 'Partial official filing'
+          : 'Official filing unavailable'
 
   return {
     source: typeof official.source === 'string' ? official.source : 'staatsbladmonitor',
@@ -42,6 +61,7 @@ export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
         : 'NBB filing via Staatsbladmonitor',
     filingYear: toOptionalFilingYear(official.filing_year),
     revenue: toOptionalFiniteNumber(official.revenue),
+    revenueSource,
     ebitda: toOptionalFiniteNumber(official.ebitda),
     totalAssets: toOptionalFiniteNumber(official.total_assets),
     equity: toOptionalFiniteNumber(official.equity),
@@ -80,18 +100,8 @@ export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
       severity: 'none',
     },
     verificationBadge: {
-      state:
-        response.status === 'ok'
-          ? 'verified'
-          : response.status === 'partial'
-            ? 'partial'
-            : 'unavailable',
-      label:
-        response.status === 'ok'
-          ? 'Verified by NBB'
-          : response.status === 'partial'
-            ? 'Partial official filing'
-            : 'Official filing unavailable',
+      state: badgeState,
+      label: badgeLabel,
     },
     historicalYears: mapHistoricalYears(official),
   }
@@ -109,9 +119,7 @@ function mapHistoricalYears(
       fiscalYear: toOptionalFilingYear(yr.fiscalYear ?? yr.fiscal_year) ?? 0,
       revenue: toOptionalFiniteNumber(yr.revenue),
       revenueSource:
-        yr.revenueSource === 'gross_margin' || yr.revenue_source === 'gross_margin'
-          ? ('gross_margin' as const)
-          : ('turnover' as const),
+        toRevenueSource(yr.revenueSource ?? yr.revenue_source) ?? ('turnover' as const),
       operatingProfit: toOptionalFiniteNumber(yr.operatingProfit ?? yr.operating_profit),
       depreciation: toOptionalFiniteNumber(yr.depreciation),
       writeOffs: toOptionalFiniteNumber(yr.writeOffs ?? yr.write_offs),

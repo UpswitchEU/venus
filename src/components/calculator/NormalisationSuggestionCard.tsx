@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { CalendarRange, Check, Edit3, Undo2, X } from 'lucide-react'
+import { forwardRef } from 'react'
 import { LEDGER_LABEL_TEXT_CLASSES } from '@/constants/ledgerLabelTypography'
 import { AuroraButton as Button } from '@/design-system/components/Button'
 import { Checkbox } from '@/design-system/components/Checkbox'
@@ -46,32 +47,39 @@ interface NormalisationSuggestionCardProps {
   onEditReasonChange: (value: string) => void
 }
 
-export function NormalisationSuggestionCard({
-  suggestion,
-  index,
-  isEditing,
-  canEdit,
-  editAmount,
-  editType,
-  editApplyAllYears,
-  editReason,
-  formatCurrency,
-  nh,
-  ca,
-  onAccept,
-  onReject,
-  onStartEditing,
-  onCancelEdit,
-  onSaveEdit,
-  onEditAmountChange,
-  onEditTypeChange,
-  onEditApplyAllYearsChange,
-  onEditReasonChange,
-}: NormalisationSuggestionCardProps) {
+export const NormalisationSuggestionCard = forwardRef<
+  HTMLDivElement,
+  NormalisationSuggestionCardProps
+>(function NormalisationSuggestionCard(
+  {
+    suggestion,
+    index,
+    isEditing,
+    canEdit,
+    editAmount,
+    editType,
+    editApplyAllYears,
+    editReason,
+    formatCurrency,
+    nh,
+    ca,
+    onAccept,
+    onReject,
+    onStartEditing,
+    onCancelEdit,
+    onSaveEdit,
+    onEditAmountChange,
+    onEditTypeChange,
+    onEditApplyAllYearsChange,
+    onEditReasonChange,
+  },
+  ref
+) {
   const source = suggestion.source || 'manual'
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -298,4 +306,4 @@ export function NormalisationSuggestionCard({
       )}
     </motion.div>
   )
-}
+})

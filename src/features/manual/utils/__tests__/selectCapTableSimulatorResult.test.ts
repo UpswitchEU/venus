@@ -42,7 +42,7 @@ describe('selectCapTableSimulatorResult', () => {
       details: { cap_table_simulator: SIM_PAYLOAD },
     })
     const got = selectCapTableSimulatorResult({
-      showFullAdvisorMethodNav: false,
+      isAdvisorAudience: false,
       selectedMethod: 'arr_multiple',
       valuationResults: { arr_multiple: arrResult },
     })
@@ -55,16 +55,29 @@ describe('selectCapTableSimulatorResult', () => {
       details: { cap_table_simulator: SIM_PAYLOAD },
     })
     const got = selectCapTableSimulatorResult({
-      showFullAdvisorMethodNav: false,
+      isAdvisorAudience: false,
       selectedMethod: 'startup_valuation',
       valuationResults: { startup_valuation: startupResult },
     })
     expect(got).toBe(startupResult)
   })
 
+  it('keeps the founder simulator visible for Grow owners with Pro valuation access', () => {
+    const arrResult = methodResult({
+      label: 'ARR multiple',
+      details: { cap_table_simulator: SIM_PAYLOAD },
+    })
+    const got = selectCapTableSimulatorResult({
+      isAdvisorAudience: false,
+      selectedMethod: 'arr_multiple',
+      valuationResults: { arr_multiple: arrResult },
+    })
+    expect(got).toBe(arrResult)
+  })
+
   it('returns null when the selected method has no cap_table_simulator in details', () => {
     const got = selectCapTableSimulatorResult({
-      showFullAdvisorMethodNav: false,
+      isAdvisorAudience: false,
       selectedMethod: 'arr_multiple',
       valuationResults: {
         arr_multiple: methodResult({ details: { arr: 1_250_000 } }),
@@ -75,7 +88,7 @@ describe('selectCapTableSimulatorResult', () => {
 
   it('returns null for advisor surfaces even when a simulator payload is present', () => {
     const got = selectCapTableSimulatorResult({
-      showFullAdvisorMethodNav: true,
+      isAdvisorAudience: true,
       selectedMethod: 'arr_multiple',
       valuationResults: {
         arr_multiple: methodResult({
@@ -93,7 +106,7 @@ describe('selectCapTableSimulatorResult', () => {
     // we'd otherwise show numbers that don't match the visible
     // headline.
     const got = selectCapTableSimulatorResult({
-      showFullAdvisorMethodNav: false,
+      isAdvisorAudience: false,
       selectedMethod: 'dcf',
       valuationResults: {
         dcf: methodResult({ label: 'DCF', details: {} }),
@@ -109,21 +122,21 @@ describe('selectCapTableSimulatorResult', () => {
   it('handles missing / empty inputs gracefully', () => {
     expect(
       selectCapTableSimulatorResult({
-        showFullAdvisorMethodNav: false,
+        isAdvisorAudience: false,
         selectedMethod: null,
         valuationResults: { arr_multiple: methodResult() },
       })
     ).toBeNull()
     expect(
       selectCapTableSimulatorResult({
-        showFullAdvisorMethodNav: false,
+        isAdvisorAudience: false,
         selectedMethod: 'arr_multiple',
         valuationResults: null,
       })
     ).toBeNull()
     expect(
       selectCapTableSimulatorResult({
-        showFullAdvisorMethodNav: false,
+        isAdvisorAudience: false,
         selectedMethod: 'arr_multiple',
         valuationResults: {},
       })
@@ -135,7 +148,7 @@ describe('selectCapTableSimulatorResult', () => {
     // for cap_table_simulator we MUST NOT pass it to the React
     // component — the slider would crash trying to read fields off it.
     const got = selectCapTableSimulatorResult({
-      showFullAdvisorMethodNav: false,
+      isAdvisorAudience: false,
       selectedMethod: 'arr_multiple',
       valuationResults: {
         arr_multiple: methodResult({

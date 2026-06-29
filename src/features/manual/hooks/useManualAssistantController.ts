@@ -100,6 +100,7 @@ export interface UseManualAssistantControllerParams {
   handleRejectNormalisation: NonNullable<ChatDrawerProps['onRejectNormalisation']>
   handleRejectUpdate: NonNullable<ChatDrawerProps['onRejectUpdate']>
   handleRetry: NonNullable<ChatDrawerProps['onRetry']>
+  hasAdvisorProValuationAccess: boolean
   hasReport: boolean
   isAccountantMode: boolean
   isCalculating: boolean
@@ -174,6 +175,7 @@ export function useManualAssistantController({
   handleRejectNormalisation,
   handleRejectUpdate,
   handleRetry,
+  hasAdvisorProValuationAccess,
   hasReport,
   isAccountantMode,
   isCalculating,
@@ -292,6 +294,7 @@ export function useManualAssistantController({
     synthesisValuationResults,
     onSynthesisPaywall: () => openStarterPaywall('synthesis'),
     integrationsEnabled,
+    hasAdvisorProValuationAccess,
     assistantPatch: assistantInputPatch,
     initialData,
     isAssistantOpen: chatDrawerOpen,

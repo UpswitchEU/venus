@@ -1460,46 +1460,6 @@
 		"determiningValue": "Détermination de la valeur...",
 		"updatingValue": "Mise à jour de la valeur...",
 		"liveAccountingImportHint": "Extrayez ou actualisez les chiffres historiques de votre compte {provider} connecté.",
-		"inviteAccountant": {
-			"prompt": "Vous n'avez pas les chiffres sous la main ? Demandez à votre comptable de les remplir.",
-			"cta": "Demander à mon comptable",
-			"title": "Inviter votre comptable",
-			"description": "Indiquez son e-mail — nous enverrons un lien sécurisé pour connecter son outil ou saisir les chiffres à votre place.",
-			"emailLabel": "E-mail du comptable",
-			"emailPlaceholder": "nom@comptable.be",
-			"messageLabel": "Note personnelle (facultatif)",
-			"messagePlaceholder": "Une courte note pour le contexte. Laissez vide pour envoyer l'invitation par défaut.",
-			"send": "Envoyer l'invitation",
-			"sending": "Envoi…",
-			"cancel": "Annuler",
-			"invalidEmail": "Saisissez une adresse e-mail valide.",
-			"missingEmail": "L'e-mail du comptable est requis.",
-			"tooLong": "La note personnelle ne peut pas dépasser {max} caractères.",
-			"sentTitle": "Invitation envoyée",
-			"sentBody": "Nous vous préviendrons dès que {email} se connecte ou remplit vos chiffres.",
-			"genericError": "L'invitation n'a pas pu être envoyée. Réessayez."
-		},
-		"connectAccounting": {
-			"descriptionConnected": "{provider} est connecté — importez vos 3 dernières années de chiffre d'affaires et d'EBITDA, vérifiés.",
-			"descriptionDisconnected": "Connectez Yuki, Exact, Silverfin et plus — nous récupérons 3 ans de chiffre d'affaires et d'EBITDA pour vous. Vérifiés, sans saisie.",
-			"connectCta": "Connecter la comptabilité",
-			"autofillReassurance": "Une fois connecté, vos chiffres se remplissent ici automatiquement — revenez simplement à cette étape.",
-			"upgradeDescription": "Grow déverrouille l'import comptable — récupérez 3 ans de chiffre d'affaires et d'EBITDA sans saisie.",
-			"upgradeCta": "Passer à Grow",
-			"upgradeReassurance": "Vous pouvez continuer la saisie manuelle ou inviter votre comptable ci-dessous.",
-			"verifiedTitle": "Vérifié depuis votre comptabilité",
-			"verifiedBody": "Vos chiffres proviennent directement de {provider} — aucune saisie manuelle.",
-			"genericProvider": "votre logiciel comptable"
-		},
-		"registryEstimate": {
-			"prompt": "Vous ne connaissez pas vos chiffres ? Obtenez une fourchette à partir des données publiques du registre.",
-			"cta": "Estimez-le pour moi",
-			"loading": "Estimation à partir des données publiques…",
-			"bandTitle": "Estimation provisoire (données publiques)",
-			"bandCaveat": "Une fourchette approximative basée sur les données du registre — faible confiance. Connectez votre comptabilité ou invitez votre comptable ci-dessus pour un chiffre précis.",
-			"unavailableTitle": "Aucune estimation publique disponible",
-			"unavailableBody": "Nous n'avons pas pu déduire de fourchette à partir des données publiques pour cette entreprise. Connectez votre comptabilité ou invitez votre comptable ci-dessus pour obtenir votre chiffre."
-		},
 		"silverfin": {
 			"importBatchSuccessTitle": "Exercices fiscaux {years} importés à partir de {provider}",
 			"importBatchSuccessDescription": "Balance de vérification cartographiée : {score}% correspond au MAR belge"
@@ -2256,14 +2216,7 @@
 		"methodDataPlan": {
 			"title": "Données recommandées",
 			"subtitle": "Ce que vous pouvez encore fournir pour débloquer ou affiner chaque méthode sélectionnée.",
-			"allUnlocked": "Toutes les méthodes sélectionnées disposent de suffisamment de données.",
-			"doorsTitle": "Remplissage automatique",
-			"comingSoon": "Bientôt disponible",
-			"doors": {
-				"connectAccounting": "Connecter la comptabilité",
-				"inviteAccountant": "Inviter un comptable",
-				"registryEstimate": "Estimer via le registre"
-			}
+			"allUnlocked": "Toutes les méthodes sélectionnées disposent de suffisamment de données."
 		}
 	},
 	"toast": {
@@ -3003,10 +2956,7 @@
 		"openHub": "Ouvrir le hub de normalisation",
 		"pendingSuggestions": "Suggestion {count} en attente d'examen",
 		"pendingSuggestionsPlural": "Suggestions {count} en attente d'examen",
-		"bulkAcceptImportedBlocked": "La correction d'importation {count} doit être acceptée individuellement.",
-		"bulkAcceptImportedBlockedPlural": "Les corrections d’importation {count} doivent être acceptées individuellement.",
 		"back": "Retour",
-		"reviewFirst": "Examinez d'abord ({count} en attente)",
 		"continueToEstimate": "Continuer à estimer",
 		"ebitdaNormalizations": "Normalisations de l'EBITDA",
 		"modalTitle": "Normalisations et ajustements",
@@ -3047,7 +2997,6 @@
 		"allYears": "Toutes les années",
 		"totalImpact": "Impact total",
 		"pendingToReview": "revoir",
-		"reviewAllToContinue": "Vérifiez toutes les normalisations pour continuer",
 		"noNormalizationsDetected": "Aucune normalisation détectée",
 		"noAdjustmentsInData": "Les données importées ne montrent aucune possibilité d'ajustement.",
 		"addManually": "Ajouter manuellement",

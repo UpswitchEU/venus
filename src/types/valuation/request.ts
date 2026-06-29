@@ -169,6 +169,7 @@ export interface OfficialFinancialsPayload {
   sourceLabel?: string
   filingYear?: number
   revenue?: number
+  revenueSource?: 'turnover' | 'gross_margin'
   ebitda?: number
   totalAssets?: number
   equity?: number

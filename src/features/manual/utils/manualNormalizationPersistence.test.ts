@@ -23,7 +23,9 @@ describe('manualNormalizationPersistence', () => {
       buildAcceptedNormalizationSignature([
         {
           id: 'b',
-          type: 'custom',
+          category: 'salary',
+          source: 'manual',
+          type: 'add',
           status: 'accepted',
           year: 2025,
           value: 2,
@@ -31,7 +33,9 @@ describe('manualNormalizationPersistence', () => {
         },
         {
           id: 'pending',
-          type: 'custom',
+          category: 'other',
+          source: 'manual',
+          type: 'add',
           status: 'pending',
           year: 2025,
           value: 9,
@@ -39,7 +43,9 @@ describe('manualNormalizationPersistence', () => {
         },
         {
           id: 'a',
-          type: 'custom',
+          category: 'rent',
+          source: 'manual',
+          type: 'add',
           status: 'accepted',
           year: 2024,
           value: 1,
@@ -48,7 +54,33 @@ describe('manualNormalizationPersistence', () => {
         },
       ])
     ).toBe(
-      '[{"id":"a","type":"custom","value":1,"adjustment":10,"year":2024,"applyYears":[2024]},{"id":"b","type":"custom","value":2,"adjustment":20,"year":2025,"applyYears":[]}]'
+      '[{"id":"a","category":"rent","type":"add","value":1,"adjustment":10,"year":2024,"source":"manual","applyYears":[2024]},{"id":"b","category":"salary","type":"add","value":2,"adjustment":20,"year":2025,"source":"manual","applyYears":[]}]'
+    )
+  })
+
+  it('signatures review and report-copy fields that affect imported normalization application', () => {
+    const base = {
+      id: 'imported_sde_2025_610000_0',
+      category: 'other' as const,
+      source: 'auto' as const,
+      type: 'add' as const,
+      status: 'accepted' as const,
+      year: 2025,
+      value: 221_500,
+      adjustment: 221_500,
+      ledgerCode: '610000',
+      ledgerName: 'Services et biens divers',
+      reason: 'Benchmark excess.',
+    }
+
+    expect(buildAcceptedNormalizationSignature([base])).not.toBe(
+      buildAcceptedNormalizationSignature([
+        {
+          ...base,
+          reason: 'Reviewed benchmark excess.',
+          reviewedAt: '2026-06-29T10:00:00.000Z',
+        },
+      ])
     )
   })
 

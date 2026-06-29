@@ -165,7 +165,6 @@ export function acceptNormalizationItems(
 ): NormalizationItem[] {
   return items.map((n) => {
     if (!ids.includes(n.id)) return n
-    if (requiresIndividualImportedNormalizationReview(n) && n.status !== 'accepted') return n
     return acceptNormalizationItem(n)
   })
 }

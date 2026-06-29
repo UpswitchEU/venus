@@ -56,6 +56,7 @@ export interface ManualLayoutModalsProps {
   handleUnifiedNormalizationModalOpenChange: (open: boolean) => void
   hasImportedNormalizationData: boolean
   isAccountantMode: boolean
+  isAdvisorAudience: boolean
   isCalculating: boolean
   isConfirmingNewValuation: boolean
   isExporting?: boolean
@@ -127,6 +128,7 @@ export function ManualLayoutModals({
   isGenerating,
   isHydratingEditModalData,
   isMethodSwitchRendering,
+  isAdvisorAudience,
   lastFullYear,
   latestFormDataRef,
   methodPaywallOpen,
@@ -263,7 +265,7 @@ export function ManualLayoutModals({
 
       <ManualStarterPaywallModal
         currentLocale={currentLocale}
-        isAdvisorAudience={showFullAdvisorMethodNav}
+        isAdvisorAudience={isAdvisorAudience}
         onClose={() => setMethodPaywallOpen(false)}
         open={methodPaywallOpen}
         reason={methodPaywallReason}

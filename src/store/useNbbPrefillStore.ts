@@ -10,6 +10,8 @@
 import { create } from 'zustand'
 import type { OfficialFinancialsYear } from '../lib/bootstrap/types'
 
+const MAX_AUTO_ACCEPTED_PUBLIC_FILING_EBITDA_MARGIN = 0.9
+
 export interface NbbYearSnapshot {
   fiscalYear: number
   revenue: number | undefined
@@ -35,6 +37,24 @@ interface NbbPrefillState {
   clear: () => void
 }
 
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function hasUnsafeOperatingValues(year: OfficialFinancialsYear): boolean {
+  if (year.revenueSource === 'gross_margin') return true
+
+  const revenue = finiteNumber(year.revenue)
+  const ebitda = finiteNumber(year.ebitda)
+  return (
+    revenue != null &&
+    revenue > 0 &&
+    ebitda != null &&
+    ebitda >= 0 &&
+    ebitda / revenue >= MAX_AUTO_ACCEPTED_PUBLIC_FILING_EBITDA_MARGIN
+  )
+}
+
 export const useNbbPrefillStore = create<NbbPrefillState>((set, get) => ({
   yearSnapshots: {},
   hasNbbData: false,
@@ -42,10 +62,14 @@ export const useNbbPrefillStore = create<NbbPrefillState>((set, get) => ({
   setFromHistoricalYears: (years) => {
     const snapshots: Record<string, NbbYearSnapshot> = {}
     for (const yr of years) {
+      const unsafeOperatingValues = hasUnsafeOperatingValues(yr)
+      const revenue = unsafeOperatingValues ? undefined : finiteNumber(yr.revenue)
+      const ebitda = unsafeOperatingValues ? undefined : finiteNumber(yr.ebitda)
+      if (revenue == null && ebitda == null) continue
       snapshots[String(yr.fiscalYear)] = {
         fiscalYear: yr.fiscalYear,
-        revenue: yr.revenue,
-        ebitda: yr.ebitda,
+        revenue,
+        ebitda,
         revenueSource: yr.revenueSource ?? 'turnover',
         schemaType: yr.schemaType ?? 'full',
         rubricsUsed: yr.rubricsUsed,

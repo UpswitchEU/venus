@@ -542,12 +542,12 @@ describe('SessionRestorationService', () => {
     ])
   })
 
-  it('restore seeds NBB prefill snapshots from official_financials historicalYears', async () => {
-    SessionRestorationService.clearRestorationState('val_restore_nbb')
+  it('restore skips unsafe NBB prefill snapshots from official_financials historicalYears', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_nbb_unsafe')
     useNbbPrefillStore.getState().clear()
 
-    await SessionRestorationService.restore('val_restore_nbb', {
-      reportId: 'val_restore_nbb',
+    await SessionRestorationService.restore('val_restore_nbb_unsafe', {
+      reportId: 'val_restore_nbb_unsafe',
       sessionData: {
         company_name: 'Restore NBB Co',
         official_financials: {
@@ -560,21 +560,22 @@ describe('SessionRestorationService', () => {
               schemaType: 'abbreviated',
               revenueSource: 'gross_margin',
             },
+            {
+              fiscalYear: 2024,
+              revenue: 102_368.9,
+              ebitda: 99_658.93,
+              schemaType: 'full',
+              revenueSource: 'turnover',
+            },
           ],
         },
       },
     })
 
     const nbb = useNbbPrefillStore.getState()
-    expect(nbb.hasNbbData).toBe(true)
-    expect(nbb.getYearSnapshot(2023)).toEqual(
-      expect.objectContaining({
-        fiscalYear: 2023,
-        revenue: 300000,
-        ebitda: 75000,
-        schemaType: 'abbreviated',
-      })
-    )
+    expect(nbb.hasNbbData).toBe(false)
+    expect(nbb.getYearSnapshot(2023)).toBeUndefined()
+    expect(nbb.getYearSnapshot(2024)).toBeUndefined()
   })
 
   it('restore seeds tax latency candidates from persisted imported ledger analysis', async () => {

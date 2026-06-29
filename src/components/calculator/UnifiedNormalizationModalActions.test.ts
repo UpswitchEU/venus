@@ -56,7 +56,7 @@ describe('updateNormalizationStatus', () => {
 })
 
 describe('bulkUpdateNormalizationStatus', () => {
-  it('does not bulk-accept imported corrections that require row-level review', () => {
+  it('bulk-accepts imported corrections and records review timestamps', () => {
     const result = bulkUpdateNormalizationStatus({
       items: [
         baseItem({ id: 'manual_1', source: 'manual' }),
@@ -69,8 +69,10 @@ describe('bulkUpdateNormalizationStatus', () => {
 
     expect(result.find((item) => item.id === 'manual_1')).toMatchObject({ status: 'accepted' })
     const importedItem = result.find((item) => item.id === 'imported_sde_1')
-    expect(importedItem).toMatchObject({ status: 'pending' })
-    expect(importedItem).not.toHaveProperty('reviewedAt')
+    expect(importedItem).toMatchObject({
+      status: 'accepted',
+      reviewedAt: '2026-06-19T12:00:00.000Z',
+    })
   })
 
   it('allows bulk rejection while clearing imported review timestamps', () => {
