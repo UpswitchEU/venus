@@ -91,12 +91,10 @@ export function buildBelgianBootstrapActions(
       prompt: `Connect accounting data for ${subject} and continue onboarding.`,
     })
   }
-  actions.push(
-    {
-      label: ca('proposalCards.belgianBootstrap.startValuationAction'),
-      prompt: `Start a valuation for ${subject} using the public data, then ask me for any missing inputs.`,
-    }
-  )
+  actions.push({
+    label: ca('proposalCards.belgianBootstrap.startValuationAction'),
+    prompt: `Start a valuation for ${subject} using the public data, then ask me for any missing inputs.`,
+  })
   return actions
 }
 

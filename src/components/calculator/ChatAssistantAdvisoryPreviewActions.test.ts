@@ -121,9 +121,7 @@ describe('ChatAssistantAdvisoryPreviewActions', () => {
     )
     expect(
       buildClientDataReadinessActions(missing, translate, { integrationsEnabled: true })[0]?.prompt
-    ).toBe(
-      'Help me connect or import accounting data for client client-3.'
-    )
+    ).toBe('Help me connect or import accounting data for client client-3.')
     expect(buildClientDataReadinessActions(missing, translate)[0]).toEqual({
       label: 'proposalCards.clientDataReadiness.enterFiguresAction',
       prompt: 'Enter financials manually for client client-3: revenue + EBITDA by fiscal year.',

@@ -14,10 +14,10 @@
  */
 
 import { useLocale } from 'next-intl'
+import { normalizeAccountantPlanTypeKey } from '@/constants/accountantPlanMethods'
 import { buildManualMercuryPricingUrl } from '@/features/manual/utils/manualMercuryNavigation'
 import { useAuth } from '@/lib/auth/useAuth'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
-import { normalizeAccountantPlanTypeKey } from '@/constants/accountantPlanMethods'
 
 export type OwnerUpgradeTier = 'grow' | 'sell'
 
