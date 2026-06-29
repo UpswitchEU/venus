@@ -22,6 +22,11 @@ function calculateVariancePercent(
   return Math.abs(((userValue - officialValue) / Math.abs(officialValue)) * 100)
 }
 
+function isGrossMarginRevenueProxy(source: unknown): boolean {
+  const normalized = typeof source === 'string' ? source.trim().toLowerCase() : ''
+  return normalized === 'gross_margin' || normalized === 'gross_margin_revenue_proxy'
+}
+
 /**
  * Recompute variance analysis on official filing data using the user's current inputs.
  * Call after async enrichment merges so parity with synchronous Titan bootstrap.
@@ -40,10 +45,9 @@ export function applyUserVsOfficialVariance(
   const ur = userRevenue == null ? undefined : Number(userRevenue)
   const ue = userEbitda == null ? undefined : Number(userEbitda)
 
-  const revenueVariance =
-    official.revenueSource === 'gross_margin'
-      ? undefined
-      : calculateVariancePercent(ur, official.revenue)
+  const revenueVariance = isGrossMarginRevenueProxy(official.revenueSource)
+    ? undefined
+    : calculateVariancePercent(ur, official.revenue)
   const ebitdaVariance = calculateVariancePercent(ue, official.ebitda)
   const maxVariance = [revenueVariance, ebitdaVariance]
     .filter((value): value is number => value != null)

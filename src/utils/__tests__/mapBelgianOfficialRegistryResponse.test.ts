@@ -67,6 +67,48 @@ describe('mapBelgianOfficialRegistryResponseToOfficialFinancials', () => {
     })
   })
 
+  it('normalizes rejected valuation-input metadata and proxy historical sources', () => {
+    const mapped = mapBelgianOfficialRegistryResponseToOfficialFinancials({
+      status: 'ok',
+      official_financials: {
+        filing_year: 2024,
+        revenue: 244_665.68,
+        revenue_source: 'gross_margin_revenue_proxy',
+        ebitda: -34_970.07,
+        historical_years: [
+          {
+            fiscal_year: '2024',
+            revenue: '244665.68',
+            revenue_source: 'gross_margin_revenue_proxy',
+            ebitda: '-34970.07',
+          },
+        ],
+        valuation_input_years: [],
+        excluded_valuation_years: [{ fiscal_year: '2024', reason: 'gross_margin_revenue_proxy' }],
+        valuation_input_status: ' ALL_REJECTED ',
+      },
+    })
+
+    expect(mapped?.revenueSource).toBe('gross_margin')
+    expect(mapped?.verificationBadge).toEqual({
+      state: 'partial',
+      label: 'NBB filing uses gross margin',
+    })
+    expect(mapped?.historicalYears).toEqual([
+      expect.objectContaining({
+        fiscalYear: 2024,
+        revenue: 244_665.68,
+        revenueSource: 'gross_margin',
+        ebitda: -34_970.07,
+      }),
+    ])
+    expect(mapped?.valuationInputYears).toEqual([])
+    expect(mapped?.excludedValuationYears).toEqual([
+      { fiscalYear: 2024, reason: 'gross_margin_revenue_proxy' },
+    ])
+    expect(mapped?.valuationInputStatus).toBe('all_rejected')
+  })
+
   it('coerces numeric strings from JSON', () => {
     const mapped = mapBelgianOfficialRegistryResponseToOfficialFinancials({
       status: 'ok',

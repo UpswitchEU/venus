@@ -16,7 +16,7 @@ export interface NbbYearSnapshot {
   fiscalYear: number
   revenue: number | undefined
   ebitda: number | undefined
-  revenueSource: 'turnover' | 'gross_margin'
+  revenueSource: 'turnover' | 'gross_margin' | undefined
   schemaType: 'full' | 'abbreviated'
   rubricsUsed?: Record<string, string>
 }
@@ -38,11 +38,50 @@ interface NbbPrefillState {
 }
 
 function finiteNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  return undefined
+}
+
+function readFiscalYear(year: OfficialFinancialsYear): number | undefined {
+  const record = year as OfficialFinancialsYear & Record<string, unknown>
+  const parsed = finiteNumber(record.fiscalYear ?? record.fiscal_year)
+  return parsed != null && Number.isInteger(parsed) ? parsed : undefined
+}
+
+function normalizedString(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function readRevenueSource(year: OfficialFinancialsYear): 'turnover' | 'gross_margin' | undefined {
+  const record = year as OfficialFinancialsYear & Record<string, unknown>
+  const source = normalizedString(record.revenueSource ?? record.revenue_source)
+  if (source === 'gross_margin_revenue_proxy') return 'gross_margin'
+  return source === 'turnover' || source === 'gross_margin' ? source : undefined
+}
+
+function readSchemaType(year: OfficialFinancialsYear): 'full' | 'abbreviated' {
+  const record = year as OfficialFinancialsYear & Record<string, unknown>
+  return record.schemaType === 'abbreviated' || record.schema_type === 'abbreviated'
+    ? 'abbreviated'
+    : 'full'
+}
+
+function readRubricsUsed(year: OfficialFinancialsYear): Record<string, string> | undefined {
+  const record = year as OfficialFinancialsYear & Record<string, unknown>
+  const rubrics = record.rubricsUsed ?? record.rubrics_used
+  if (!rubrics || typeof rubrics !== 'object' || Array.isArray(rubrics)) return undefined
+  const entries = Object.entries(rubrics).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string'
+  )
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined
 }
 
 function hasUnsafeOperatingValues(year: OfficialFinancialsYear): boolean {
-  if (year.revenueSource === 'gross_margin') return true
+  if (readRevenueSource(year) === 'gross_margin') return true
 
   const revenue = finiteNumber(year.revenue)
   const ebitda = finiteNumber(year.ebitda)
@@ -62,17 +101,19 @@ export const useNbbPrefillStore = create<NbbPrefillState>((set, get) => ({
   setFromHistoricalYears: (years) => {
     const snapshots: Record<string, NbbYearSnapshot> = {}
     for (const yr of years) {
+      const fiscalYear = readFiscalYear(yr)
+      if (fiscalYear == null) continue
       const unsafeOperatingValues = hasUnsafeOperatingValues(yr)
       const revenue = unsafeOperatingValues ? undefined : finiteNumber(yr.revenue)
       const ebitda = unsafeOperatingValues ? undefined : finiteNumber(yr.ebitda)
       if (revenue == null && ebitda == null) continue
-      snapshots[String(yr.fiscalYear)] = {
-        fiscalYear: yr.fiscalYear,
+      snapshots[String(fiscalYear)] = {
+        fiscalYear,
         revenue,
         ebitda,
-        revenueSource: yr.revenueSource ?? 'turnover',
-        schemaType: yr.schemaType ?? 'full',
-        rubricsUsed: yr.rubricsUsed,
+        revenueSource: readRevenueSource(yr),
+        schemaType: readSchemaType(yr),
+        rubricsUsed: readRubricsUsed(yr),
       }
     }
     set({ yearSnapshots: snapshots, hasNbbData: Object.keys(snapshots).length > 0 })

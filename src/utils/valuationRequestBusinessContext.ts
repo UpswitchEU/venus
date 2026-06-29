@@ -13,6 +13,48 @@ interface BuildValuationBusinessContextOptions {
   inputSource?: string
 }
 
+type ForwardAssumptionSourceKind =
+  | 'advisor_entered'
+  | 'integration_observed'
+  | 'history_inferred'
+  | 'sector_default'
+  | 'system_fallback'
+
+type ForwardAssumptionUseKind = 'current_report_input' | 'forward_driver_input' | 'scenario_delta'
+
+type ForwardAssumptionConfidence = 'low' | 'medium' | 'high'
+
+interface ForwardAssumptionEvidence {
+  field_key: string
+  driver_group?: string
+  source_kind: ForwardAssumptionSourceKind
+  use_kind: ForwardAssumptionUseKind
+  confidence: ForwardAssumptionConfidence
+  source: string
+  value?: number | string
+  responsible_surface: string
+  transformation?: string
+  override_reason?: string
+  fallback?: boolean
+  warnings?: string[]
+}
+
+interface ForwardDriverEvidenceRow {
+  fiscal_year: number
+  use_kind: 'forward_driver_input'
+  source_kind: ForwardAssumptionSourceKind
+  drivers: Record<string, number>
+  assumptions: ForwardAssumptionEvidence[]
+  warnings: string[]
+}
+
+interface ForwardDriverEvidenceEnvelope {
+  schema_version: 'forward_driver_evidence_v1'
+  dcf_assumptions: ForwardAssumptionEvidence[]
+  forecast_driver_rows: ForwardDriverEvidenceRow[]
+  warnings: string[]
+}
+
 export function buildValuationBusinessContext({
   formData,
   latestRevenue,
@@ -71,6 +113,17 @@ export function buildValuationBusinessContext({
   }
 
   const userConfiguredDcf = isExplicitUserDcfIntent(fd, formData, dcfTaxShieldProjections.length)
+  const forwardDriverEvidence = buildForwardDriverEvidence({
+    fd,
+    rawForecastData,
+    projectionYears,
+    resolvedDcfInputSource,
+    userConfiguredDcf,
+    hasDcfTaxShieldProjections: dcfTaxShieldProjections.length > 0,
+  })
+  if (forwardDriverEvidence) {
+    adaptiveFields.forward_driver_evidence = forwardDriverEvidence
+  }
 
   copyFiniteAdaptiveFields(adaptiveFields, fd, [
     'nav_real_estate_adjustment',
@@ -204,6 +257,339 @@ export function buildValuationBusinessContext({
         : undefined
 
   return { businessContext, userConfiguredDcf }
+}
+
+function buildForwardDriverEvidence({
+  fd,
+  rawForecastData,
+  projectionYears,
+  resolvedDcfInputSource,
+  userConfiguredDcf,
+  hasDcfTaxShieldProjections,
+}: {
+  fd: ValuationFormData & Record<string, unknown>
+  rawForecastData: NonNullable<ValuationFormData['historical_years_data']>
+  projectionYears: number
+  resolvedDcfInputSource: string
+  userConfiguredDcf: boolean
+  hasDcfTaxShieldProjections: boolean
+}): ForwardDriverEvidenceEnvelope | undefined {
+  const dcfSourceKind = resolveAssumptionSourceKind(resolvedDcfInputSource, userConfiguredDcf)
+  const dcfAssumptions: ForwardAssumptionEvidence[] = []
+
+  pushNumericDcfAssumption(dcfAssumptions, fd, {
+    formField: 'dcf_wacc_pct',
+    driverGroup: 'wacc',
+    sourceKind: dcfSourceKind,
+    source: resolvedDcfInputSource,
+    useKind: 'current_report_input',
+  })
+  pushTerminalAssumption(dcfAssumptions, fd, dcfSourceKind, resolvedDcfInputSource)
+  for (const [formField, fieldKey] of [
+    ['dcf_revenue_growth_pct', 'forecast_revenue_or_fcff'],
+    ['dcf_ebitda_margin_pct', 'forecast_margin_or_fcff'],
+    ['dcf_capex_pct', 'fcff_bridge'],
+    ['dcf_da_pct', 'fcff_bridge'],
+    ['dcf_nwc_pct', 'working_capital_forecast'],
+    ['dcf_tax_rate_pct', 'tax_forecast'],
+    ['dcf_risk_free_rate_pct', 'wacc'],
+    ['dcf_equity_risk_premium_pct', 'wacc'],
+    ['dcf_beta', 'wacc'],
+    ['dcf_cost_of_debt_pct', 'wacc'],
+    ['dcf_debt_equity_pct', 'wacc'],
+    ['dcf_tax_shield_pct', 'tax_forecast'],
+  ] as const) {
+    pushNumericDcfAssumption(dcfAssumptions, fd, {
+      formField,
+      driverGroup: fieldKey,
+      sourceKind: dcfSourceKind,
+      source: resolvedDcfInputSource,
+      useKind: 'forward_driver_input',
+    })
+  }
+  pushLiteralDcfAssumption(dcfAssumptions, fd, {
+    formField: 'dcf_input_mode',
+    driverGroup: 'dcf_input_mode',
+    sourceKind: dcfSourceKind,
+    source: resolvedDcfInputSource,
+    useKind: 'forward_driver_input',
+  })
+  pushLiteralDcfAssumption(dcfAssumptions, fd, {
+    formField: 'dcf_discounting_convention',
+    driverGroup: 'dcf_discounting_convention',
+    sourceKind: dcfSourceKind,
+    source: resolvedDcfInputSource,
+    useKind: 'current_report_input',
+  })
+  if (hasDcfTaxShieldProjections) {
+    dcfAssumptions.push(
+      makeAssumptionEvidence({
+        fieldKey: 'dcf_tax_shield_projections',
+        driverGroup: 'tax_forecast',
+        sourceKind: dcfSourceKind,
+        source: resolvedDcfInputSource,
+        useKind: 'forward_driver_input',
+        transformation: 'normalized_to_forecast_horizon',
+      })
+    )
+  }
+
+  const forecastRows = buildForecastDriverRows({
+    rawForecastData,
+    projectionYears,
+    source: resolvedDcfInputSource,
+  })
+
+  if (dcfAssumptions.length === 0 && forecastRows.length === 0) return undefined
+
+  return {
+    schema_version: 'forward_driver_evidence_v1',
+    dcf_assumptions: dcfAssumptions,
+    forecast_driver_rows: forecastRows,
+    warnings: ['forecast_driver_rows_are_not_forward_valuation_points'],
+  }
+}
+
+function pushNumericDcfAssumption(
+  target: ForwardAssumptionEvidence[],
+  fd: Record<string, unknown>,
+  {
+    formField,
+    driverGroup,
+    sourceKind,
+    source,
+    useKind,
+  }: {
+    formField: string
+    driverGroup: string
+    sourceKind: ForwardAssumptionSourceKind
+    source: string
+    useKind: ForwardAssumptionUseKind
+  }
+): void {
+  const value = parseFlexibleNumber(fd[formField])
+  if (value === undefined) return
+  target.push(
+    makeAssumptionEvidence({
+      fieldKey: formField,
+      driverGroup,
+      sourceKind,
+      source,
+      useKind,
+      value,
+      transformation: formField === driverGroup ? undefined : `mapped_to:${driverGroup}`,
+    })
+  )
+}
+
+function pushLiteralDcfAssumption(
+  target: ForwardAssumptionEvidence[],
+  fd: Record<string, unknown>,
+  {
+    formField,
+    driverGroup,
+    sourceKind,
+    source,
+    useKind,
+  }: {
+    formField: string
+    driverGroup: string
+    sourceKind: ForwardAssumptionSourceKind
+    source: string
+    useKind: ForwardAssumptionUseKind
+  }
+): void {
+  const value = asNonEmptyString(fd[formField])
+  if (!value) return
+  target.push(
+    makeAssumptionEvidence({
+      fieldKey: formField,
+      driverGroup,
+      sourceKind,
+      source,
+      useKind,
+      value,
+    })
+  )
+}
+
+function pushTerminalAssumption(
+  target: ForwardAssumptionEvidence[],
+  fd: Record<string, unknown>,
+  sourceKind: ForwardAssumptionSourceKind,
+  source: string
+): void {
+  const hasTerminalAssumption =
+    isDcfTerminalValueMethod(fd.dcf_terminal_value_method) ||
+    fd.dcf_input_mode === 'fcff_only' ||
+    parseFlexibleNumber(fd.dcf_terminal_growth_pct) !== undefined ||
+    parseFlexibleNumber(fd.dcf_exit_multiple) !== undefined
+  if (!hasTerminalAssumption) return
+
+  target.push(
+    makeAssumptionEvidence({
+      fieldKey: 'terminal_value_assumption',
+      driverGroup: 'terminal_value_assumption',
+      sourceKind,
+      source,
+      useKind: 'current_report_input',
+    })
+  )
+}
+
+function buildForecastDriverRows({
+  rawForecastData,
+  projectionYears,
+  source,
+}: {
+  rawForecastData: NonNullable<ValuationFormData['historical_years_data']>
+  projectionYears: number
+  source: string
+}): ForwardDriverEvidenceRow[] {
+  const sourceKind: ForwardAssumptionSourceKind = source.startsWith('integration:')
+    ? 'integration_observed'
+    : 'advisor_entered'
+  const maxRows = Number.isFinite(projectionYears) && projectionYears > 0 ? projectionYears : 5
+  return rawForecastData
+    .filter((row) => Number.isFinite(row.year) && row.year >= 2000 && row.year <= 2100)
+    .slice(0, maxRows)
+    .map((row): ForwardDriverEvidenceRow => {
+      const drivers: Record<string, number> = {}
+      const assumptions: ForwardAssumptionEvidence[] = []
+      addForecastDriver(drivers, assumptions, row.revenue, {
+        driverKey: 'forecast_revenue',
+        source,
+        sourceKind,
+      })
+      addForecastDriver(drivers, assumptions, row.ebitda, {
+        driverKey: 'forecast_ebitda',
+        source,
+        sourceKind,
+      })
+      addForecastDriver(drivers, assumptions, row.free_cash_flow, {
+        driverKey: 'fcff_bridge',
+        source,
+        sourceKind,
+      })
+
+      return {
+        fiscal_year: row.year,
+        use_kind: 'forward_driver_input',
+        source_kind: sourceKind,
+        drivers,
+        assumptions,
+        warnings: ['forecast_driver_row_not_forward_valuation_point'],
+      }
+    })
+    .filter((row) => Object.keys(row.drivers).length > 0)
+}
+
+function addForecastDriver(
+  drivers: Record<string, number>,
+  assumptions: ForwardAssumptionEvidence[],
+  value: unknown,
+  {
+    driverKey,
+    source,
+    sourceKind,
+  }: {
+    driverKey: string
+    source: string
+    sourceKind: ForwardAssumptionSourceKind
+  }
+): void {
+  const numericValue = parseFlexibleNumber(value)
+  if (numericValue === undefined) return
+  drivers[driverKey] = numericValue
+  assumptions.push(
+    makeAssumptionEvidence({
+      fieldKey: driverKey,
+      driverGroup: driverKey,
+      sourceKind,
+      source,
+      useKind: 'forward_driver_input',
+      value: numericValue,
+    })
+  )
+}
+
+function makeAssumptionEvidence({
+  fieldKey,
+  driverGroup,
+  sourceKind,
+  source,
+  useKind,
+  value,
+  transformation,
+}: {
+  fieldKey: string
+  driverGroup?: string
+  sourceKind: ForwardAssumptionSourceKind
+  source: string
+  useKind: ForwardAssumptionUseKind
+  value?: number | string
+  transformation?: string
+}): ForwardAssumptionEvidence {
+  const fallback = sourceKind === 'system_fallback'
+  return {
+    field_key: fieldKey,
+    ...(driverGroup && { driver_group: driverGroup }),
+    source_kind: sourceKind,
+    use_kind: useKind,
+    confidence: confidenceForSourceKind(sourceKind),
+    source,
+    ...(value !== undefined && { value }),
+    responsible_surface: responsibleSurfaceForSourceKind(sourceKind),
+    ...(transformation && { transformation }),
+    ...(fallback && {
+      fallback: true,
+      warnings: ['system_fallback_not_forward_defensible'],
+    }),
+  }
+}
+
+function resolveAssumptionSourceKind(
+  source: string,
+  userConfiguredDcf: boolean
+): ForwardAssumptionSourceKind {
+  if (source.startsWith('integration:')) return 'integration_observed'
+  if (source === 'history' || source === 'historical' || source === 'history_inferred') {
+    return 'history_inferred'
+  }
+  if (source === 'sector_default' || source === 'sector') return 'sector_default'
+  if (source === 'manual' && userConfiguredDcf) return 'advisor_entered'
+  if (source === 'ai_assistant') return 'advisor_entered'
+  return 'system_fallback'
+}
+
+function confidenceForSourceKind(
+  sourceKind: ForwardAssumptionSourceKind
+): ForwardAssumptionConfidence {
+  switch (sourceKind) {
+    case 'advisor_entered':
+    case 'integration_observed':
+      return 'high'
+    case 'history_inferred':
+    case 'sector_default':
+      return 'medium'
+    default:
+      return 'low'
+  }
+}
+
+function responsibleSurfaceForSourceKind(sourceKind: ForwardAssumptionSourceKind): string {
+  switch (sourceKind) {
+    case 'advisor_entered':
+      return 'venus_advisor_input'
+    case 'integration_observed':
+      return 'integration_observed_financials'
+    case 'history_inferred':
+      return 'venus_history_inference'
+    case 'sector_default':
+      return 'sector_default_model'
+    default:
+      return 'venus_system_fallback'
+  }
 }
 
 function copyFiniteAdaptiveFields(

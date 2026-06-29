@@ -405,6 +405,26 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
       saas_sm_spend: 120_000,
       rev_top_client_concentration_pct: 18,
     })
+    expect(result.business_context?.forward_driver_evidence).toMatchObject({
+      schema_version: 'forward_driver_evidence_v1',
+      dcf_assumptions: expect.arrayContaining([
+        expect.objectContaining({
+          field_key: 'dcf_wacc_pct',
+          driver_group: 'wacc',
+          value: 9,
+          source_kind: 'system_fallback',
+        }),
+        expect.objectContaining({
+          field_key: 'dcf_debt_equity_pct',
+          driver_group: 'wacc',
+          value: 30,
+        }),
+        expect.objectContaining({
+          field_key: 'terminal_value_assumption',
+          driver_group: 'terminal_value_assumption',
+        }),
+      ]),
+    })
     expect(result.business_context?.dcf_exit_multiple).toBeUndefined()
   })
 

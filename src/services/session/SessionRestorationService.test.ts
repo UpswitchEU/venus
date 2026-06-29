@@ -578,6 +578,71 @@ describe('SessionRestorationService', () => {
     expect(nbb.getYearSnapshot(2024)).toBeUndefined()
   })
 
+  it('restore skips NBB prefill snapshots from snake_case gross-margin proxy years', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_nbb_proxy')
+    useNbbPrefillStore.getState().clear()
+
+    await SessionRestorationService.restore('val_restore_nbb_proxy', {
+      reportId: 'val_restore_nbb_proxy',
+      sessionData: {
+        company_name: 'Restore NBB Proxy Co',
+        official_financials: {
+          source: 'nbb',
+          historical_years: [
+            {
+              fiscal_year: '2024',
+              revenue: '244665.68',
+              ebitda: '-34970.07',
+              schema_type: 'abbreviated',
+              revenue_source: 'gross_margin_revenue_proxy',
+            },
+          ],
+        },
+      },
+    })
+
+    const nbb = useNbbPrefillStore.getState()
+    expect(nbb.hasNbbData).toBe(false)
+    expect(nbb.getYearSnapshot(2024)).toBeUndefined()
+  })
+
+  it('restore hydrates safe snake_case NBB prefill snapshots', async () => {
+    SessionRestorationService.clearRestorationState('val_restore_nbb_safe_snake')
+    useNbbPrefillStore.getState().clear()
+
+    await SessionRestorationService.restore('val_restore_nbb_safe_snake', {
+      reportId: 'val_restore_nbb_safe_snake',
+      sessionData: {
+        company_name: 'Restore NBB Safe Co',
+        official_financials: {
+          source: 'nbb',
+          historical_years: [
+            {
+              fiscal_year: '2024',
+              revenue: '420000',
+              ebitda: '90000',
+              schema_type: 'full',
+              revenue_source: 'turnover',
+              rubrics_used: { revenue: '70' },
+            },
+          ],
+        },
+      },
+    })
+
+    const nbb = useNbbPrefillStore.getState()
+    expect(nbb.hasNbbData).toBe(true)
+    expect(nbb.getYearSnapshot(2024)).toEqual(
+      expect.objectContaining({
+        fiscalYear: 2024,
+        revenue: 420000,
+        ebitda: 90000,
+        revenueSource: 'turnover',
+        rubricsUsed: { revenue: '70' },
+      })
+    )
+  })
+
   it('restore seeds tax latency candidates from persisted imported ledger analysis', async () => {
     SessionRestorationService.clearRestorationState('val_restore_tax_latency')
     useTaxLatencyStore.getState().clear()

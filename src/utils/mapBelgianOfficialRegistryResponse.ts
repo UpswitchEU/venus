@@ -19,8 +19,55 @@ function toOptionalFilingYear(value: unknown): number | undefined {
   return y >= 1800 && y <= 2200 ? y : undefined
 }
 
+function normalizedString(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
 function toRevenueSource(value: unknown): 'turnover' | 'gross_margin' | undefined {
-  return value === 'turnover' || value === 'gross_margin' ? value : undefined
+  const normalized = normalizedString(value)
+  if (normalized === 'gross_margin_revenue_proxy') return 'gross_margin'
+  return normalized === 'turnover' || normalized === 'gross_margin' ? normalized : undefined
+}
+
+function toValuationInputStatus(
+  value: unknown
+): 'accepted' | 'partial_rejected' | 'all_rejected' | undefined {
+  const normalized = normalizedString(value)
+  return normalized === 'accepted' ||
+    normalized === 'partial_rejected' ||
+    normalized === 'all_rejected'
+    ? normalized
+    : undefined
+}
+
+function toValuationInputYears(value: unknown): number[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  if (value.length === 0) return []
+  const years = value.flatMap((year): number[] => {
+    const parsed = toOptionalFilingYear(year)
+    return parsed != null ? [parsed] : []
+  })
+  return years.length > 0 ? years : undefined
+}
+
+function toExcludedValuationYears(
+  value: unknown
+): OfficialFinancials['excludedValuationYears'] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const years = value.flatMap(
+    (entry): NonNullable<OfficialFinancials['excludedValuationYears']> => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+      const record = entry as Record<string, unknown>
+      const fiscalYear = toOptionalFilingYear(record.fiscalYear ?? record.fiscal_year)
+      const reason = normalizedString(record.reason)
+      if (fiscalYear == null) return []
+      if (reason !== 'gross_margin_revenue_proxy' && reason !== 'implausible_ebitda_margin') {
+        return []
+      }
+      return [{ fiscalYear, reason }]
+    }
+  )
+  return years.length > 0 ? years : undefined
 }
 
 export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
@@ -104,6 +151,15 @@ export function mapBelgianOfficialRegistryResponseToOfficialFinancials(
       label: badgeLabel,
     },
     historicalYears: mapHistoricalYears(official),
+    valuationInputYears: toValuationInputYears(
+      official.valuationInputYears ?? official.valuation_input_years
+    ),
+    excludedValuationYears: toExcludedValuationYears(
+      official.excludedValuationYears ?? official.excluded_valuation_years
+    ),
+    valuationInputStatus: toValuationInputStatus(
+      official.valuationInputStatus ?? official.valuation_input_status
+    ),
   }
 }
 
@@ -113,25 +169,39 @@ function mapHistoricalYears(
   const raw = official.historicalYears ?? official.historical_years
   if (!Array.isArray(raw) || raw.length === 0) return undefined
 
-  return raw
-    .filter((yr): yr is Record<string, unknown> => yr != null && typeof yr === 'object')
-    .map((yr) => ({
-      fiscalYear: toOptionalFilingYear(yr.fiscalYear ?? yr.fiscal_year) ?? 0,
-      revenue: toOptionalFiniteNumber(yr.revenue),
-      revenueSource:
-        toRevenueSource(yr.revenueSource ?? yr.revenue_source) ?? ('turnover' as const),
-      operatingProfit: toOptionalFiniteNumber(yr.operatingProfit ?? yr.operating_profit),
-      depreciation: toOptionalFiniteNumber(yr.depreciation),
-      writeOffs: toOptionalFiniteNumber(yr.writeOffs ?? yr.write_offs),
-      provisions: toOptionalFiniteNumber(yr.provisions),
-      ebitda: toOptionalFiniteNumber(yr.ebitda),
-      totalAssets: toOptionalFiniteNumber(yr.totalAssets ?? yr.total_assets),
-      equity: toOptionalFiniteNumber(yr.equity),
-      schemaType:
-        yr.schemaType === 'abbreviated' || yr.schema_type === 'abbreviated'
-          ? ('abbreviated' as const)
-          : ('full' as const),
-      rubricsUsed: (yr.rubricsUsed ?? yr.rubrics_used) as Record<string, string> | undefined,
-    }))
-    .filter((yr) => yr.fiscalYear > 0)
+  return raw.flatMap((yr): OfficialFinancialsYear[] => {
+    if (!yr || typeof yr !== 'object' || Array.isArray(yr)) return []
+    const record = yr as Record<string, unknown>
+    const fiscalYear = toOptionalFilingYear(record.fiscalYear ?? record.fiscal_year)
+    if (fiscalYear == null) return []
+    const revenueSource = toRevenueSource(record.revenueSource ?? record.revenue_source)
+    const rubricsUsed = readRubricsUsed(record.rubricsUsed ?? record.rubrics_used)
+    return [
+      {
+        fiscalYear,
+        revenue: toOptionalFiniteNumber(record.revenue),
+        ...(revenueSource ? { revenueSource } : {}),
+        operatingProfit: toOptionalFiniteNumber(record.operatingProfit ?? record.operating_profit),
+        depreciation: toOptionalFiniteNumber(record.depreciation),
+        writeOffs: toOptionalFiniteNumber(record.writeOffs ?? record.write_offs),
+        provisions: toOptionalFiniteNumber(record.provisions),
+        ebitda: toOptionalFiniteNumber(record.ebitda),
+        totalAssets: toOptionalFiniteNumber(record.totalAssets ?? record.total_assets),
+        equity: toOptionalFiniteNumber(record.equity),
+        schemaType:
+          record.schemaType === 'abbreviated' || record.schema_type === 'abbreviated'
+            ? ('abbreviated' as const)
+            : ('full' as const),
+        ...(rubricsUsed ? { rubricsUsed } : {}),
+      },
+    ]
+  })
+}
+
+function readRubricsUsed(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string'
+  )
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined
 }

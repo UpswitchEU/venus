@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ValuationFormData } from '@/types/valuation'
 import {
+  buildValuationBusinessContext,
   isExplicitUserDcfIntent,
   normalizeDcfTaxShieldProjections,
   resolveDcfTerminalAssumptions,
@@ -138,5 +139,100 @@ describe('normalizeDcfTaxShieldProjections', () => {
 
   it('uses the computed projection horizon when no explicit forecast rows exist', () => {
     expect(normalizeDcfTaxShieldProjections([125, 75], [], 5)).toEqual([125, 75, 0, 0, 0])
+  })
+})
+
+describe('buildValuationBusinessContext forward driver evidence', () => {
+  it('tags advisor DCF assumptions and forecast rows as forward drivers only', () => {
+    const { businessContext } = buildValuationBusinessContext({
+      formData: {
+        selected_method: 'dcf',
+        dcf_input_mode: 'fcff_only',
+        dcf_discounting_convention: 'year_end',
+        dcf_wacc_pct: 9,
+        dcf_risk_free_rate_pct: 3,
+        dcf_equity_risk_premium_pct: 5.5,
+        dcf_beta: 1.1,
+        dcf_cost_of_debt_pct: 4.5,
+        dcf_debt_equity_pct: 30,
+        dcf_tax_shield_pct: 25,
+        dcf_terminal_growth_pct: 2,
+        forecast_years_data: [{ year: 2027, revenue: 1_100_000, ebitda: 140_000 }],
+      } as ValuationFormData,
+      latestRevenue: undefined,
+      countryCode: 'BE',
+      rawForecastData: [{ year: 2027, revenue: 1_100_000, ebitda: 140_000 }],
+      projectionYears: 5,
+    })
+
+    const evidence = businessContext?.forward_driver_evidence as Record<string, unknown>
+    const assumptions = evidence.dcf_assumptions as Array<Record<string, unknown>>
+    const rows = evidence.forecast_driver_rows as Array<Record<string, unknown>>
+
+    expect(assumptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field_key: 'dcf_wacc_pct',
+          driver_group: 'wacc',
+          source_kind: 'advisor_entered',
+          use_kind: 'current_report_input',
+          confidence: 'high',
+          value: 9,
+        }),
+        expect.objectContaining({
+          field_key: 'dcf_debt_equity_pct',
+          driver_group: 'wacc',
+          value: 30,
+        }),
+        expect.objectContaining({
+          field_key: 'terminal_value_assumption',
+          source_kind: 'advisor_entered',
+        }),
+        expect.objectContaining({
+          field_key: 'dcf_input_mode',
+          driver_group: 'dcf_input_mode',
+          value: 'fcff_only',
+        }),
+        expect.objectContaining({
+          field_key: 'dcf_discounting_convention',
+          driver_group: 'dcf_discounting_convention',
+          value: 'year_end',
+        }),
+      ])
+    )
+    expect(rows[0]).toMatchObject({
+      fiscal_year: 2027,
+      use_kind: 'forward_driver_input',
+      source_kind: 'advisor_entered',
+      warnings: ['forecast_driver_row_not_forward_valuation_point'],
+    })
+    expect(rows[0].drivers).toMatchObject({
+      forecast_revenue: 1_100_000,
+      forecast_ebitda: 140_000,
+    })
+    expect(businessContext?.forward_value_cone).toBeUndefined()
+  })
+
+  it('marks auto-seeded DCF placeholders as system fallbacks below forward threshold', () => {
+    const { businessContext, userConfiguredDcf } = buildValuationBusinessContext({
+      formData: { dcf_wacc_pct: 10.5 } as ValuationFormData,
+      latestRevenue: undefined,
+      countryCode: 'BE',
+      rawForecastData: [],
+      projectionYears: 5,
+    })
+
+    const evidence = businessContext?.forward_driver_evidence as Record<string, unknown>
+    const assumptions = evidence.dcf_assumptions as Array<Record<string, unknown>>
+
+    expect(userConfiguredDcf).toBe(false)
+    expect(assumptions[0]).toMatchObject({
+      field_key: 'dcf_wacc_pct',
+      driver_group: 'wacc',
+      source_kind: 'system_fallback',
+      confidence: 'low',
+      fallback: true,
+      warnings: ['system_fallback_not_forward_defensible'],
+    })
   })
 })

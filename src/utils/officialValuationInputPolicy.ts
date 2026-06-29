@@ -50,9 +50,18 @@ function readFiscalYear(value: unknown): number | undefined {
   return Number.isInteger(year) ? year : undefined
 }
 
+function normalizedString(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function hasGrossMarginRevenueProxy(value: Record<string, unknown>): boolean {
+  const source = normalizedString(value.revenueSource ?? value.revenue_source)
+  return source === 'gross_margin' || source === 'gross_margin_revenue_proxy'
+}
+
 function hasUnsafeOperatingValues(value: unknown): boolean {
   if (!isRecord(value)) return false
-  if ((value.revenueSource ?? value.revenue_source) === 'gross_margin') return true
+  if (hasGrossMarginRevenueProxy(value)) return true
   const revenue = finiteNumber(value.revenue)
   const ebitda = finiteNumber(value.ebitda)
   return (
@@ -69,7 +78,10 @@ export function officialFinancialsRejectsValuationInputs(
 ): boolean {
   if (!officialFinancials) return false
   const record = officialFinancials as OfficialFinancialsRecord
-  if ((record.valuationInputStatus ?? record.valuation_input_status) === 'all_rejected') {
+  if (
+    normalizedString(record.valuationInputStatus ?? record.valuation_input_status) ===
+    'all_rejected'
+  ) {
     return true
   }
 
