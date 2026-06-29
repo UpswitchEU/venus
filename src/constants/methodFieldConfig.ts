@@ -13,12 +13,13 @@ import { PRIMARY_OMNI_METHOD_ORDER } from './omniCalcMethods'
 /**
  * Method Field Configuration — derived view over the canonical method registry.
  *
- * The 10 valuation methods are declared once in `@/lib/methods/registry.ts`
- * (a `MethodSpec` per method). The legacy constants below — `METHOD_FIELD_CONFIG`,
+ * The valuation method specs are declared once in `@/lib/methods/registry.ts`.
+ * That includes the 10 product-facing methods plus compatibility aliases such
+ * as `revenue_multiple`. The legacy constants below — `METHOD_FIELD_CONFIG`,
  * `PRE_SELECTABLE_METHODS`, `COMBINABLE_METHODS`, `STANDALONE_METHODS`,
- * `MUTUALLY_EXCLUSIVE_PAIRS` — are *derived* from that registry so adding an
- * 11th method requires editing exactly one entry (the spec) instead of five
- * separate top-level constants.
+ * `MUTUALLY_EXCLUSIVE_PAIRS` — are *derived* from that registry so adding a
+ * method or alias requires editing exactly one entry (the spec) instead of
+ * five separate top-level constants.
  *
  * Method *labels* (i18n) live in `@/constants/methodLabels.ts`, also derived
  * from the same registry. `BUSINESS_TYPE_SECTIONS` and the quality-warning CTA

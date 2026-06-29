@@ -677,6 +677,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
       handleShowNormalisationReview,
       hasReport: !!report,
       hasAdvisorProValuationAccess: showFullAdvisorMethodNav,
+      isAdvisorAudience,
       isAccountantMode,
       isCalculating,
       isChatGenerating,

@@ -101,6 +101,7 @@ export function ChatAssistantDrawer({
   hasReport = false,
   hasEbitda = false,
   integrationsEnabled = false,
+  integrationAudience = 'advisor',
   pendingNormalizationsCount = 0,
   acceptedNormalizationsCount = 0,
   hasCapBreach = false,
@@ -461,6 +462,7 @@ export function ChatAssistantDrawer({
                         onApplyAgentChoice={onApplyAgentChoice}
                         onCommandPillClick={handleCommandPillClick}
                         integrationsEnabled={integrationsEnabled}
+                        integrationAudience={integrationAudience}
                         onOpenConsent={handleOpenConsent}
                         onRetry={onRetry}
                         onSendFollowUp={(content) =>

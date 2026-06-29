@@ -67,9 +67,11 @@ export function OwnerProfileCard({ request }: { request: OwnerProfileAnswerReque
 export function IntegrationCard({
   request,
   integrationsEnabled = false,
+  integrationAudience = 'advisor',
 }: {
   request: IntegrationConnectRequest
   integrationsEnabled?: boolean
+  integrationAudience?: 'advisor' | 'owner'
 }) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
@@ -104,8 +106,10 @@ export function IntegrationCard({
       onAction={
         integrationsEnabled
           ? async () => {
+              const settingsPath =
+                integrationAudience === 'owner' ? '/users/profile' : '/advisor/settings'
               openInNewTab(
-                mercuryPath(locale, '/advisor/settings', {
+                mercuryPath(locale, settingsPath, {
                   tab: 'integrations',
                   source: 'venus_chat',
                   accounting_provider: request.provider,

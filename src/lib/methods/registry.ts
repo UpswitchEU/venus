@@ -1,9 +1,11 @@
 /**
- * Method registry — the single source of truth for the 10 valuation methods.
+ * Method registry — the single source of truth for the valuation method specs.
  *
- * Three methods live in their own modules (`./dcf`, `./ebitda_multiple`,
- * `./adjusted_nav`) as proof points for the per-method module pattern. The
- * remaining seven specs live inline until later phases migrate them.
+ * The product surface has 10 distinct valuation methods. This registry stores
+ * those 10 plus `revenue_multiple`, the English compatibility alias for the
+ * same revenue lens as `omzet_multiple`. `revenue_multiple` is intentionally
+ * not pre-selectable in the Venus nav, but it must stay here because API
+ * payloads, engine results, and weight maps can still carry it.
  *
  * All legacy method constants (`COMBINABLE_METHODS`, `STANDALONE_METHODS`,
  * `METHOD_FIELD_CONFIG`, `MUTUALLY_EXCLUSIVE_PAIRS`, `PRE_SELECTABLE_METHODS`,

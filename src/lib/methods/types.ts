@@ -1,11 +1,13 @@
 /**
  * MethodSpec — single source of truth for a valuation method.
  *
- * Each of the 10 valuation methods declares one MethodSpec. The legacy
- * scattered constants (`COMBINABLE_METHODS`, `STANDALONE_METHODS`,
- * `METHOD_FIELD_CONFIG`, `MUTUALLY_EXCLUSIVE_PAIRS`, `PRE_SELECTABLE_METHODS`,
- * `METHOD_LABEL_KEYS`, `METHOD_DESCRIPTION_KEYS`) are derived from this
- * registry so adding an 11th method requires editing exactly one entry.
+ * Each product valuation method declares one MethodSpec; the registry also
+ * carries compatibility aliases such as `revenue_multiple` when API payloads
+ * need them. The legacy scattered constants (`COMBINABLE_METHODS`,
+ * `STANDALONE_METHODS`, `METHOD_FIELD_CONFIG`, `MUTUALLY_EXCLUSIVE_PAIRS`,
+ * `PRE_SELECTABLE_METHODS`, `METHOD_LABEL_KEYS`, `METHOD_DESCRIPTION_KEYS`)
+ * are derived from this registry so adding a method or alias requires editing
+ * exactly one entry.
  */
 
 /**
@@ -73,8 +75,8 @@ export interface MethodSpec {
   // ─── Capability flags ─────────────────────────────────────────────────────
   // Used by `ManualLayout` and `ManualInputPanel` to drive method-specific UI
   // behaviour without scattering string-equality checks throughout the panels.
-  // Adding the 11th method means declaring the right flags on its spec — no
-  // edits to the consumer files.
+  // Adding another method or alias means declaring the right flags on its spec
+  // — no edits to the consumer files.
 
   /**
    * The "no specific method" sentinel. The store represents adaptive as `null`

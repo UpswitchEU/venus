@@ -10,6 +10,20 @@ import {
   showAdvisorCalculatorSurface,
   showFullValuationMethodAccess,
 } from './accountantPlanMethods'
+import { PRE_SELECTABLE_METHODS } from './methodFieldConfig'
+
+const PRODUCT_PRE_SELECTABLE_METHOD_KEYS = [
+  'upswitch_adaptive',
+  'omzet_multiple',
+  'arr_multiple',
+  'ebitda_multiple',
+  'dcf',
+  'sde_multiple',
+  'adjusted_nav',
+  'fiscal_4x',
+  'startup_valuation',
+  'liquidation_analysis',
+] as const
 
 describe('normalizeAccountantPlanTypeKey', () => {
   it('treats empty and undefined as free', () => {
@@ -85,23 +99,21 @@ describe('resolveAllowedMethodKeys', () => {
 })
 
 describe('OWNER_FOUNDER_METHOD_KEYS', () => {
+  it('pins the full product-facing valuation method surface to exactly 10 keys', () => {
+    expect(PRE_SELECTABLE_METHODS).toEqual(PRODUCT_PRE_SELECTABLE_METHOD_KEYS)
+    expect(PRE_SELECTABLE_METHODS).toHaveLength(10)
+    expect(PRE_SELECTABLE_METHODS).not.toContain('revenue_multiple')
+  })
+
   it('keeps three methods for non-accountant nav', () => {
     expect(OWNER_FOUNDER_METHOD_KEYS.length).toBe(3)
-    const all = [
-      'upswitch_adaptive',
-      'dcf',
-      'ebitda_multiple',
-      'adjusted_nav',
-      'fiscal_4x',
-      'arr_multiple',
-      'startup_valuation',
-    ]
-    const filtered = filterPreSelectableMethodsForOwnerFounder(all, false)
+    const filtered = filterPreSelectableMethodsForOwnerFounder(PRE_SELECTABLE_METHODS, false)
     expect(filtered).toEqual(['upswitch_adaptive', 'arr_multiple', 'startup_valuation'])
   })
-  it('does not filter for accountant flow', () => {
-    const all = ['dcf', 'upswitch_adaptive']
-    expect(filterPreSelectableMethodsForOwnerFounder(all, true)).toEqual(all)
+  it('does not filter for full valuation access', () => {
+    expect(filterPreSelectableMethodsForOwnerFounder(PRE_SELECTABLE_METHODS, true)).toEqual(
+      PRODUCT_PRE_SELECTABLE_METHOD_KEYS
+    )
   })
 })
 
@@ -149,14 +161,17 @@ describe('planGrantsAdvisorProValuationAccess', () => {
 
 describe('showFullValuationMethodAccess', () => {
   it('lets a Grow business owner use the full advisor valuation method surface', () => {
-    expect(
-      showFullValuationMethodAccess({
-        isAccountantForClient: false,
-        planType: 'owner_grow',
-        userRole: 'seller',
-      })
-    ).toBe(true)
+    const showFullAdvisorList = showFullValuationMethodAccess({
+      isAccountantForClient: false,
+      planType: 'owner_grow',
+      userRole: 'seller',
+    })
+
+    expect(showFullAdvisorList).toBe(true)
     expect(showAdvisorCalculatorSurface(false, 'seller')).toBe(false)
+    expect(
+      filterPreSelectableMethodsForOwnerFounder(PRE_SELECTABLE_METHODS, showFullAdvisorList)
+    ).toEqual(PRODUCT_PRE_SELECTABLE_METHOD_KEYS)
   })
 
   it('keeps a Free business owner on the founder method surface', () => {

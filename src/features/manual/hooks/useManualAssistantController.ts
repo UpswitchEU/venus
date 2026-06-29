@@ -102,6 +102,7 @@ export interface UseManualAssistantControllerParams {
   handleRetry: NonNullable<ChatDrawerProps['onRetry']>
   hasAdvisorProValuationAccess: boolean
   hasReport: boolean
+  isAdvisorAudience: boolean
   isAccountantMode: boolean
   isCalculating: boolean
   isChatGenerating: boolean
@@ -177,6 +178,7 @@ export function useManualAssistantController({
   handleRetry,
   hasAdvisorProValuationAccess,
   hasReport,
+  isAdvisorAudience,
   isAccountantMode,
   isCalculating,
   isChatGenerating,
@@ -496,6 +498,7 @@ export function useManualAssistantController({
     hasReport,
     hasEbitda,
     integrationsEnabled,
+    integrationAudience: isAdvisorAudience ? 'advisor' : 'owner',
     pendingNormalizationsCount: pendingNormalizationCount,
     acceptedNormalizationsCount: assistantSuggestionContext.acceptedNormalizationsCount,
     hasCapBreach: assistantSuggestionContext.hasCapBreach,

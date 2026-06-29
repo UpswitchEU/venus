@@ -613,6 +613,45 @@ describe('ChatAssistantAgentActionCards', () => {
     expect(onSendFollowUp).not.toHaveBeenCalled()
   })
 
+  it('opens owner integration proposals on the Mercury owner integrations surface', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const openMock = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const message: ChatMessage = {
+      id: 'msg-owner-connect',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      integrationConnectRequests: [
+        {
+          id: 'proposal-owner-connect',
+          status: 'pending_approval',
+          provider: 'exact',
+          authMode: 'oauth',
+          reason: 'The owner asked to connect Exact.',
+        },
+      ],
+    }
+
+    render(
+      <ChatAssistantAgentActionCards
+        message={message}
+        integrationsEnabled
+        integrationAudience="owner"
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'proposalCards.agent.integrationAction' }))
+
+    await waitFor(() => {
+      expect(openMock).toHaveBeenCalledWith(
+        'http://localhost:3000/en/users/profile?tab=integrations&source=venus_chat&accounting_provider=exact',
+        '_blank',
+        'noopener,noreferrer'
+      )
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('keeps integration connect proposals inert when integrations are plan-locked', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

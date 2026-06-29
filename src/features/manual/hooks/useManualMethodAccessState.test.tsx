@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest'
 import type { PlanFeatureFlags } from '../../../hooks/useCredits'
 import { useManualMethodAccessState } from './useManualMethodAccessState'
 
+const PRODUCT_PRE_SELECTABLE_METHOD_KEYS = [
+  'upswitch_adaptive',
+  'omzet_multiple',
+  'arr_multiple',
+  'ebitda_multiple',
+  'dcf',
+  'sde_multiple',
+  'adjusted_nav',
+  'fiscal_4x',
+  'startup_valuation',
+  'liquidation_analysis',
+] as const
+
 const unlockedFeatures: PlanFeatureFlags = {
   ebitda_normalization: true,
   tax_latencies: true,
@@ -78,19 +91,27 @@ describe('useManualMethodAccessState plan gates', () => {
     expect(result.current.showFullAdvisorMethodNav).toBe(true)
     expect(result.current.isAdvisorAudience).toBe(false)
     expect(result.current.showPreparerMultiplePanel).toBe(true)
-    expect(result.current.preSelectableMethodsForNav).toEqual(
-      expect.arrayContaining([
-        'upswitch_adaptive',
-        'omzet_multiple',
-        'arr_multiple',
-        'ebitda_multiple',
-        'dcf',
-        'sde_multiple',
-        'adjusted_nav',
-        'fiscal_4x',
-        'startup_valuation',
-        'liquidation_analysis',
-      ])
+    expect(result.current.preSelectableMethodsForNav).toEqual(PRODUCT_PRE_SELECTABLE_METHOD_KEYS)
+  })
+
+  it('keeps Grow business owner method access equal to advisor Pro method access', () => {
+    const { result: growOwner } = renderAccess({
+      planFeatures: unlockedFeatures,
+      planType: 'owner_grow',
+      userRole: 'seller',
+    })
+    const { result: advisorPro } = renderAccess({
+      planFeatures: unlockedFeatures,
+      planType: 'pro',
+      userRole: 'accountant',
+    })
+
+    expect(growOwner.current.isAdvisorAudience).toBe(false)
+    expect(advisorPro.current.isAdvisorAudience).toBe(true)
+    expect(growOwner.current.showFullAdvisorMethodNav).toBe(true)
+    expect(advisorPro.current.showFullAdvisorMethodNav).toBe(true)
+    expect(growOwner.current.preSelectableMethodsForNav).toEqual(
+      advisorPro.current.preSelectableMethodsForNav
     )
   })
 })

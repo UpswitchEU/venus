@@ -43,6 +43,7 @@ interface ChatAssistantAgentActionCardsProps {
   onApplyAgentChoice?: (choice: AgentChoiceSelection) => boolean | Promise<boolean>
   onSendFollowUp?: (content: string) => void
   integrationsEnabled?: boolean
+  integrationAudience?: 'advisor' | 'owner'
 }
 
 export function ChatAssistantAgentActionCards({
@@ -50,6 +51,7 @@ export function ChatAssistantAgentActionCards({
   onApplyAgentChoice,
   onSendFollowUp,
   integrationsEnabled = false,
+  integrationAudience = 'advisor',
 }: ChatAssistantAgentActionCardsProps) {
   const hasCards = useMemo(
     () =>
@@ -95,6 +97,7 @@ export function ChatAssistantAgentActionCards({
             key={request.id}
             request={request}
             integrationsEnabled={integrationsEnabled}
+            integrationAudience={integrationAudience}
           />
         ))}
         {message.integrationSyncRequests?.map((request) => (

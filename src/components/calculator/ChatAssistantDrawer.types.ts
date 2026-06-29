@@ -36,6 +36,8 @@ export interface ChatAssistantDrawerProps {
   hasEbitda?: boolean
   /** True only when the current plan can use live accounting integration actions. */
   integrationsEnabled?: boolean
+  /** Selects the Mercury settings surface for integration-connect cards. */
+  integrationAudience?: 'advisor' | 'owner'
   pendingNormalizationsCount?: number
   acceptedNormalizationsCount?: number
   hasCapBreach?: boolean
