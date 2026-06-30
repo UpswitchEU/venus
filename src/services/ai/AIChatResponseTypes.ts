@@ -1,5 +1,6 @@
 import type {
   AcknowledgeWarningRequest,
+  AdvisorCopilotDraft,
   BelgianCompanyBootstrap,
   BusinessTypeSearchResults,
   BuyerProfilePreview,
@@ -139,6 +140,8 @@ export interface AIChatResponse {
   buyerProfilePreviews?: BuyerProfilePreview[]
   /** Buyer-ready/IM/legal/data-room workflow cards parsed from Titan tool envelopes. */
   buyerReadyCards?: BuyerReadyToolCard[]
+  /** Advisor-reviewed Co-Pilot drafts for value-up trajectory planning. */
+  advisorCopilotDrafts?: AdvisorCopilotDraft[]
   /** Read-only business-type discovery shortlist from search_business_types. */
   businessTypeSearchResults?: BusinessTypeSearchResults[]
   /**

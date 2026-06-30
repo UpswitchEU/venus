@@ -76,6 +76,20 @@ describe('manualChatHistory', () => {
                   },
                 },
               },
+              {
+                id: 'tr-4',
+                toolName: 'propose_advisor_copilot_draft',
+                result: {
+                  status: 'pending_review',
+                  report_id: 'report-1',
+                  business_name: 'Acme NV',
+                  year_plan: [{ title: 'Revenue quality sprint', source_keys: ['valuation'] }],
+                  first_check_in_agenda: [],
+                  talking_points: [],
+                  billable_service_angles: [],
+                  citations: [{ key: 'valuation', label: 'Latest valuation', source: 'tool' }],
+                },
+              },
             ],
           },
         }),
@@ -101,6 +115,12 @@ describe('manualChatHistory', () => {
       reportId: 'report-1',
       accountantCustomerId: 'client-1',
       visibility: 'private',
+    })
+    expect(result[1].advisorCopilotDrafts?.[0]).toMatchObject({
+      id: 'card-4',
+      status: 'pending_review',
+      businessName: 'Acme NV',
+      yearPlan: [{ title: 'Revenue quality sprint' }],
     })
   })
 })

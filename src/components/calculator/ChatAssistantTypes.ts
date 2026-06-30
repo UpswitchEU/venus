@@ -1,5 +1,6 @@
 import type {
   AcknowledgeWarningRequest,
+  AdvisorCopilotDraft,
   BelgianCompanyBootstrap,
   BulkValuationRunRequest,
   BusinessTypeSearchResults,
@@ -40,6 +41,7 @@ import type {
 
 export type {
   AcknowledgeWarningRequest,
+  AdvisorCopilotDraft,
   AgentChoiceSelection,
   BelgianCompanyBootstrap,
   BulkValuationRunRequest,
@@ -174,6 +176,8 @@ export interface ChatMessage {
   buyerProfilePreviews?: BuyerProfilePreview[]
   // AI-generated buyer-ready, IM, legal, data-room and publish workflow cards.
   buyerReadyCards?: BuyerReadyToolCard[]
+  // AI-drafted advisor Co-Pilot plan for trajectory planning, kept advisor-review-only.
+  advisorCopilotDrafts?: AdvisorCopilotDraft[]
   /**
    * Read-only business-type shortlist rendered when the agent calls
    * search_business_types. Click a row to fire a follow-up

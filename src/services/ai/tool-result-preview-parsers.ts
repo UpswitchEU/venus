@@ -1,10 +1,167 @@
 import type {
+  AdvisorCopilotAgendaItem,
+  AdvisorCopilotCitation,
+  AdvisorCopilotDraft,
+  AdvisorCopilotServiceAngle,
+  AdvisorCopilotTalkingPoint,
+  AdvisorCopilotYearPlanItem,
   BelgianCompanyBootstrap,
   BuyerProfilePreview,
   ClientDataReadinessPreview,
   ListingPreview,
   MethodReadinessPreview,
 } from './tool-result-types'
+
+function optionalTrimmedString(value: unknown, max = 300): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed.slice(0, max) : undefined
+}
+
+function nullableFiniteNumber(value: unknown): number | null {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function recordArray(value: unknown, maxItems: number): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+    .slice(0, maxItems)
+}
+
+function sourceKeys(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => optionalTrimmedString(item, 120))
+    .filter((item): item is string => Boolean(item))
+    .slice(0, 8)
+}
+
+function parseAdvisorCopilotCitations(value: unknown): AdvisorCopilotCitation[] {
+  return recordArray(value, 12)
+    .map((item): AdvisorCopilotCitation | null => {
+      const key = optionalTrimmedString(item.key, 80)
+      const label = optionalTrimmedString(item.label, 160)
+      const source = optionalTrimmedString(item.source, 160)
+      if (!key || !label || !source) return null
+      const detail = optionalTrimmedString(item.detail, 240)
+      return detail ? { key, label, source, detail } : { key, label, source }
+    })
+    .filter((item): item is AdvisorCopilotCitation => item !== null)
+}
+
+function parseAdvisorCopilotYearPlan(value: unknown): AdvisorCopilotYearPlanItem[] {
+  return recordArray(value, 8)
+    .map((item): AdvisorCopilotYearPlanItem | null => {
+      const title = optionalTrimmedString(item.title, 180)
+      if (!title) return null
+      return {
+        title,
+        objective: optionalTrimmedString(item.objective, 260) ?? null,
+        targetDelta: nullableFiniteNumber(item.target_delta),
+        rationale: optionalTrimmedString(item.rationale, 360) ?? null,
+        sourceKeys: sourceKeys(item.source_keys),
+      }
+    })
+    .filter((item): item is AdvisorCopilotYearPlanItem => item !== null)
+}
+
+function parseAdvisorCopilotAgenda(value: unknown): AdvisorCopilotAgendaItem[] {
+  return recordArray(value, 10)
+    .map((item): AdvisorCopilotAgendaItem | null => {
+      const title = optionalTrimmedString(item.title, 180)
+      if (!title) return null
+      return {
+        title,
+        durationMinutes: nullableFiniteNumber(item.duration_minutes),
+        advisorPrep: optionalTrimmedString(item.advisor_prep, 260) ?? null,
+        ownerPrompt: optionalTrimmedString(item.owner_prompt, 260) ?? null,
+        sourceKeys: sourceKeys(item.source_keys),
+      }
+    })
+    .filter((item): item is AdvisorCopilotAgendaItem => item !== null)
+}
+
+function parseAdvisorCopilotTalkingPoints(value: unknown): AdvisorCopilotTalkingPoint[] {
+  return recordArray(value, 10)
+    .map((item): AdvisorCopilotTalkingPoint | null => {
+      const point = optionalTrimmedString(item.point, 260)
+      if (!point) return null
+      return {
+        point,
+        rationale: optionalTrimmedString(item.rationale, 360) ?? null,
+        euroDelta: nullableFiniteNumber(item.euro_delta),
+        sourceKeys: sourceKeys(item.source_keys),
+      }
+    })
+    .filter((item): item is AdvisorCopilotTalkingPoint => item !== null)
+}
+
+function parseAdvisorCopilotServiceAngles(value: unknown): AdvisorCopilotServiceAngle[] {
+  return recordArray(value, 8)
+    .map((item): AdvisorCopilotServiceAngle | null => {
+      const title = optionalTrimmedString(item.title, 180)
+      if (!title) return null
+      return {
+        title,
+        scope: optionalTrimmedString(item.scope, 300) ?? null,
+        rationale: optionalTrimmedString(item.rationale, 360) ?? null,
+        sourceKeys: sourceKeys(item.source_keys),
+      }
+    })
+    .filter((item): item is AdvisorCopilotServiceAngle => item !== null)
+}
+
+export function parseAdvisorCopilotDraft(data: unknown): AdvisorCopilotDraft[] {
+  if (!data || typeof data !== 'object') return []
+  const d = data as Record<string, unknown>
+
+  if (d.status === 'blocked') {
+    return [
+      {
+        status: 'blocked',
+        yearPlan: [],
+        firstCheckInAgenda: [],
+        talkingPoints: [],
+        billableServiceAngles: [],
+        citations: [],
+        reason: optionalTrimmedString(d.reason, 160),
+        message: optionalTrimmedString(d.message, 300),
+      },
+    ]
+  }
+
+  if (d.status !== 'pending_review') return []
+
+  const citations = parseAdvisorCopilotCitations(d.citations)
+  const yearPlan = parseAdvisorCopilotYearPlan(d.year_plan)
+  const firstCheckInAgenda = parseAdvisorCopilotAgenda(d.first_check_in_agenda)
+  const talkingPoints = parseAdvisorCopilotTalkingPoints(d.talking_points)
+  const billableServiceAngles = parseAdvisorCopilotServiceAngles(d.billable_service_angles)
+  const hasContent =
+    yearPlan.length > 0 ||
+    firstCheckInAgenda.length > 0 ||
+    talkingPoints.length > 0 ||
+    billableServiceAngles.length > 0
+
+  if (!hasContent || citations.length === 0) return []
+
+  return [
+    {
+      status: 'pending_review',
+      trajectoryId: optionalTrimmedString(d.trajectory_id, 80) ?? null,
+      reportId: optionalTrimmedString(d.report_id, 80) ?? null,
+      businessName: optionalTrimmedString(d.business_name, 180) ?? null,
+      yearPlan,
+      firstCheckInAgenda,
+      talkingPoints,
+      billableServiceAngles,
+      citations,
+      message: optionalTrimmedString(d.message, 300),
+    },
+  ]
+}
 
 export function parseClientDataReadiness(data: unknown): ClientDataReadinessPreview[] {
   if (!data || typeof data !== 'object') return []

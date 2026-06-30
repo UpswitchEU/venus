@@ -31,6 +31,7 @@ const renderableCardCollections: Array<keyof ChatMessage> = [
   'listingPreviews',
   'listingCreateRequests',
   'buyerProfilePreviews',
+  'advisorCopilotDrafts',
   'buyerReadyCards',
   'businessTypeSearchResults',
   'registrySearchResults',
@@ -80,7 +81,9 @@ export function getChatAssistantMessageRenderKey(messages: ChatMessage[]): strin
           message.methodReadinessPreviews?.length ?? 0
         }:${message.listingPreviews?.length ?? 0}:${
           message.listingCreateRequests?.length ?? 0
-        }:${message.buyerProfilePreviews?.length ?? 0}:${message.buyerReadyCards?.length ?? 0}:${
+        }:${message.buyerProfilePreviews?.length ?? 0}:${
+          message.advisorCopilotDrafts?.length ?? 0
+        }:${message.buyerReadyCards?.length ?? 0}:${
           message.businessTypeSearchResults?.length ?? 0
         }:${message.registrySearchResults?.length ?? 0}:${message.tasks?.length ?? 0}`
     )

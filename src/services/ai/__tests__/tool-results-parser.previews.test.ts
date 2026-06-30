@@ -594,6 +594,155 @@ describe('business_type_search_results', () => {
 })
 
 // ---------------------------------------------------------------------
+// advisor_copilot_draft
+// ---------------------------------------------------------------------
+
+describe('advisor_copilot_draft', () => {
+  it('parses grounded Advisor Co-Pilot drafts for review', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'advisor_copilot_draft',
+        data: {
+          status: 'pending_review',
+          trajectory_id: 'trajectory-1',
+          report_id: 'report-1',
+          business_name: 'Acme BV',
+          year_plan: [
+            {
+              title: 'Reduce customer concentration',
+              objective: 'Move top-3 revenue concentration below 45%.',
+              target_delta: 180000,
+              rationale: 'Lower concentration supports the value-up thesis.',
+              source_keys: ['valuation', 'action-1'],
+            },
+          ],
+          first_check_in_agenda: [
+            {
+              title: 'Owner commitments',
+              duration_minutes: 20,
+              advisor_prep: 'Bring the client concentration chart.',
+              owner_prompt: 'Which accounts can shift to contracted revenue this quarter?',
+              source_keys: ['readiness'],
+            },
+          ],
+          talking_points: [
+            {
+              point: 'The value gap is concentrated in revenue quality.',
+              rationale: 'The latest valuation shows a sellability discount.',
+              euro_delta: 180000,
+              source_keys: ['valuation'],
+            },
+          ],
+          billable_service_angles: [
+            {
+              title: 'Revenue quality sprint',
+              scope: 'Four weekly advisor sessions.',
+              rationale: 'Links directly to the largest value-up action.',
+              source_keys: ['action-1'],
+            },
+          ],
+          citations: [
+            {
+              key: 'valuation',
+              label: 'Latest valuation',
+              source: 'get_valuation_results',
+              detail: 'Report report-1',
+            },
+          ],
+          message: 'Draft ready for advisor review.',
+        },
+      },
+    ])
+
+    expect(result.advisorCopilotDrafts).toEqual([
+      {
+        status: 'pending_review',
+        trajectoryId: 'trajectory-1',
+        reportId: 'report-1',
+        businessName: 'Acme BV',
+        yearPlan: [
+          {
+            title: 'Reduce customer concentration',
+            objective: 'Move top-3 revenue concentration below 45%.',
+            targetDelta: 180000,
+            rationale: 'Lower concentration supports the value-up thesis.',
+            sourceKeys: ['valuation', 'action-1'],
+          },
+        ],
+        firstCheckInAgenda: [
+          {
+            title: 'Owner commitments',
+            durationMinutes: 20,
+            advisorPrep: 'Bring the client concentration chart.',
+            ownerPrompt: 'Which accounts can shift to contracted revenue this quarter?',
+            sourceKeys: ['readiness'],
+          },
+        ],
+        talkingPoints: [
+          {
+            point: 'The value gap is concentrated in revenue quality.',
+            rationale: 'The latest valuation shows a sellability discount.',
+            euroDelta: 180000,
+            sourceKeys: ['valuation'],
+          },
+        ],
+        billableServiceAngles: [
+          {
+            title: 'Revenue quality sprint',
+            scope: 'Four weekly advisor sessions.',
+            rationale: 'Links directly to the largest value-up action.',
+            sourceKeys: ['action-1'],
+          },
+        ],
+        citations: [
+          {
+            key: 'valuation',
+            label: 'Latest valuation',
+            source: 'get_valuation_results',
+            detail: 'Report report-1',
+          },
+        ],
+        message: 'Draft ready for advisor review.',
+      },
+    ])
+  })
+
+  it('drops uncited pending drafts but keeps blocked explanations', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'advisor_copilot_draft',
+        data: {
+          status: 'pending_review',
+          year_plan: [{ title: 'Uncited action', source_keys: [] }],
+          citations: [],
+        },
+      },
+      {
+        type: 'advisor_copilot_draft',
+        data: {
+          status: 'blocked',
+          reason: 'missing_citations',
+          message: 'Grounded citations are required.',
+        },
+      },
+    ])
+
+    expect(result.advisorCopilotDrafts).toEqual([
+      {
+        status: 'blocked',
+        yearPlan: [],
+        firstCheckInAgenda: [],
+        talkingPoints: [],
+        billableServiceAngles: [],
+        citations: [],
+        reason: 'missing_citations',
+        message: 'Grounded citations are required.',
+      },
+    ])
+  })
+})
+
+// ---------------------------------------------------------------------
 // Combined / smoke
 // ---------------------------------------------------------------------
 

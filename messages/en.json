@@ -2867,6 +2867,18 @@
 				"createListingAction": "Draft listing",
 				"resolveGapsAction": "Fill gaps"
 			},
+			"advisorCopilot": {
+				"titleReady": "Advisor Co-Pilot draft",
+				"titleBlocked": "Advisor Co-Pilot blocked",
+				"yearPlan": "Year plan",
+				"firstCheckIn": "First check-in",
+				"talkingPoints": "Talking points",
+				"serviceAngles": "Service angles",
+				"citations": "Sources",
+				"minutes": "{count} min",
+				"editAction": "Edit draft",
+				"createSessionAction": "Create first session"
+			},
 			"buyerReady": {
 				"generateTitle": "Generate buyer-ready package",
 				"generateBlockedTitle": "Package generation blocked",

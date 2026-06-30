@@ -14,6 +14,7 @@ import { parseBuyerReadyToolResult } from './buyer-ready-tool-result-parser'
 import { recordValue } from './tool-result-parser-utils'
 import {
   parseAcknowledgeWarningRequest,
+  parseAdvisorCopilotDraft,
   parseBelgianCompanyBootstrap,
   parseBulkValuationRunRequest,
   parseBuyerProfilePreview,
@@ -58,6 +59,7 @@ export { dispatchAIChatChunk, makeChunkDispatchState } from './ai-chat-chunk-dis
 
 export type {
   AcknowledgeWarningRequest,
+  AdvisorCopilotDraft,
   BelgianCompanyBootstrap,
   BusinessTypeSearchResult,
   BusinessTypeSearchResults,
@@ -141,6 +143,7 @@ function emptyResult(): ParsedToolResults {
     buyerProfilePreviews: [],
     registrySearchResults: [],
     businessTypeSearchResults: [],
+    advisorCopilotDrafts: [],
     buyerReadyCards: [],
   }
 }
@@ -299,6 +302,9 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         break
       case 'buyer_profile_preview':
         out.buyerProfilePreviews.push(...parseBuyerProfilePreview(data))
+        break
+      case 'advisor_copilot_draft':
+        out.advisorCopilotDrafts.push(...parseAdvisorCopilotDraft(data))
         break
       case 'business_type_search_results':
         out.businessTypeSearchResults.push(...parseBusinessTypeSearchResults(data))

@@ -2867,6 +2867,18 @@
 				"createListingAction": "Listing opstellen",
 				"resolveGapsAction": "Aanvullen"
 			},
+			"advisorCopilot": {
+				"titleReady": "Advisor Co-Pilot concept",
+				"titleBlocked": "Advisor Co-Pilot geblokkeerd",
+				"yearPlan": "Jaarplan",
+				"firstCheckIn": "Eerste check-in",
+				"talkingPoints": "Talking points",
+				"serviceAngles": "Service angles",
+				"citations": "Bronnen",
+				"minutes": "{count} min",
+				"editAction": "Concept bewerken",
+				"createSessionAction": "Eerste sessie maken"
+			},
 			"buyerReady": {
 				"generateTitle": "Kopersgereed pakket genereren",
 				"generateBlockedTitle": "Pakketgeneratie geblokkeerd",

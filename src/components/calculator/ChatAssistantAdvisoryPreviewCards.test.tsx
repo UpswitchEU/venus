@@ -51,6 +51,75 @@ describe('ChatAssistantAdvisoryPreviewCards', () => {
     )
   })
 
+  it('renders Advisor Co-Pilot drafts and keeps follow-ups advisor-review-only', () => {
+    const onSendFollowUp = vi.fn()
+    const message: ChatMessage = {
+      id: 'msg-copilot',
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      advisorCopilotDrafts: [
+        {
+          id: 'copilot-1',
+          status: 'pending_review',
+          reportId: 'report-1',
+          businessName: 'Acme BV',
+          yearPlan: [
+            {
+              title: 'Reduce customer concentration',
+              objective: 'Move top-3 concentration below 45%.',
+              targetDelta: 180000,
+              sourceKeys: ['valuation'],
+            },
+          ],
+          firstCheckInAgenda: [
+            {
+              title: 'Owner commitments',
+              durationMinutes: 20,
+              ownerPrompt: 'Which accounts can shift to contracted revenue this quarter?',
+              sourceKeys: ['valuation'],
+            },
+          ],
+          talkingPoints: [
+            {
+              point: 'Concentration is the largest value-up lever.',
+              euroDelta: 180000,
+              sourceKeys: ['valuation'],
+            },
+          ],
+          billableServiceAngles: [
+            {
+              title: 'Revenue quality sprint',
+              scope: 'Four weekly advisor sessions.',
+              sourceKeys: ['valuation'],
+            },
+          ],
+          citations: [{ key: 'valuation', label: 'Latest valuation', source: 'valuation' }],
+          message: 'Draft ready for advisor review.',
+        },
+      ],
+    }
+
+    render(<ChatAssistantAdvisoryPreviewCards message={message} onSendFollowUp={onSendFollowUp} />)
+
+    expect(screen.getByText('Reduce customer concentration')).toBeInTheDocument()
+    expect(screen.getByText('Revenue quality sprint')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'proposalCards.advisorCopilot.editAction' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'proposalCards.advisorCopilot.createSessionAction' })
+    )
+
+    expect(onSendFollowUp).toHaveBeenNthCalledWith(
+      1,
+      'Refine the Advisor Co-Pilot draft for Acme BV: tighten the year plan, agenda, talking points and service angles while keeping every € impact cited.'
+    )
+    expect(onSendFollowUp).toHaveBeenNthCalledWith(
+      2,
+      'Turn this Advisor Co-Pilot draft into the first trajectory check-in session for Acme BV.'
+    )
+  })
+
   it('omits Belgian bootstrap accounting follow-ups when integrations are plan-locked', () => {
     const onSendFollowUp = vi.fn()
     const message: ChatMessage = {

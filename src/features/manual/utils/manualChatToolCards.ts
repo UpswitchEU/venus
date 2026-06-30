@@ -40,6 +40,7 @@ type ListingCreateCard = NonNullable<ChatMessage['listingCreateRequests']>[numbe
 type BuyerProfilePreviewCard = NonNullable<ChatMessage['buyerProfilePreviews']>[number]
 type RegistrySearchResultsCard = NonNullable<ChatMessage['registrySearchResults']>[number]
 type BusinessTypeSearchResultsCard = NonNullable<ChatMessage['businessTypeSearchResults']>[number]
+type AdvisorCopilotDraftCard = NonNullable<ChatMessage['advisorCopilotDrafts']>[number]
 type BuyerReadyCard = NonNullable<ChatMessage['buyerReadyCards']>[number]
 type ProposalCardKey =
   | 'valuationRunRequests'
@@ -87,6 +88,7 @@ export interface ManualChatToolCards {
   buyerProfilePreviews?: BuyerProfilePreviewCard[]
   registrySearchResults?: RegistrySearchResultsCard[]
   businessTypeSearchResults?: BusinessTypeSearchResultsCard[]
+  advisorCopilotDrafts?: AdvisorCopilotDraftCard[]
   buyerReadyCards?: BuyerReadyCard[]
 }
 
@@ -128,6 +130,7 @@ interface ManualChatToolCardsInput {
   buyerProfilePreviews?: readonly unknown[]
   registrySearchResults?: readonly unknown[]
   businessTypeSearchResults?: readonly unknown[]
+  advisorCopilotDrafts?: readonly unknown[]
   buyerReadyCards?: readonly unknown[]
 }
 
@@ -169,6 +172,7 @@ const MANUAL_CHAT_TOOL_CARD_KEYS = [
   'buyerProfilePreviews',
   'registrySearchResults',
   'businessTypeSearchResults',
+  'advisorCopilotDrafts',
   'buyerReadyCards',
 ] as const satisfies readonly ManualChatToolCardKey[]
 
@@ -309,6 +313,8 @@ export function parseManualChatStreamToolResult(
         return { type: 'listing_create_request', data }
       case 'get_buyer_profile_preview':
         return { type: 'buyer_profile_preview', data }
+      case 'propose_advisor_copilot_draft':
+        return { type: 'advisor_copilot_draft', data }
       case 'search_business_types':
         return { type: 'business_type_search_results', data }
       case 'search_kbo_registry':

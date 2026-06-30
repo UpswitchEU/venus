@@ -580,6 +580,57 @@ export interface BusinessTypeSearchResults {
   error?: string
 }
 
+export interface AdvisorCopilotCitation {
+  key: string
+  label: string
+  source: string
+  detail?: string
+}
+
+export interface AdvisorCopilotYearPlanItem {
+  title: string
+  objective?: string | null
+  targetDelta?: number | null
+  rationale?: string | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotAgendaItem {
+  title: string
+  durationMinutes?: number | null
+  advisorPrep?: string | null
+  ownerPrompt?: string | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotTalkingPoint {
+  point: string
+  rationale?: string | null
+  euroDelta?: number | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotServiceAngle {
+  title: string
+  scope?: string | null
+  rationale?: string | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotDraft {
+  status: 'pending_review' | 'blocked'
+  trajectoryId?: string | null
+  reportId?: string | null
+  businessName?: string | null
+  yearPlan: AdvisorCopilotYearPlanItem[]
+  firstCheckInAgenda: AdvisorCopilotAgendaItem[]
+  talkingPoints: AdvisorCopilotTalkingPoint[]
+  billableServiceAngles: AdvisorCopilotServiceAngle[]
+  citations: AdvisorCopilotCitation[]
+  reason?: string
+  message?: string
+}
+
 export interface BelgianCompanyBootstrap {
   status: 'ok' | 'partial' | 'blocked' | 'failed'
   reason?: string
@@ -667,5 +718,6 @@ export interface ParsedToolResults {
   buyerProfilePreviews: BuyerProfilePreview[]
   registrySearchResults: RegistrySearchResults[]
   businessTypeSearchResults: BusinessTypeSearchResults[]
+  advisorCopilotDrafts: AdvisorCopilotDraft[]
   buyerReadyCards: BuyerReadyToolCard[]
 }

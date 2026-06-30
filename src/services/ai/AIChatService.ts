@@ -287,6 +287,9 @@ class AIChatServiceImpl {
         if (parsed.buyerReadyCards.length > 0) {
           aiResponse.buyerReadyCards = parsed.buyerReadyCards
         }
+        if (parsed.advisorCopilotDrafts.length > 0) {
+          aiResponse.advisorCopilotDrafts = parsed.advisorCopilotDrafts
+        }
         if (parsed.businessTypeSearchResults.length > 0) {
           aiResponse.businessTypeSearchResults = parsed.businessTypeSearchResults
         }

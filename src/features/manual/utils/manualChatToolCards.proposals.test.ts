@@ -304,5 +304,55 @@ describe('manualChatToolCards proposal stream parsing', () => {
       regionLabel: 'Flanders',
       resultSummary: { businessName: 'Acme BV', midpoint: 1200000 },
     })
+
+    expect(
+      parseManualChatStreamToolResult(
+        'propose_advisor_copilot_draft',
+        {
+          status: 'pending_review',
+          report_id: 'report-1',
+          business_name: 'Acme BV',
+          year_plan: [
+            {
+              title: 'Reduce customer concentration',
+              objective: 'Move top-3 concentration below 45%.',
+              target_delta: 180000,
+              source_keys: ['valuation'],
+            },
+          ],
+          first_check_in_agenda: [
+            {
+              title: 'Owner commitments',
+              duration_minutes: 20,
+              source_keys: ['valuation'],
+            },
+          ],
+          talking_points: [
+            {
+              point: 'Concentration is the largest value-up lever.',
+              euro_delta: 180000,
+              source_keys: ['valuation'],
+            },
+          ],
+          billable_service_angles: [
+            {
+              title: 'Revenue quality sprint',
+              scope: 'Four weekly advisor sessions.',
+              source_keys: ['valuation'],
+            },
+          ],
+          citations: [{ key: 'valuation', label: 'Latest valuation', source: 'valuation' }],
+        },
+        createId
+      )?.advisorCopilotDrafts?.[0]
+    ).toMatchObject({
+      id: 'id-13',
+      status: 'pending_review',
+      reportId: 'report-1',
+      businessName: 'Acme BV',
+      yearPlan: [{ title: 'Reduce customer concentration', targetDelta: 180000 }],
+      talkingPoints: [{ point: 'Concentration is the largest value-up lever.', euroDelta: 180000 }],
+      citations: [{ key: 'valuation', label: 'Latest valuation', source: 'valuation' }],
+    })
   })
 })

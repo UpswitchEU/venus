@@ -2867,6 +2867,18 @@
 				"createListingAction": "Projet de liste",
 				"resolveGapsAction": "Combler les lacunes"
 			},
+			"advisorCopilot": {
+				"titleReady": "Brouillon Advisor Co-Pilot",
+				"titleBlocked": "Advisor Co-Pilot bloqué",
+				"yearPlan": "Plan annuel",
+				"firstCheckIn": "Premier check-in",
+				"talkingPoints": "Points de discussion",
+				"serviceAngles": "Angles de service",
+				"citations": "Sources",
+				"minutes": "{count} min",
+				"editAction": "Modifier le brouillon",
+				"createSessionAction": "Créer la première session"
+			},
 			"buyerReady": {
 				"generateTitle": "Générer un package prêt pour l'acheteur",
 				"generateBlockedTitle": "Génération de packages bloquée",

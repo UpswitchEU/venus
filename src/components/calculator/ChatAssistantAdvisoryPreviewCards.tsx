@@ -21,6 +21,13 @@ interface ChatAssistantAdvisoryPreviewCardsProps {
   integrationsEnabled?: boolean
 }
 
+function advisorCopilotSubject(draft: NonNullable<ChatMessage['advisorCopilotDrafts']>[number]) {
+  if (draft.businessName) return draft.businessName
+  if (draft.trajectoryId) return `trajectory ${draft.trajectoryId}`
+  if (draft.reportId) return `valuation report ${draft.reportId}`
+  return 'this client'
+}
+
 export function ChatAssistantAdvisoryPreviewCards({
   message,
   onSendFollowUp,
@@ -54,6 +61,191 @@ export function ChatAssistantAdvisoryPreviewCards({
           previews={message.methodReadinessPreviews}
           onSendFollowUp={onSendFollowUp}
         />
+      )}
+
+      {/* Advisor Co-Pilot drafts — propose-only, advisor review required. */}
+      {message.advisorCopilotDrafts && message.advisorCopilotDrafts.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
+          {message.advisorCopilotDrafts.map((draft) => {
+            const isBlocked = draft.status === 'blocked'
+            const subject = advisorCopilotSubject(draft)
+            const canContinue = typeof onSendFollowUp === 'function'
+            const money = (value: number | null | undefined) =>
+              value == null
+                ? null
+                : new Intl.NumberFormat(currencyLocale, {
+                    style: 'currency',
+                    currency: 'EUR',
+                    maximumFractionDigits: 0,
+                  }).format(value)
+
+            return (
+              <motion.div
+                key={draft.id}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="text-sm leading-relaxed"
+              >
+                <p className="text-foreground font-medium">
+                  {isBlocked
+                    ? ca('proposalCards.advisorCopilot.titleBlocked')
+                    : ca('proposalCards.advisorCopilot.titleReady')}
+                </p>
+                {draft.message && (
+                  <p className="text-foreground/55 text-xs mt-0.5">{draft.message}</p>
+                )}
+                {isBlocked && draft.reason && (
+                  <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-1">
+                    {draft.reason}
+                  </p>
+                )}
+
+                {!isBlocked && (
+                  <div className="mt-2 space-y-2">
+                    {draft.yearPlan.length > 0 && (
+                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
+                        <p className="font-medium text-foreground/80">
+                          {ca('proposalCards.advisorCopilot.yearPlan')}
+                        </p>
+                        <div className="mt-1 space-y-1.5">
+                          {draft.yearPlan.slice(0, 3).map((item) => {
+                            const delta = money(item.targetDelta)
+                            return (
+                              <div key={`${draft.id}-plan-${item.title}`}>
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="text-foreground/80">{item.title}</span>
+                                  {delta && (
+                                    <span className="shrink-0 font-mono text-foreground/55">
+                                      {delta}
+                                    </span>
+                                  )}
+                                </div>
+                                {item.objective && (
+                                  <p className="text-foreground/55">{item.objective}</p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {draft.firstCheckInAgenda.length > 0 && (
+                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
+                        <p className="font-medium text-foreground/80">
+                          {ca('proposalCards.advisorCopilot.firstCheckIn')}
+                        </p>
+                        <div className="mt-1 space-y-1.5">
+                          {draft.firstCheckInAgenda.slice(0, 4).map((item) => (
+                            <div key={`${draft.id}-agenda-${item.title}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-foreground/80">{item.title}</span>
+                                {item.durationMinutes != null && (
+                                  <span className="shrink-0 font-mono text-foreground/55">
+                                    {ca('proposalCards.advisorCopilot.minutes', {
+                                      count: item.durationMinutes,
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                              {item.ownerPrompt && (
+                                <p className="text-foreground/55">{item.ownerPrompt}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {draft.talkingPoints.length > 0 && (
+                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
+                        <p className="font-medium text-foreground/80">
+                          {ca('proposalCards.advisorCopilot.talkingPoints')}
+                        </p>
+                        <div className="mt-1 space-y-1.5">
+                          {draft.talkingPoints.slice(0, 3).map((item) => {
+                            const delta = money(item.euroDelta)
+                            return (
+                              <div key={`${draft.id}-talk-${item.point}`}>
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="text-foreground/80">{item.point}</span>
+                                  {delta && (
+                                    <span className="shrink-0 font-mono text-foreground/55">
+                                      {delta}
+                                    </span>
+                                  )}
+                                </div>
+                                {item.rationale && (
+                                  <p className="text-foreground/55">{item.rationale}</p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {draft.billableServiceAngles.length > 0 && (
+                      <div className="rounded-md bg-foreground/[0.035] px-2 py-1.5 text-xs">
+                        <p className="font-medium text-foreground/80">
+                          {ca('proposalCards.advisorCopilot.serviceAngles')}
+                        </p>
+                        <div className="mt-1 space-y-1.5">
+                          {draft.billableServiceAngles.slice(0, 3).map((item) => (
+                            <div key={`${draft.id}-service-${item.title}`}>
+                              <p className="text-foreground/80">{item.title}</p>
+                              {item.scope && <p className="text-foreground/55">{item.scope}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {draft.citations.length > 0 && (
+                      <div className="text-[11px] text-foreground/45">
+                        <span>{ca('proposalCards.advisorCopilot.citations')}: </span>
+                        {draft.citations.slice(0, 5).map((citation, index) => (
+                          <span key={`${draft.id}-citation-${citation.key}`}>
+                            {index > 0 ? ', ' : ''}
+                            <span className="font-mono">{citation.key}</span> {citation.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!isBlocked && canContinue && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSendFollowUp(
+                          `Refine the Advisor Co-Pilot draft for ${subject}: tighten the year plan, agenda, talking points and service angles while keeping every € impact cited.`
+                        )
+                      }
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-primary/85 hover:text-primary transition-colors font-medium sm:min-h-0 sm:px-0"
+                    >
+                      {ca('proposalCards.advisorCopilot.editAction')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSendFollowUp(
+                          `Turn this Advisor Co-Pilot draft into the first trajectory check-in session for ${subject}.`
+                        )
+                      }
+                      className="inline-flex min-h-11 items-center rounded-full px-3 text-foreground/55 hover:text-foreground/75 transition-colors sm:min-h-0 sm:px-0"
+                    >
+                      {ca('proposalCards.advisorCopilot.createSessionAction')}
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )
+          })}
+        </div>
       )}
 
       {/* Listing previews — read-only anonymized marketplace draft. */}

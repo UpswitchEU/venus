@@ -56,6 +56,18 @@ describe('manualChatToolCards message mutations', () => {
           results: [{ id: 'saas-company', title: 'SaaS company' }],
         },
       ],
+      advisorCopilotDrafts: [
+        {
+          id: 'advisor-copilot-card',
+          status: 'pending_review',
+          businessName: 'Acme BV',
+          yearPlan: [],
+          firstCheckInAgenda: [],
+          talkingPoints: [],
+          billableServiceAngles: [],
+          citations: [{ key: 'valuation', label: 'Latest valuation', source: 'valuation' }],
+        },
+      ],
       buyerReadyCards: [
         {
           id: 'buyer-ready-card',
@@ -138,6 +150,18 @@ describe('manualChatToolCards message mutations', () => {
         query: 'software',
         totalFound: 1,
         results: [{ id: 'saas-company', title: 'SaaS company' }],
+      },
+    ])
+    expect(next[1].advisorCopilotDrafts).toEqual([
+      {
+        id: 'advisor-copilot-card',
+        status: 'pending_review',
+        businessName: 'Acme BV',
+        yearPlan: [],
+        firstCheckInAgenda: [],
+        talkingPoints: [],
+        billableServiceAngles: [],
+        citations: [{ key: 'valuation', label: 'Latest valuation', source: 'valuation' }],
       },
     ])
     expect(next[1].buyerReadyCards).toEqual([

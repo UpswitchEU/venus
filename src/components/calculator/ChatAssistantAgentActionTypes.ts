@@ -591,6 +591,58 @@ export interface BuyerProfilePreview {
 
 export type BuyerReadyToolCard = ParsedBuyerReadyToolCard & { id: string }
 
+export interface AdvisorCopilotCitation {
+  key: string
+  label: string
+  source: string
+  detail?: string
+}
+
+export interface AdvisorCopilotYearPlanItem {
+  title: string
+  objective?: string | null
+  targetDelta?: number | null
+  rationale?: string | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotAgendaItem {
+  title: string
+  durationMinutes?: number | null
+  advisorPrep?: string | null
+  ownerPrompt?: string | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotTalkingPoint {
+  point: string
+  rationale?: string | null
+  euroDelta?: number | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotServiceAngle {
+  title: string
+  scope?: string | null
+  rationale?: string | null
+  sourceKeys: string[]
+}
+
+export interface AdvisorCopilotDraft {
+  id: string
+  status: 'pending_review' | 'blocked'
+  trajectoryId?: string | null
+  reportId?: string | null
+  businessName?: string | null
+  yearPlan: AdvisorCopilotYearPlanItem[]
+  firstCheckInAgenda: AdvisorCopilotAgendaItem[]
+  talkingPoints: AdvisorCopilotTalkingPoint[]
+  billableServiceAngles: AdvisorCopilotServiceAngle[]
+  citations: AdvisorCopilotCitation[]
+  reason?: string
+  message?: string
+}
+
 export interface BusinessTypeSearchResults {
   id: string
   status: 'ok' | 'empty' | 'failed'

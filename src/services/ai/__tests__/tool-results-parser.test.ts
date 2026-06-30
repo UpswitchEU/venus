@@ -53,6 +53,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       buyerProfilePreviews: [],
       registrySearchResults: [],
       businessTypeSearchResults: [],
+      advisorCopilotDrafts: [],
       syncStatusPreviews: [],
       buyerReadyCards: [],
     }
@@ -101,6 +102,7 @@ describe('parseAIChatToolResults — input tolerance', () => {
       buyerProfilePreviews: [],
       registrySearchResults: [],
       businessTypeSearchResults: [],
+      advisorCopilotDrafts: [],
       syncStatusPreviews: [],
       buyerReadyCards: [],
     })
