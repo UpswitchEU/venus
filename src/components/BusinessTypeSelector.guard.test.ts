@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest'
 
 const PRODUCT_ROOTS = ['app', 'src']
 const LEGACY_SINGLE_SELECT_COMPONENTS = ['BusinessTypeSearchInput', 'CustomBusinessTypeSearch']
+const SHARED_SELECTOR_PATH = 'vendor/business-type-selector/src/BusinessTypeMultiSelect.tsx'
+
+const DISALLOWED_SELECTED_MARKUP = [
+  'mt-2 flex flex-wrap gap-2',
+  'inline-flex max-w-full items-center gap-1.5 rounded-full',
+  'block truncate text-sm font-medium text-foreground',
+  'rounded-full bg-background/70 px-1.5 py-0.5 text-[10px]',
+  '-mr-0.5 ml-0.5 flex h-4 w-4',
+]
 
 const ALLOWED_LEGACY_PATHS = new Set([
   'src/components/forms/CustomBusinessTypeSearch.tsx',
@@ -53,4 +62,13 @@ describe('business type selector product guard', () => {
 
     expect(offenders).toEqual([])
   }, 30000)
+
+  it('does not regress to the cramped selected business type markup', async () => {
+    const cwd = process.cwd()
+    const text = await readFile(join(cwd, SHARED_SELECTOR_PATH), 'utf8')
+
+    const offenders = DISALLOWED_SELECTED_MARKUP.filter((snippet) => text.includes(snippet))
+
+    expect(offenders).toEqual([])
+  })
 })

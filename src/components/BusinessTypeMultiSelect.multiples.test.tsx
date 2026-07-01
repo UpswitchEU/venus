@@ -33,6 +33,20 @@ const accountingOption = {
   ],
 }
 
+const fintechOption = {
+  ...accountingOption,
+  id: 'fintech-lending-credit',
+  title: 'Fintech — Lending & Credit',
+  icon: '💸',
+  categoryLabel: 'Financial Services',
+  primaryMultiple: { label: 'EV/EBITDA', basis: 'EBITDA', median: 6, p25: 4.5, p75: 7.8 },
+  multiples: [
+    { metric: 'ev_ebitda' as const, label: 'EV/EBITDA', median: 6, p25: 4.5, p75: 7.8 },
+    { metric: 'ev_revenue' as const, label: 'EV/Revenue', median: 1.5, p25: 1.1, p75: 2 },
+    { metric: 'pe' as const, label: 'P/E', median: 15, p25: 12, p75: 18 },
+  ],
+}
+
 describe('BusinessTypeMultiSelect dropdown portal', () => {
   it('renders the open dropdown into document.body with fixed positioning above the stacking context', () => {
     render(
@@ -88,6 +102,30 @@ describe('BusinessTypeMultiSelect per-chip multiples editor', () => {
     expect(screen.getByText(/4\.7–6\.2x/)).toBeInTheDocument()
     // The applied metric carries the "Applied" badge.
     expect(screen.getByText('Applied')).toBeInTheDocument()
+  })
+
+  it('keeps long selected titles readable in editable multiples mode', () => {
+    render(
+      <BusinessTypeMultiSelect
+        value={['fintech-lending-credit']}
+        options={[fintechOption]}
+        onChange={vi.fn()}
+        copy={copy}
+        editableMultiples
+        multipleSelections={{
+          'fintech-lending-credit': { appliedMetric: 'ev_ebitda', overrides: {} },
+        }}
+        onMultipleSelectionChange={vi.fn()}
+      />
+    )
+
+    const selected = screen.getByLabelText('Geselecteerde bedrijfstypes')
+    const title = within(selected).getByText('Fintech — Lending & Credit')
+
+    expect(title.classList.contains('truncate')).toBe(false)
+    expect(title.classList.contains('whitespace-normal')).toBe(true)
+    expect(title.classList.contains('break-words')).toBe(true)
+    expect(title.classList.contains('leading-5')).toBe(true)
   })
 
   it('emits an override for the edited metric, keyed for the calc', () => {
