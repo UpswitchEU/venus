@@ -29,6 +29,7 @@ type ManualToastTranslator = (
 type ManualPreparerTranslator = (key: string) => string
 
 interface UseManualNormalizationControllerParams {
+  accountantCustomerId?: string | null
   calculationRequestIdentifiers: ManualCalculationIdentifiers
   collectedData: CollectedData
   currentLocale: string
@@ -79,6 +80,7 @@ export interface UseManualNormalizationControllerResult {
 }
 
 export function useManualNormalizationController({
+  accountantCustomerId,
   calculationRequestIdentifiers,
   collectedData,
   currentLocale,
@@ -126,6 +128,7 @@ export function useManualNormalizationController({
 
   const { handleNormalizationsChange, recalculateWithNormalizations } =
     useManualNormalizationRecalculation({
+      accountantCustomerId,
       calculationRequestIdentifiers,
       collectedData,
       currentLocale,

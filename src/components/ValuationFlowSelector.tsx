@@ -43,6 +43,8 @@ interface ValuationFlowSelectorProps {
   autoSend: boolean
   /** Callback when valuation completes */
   onComplete: (result: ValuationResponse) => void
+  /** Accountant customer/company id carried from cross-app handoff URLs. */
+  accountantCustomerId?: string | null
   /** Initial mode for M&A workflow */
   initialMode?: 'edit' | 'view'
   /** Initial version for M&A workflow */
@@ -165,6 +167,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     prefilledQuery,
     autoSend,
     onComplete,
+    accountantCustomerId,
     initialMode,
     initialVersion,
     onRetry,
@@ -235,6 +238,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 reportId={effectiveReportId}
                 flowType={flowType}
                 onComplete={onComplete}
+                accountantCustomerId={accountantCustomerId}
                 initialQuery={prefilledQuery}
                 autoSend={autoSend}
                 initialMode={initialMode}
@@ -283,6 +287,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       prevProps.prefilledQuery === nextProps.prefilledQuery &&
       prevProps.autoSend === nextProps.autoSend &&
       prevProps.onComplete === nextProps.onComplete &&
+      prevProps.accountantCustomerId === nextProps.accountantCustomerId &&
       prevProps.initialMode === nextProps.initialMode &&
       prevProps.initialVersion === nextProps.initialVersion &&
       prevProps.initialTab === nextProps.initialTab &&

@@ -4,6 +4,7 @@ import type { ManualGuidedNormalizationUrl } from '../utils/manualGuidedNormaliz
 export interface ManualValuationWorkspaceProps {
   reportId: string
   onComplete: (result: ValuationResponse) => void
+  accountantCustomerId?: string | null
   initialVersion?: number
   initialMode?: 'edit' | 'view'
   initialTab?: 'preview' | 'history'

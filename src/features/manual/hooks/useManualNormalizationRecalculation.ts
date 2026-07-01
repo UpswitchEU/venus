@@ -39,6 +39,7 @@ type ManualPreparerMultipleTranslator = (key: string) => string
 type DraftStatus = 'draft' | 'saved' | 'saving'
 
 export interface UseManualNormalizationRecalculationParams<TCollectedData extends object> {
+  accountantCustomerId?: string | null
   calculationRequestIdentifiers: ManualCalculationIdentifiers
   collectedData: TCollectedData
   currentLocale: string
@@ -68,6 +69,7 @@ export interface UseManualNormalizationRecalculationResult {
 }
 
 export function useManualNormalizationRecalculation<TCollectedData extends object>({
+  accountantCustomerId,
   calculationRequestIdentifiers,
   collectedData,
   currentLocale,
@@ -127,6 +129,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
           formData: requestSource,
           normalizations,
           locale: recalcLocale,
+          accountantCustomerId,
           selectedMethod: preSelectedMethod ?? selectedMethod,
           identifiers: calculationRequestIdentifiers,
           synthesisSelection,
@@ -206,6 +209,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       }
     },
     [
+      accountantCustomerId,
       calculationRequestIdentifiers,
       collectedData,
       currentLocale,

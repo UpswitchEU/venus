@@ -65,6 +65,7 @@ export const ManualValuationWorkspace: React.FC<ManualValuationWorkspaceProps> =
 const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = ({
   reportId,
   onComplete,
+  accountantCustomerId,
   initialVersion,
   initialMode = 'edit',
   initialTab = 'preview',
@@ -139,6 +140,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     ctxRelationshipId,
     isAccountantMode,
   } = useManualAccountantContext()
+  const requestAccountantCustomerId = accountantCustomerId ?? clientContextId ?? ctxRelationshipId
   const {
     canDownloadPdf,
     currentYearRevenueForMethodNav,
@@ -423,6 +425,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     postValuationListingHandoffPendingRef,
     setPendingPostValuationAgentPrompt,
   } = useManualSubmitController({
+    accountantCustomerId: requestAccountantCustomerId,
     calculationRequestIdentifiers,
     createVersion,
     currentLocale,
@@ -465,6 +468,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     showRecalculateConfirmation,
     wrappedOnSubmit,
   } = useManualRecalculateConfirmation({
+    accountantCustomerId: requestAccountantCustomerId,
     currentLocale,
     getLatestVersion,
     handleManualSubmit,
@@ -613,6 +617,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     handleVersionRestore,
     handleCSVImportComplete,
   } = useManualNormalizationController({
+    accountantCustomerId: requestAccountantCustomerId,
     calculationRequestIdentifiers,
     collectedData,
     currentLocale,

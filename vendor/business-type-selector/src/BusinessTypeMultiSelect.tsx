@@ -917,33 +917,46 @@ export function BusinessTypeMultiSelect({
 						})}
 					</div>
 				) : (
-					<div
-						className='mt-2 flex flex-wrap gap-2'
-						aria-label={copy.selectedLabel}
-					>
+					<div className='mt-2 grid gap-2' aria-label={copy.selectedLabel}>
 						{selectedOptions.map((option) => {
 							const multipleLabel = formatMultiple(option.primaryMultiple);
 							return (
-								<span
+								<div
 									key={option.id}
-									className='inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-sm text-foreground'
+									className='flex w-full min-w-0 items-start gap-2 rounded-lg border border-primary/20 bg-primary/[0.08] px-3 py-2 text-sm text-foreground'
 								>
-									{option.icon && <span aria-hidden='true'>{option.icon}</span>}
-									<span className='truncate'>{option.title}</span>
-									{showMultiples && multipleLabel && (
-										<span className='rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] font-medium text-primary'>
-											{multipleLabel}
+									{option.icon && (
+										<span
+											aria-hidden='true'
+											className='mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-background/70 text-sm'
+										>
+											{option.icon}
 										</span>
 									)}
-									{option.categoryLabel && (
-										<span className='rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-foreground/60'>
-											{option.categoryLabel}
+									<span className='min-w-0 flex-1'>
+										<span className='block whitespace-normal break-words text-sm font-semibold leading-5 text-foreground'>
+											{option.title}
 										</span>
-									)}
+										{((showMultiples && multipleLabel) ||
+											option.categoryLabel) && (
+											<span className='mt-1 flex flex-wrap items-center gap-1.5'>
+												{showMultiples && multipleLabel && (
+													<span className='inline-flex max-w-full items-center whitespace-normal break-words rounded-md bg-background/80 px-2 py-0.5 text-left text-xs font-medium leading-5 text-primary'>
+														{multipleLabel}
+													</span>
+												)}
+												{option.categoryLabel && (
+													<span className='inline-flex max-w-full items-center whitespace-normal break-words rounded-md bg-background/80 px-2 py-0.5 text-left text-xs leading-5 text-foreground/65'>
+														{option.categoryLabel}
+													</span>
+												)}
+											</span>
+										)}
+									</span>
 									<button
 										type='button'
 										onClick={() => clearOption(option.id)}
-										className='-mr-0.5 ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-foreground/50 transition-colors hover:bg-primary/15 hover:text-foreground'
+										className='-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-foreground/50 transition-colors hover:bg-primary/15 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30'
 										aria-label={`${copy.clearSelection}: ${option.title}`}
 										disabled={disabled}
 									>
@@ -951,7 +964,7 @@ export function BusinessTypeMultiSelect({
 											aria-hidden='true'
 											viewBox='0 0 14 14'
 											fill='none'
-											className='h-3 w-3'
+											className='h-3.5 w-3.5'
 										>
 											<path
 												d='m3.5 3.5 7 7m0-7-7 7'
@@ -961,7 +974,7 @@ export function BusinessTypeMultiSelect({
 											/>
 										</svg>
 									</button>
-								</span>
+								</div>
 							);
 						})}
 					</div>

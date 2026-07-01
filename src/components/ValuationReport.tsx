@@ -302,6 +302,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 prefilledQuery={prefilledQuery}
                 autoSend={autoSend}
                 onComplete={handleValuationComplete}
+                accountantCustomerId={urlParams.clientId}
                 initialMode={initialMode}
                 initialVersion={initialVersion}
                 onRetry={onRetry}

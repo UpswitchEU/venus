@@ -27,6 +27,7 @@ export interface ManualRecalculatePopupFlags {
 }
 
 export interface UseManualRecalculateConfirmationParams {
+  accountantCustomerId?: string | null
   currentLocale: string
   getLatestVersion: (reportId: string) => ValuationVersion | null
   handleManualSubmit: ManualSubmitHandler
@@ -52,6 +53,7 @@ export interface UseManualRecalculateConfirmationResult {
 }
 
 export function useManualRecalculateConfirmation({
+  accountantCustomerId,
   currentLocale,
   getLatestVersion,
   handleManualSubmit,
@@ -148,6 +150,7 @@ export function useManualRecalculateConfirmation({
         const request = buildManualCalculationRequest({
           formData: storeSnapshot,
           locale: validLocale,
+          accountantCustomerId,
           selectedMethod: preSelectedMethod ?? selectedMethod,
           identifiers: { reportId: idForVersions },
           synthesisSelection,
@@ -183,6 +186,7 @@ export function useManualRecalculateConfirmation({
       }
     },
     [
+      accountantCustomerId,
       currentLocale,
       currentVersionNumber,
       getLatestVersion,

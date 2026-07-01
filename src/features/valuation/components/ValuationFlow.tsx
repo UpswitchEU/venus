@@ -16,6 +16,7 @@ interface ValuationFlowProps {
   reportId: string
   flowType?: ValuationFlowType
   onComplete: (result: ValuationResponse) => void
+  accountantCustomerId?: string | null
   initialQuery?: string | null
   autoSend?: boolean
   initialMode?: 'edit' | 'view'
@@ -44,6 +45,7 @@ const ManualValuationWorkspace = lazy(() =>
 export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   reportId,
   onComplete,
+  accountantCustomerId,
   initialMode,
   initialVersion,
   initialTab = 'preview',
@@ -58,6 +60,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
     <ManualValuationWorkspace
       reportId={reportId}
       onComplete={onComplete}
+      accountantCustomerId={accountantCustomerId}
       initialVersion={initialVersion}
       initialMode={initialMode}
       initialTab={initialTab}

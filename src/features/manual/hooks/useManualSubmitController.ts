@@ -42,6 +42,7 @@ type ManualSubmitTranslate = (
 type SimpleTranslate = (key: string) => string
 
 export interface UseManualSubmitControllerParams {
+  accountantCustomerId?: string | null
   calculationRequestIdentifiers: ManualCalculationIdentifiers
   createVersion: Parameters<typeof useManualCalculationCompletion>[0]['createVersion']
   currentLocale: string
@@ -85,6 +86,7 @@ export interface UseManualSubmitControllerResult {
 }
 
 export function useManualSubmitController({
+  accountantCustomerId,
   calculationRequestIdentifiers,
   createVersion,
   currentLocale,
@@ -227,6 +229,7 @@ export function useManualSubmitController({
         const request = buildManualCalculationRequest({
           formData: storeSnapshot,
           locale: validLocale,
+          accountantCustomerId,
           selectedMethod: preSelectedMethod ?? selectedMethod,
           identifiers: calculationRequestIdentifiers,
           synthesisSelection,
@@ -292,6 +295,7 @@ export function useManualSubmitController({
       }
     },
     [
+      accountantCustomerId,
       beginManualSubmitRun,
       calculationRequestIdentifiers,
       completeManualCalculation,

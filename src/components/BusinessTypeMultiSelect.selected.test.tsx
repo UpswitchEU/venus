@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { BusinessTypeMultiSelect } from '@upswitch/business-type-selector'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -45,6 +45,52 @@ describe('BusinessTypeMultiSelect selected chips', () => {
     const selected = screen.getByLabelText('Geselecteerde bedrijfstypes')
     expect(selected).toHaveTextContent('Boekhoudkantoor')
     expect(selected).toHaveTextContent('EV/EBITDA 5.4x (4.7-6.2x)')
+  })
+
+  it('keeps long selected business type labels readable in compact form contexts', () => {
+    render(
+      <BusinessTypeMultiSelect
+        value={['fintech-lending-credit']}
+        options={[
+          {
+            id: 'fintech-lending-credit',
+            title: 'Fintech — Lending & Credit',
+            icon: '💸',
+            categoryLabel: 'Financial Services',
+            primaryMultiple: {
+              label: 'EV/EBITDA',
+              basis: 'EBITDA',
+              median: 6,
+              p25: 4.5,
+              p75: 7.8,
+            },
+          },
+        ]}
+        onChange={vi.fn()}
+        copy={copy}
+      />
+    )
+
+    const selected = screen.getByLabelText('Geselecteerde bedrijfstypes')
+    const title = within(selected).getByText('Fintech — Lending & Credit')
+    const multiple = within(selected).getByText('EV/EBITDA 6.0x (4.5-7.8x)')
+    const category = within(selected).getByText('Financial Services')
+
+    expect(selected.classList.contains('grid')).toBe(true)
+    expect(title.classList.contains('truncate')).toBe(false)
+    expect(title.classList.contains('whitespace-normal')).toBe(true)
+    expect(title.classList.contains('break-words')).toBe(true)
+    expect(multiple.classList.contains('text-xs')).toBe(true)
+    expect(multiple.classList.contains('whitespace-normal')).toBe(true)
+    expect(multiple.classList.contains('break-words')).toBe(true)
+    expect(category.classList.contains('uppercase')).toBe(false)
+    expect(category.classList.contains('whitespace-normal')).toBe(true)
+    expect(category.classList.contains('break-words')).toBe(true)
+    expect(
+      screen.getByRole('button', {
+        name: 'Verwijderen: Fintech — Lending & Credit',
+      })
+    ).toHaveClass('h-7')
   })
 
   it('renders the label + a leading icon INSIDE the trigger so it matches sibling entity fields', () => {

@@ -60,6 +60,7 @@ describe('decorateManualValuationRequest', () => {
   it('omits optional fields when absent or blank', () => {
     const request = decorateManualValuationRequest(baseRequest(), {
       selectedMethod: '  ',
+      accountantCustomerId: 'not-a-uuid',
       synthesisSelection: {
         preSelectedMethods: ['upswitch_adaptive'],
         userWeights: {},
@@ -73,6 +74,27 @@ describe('decorateManualValuationRequest', () => {
     expect(request.sessionKey).toBeUndefined()
     expect(request.user_weights).toBeUndefined()
     expect(request.user_weight_justification).toBeUndefined()
+    expect(request.metadata).toBeUndefined()
+  })
+
+  it('adds scoped owner-company metadata without replacing existing metadata', () => {
+    const base = baseRequest()
+    base.metadata = { startup_advisor_cta_url: 'https://mercury.test/invite' }
+
+    const request = decorateManualValuationRequest(base, {
+      accountantCustomerId: '11111111-1111-4111-8111-111111111111',
+      selectedMethod: 'startup_valuation',
+      synthesisSelection: {
+        preSelectedMethods: ['startup_valuation'],
+        userWeights: {},
+        userWeightJustification: '',
+      },
+    })
+
+    expect(request.metadata).toEqual({
+      startup_advisor_cta_url: 'https://mercury.test/invite',
+      accountant_customer_id: '11111111-1111-4111-8111-111111111111',
+    })
   })
 })
 
@@ -103,6 +125,7 @@ describe('buildManualCalculationRequest', () => {
       formData,
       normalizations,
       locale: 'en',
+      accountantCustomerId: '22222222-2222-4222-8222-222222222222',
       selectedMethod: 'dcf',
       identifiers: { reportId: 'report-1' },
       synthesisSelection: {
@@ -117,5 +140,8 @@ describe('buildManualCalculationRequest', () => {
     expect(request.selected_method).toBe('upswitch_adaptive')
     expect(request.reportId).toBe('report-1')
     expect(request.user_weights).toEqual({ dcf: 0.4, ebitda_multiple: 0.6 })
+    expect(request.metadata).toEqual({
+      accountant_customer_id: '22222222-2222-4222-8222-222222222222',
+    })
   })
 })
