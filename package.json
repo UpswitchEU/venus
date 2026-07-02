@@ -97,7 +97,7 @@
     "eventsource": "^4.0.0",
     "framer-motion": "^12.23.12",
     "html2pdf.js": "^0.14.0",
-    "lucide-react": "^0.400.0",
+    "lucide-react": "^1.23.0",
     "next": "15.5.18",
     "next-intl": "^4.12.0",
     "next-view-transitions": "^0.3.5",
