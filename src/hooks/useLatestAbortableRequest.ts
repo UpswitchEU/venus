@@ -6,61 +6,61 @@ export interface LatestAbortableRequestHandle<TContext> {
   isCurrent: () => boolean
   release: () => void
   signal: AbortSignal
-  token: number
+  requestId: number
 }
 
 interface ActiveRequest<TContext> {
   context: TContext
   controller: AbortController | null
-  token: number
+  requestId: number
 }
 
 export function useLatestAbortableRequest<TContext>() {
   const activeRequestRef = useRef<ActiveRequest<TContext> | null>(null)
-  const latestTokenRef = useRef(0)
+  const latestRequestIdRef = useRef(0)
 
   const isCurrentRequest = useCallback(
-    (token: number) => activeRequestRef.current?.token === token,
+    (requestId: number) => activeRequestRef.current?.requestId === requestId,
     []
   )
 
   const reserveRequest = useCallback((context: TContext) => {
-    latestTokenRef.current += 1
+    latestRequestIdRef.current += 1
     activeRequestRef.current?.controller?.abort()
-    const token = latestTokenRef.current
-    activeRequestRef.current = { context, controller: null, token }
-    return token
+    const requestId = latestRequestIdRef.current
+    activeRequestRef.current = { context, controller: null, requestId }
+    return requestId
   }, [])
 
-  const cancelRequest = useCallback((token?: number) => {
-    if (token !== undefined && activeRequestRef.current?.token !== token) return
+  const cancelRequest = useCallback((requestId?: number) => {
+    if (requestId !== undefined && activeRequestRef.current?.requestId !== requestId) return
 
-    latestTokenRef.current += 1
+    latestRequestIdRef.current += 1
     activeRequestRef.current?.controller?.abort()
     activeRequestRef.current = null
   }, [])
 
   const beginRequest = useCallback(
-    (token: number): LatestAbortableRequestHandle<TContext> | null => {
+    (requestId: number): LatestAbortableRequestHandle<TContext> | null => {
       const activeRequest = activeRequestRef.current
-      if (!activeRequest || activeRequest.token !== token) return null
+      if (!activeRequest || activeRequest.requestId !== requestId) return null
 
       activeRequest.controller?.abort()
       const controller = new AbortController()
       activeRequestRef.current = {
         context: activeRequest.context,
         controller,
-        token,
+        requestId,
       }
 
-      const isCurrent = () => isCurrentRequest(token)
+      const isCurrent = () => isCurrentRequest(requestId)
       const release = () => {
         const currentRequest = activeRequestRef.current
-        if (currentRequest?.token === token && currentRequest.controller === controller) {
+        if (currentRequest?.requestId === requestId && currentRequest.controller === controller) {
           activeRequestRef.current = {
             context: currentRequest.context,
             controller: null,
-            token,
+            requestId,
           }
         }
       }
@@ -70,8 +70,8 @@ export function useLatestAbortableRequest<TContext>() {
         controller,
         isCurrent,
         release,
+        requestId,
         signal: controller.signal,
-        token,
       }
     },
     [isCurrentRequest]

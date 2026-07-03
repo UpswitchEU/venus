@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import type {
   ClientCreateRequest,
@@ -72,6 +73,7 @@ export function ClientCreateCard({ request }: { request: ClientCreateRequest }) 
 export function ValuationSessionCard({ request }: { request: ValuationSessionRequest }) {
   const ca = useTranslations('chatAssistant')
   const locale = useLocale()
+  const router = useRouter()
   const isBlocked = request.status === 'blocked'
   const synced = request.hasSyncedFinancials ? ca('proposalCards.agent.syncedFinancials') : null
   const clientId = request.clientId
@@ -96,11 +98,7 @@ export function ValuationSessionCard({ request }: { request: ValuationSessionReq
       actionSuccessLabel={ca('proposalCards.agent.opened')}
       onAction={
         !isBlocked && clientId
-          ? () => {
-              if (typeof window !== 'undefined') {
-                window.location.href = venusValuationSessionPath(locale, clientId)
-              }
-            }
+          ? () => router.push(venusValuationSessionPath(locale, clientId))
           : undefined
       }
     />

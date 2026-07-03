@@ -20,6 +20,21 @@ describe('HTMLProcessor', () => {
     expect(sanitized).not.toContain('<script')
   })
 
+  it('returns sanitized DOM fragments for React report surfaces', () => {
+    const fragment = HTMLProcessor.sanitizeToFragment(
+      '<style>.x{color:#123456}</style><section><img src="x" onerror="alert(1)"><script>alert(1)</script><p class="x">Safe</p></section>',
+      document
+    )
+    const root = document.createElement('div')
+    root.appendChild(fragment)
+
+    expect(root.innerHTML).toContain('<style>.x{color:#123456}</style>')
+    expect(root.innerHTML).toContain('class="x"')
+    expect(root.innerHTML).toContain('Safe')
+    expect(root.innerHTML).not.toContain('onerror')
+    expect(root.innerHTML).not.toContain('<script')
+  })
+
   it('preserves inert local report CSS', () => {
     const sanitized = HTMLProcessor.sanitize(
       '<style>.valuation-total{color:#123456}</style><div class="valuation-total">Total</div>'
@@ -195,9 +210,9 @@ describe('HTMLProcessor', () => {
     // Before the 2026-05-26 inner-wrapper fix in apps/valuation-iq/src/templates/main_report/base.html,
     // the rendered HTML carried .valuation-report ONLY on <body>. DOMPurify
     // strips <body>, so the class disappeared and `.valuation-report .cover-*`
-    // selectors silently missed. The outer React wrapper (ManualReportWorkspace,
-    // SafeReportHtml) adds a `<div className="valuation-report">` around the
-    // dangerouslySetInnerHTML root, which heals these old cached rows.
+    // selectors silently missed. The outer React wrapper adds a
+    // `<div className="valuation-report">` ancestor, which heals these old
+    // cached rows.
     //
     // This sanitizer-level test confirms the strip behaves the same regardless
     // of inner-wrapper presence: the <style> block survives, the cover-page

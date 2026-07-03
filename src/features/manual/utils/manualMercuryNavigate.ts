@@ -1,6 +1,10 @@
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '@/constants/crossAppMessages'
 import { EMBEDDED_STORAGE_KEY } from '@/hooks/useEmbeddedMode'
-import { isLegacyReturnUrl, isTrustedUpswitchHostname } from '@/lib/return-url'
+import {
+  getSafeMercuryNavigationUrl,
+  isLegacyReturnUrl,
+  isTrustedUpswitchHostname,
+} from '@/lib/return-url'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { generalLogger } from '@/utils/logger'
 import {
@@ -115,7 +119,10 @@ export function performManualMercuryNavigation({
 }: PerformManualMercuryNavigationParams): void {
   if (typeof window === 'undefined') return
 
-  const path = targetPath ?? resolveMercuryNavigationPathForEmbed(targetUrl)
+  const safeTargetUrl = getSafeMercuryNavigationUrl(targetUrl)
+  const path = targetPath
+    ? resolveMercuryNavigationPathForEmbed(targetPath)
+    : resolveMercuryNavigationPathForEmbed(safeTargetUrl)
 
   if (isManualMercuryEmbeddedContext() && path) {
     try {
@@ -128,7 +135,7 @@ export function performManualMercuryNavigation({
         '*'
       )
       window.setTimeout(() => {
-        window.location.href = targetUrl
+        window.location.assign(safeTargetUrl)
       }, 750)
       return
     } catch (error) {
@@ -148,7 +155,7 @@ export function performManualMercuryNavigation({
     }
   }
 
-  window.location.href = targetUrl
+  window.location.assign(safeTargetUrl)
 }
 
 export interface BuildManualMercuryReturnFromBrowserParams {
@@ -211,7 +218,7 @@ export function performManualFlowRedirect(
     return
   }
 
-  window.location.href = trimmed
+  window.location.assign(getSafeMercuryNavigationUrl(trimmed))
 }
 
 export function navigateToMercuryFromManualHandoff(

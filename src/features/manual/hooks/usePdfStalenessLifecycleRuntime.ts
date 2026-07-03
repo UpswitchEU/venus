@@ -28,23 +28,23 @@ export function usePdfStalenessLifecycleRuntime({
   const isMountedRef = useIsMountedRef()
   const lookupIdRef = useLatestRef(persistedReportLookupId)
   const isPdfGeneratingRef = useRef(isPdfGenerating)
-  const pollLockTokenRef = useRef(0)
+  const pollLockIdRef = useRef(0)
   isPdfGeneratingRef.current = isPdfGenerating
 
   const acquirePollLock = useCallback(() => {
     if (pollInFlightRef.current) return null
-    pollLockTokenRef.current += 1
+    pollLockIdRef.current += 1
     pollInFlightRef.current = true
-    return pollLockTokenRef.current
+    return pollLockIdRef.current
   }, [])
 
-  const releasePollLock = useCallback((token: number) => {
-    if (pollLockTokenRef.current !== token) return
+  const releasePollLock = useCallback((lockId: number) => {
+    if (pollLockIdRef.current !== lockId) return
     pollInFlightRef.current = false
   }, [])
 
   const cancelPollLock = useCallback(() => {
-    pollLockTokenRef.current += 1
+    pollLockIdRef.current += 1
     pollInFlightRef.current = false
   }, [])
 

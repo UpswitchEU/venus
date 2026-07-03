@@ -9,7 +9,9 @@ import {
   applyMercuryNewClientNameQuery,
   applyMercuryReportIdQuery,
   fallbackDashboardForSource,
+  getSafeMercuryNavigationUrl,
   getSafeMercuryReturnUrl,
+  isSafeMercuryNavigationUrlInput,
   isSafeMercuryReturnUrlInput,
   isTrustedUpswitchHostname,
 } from './return-url'
@@ -170,6 +172,35 @@ describe('isSafeMercuryReturnUrlInput', () => {
   it('rejects typosquats and protocol-relative values before they are stored', () => {
     expect(isSafeMercuryReturnUrlInput('https://notupswitch.app/phish')).toBe(false)
     expect(isSafeMercuryReturnUrlInput('//evil.example/phish')).toBe(false)
+  })
+})
+
+describe('getSafeMercuryNavigationUrl', () => {
+  it('keeps safe absolute and relative Mercury navigation targets', () => {
+    expect(
+      getSafeMercuryNavigationUrl('https://www.upswitch.app/nl/advisor/clients/c1?from=valuation')
+    ).toBe('https://www.upswitch.app/nl/advisor/clients/c1?from=valuation')
+    expect(getSafeMercuryNavigationUrl('/nl/advisor/settings?tab=billing')).toBe(
+      'https://upswitch.app/nl/advisor/settings?tab=billing'
+    )
+  })
+
+  it('rejects typosquats, unsafe schemes, and protocol-relative targets', () => {
+    expect(isSafeMercuryNavigationUrlInput('https://notupswitch.app/phish')).toBe(false)
+    expect(isSafeMercuryNavigationUrlInput('javascript:alert(1)')).toBe(false)
+    expect(isSafeMercuryNavigationUrlInput('//evil.example/phish')).toBe(false)
+    expect(getSafeMercuryNavigationUrl('javascript:alert(1)')).toBe(
+      'https://upswitch.app/en/advisor/dashboard'
+    )
+  })
+
+  it('uses a safe caller-provided fallback when the target is unsafe', () => {
+    expect(
+      getSafeMercuryNavigationUrl(
+        'https://notupswitch.app/phish',
+        'https://upswitch.app/nl/business/dashboard'
+      )
+    ).toBe('https://upswitch.app/nl/business/dashboard')
   })
 })
 

@@ -10,9 +10,9 @@ import {
 import { AcademicValidationNotice } from '../../../components/calculator/sections/AcademicValidationNotice'
 import { ErrorState } from '../../../components/ErrorState'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
+import { SafeReportHtml } from '../../../components/valuation/report/SafeReportHtml'
 import { springDefault } from '../../../design-system/components/motion'
 import { useSessionStore } from '../../../store/useSessionStore'
-import { HTMLProcessor } from '../../../utils/htmlProcessor'
 import type { ManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
 import { PanelSkeleton } from './manualLayoutShell'
 
@@ -103,13 +103,7 @@ function HtmlReportSurface({
       <div className="sticky top-0 z-[5] mx-4 mt-3 space-y-2 bg-background/95 backdrop-blur-sm">
         <AcademicValidationNotice className="border-b-0" />
       </div>
-      <div className="valuation-report">
-        <div
-          dangerouslySetInnerHTML={{
-            __html: HTMLProcessor.sanitize(report.htmlReport ?? ''),
-          }}
-        />
-      </div>
+      <SafeReportHtml html={report.htmlReport ?? ''} />
     </div>
   )
 }

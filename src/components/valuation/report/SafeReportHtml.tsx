@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useMemo } from 'react'
+import { memo, useLayoutEffect, useRef } from 'react'
 import { HTMLProcessor } from '@/utils/htmlProcessor'
 
 export interface SafeReportHtmlProps {
@@ -14,11 +14,22 @@ export const SafeReportHtml = memo(function SafeReportHtml({
   className,
   wrapperClassName = 'valuation-report',
 }: SafeReportHtmlProps) {
-  const sanitizedHtml = useMemo(() => HTMLProcessor.sanitize(html), [html])
+  const htmlRootRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const root = htmlRootRef.current
+    if (!root) return
+
+    root.replaceChildren(HTMLProcessor.sanitizeToFragment(html, root.ownerDocument))
+
+    return () => {
+      root.replaceChildren()
+    }
+  }, [html])
 
   return (
     <div className={wrapperClassName}>
-      <div className={className} dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
+      <div ref={htmlRootRef} className={className} />
     </div>
   )
 })

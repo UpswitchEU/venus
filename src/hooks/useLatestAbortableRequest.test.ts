@@ -6,40 +6,40 @@ describe('useLatestAbortableRequest', () => {
   it('aborts the previous active request when a newer one is reserved', () => {
     const { result } = renderHook(() => useLatestAbortableRequest<{ query: string }>())
 
-    const firstToken = result.current.reserveRequest({ query: 'Acme' })
-    const firstRequest = result.current.beginRequest(firstToken)
+    const firstRequestId = result.current.reserveRequest({ query: 'Acme' })
+    const firstRequest = result.current.beginRequest(firstRequestId)
     expect(firstRequest).not.toBeNull()
     expect(firstRequest?.isCurrent()).toBe(true)
 
-    const secondToken = result.current.reserveRequest({ query: 'Beta' })
+    const secondRequestId = result.current.reserveRequest({ query: 'Beta' })
 
     expect(firstRequest?.signal.aborted).toBe(true)
     expect(firstRequest?.isCurrent()).toBe(false)
 
-    const secondRequest = result.current.beginRequest(secondToken)
+    const secondRequest = result.current.beginRequest(secondRequestId)
     expect(secondRequest?.context).toEqual({ query: 'Beta' })
     expect(secondRequest?.signal.aborted).toBe(false)
     expect(secondRequest?.isCurrent()).toBe(true)
   })
 
-  it('ignores cleanup for an older token after a newer request is active', () => {
+  it('ignores cleanup for an older request id after a newer request is active', () => {
     const { result } = renderHook(() => useLatestAbortableRequest<{ query: string }>())
 
-    const firstToken = result.current.reserveRequest({ query: 'Acme' })
-    const secondToken = result.current.reserveRequest({ query: 'Beta' })
-    const secondRequest = result.current.beginRequest(secondToken)
+    const firstRequestId = result.current.reserveRequest({ query: 'Acme' })
+    const secondRequestId = result.current.reserveRequest({ query: 'Beta' })
+    const secondRequest = result.current.beginRequest(secondRequestId)
 
-    result.current.cancelRequest(firstToken)
+    result.current.cancelRequest(firstRequestId)
 
     expect(secondRequest?.signal.aborted).toBe(false)
     expect(secondRequest?.isCurrent()).toBe(true)
   })
 
-  it('releases the active controller without invalidating the completed request token', () => {
+  it('releases the active controller without invalidating the completed request id', () => {
     const { result } = renderHook(() => useLatestAbortableRequest<{ query: string }>())
 
-    const token = result.current.reserveRequest({ query: 'Acme' })
-    const request = result.current.beginRequest(token)
+    const requestId = result.current.reserveRequest({ query: 'Acme' })
+    const request = result.current.beginRequest(requestId)
 
     request?.release()
 

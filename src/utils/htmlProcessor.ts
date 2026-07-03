@@ -1,6 +1,145 @@
 import DOMPurify from 'dompurify'
 import { generalLogger } from './logger'
 
+const REPORT_HTML_SANITIZE_CONFIG = {
+  // Allow common HTML tags for reports
+  ALLOWED_TAGS: [
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'p',
+    'div',
+    'span',
+    'strong',
+    'em',
+    'b',
+    'i',
+    'u',
+    'ul',
+    'ol',
+    'li',
+    'br',
+    'hr',
+    'table',
+    'thead',
+    'tbody',
+    'tfoot',
+    'tr',
+    'th',
+    'td',
+    'caption',
+    'colgroup',
+    'col',
+    'a',
+    'img',
+    'blockquote',
+    'pre',
+    'code',
+    'section',
+    'article',
+    'header',
+    'footer',
+    'nav',
+    'main',
+    'aside',
+    'figure',
+    'figcaption',
+    'style',
+    // SVG elements for charts (waterfall, sensitivity)
+    'svg',
+    'g',
+    'rect',
+    'circle',
+    'ellipse',
+    'line',
+    'polyline',
+    'polygon',
+    'path',
+    'text',
+    'tspan',
+    'defs',
+    'clippath',
+    'lineargradient',
+    'radialgradient',
+    'stop',
+    'use',
+    'symbol',
+    'marker',
+    'pattern',
+    'mask',
+  ],
+  ALLOWED_ATTR: [
+    'class',
+    'id',
+    'style',
+    'href',
+    'src',
+    'alt',
+    'title',
+    'colspan',
+    'rowspan',
+    'align',
+    'valign',
+    'type',
+    'media',
+    'width',
+    'height',
+    // SVG attributes for charts
+    'viewbox',
+    'fill',
+    'stroke',
+    'stroke-width',
+    'stroke-linecap',
+    'stroke-linejoin',
+    'stroke-dasharray',
+    'stroke-dashoffset',
+    'opacity',
+    'x',
+    'y',
+    'x1',
+    'y1',
+    'x2',
+    'y2',
+    'cx',
+    'cy',
+    'r',
+    'rx',
+    'ry',
+    'd',
+    'points',
+    'transform',
+    'text-anchor',
+    'dominant-baseline',
+    'font-size',
+    'font-weight',
+    'font-family',
+    'dx',
+    'dy',
+    'offset',
+    'stop-color',
+    'stop-opacity',
+    'clip-path',
+    'mask',
+    'marker-start',
+    'marker-end',
+    'xmlns',
+    'xmlns:xlink',
+    'role',
+    'aria-label',
+    'aria-hidden',
+  ],
+  // Allow data attributes for custom functionality
+  ALLOW_DATA_ATTR: true,
+  // Keep relative URLs
+  ALLOW_UNKNOWN_PROTOCOLS: false,
+  // BANK-GRADE: Preserve style tags and their content
+  FORCE_BODY: true, // Ensures style tags are properly preserved when at start of HTML
+  KEEP_CONTENT: true, // Preserve content of allowed elements (including CSS in style tags)
+}
+
 /**
  * HTML Processor for sanitizing and processing HTML content
  *
@@ -88,8 +227,8 @@ export class HTMLProcessor {
     // apps/mercury/shared/utils/sanitize-html.ts — this mirrors that approach
     // so both apps stay in sync.
     //
-    // External font fetches wouldn't work reliably from a `<style>` injected
-    // via `dangerouslySetInnerHTML` anyway; the report's font stack falls
+    // External font fetches would not work reliably from a client-inserted
+    // `<style>` block anyway; the report's font stack falls
     // back to the Inter/system-ui chain already declared in the stylesheet,
     // so dropping `@import`/`@font-face` is functionally a no-op for the
     // embedded view.
@@ -205,146 +344,7 @@ export class HTMLProcessor {
     let sanitized: string
 
     try {
-      sanitized = DOMPurify.sanitize(htmlWithoutStyle, {
-        // Allow common HTML tags for reports
-        ALLOWED_TAGS: [
-          'h1',
-          'h2',
-          'h3',
-          'h4',
-          'h5',
-          'h6',
-          'p',
-          'div',
-          'span',
-          'strong',
-          'em',
-          'b',
-          'i',
-          'u',
-          'ul',
-          'ol',
-          'li',
-          'br',
-          'hr',
-          'table',
-          'thead',
-          'tbody',
-          'tfoot',
-          'tr',
-          'th',
-          'td',
-          'caption',
-          'colgroup',
-          'col',
-          'a',
-          'img',
-          'blockquote',
-          'pre',
-          'code',
-          'section',
-          'article',
-          'header',
-          'footer',
-          'nav',
-          'main',
-          'aside',
-          'figure',
-          'figcaption',
-          'style',
-          // SVG elements for charts (waterfall, sensitivity)
-          'svg',
-          'g',
-          'rect',
-          'circle',
-          'ellipse',
-          'line',
-          'polyline',
-          'polygon',
-          'path',
-          'text',
-          'tspan',
-          'defs',
-          'clippath',
-          'lineargradient',
-          'radialgradient',
-          'stop',
-          'use',
-          'symbol',
-          'marker',
-          'pattern',
-          'mask',
-        ],
-        ALLOWED_ATTR: [
-          'class',
-          'id',
-          'style',
-          'href',
-          'src',
-          'alt',
-          'title',
-          'colspan',
-          'rowspan',
-          'align',
-          'valign',
-          'type',
-          'media',
-          'width',
-          'height',
-          // SVG attributes for charts
-          'viewbox',
-          'fill',
-          'stroke',
-          'stroke-width',
-          'stroke-linecap',
-          'stroke-linejoin',
-          'stroke-dasharray',
-          'stroke-dashoffset',
-          'opacity',
-          'x',
-          'y',
-          'x1',
-          'y1',
-          'x2',
-          'y2',
-          'cx',
-          'cy',
-          'r',
-          'rx',
-          'ry',
-          'd',
-          'points',
-          'transform',
-          'text-anchor',
-          'dominant-baseline',
-          'font-size',
-          'font-weight',
-          'font-family',
-          'dx',
-          'dy',
-          'offset',
-          'stop-color',
-          'stop-opacity',
-          'clip-path',
-          'mask',
-          'marker-start',
-          'marker-end',
-          'xmlns',
-          'xmlns:xlink',
-          'role',
-          'aria-label',
-          'aria-hidden',
-        ],
-        // Allow data attributes for custom functionality
-        ALLOW_DATA_ATTR: true,
-        // Keep relative URLs
-        ALLOW_UNKNOWN_PROTOCOLS: false,
-        // BANK-GRADE: Preserve style tags and their content
-        FORCE_BODY: true, // Ensures style tags are properly preserved when at start of HTML
-        KEEP_CONTENT: true, // Preserve content of allowed elements (including CSS in style tags)
-        // Note: DOMPurify preserves CSS content within style tags when style is in ALLOWED_TAGS
-        // Since our CSS is server-generated from templates (not user input), this is safe
-      })
+      sanitized = DOMPurify.sanitize(htmlWithoutStyle, REPORT_HTML_SANITIZE_CONFIG)
     } catch (error) {
       // BANK-GRADE: Specific error handling - DOMPurify sanitization failure
       // DOMPurify typically doesn't throw, but handle edge cases (SSR, invalid config)
@@ -407,6 +407,24 @@ export class HTMLProcessor {
     }
 
     return sanitized
+  }
+
+  /**
+   * Return sanitized report markup as DOM nodes for React surfaces that should
+   * avoid raw HTML injection props entirely.
+   */
+  static sanitizeToFragment(htmlContent: string, ownerDocument: Document): DocumentFragment {
+    const sanitized = this.sanitize(htmlContent)
+    const fragment = ownerDocument.createDocumentFragment()
+    if (!sanitized) return fragment
+
+    const sanitizedNodes = DOMPurify.sanitize(sanitized, {
+      ...REPORT_HTML_SANITIZE_CONFIG,
+      RETURN_DOM_FRAGMENT: true,
+    }) as unknown as DocumentFragment
+
+    fragment.appendChild(ownerDocument.importNode(sanitizedNodes, true))
+    return fragment
   }
 
   /**

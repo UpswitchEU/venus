@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { showAdvisorCalculatorSurface } from '../constants/accountantPlanMethods'
 import { trackPaywallUpgradeClick } from '../lib/analytics'
 import { isAccountantBillingUpgradePath, isClientPremiumUpgradePath } from '../lib/bootstrap'
+import { navigateToSafeMercuryNavigationUrl } from '../lib/return-url'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { ValuationPaywallModal } from './ValuationPaywallModal'
 
@@ -75,7 +76,7 @@ export function ValuationSessionPaywall({
               : audience === 'business_owner'
                 ? `${base}/${locale}/business/dashboard`
                 : `${base}/${locale}/pricing`
-          window.location.href = upgradePath
+          navigateToSafeMercuryNavigationUrl(upgradePath)
         }}
       />
     )
@@ -96,10 +97,11 @@ export function ValuationSessionPaywall({
         const locale = pathname?.match(/^\/(en|nl|fr)/)?.[1] || 'en'
         trackPaywallUpgradeClick('session_credit')
         const base = getMercuryUrl()
-        window.location.href =
+        navigateToSafeMercuryNavigationUrl(
           audience === 'business_owner'
             ? `${base}/${locale}/business/dashboard`
             : `${base}/${locale}/pricing`
+        )
       }}
     />
   )

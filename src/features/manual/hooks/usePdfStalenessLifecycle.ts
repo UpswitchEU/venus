@@ -268,8 +268,8 @@ export function usePdfStalenessLifecycle(
       if (Date.now() < transientBackoffUntilRef.current) {
         return false
       }
-      const pollLockToken = acquirePollLock()
-      if (pollLockToken === null) return false
+      const pollLockId = acquirePollLock()
+      if (pollLockId === null) return false
       try {
         const fresh = await getReport(
           lookupId,
@@ -318,7 +318,7 @@ export function usePdfStalenessLifecycle(
         }
         return false
       } finally {
-        releasePollLock(pollLockToken)
+        releasePollLock(pollLockId)
       }
     },
     [

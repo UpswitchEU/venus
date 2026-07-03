@@ -72,16 +72,16 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
   // Debounced search function - memoized with useRef to persist across renders
   const performSearchRef = useRef<
-    ((query: string, country: string, searchToken: number) => void) | null
+    ((query: string, country: string, searchRequestId: number) => void) | null
   >(null)
 
   useEffect(() => {
     // Create debounced function once
     if (!performSearchRef.current) {
       performSearchRef.current = debounce(
-        async (query: string, country: string, searchToken: number) => {
+        async (query: string, country: string, searchRequestId: number) => {
           const trimmedQuery = query.trim()
-          const request = beginRequest(searchToken)
+          const request = beginRequest(searchRequestId)
 
           if (!request) return
           const { isCurrent, release, signal } = request
@@ -164,8 +164,8 @@ export const CompanyNameInput: React.FC<CompanyNameInputProps> = ({
 
   const performSearch = useCallback(
     (query: string, country: string) => {
-      const searchToken = reserveRequest({ country, query: query.trim() })
-      performSearchRef.current?.(query, country, searchToken)
+      const searchRequestId = reserveRequest({ country, query: query.trim() })
+      performSearchRef.current?.(query, country, searchRequestId)
     },
     [reserveRequest]
   )

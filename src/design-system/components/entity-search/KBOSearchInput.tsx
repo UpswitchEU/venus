@@ -155,9 +155,9 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     }, [shouldShowDropdown, canSearch])
 
     const runSearch = React.useCallback(
-      async (query: string, existingSearchToken?: number) => {
-        const searchToken = existingSearchToken ?? reserveRequest({ query })
-        const request = beginRequest(searchToken)
+      async (query: string, existingSearchRequestId?: number) => {
+        const searchRequestId = existingSearchRequestId ?? reserveRequest({ query })
+        const request = beginRequest(searchRequestId)
 
         if (!request) return
         const { isCurrent, release, signal } = request
@@ -218,18 +218,18 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
         return
       }
 
-      const searchToken = reserveRequest({ query: trimmedValue })
+      const searchRequestId = reserveRequest({ query: trimmedValue })
       setIsSearching(true)
       setSearchError(null)
       setShowDropdown(true)
 
       const timeout = setTimeout(async () => {
-        await runSearch(trimmedValue, searchToken)
+        await runSearch(trimmedValue, searchRequestId)
       }, debounceMs)
 
       return () => {
         clearTimeout(timeout)
-        cancelRequest(searchToken)
+        cancelRequest(searchRequestId)
       }
     }, [
       cancelRequest,

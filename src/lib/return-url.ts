@@ -48,6 +48,66 @@ export function isSafeMercuryReturnUrlInput(
   return !raw.startsWith('//')
 }
 
+export function isSafeMercuryNavigationUrlInput(
+  targetUrl: string | null | undefined
+): targetUrl is string {
+  const raw = targetUrl?.trim()
+  if (!raw || isLegacyReturnUrl(raw) || raw.startsWith('//')) return false
+
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    try {
+      const url = new URL(raw)
+      const allowHttp =
+        url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+      return (
+        (url.protocol === 'https:' || allowHttp) &&
+        isTrustedUpswitchHostname(url.hostname) &&
+        !isLegacyReturnUrl(url.pathname)
+      )
+    } catch {
+      return false
+    }
+  }
+
+  return raw.startsWith('/')
+}
+
+function coerceSafeMercuryNavigationUrl(targetUrl: string | null | undefined): string | null {
+  const raw = targetUrl?.trim()
+  if (!isSafeMercuryNavigationUrlInput(raw)) return null
+  const mercuryUrl = getMercuryUrl().replace(/\/$/, '')
+
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    const url = new URL(raw)
+    const allowHttp =
+      url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+    if (url.protocol === 'http:' && !allowHttp) {
+      url.protocol = 'https:'
+    }
+    return url.toString()
+  }
+
+  return `${mercuryUrl}${raw.startsWith('/') ? raw : `/${raw}`}`
+}
+
+export function getSafeMercuryNavigationUrl(
+  targetUrl: string | null | undefined,
+  fallbackUrl?: string
+): string {
+  const mercuryUrl = getMercuryUrl().replace(/\/$/, '')
+  const fallback =
+    coerceSafeMercuryNavigationUrl(fallbackUrl) ?? `${mercuryUrl}/en/advisor/dashboard`
+  return coerceSafeMercuryNavigationUrl(targetUrl) ?? fallback
+}
+
+export function navigateToSafeMercuryNavigationUrl(
+  targetUrl: string | null | undefined,
+  fallbackUrl?: string
+): void {
+  if (typeof window === 'undefined') return
+  window.location.assign(getSafeMercuryNavigationUrl(targetUrl, fallbackUrl))
+}
+
 /**
  * Set or strip the celebration marker on a Mercury return URL. Only set when
  * returning after a completed valuation so Mercury can show "added to business

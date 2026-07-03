@@ -116,9 +116,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
            * truth for `page_view` events from now on.
            */}
           <script async src="https://www.googletagmanager.com/gtag/js?id=G-0RW0LNCVBG" />
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
+          <script>{`
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
@@ -135,9 +133,7 @@ gtag('config', 'G-0RW0LNCVBG', {
   send_page_view: false,
   linker: { domains: ['upswitch.app', 'valuation.upswitch.app'], accept_incoming: true }
 });
-`,
-            }}
-          />
+`}</script>
           {/* ✅ FIX: Use manual meta tag for viewport to support Next.js 13.5.6 */}
           <meta
             name="viewport"

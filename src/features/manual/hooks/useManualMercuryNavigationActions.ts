@@ -206,9 +206,11 @@ export function useManualMercuryNavigationActions({
   }, [currentLocale])
 
   const handleAccountSettings = useCallback(() => {
-    window.location.href = buildManualMercuryAccountSettingsUrl({
-      mercuryUrl: getMercuryUrl(),
-      locale: currentLocale,
+    performManualMercuryNavigation({
+      targetUrl: buildManualMercuryAccountSettingsUrl({
+        mercuryUrl: getMercuryUrl(),
+        locale: currentLocale,
+      }),
     })
   }, [currentLocale])
 
@@ -225,7 +227,10 @@ export function useManualMercuryNavigationActions({
           currentLocale,
         })
         if (targetUrl) {
-          window.location.href = targetUrl
+          performManualMercuryNavigation({
+            targetUrl,
+            postEngineCloseOnEmbedFailure: true,
+          })
           return
         }
       } catch (error) {
@@ -241,32 +246,40 @@ export function useManualMercuryNavigationActions({
   }, [router, currentLocale])
 
   const handleNavigateToDashboard = useCallback(() => {
-    window.location.href = buildManualMercuryAdvisorDashboardUrl({
-      mercuryUrl: getMercuryUrl(),
-      locale: mercuryLocale,
+    performManualMercuryNavigation({
+      targetUrl: buildManualMercuryAdvisorDashboardUrl({
+        mercuryUrl: getMercuryUrl(),
+        locale: mercuryLocale,
+      }),
     })
   }, [mercuryLocale])
 
   const handleNavigateToBilling = useCallback(() => {
-    window.location.href = buildManualMercuryBillingUrl({
-      mercuryUrl: getMercuryUrl(),
-      locale: mercuryLocale,
+    performManualMercuryNavigation({
+      targetUrl: buildManualMercuryBillingUrl({
+        mercuryUrl: getMercuryUrl(),
+        locale: mercuryLocale,
+      }),
     })
   }, [mercuryLocale])
 
   const handleNavigateToHelp = useCallback(() => {
-    window.location.href = buildManualMercuryHelpUrl({
-      mercuryUrl: getMercuryUrl(),
-      locale: mercuryLocale,
+    performManualMercuryNavigation({
+      targetUrl: buildManualMercuryHelpUrl({
+        mercuryUrl: getMercuryUrl(),
+        locale: mercuryLocale,
+      }),
     })
   }, [mercuryLocale])
 
   const handleOpenMercuryClientForInvite = useCallback(() => {
     if (!clientContextId) return
-    window.location.href = buildManualMercuryClientUrl({
-      mercuryUrl: getMercuryUrl(),
-      locale: mercuryLocale,
-      clientContextId,
+    performManualMercuryNavigation({
+      targetUrl: buildManualMercuryClientUrl({
+        mercuryUrl: getMercuryUrl(),
+        locale: mercuryLocale,
+        clientContextId,
+      }),
     })
   }, [clientContextId, mercuryLocale])
 

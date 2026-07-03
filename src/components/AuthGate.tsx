@@ -36,7 +36,7 @@ import {
   clearLastClientTokenExchangeFailure,
   getLastClientTokenExchangeFailure,
 } from '../lib/bootstrap/resolvers/AuthResolver'
-import { getSafeMercuryReturnUrl } from '../lib/return-url'
+import { getSafeMercuryReturnUrl, navigateToSafeMercuryNavigationUrl } from '../lib/return-url'
 import { useClientContext } from '../stores/clientContext'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
@@ -183,12 +183,14 @@ function DefaultErrorState({
   const handleLogIn = () => {
     const currentUrl = window.location.href
     const mercuryUrl = getMercuryUrl()
-    window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+    navigateToSafeMercuryNavigationUrl(
+      `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+    )
   }
 
   const handleGoBack = () => {
     if (!returnUrl) return
-    window.location.href = getSafeMercuryReturnUrl(returnUrl, { locale })
+    navigateToSafeMercuryNavigationUrl(getSafeMercuryReturnUrl(returnUrl, { locale }))
   }
 
   return (
@@ -382,7 +384,7 @@ export function AuthGate({
         setError(payload ?? 'Unknown error')
         onAuthErrorRef.current?.(payload ?? 'Unknown error')
       } else if (outcome === 'redirect' && typeof window !== 'undefined' && payload) {
-        window.location.href = payload
+        navigateToSafeMercuryNavigationUrl(payload)
       }
     }
 
