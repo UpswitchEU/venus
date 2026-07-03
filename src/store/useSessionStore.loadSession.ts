@@ -330,7 +330,7 @@ export function createLoadSessionAction(set: StoreSet, get: StoreGet): SessionSt
             } catch {
               // Fall through to Venus home.
             }
-            window.location.href = `/${locale}`
+            window.location.assign(`/${locale}`)
           }
         }
       }

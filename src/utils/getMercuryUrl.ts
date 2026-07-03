@@ -18,6 +18,21 @@ import {
   tryNormalizeToOrigin,
 } from './normalizeExplicitUrl'
 
+export function deriveMercuryOriginFromTrustedVenusHostname(hostname: string): string | null {
+  const host = hostname.split(':')[0]?.toLowerCase() ?? ''
+
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://localhost:3000'
+  }
+
+  if (host === 'preview.valuation.upswitch.app') return 'https://preview.upswitch.app'
+  if (host === 'staging.valuation.upswitch.app') return 'https://staging.upswitch.app'
+  if (host === 'valuation.upswitch.app') return MERCURY_SITE_WWW_CANONICAL
+  if (host === 'valuation.upswitch.biz') return 'https://upswitch.biz'
+
+  return null
+}
+
 export function getMercuryUrl(): string {
   const envRaw = process.env.NEXT_PUBLIC_MERCURY_URL || process.env.NEXT_PUBLIC_PARENT_DOMAIN
   if (envRaw?.trim()) {
@@ -35,19 +50,8 @@ export function getMercuryUrl(): string {
     return 'http://localhost:3000'
   }
 
-  if (hostname.startsWith('preview.valuation.')) {
-    return `https://preview.${hostname.replace('preview.valuation.', '')}`
-  }
-
-  if (hostname.startsWith('staging.valuation.')) {
-    return `https://staging.${hostname.replace('staging.valuation.', '')}`
-  }
-
-  if (hostname.startsWith('valuation.')) {
-    const apex = hostname.replace(/^valuation\./, '')
-    if (apex === 'upswitch.app') return MERCURY_SITE_WWW_CANONICAL
-    return `https://${apex}`
-  }
+  const derived = deriveMercuryOriginFromTrustedVenusHostname(hostname)
+  if (derived) return derived
 
   return MERCURY_SITE_WWW_CANONICAL
 }

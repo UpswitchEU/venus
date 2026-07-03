@@ -58,7 +58,7 @@ export default function GlobalError({
             </button>
             <button
               type="button"
-              onClick={() => (window.location.href = '/')}
+              onClick={() => window.location.assign('/')}
               style={{
                 padding: '8px 16px',
                 background: 'transparent',

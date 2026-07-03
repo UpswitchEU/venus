@@ -51,6 +51,7 @@ import { ScorecardStep } from '@/features/startup-studio/components/ScorecardSte
 import { TractionStep } from '@/features/startup-studio/components/TractionStep'
 import { useStudioIssues } from '@/features/startup-studio/hooks/useStudioIssues'
 import { useStartupBenchmark } from '@/lib/benchmarks/useStartupBenchmark'
+import { navigateToSafeMercuryNavigationUrl } from '@/lib/return-url'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useStartupValuationStore } from '@/store/manual/useStartupValuationStore'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
@@ -245,7 +246,7 @@ export function LandingStartupContent() {
     signupUrl.searchParams.set('returnUrl', returnUrl)
     signupUrl.searchParams.set('source', 'venus_landing_startup')
 
-    window.location.href = signupUrl.toString()
+    navigateToSafeMercuryNavigationUrl(signupUrl.toString(), `/${locale}/auth/signup`)
   }
 
   const totalFixes = blockerCount + warningCount

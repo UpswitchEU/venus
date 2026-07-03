@@ -4,7 +4,7 @@ import { AlertCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { AuroraButton, GlassCard } from '@/design-system'
-import { getSafeMercuryReturnUrl } from '@/lib/return-url'
+import { getSafeMercuryReturnUrl, navigateToSafeMercuryNavigationUrl } from '@/lib/return-url'
 
 interface ErrorFallbackProps {
   returnUrl?: string
@@ -45,7 +45,7 @@ export function ErrorFallback({ returnUrl, error, errorInfo }: ErrorFallbackProp
 
   const handleReturnToDashboard = () => {
     if (!effectiveReturnUrl) return
-    window.location.href = getSafeMercuryReturnUrl(effectiveReturnUrl, { locale })
+    navigateToSafeMercuryNavigationUrl(getSafeMercuryReturnUrl(effectiveReturnUrl, { locale }))
   }
 
   // Categorize error for better messaging

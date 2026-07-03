@@ -74,4 +74,19 @@ describe('manualNewValuation', () => {
       /^\/nl\/reports\/new\?clientId=client-1&prefilledQuery=Client\+Co&flow=advisor&source=mercury&_ts=\d+$/
     )
   })
+
+  it('drops unsafe return_url passthroughs when building fresh valuation URLs', () => {
+    const url = buildManualNewValuationUrl({
+      locale: 'nl',
+      collectedCompanyName: 'Client Co',
+      isAccountantFlow: true,
+      clientCompanyName: 'Client Co',
+      isAccountantMode: true,
+      clientContextId: 'client-1',
+      currentSearch: '?source=mercury&return_url=%2F%5Cevil.example%2Fphish',
+    })
+    const params = new URLSearchParams(url.split('?')[1] ?? '')
+    expect(params.get('source')).toBe('mercury')
+    expect(params.get('return_url')).toBeNull()
+  })
 })

@@ -45,6 +45,20 @@ describe('report access middleware helpers', () => {
     )
   })
 
+  it('canonicalizes returnUrl when the request origin is untrusted', () => {
+    const response = redirectToMercuryLogin(
+      request(undefined, 'https://evil-phishing.example/nl/reports/report-123?x=1'),
+      'nl',
+      'https://www.upswitch.app'
+    )
+    const location = new URL(response.headers.get('location') ?? '')
+
+    expect(location.origin).toBe('https://www.upswitch.app')
+    expect(location.searchParams.get('returnUrl')).toBe(
+      'https://valuation.upswitch.app/nl/reports/report-123?x=1'
+    )
+  })
+
   it('allows only local development Venus-generated draft report URLs without delegated context', () => {
     vi.stubEnv('NODE_ENV', 'development')
 

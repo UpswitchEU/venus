@@ -8,6 +8,7 @@
  */
 
 import { generalLogger } from '../../utils/logger'
+import { safeVenusSameOriginNavigationTarget } from '../../utils/safeVenusRedirect'
 
 /**
  * Service for handling page refresh operations
@@ -60,17 +61,9 @@ export class RefreshService {
       return
     }
 
-    const isPathOnlySafe = trimmed.startsWith('/') && !trimmed.startsWith('//')
-    let sameOrigin = false
-    if (!isPathOnlySafe) {
-      try {
-        sameOrigin = new URL(trimmed, window.location.origin).origin === window.location.origin
-      } catch {
-        sameOrigin = false
-      }
-    }
+    const safeTarget = safeVenusSameOriginNavigationTarget(trimmed, window.location.origin)
 
-    if (!isPathOnlySafe && !sameOrigin) {
+    if (!safeTarget) {
       generalLogger.warn(
         'NavigateTo blocked: URL must be same-origin path or full same-origin URL',
         {
@@ -80,8 +73,8 @@ export class RefreshService {
       return
     }
 
-    generalLogger.info('Navigating to new URL', { url: trimmed })
-    window.location.href = trimmed
+    generalLogger.info('Navigating to new URL', { url: safeTarget })
+    window.location.assign(safeTarget)
   }
 
   /**

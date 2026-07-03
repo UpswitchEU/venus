@@ -15,6 +15,7 @@ import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
+import { navigateToSafeMercuryNavigationUrl } from '../return-url'
 import { setBootstrapState } from '../sessionInitialization'
 import {
   BootstrapContext,
@@ -399,7 +400,7 @@ export function BootstrapProvider({
         // Immediate redirect - no error state, no loading state
         if (typeof window !== 'undefined') {
           clearInitThrottle()
-          window.location.href = error.redirectUrl
+          navigateToSafeMercuryNavigationUrl(error.redirectUrl)
         }
         return // Stop execution - redirect is happening
       }

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { shouldAllowLocalDevelopmentVenusDraftReport } from '@/utils/localDevelopmentDraftReport'
+import { venusInternalRedirectUrl } from '@/utils/safeVenusRedirect'
 
 export const VENUS_REPORT_ACCESS_COOKIE = 'upswitch_access_token'
 export const VENUS_REPORT_REFRESH_COOKIE = 'upswitch_refresh_token'
@@ -37,6 +38,11 @@ export function redirectToMercuryLogin(
   mercuryBase: string
 ): NextResponse {
   const loginUrl = new URL(`/${locale}/auth/login`, mercuryBase)
-  loginUrl.searchParams.set('returnUrl', request.nextUrl.toString())
+  const returnUrl = venusInternalRedirectUrl(
+    request.nextUrl.origin,
+    request.nextUrl.pathname,
+    request.nextUrl.search
+  )
+  loginUrl.searchParams.set('returnUrl', returnUrl.toString())
   return NextResponse.redirect(loginUrl)
 }

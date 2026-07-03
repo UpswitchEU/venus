@@ -172,6 +172,8 @@ describe('isSafeMercuryReturnUrlInput', () => {
   it('rejects typosquats and protocol-relative values before they are stored', () => {
     expect(isSafeMercuryReturnUrlInput('https://notupswitch.app/phish')).toBe(false)
     expect(isSafeMercuryReturnUrlInput('//evil.example/phish')).toBe(false)
+    expect(isSafeMercuryReturnUrlInput('/\\evil.example/phish')).toBe(false)
+    expect(isSafeMercuryReturnUrlInput('javascript:alert(1)')).toBe(false)
   })
 })
 
@@ -189,7 +191,11 @@ describe('getSafeMercuryNavigationUrl', () => {
     expect(isSafeMercuryNavigationUrlInput('https://notupswitch.app/phish')).toBe(false)
     expect(isSafeMercuryNavigationUrlInput('javascript:alert(1)')).toBe(false)
     expect(isSafeMercuryNavigationUrlInput('//evil.example/phish')).toBe(false)
+    expect(isSafeMercuryNavigationUrlInput('/\\evil.example/phish')).toBe(false)
     expect(getSafeMercuryNavigationUrl('javascript:alert(1)')).toBe(
+      'https://upswitch.app/en/advisor/dashboard'
+    )
+    expect(getSafeMercuryNavigationUrl('/\\evil.example/phish')).toBe(
       'https://upswitch.app/en/advisor/dashboard'
     )
   })
@@ -212,6 +218,11 @@ describe('getSafeMercuryReturnUrl', () => {
 
   it('rejects protocol-relative stored paths (//...) and falls back to dashboard', () => {
     const out = getSafeMercuryReturnUrl('//evil.example/phish', { locale: 'en' })
+    expect(out).toBe('https://upswitch.app/en/advisor/dashboard')
+  })
+
+  it('rejects browser-normalized authority stored paths and falls back to dashboard', () => {
+    const out = getSafeMercuryReturnUrl('/\\evil.example/phish', { locale: 'en' })
     expect(out).toBe('https://upswitch.app/en/advisor/dashboard')
   })
 

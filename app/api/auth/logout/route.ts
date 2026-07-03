@@ -10,6 +10,7 @@ import { getBffCookieHeaderForTitan, getResponseSetCookieList } from '@/utils/bf
 import { fetchWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { MERCURY_SITE_WWW_CANONICAL, tryNormalizeToOrigin } from '@/utils/normalizeExplicitUrl'
+import { safeVenusInternalPath, venusRedirectOriginFromOrigin } from '@/utils/safeVenusRedirect'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -22,16 +23,6 @@ const COOKIES_TO_CLEAR = [
   'upswitch_oauth_handshake',
   'access_token',
 ]
-
-const VENUS_SITE_CANONICAL = 'https://valuation.upswitch.app'
-const STATIC_TRUSTED_VENUS_REDIRECT_HOSTS = new Set([
-  'valuation.upswitch.app',
-  'preview.valuation.upswitch.app',
-  'staging.valuation.upswitch.app',
-  'valuation.upswitch.biz',
-  'venus-git-main-upswitch.vercel.app',
-  'venus-git-staging-upswitch.vercel.app',
-])
 
 function applyNoStoreHeaders(response: NextResponse): void {
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
@@ -87,63 +78,8 @@ function getCookieDomainsToClear(request: Request): string[] {
   return [...domains]
 }
 
-function isLoopbackRedirectHost(hostname: string): boolean {
-  const host = hostname.toLowerCase()
-  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]'
-}
-
-function configuredVenusRedirectOrigins(): Set<string> {
-  return new Set(
-    [
-      process.env.NEXT_PUBLIC_BASE_URL,
-      process.env.NEXT_PUBLIC_APP_URL,
-      process.env.NEXT_PUBLIC_VENUS_URL,
-      process.env.VERCEL_URL,
-    ]
-      .map(tryNormalizeToOrigin)
-      .filter((origin): origin is string => Boolean(origin))
-  )
-}
-
-function isTrustedVenusRedirectOrigin(origin: string | undefined): boolean {
-  const normalized = tryNormalizeToOrigin(origin)
-  if (!normalized) return false
-  try {
-    const parsed = new URL(normalized)
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
-    if (isLoopbackRedirectHost(parsed.hostname)) return true
-    if (STATIC_TRUSTED_VENUS_REDIRECT_HOSTS.has(parsed.hostname.toLowerCase())) return true
-    return configuredVenusRedirectOrigins().has(parsed.origin)
-  } catch {
-    return false
-  }
-}
-
-function venusRedirectOriginFromOrigin(origin: string | undefined): string {
-  const normalized = tryNormalizeToOrigin(origin)
-  if (normalized && isTrustedVenusRedirectOrigin(normalized)) return normalized
-  return tryNormalizeToOrigin(process.env.NEXT_PUBLIC_BASE_URL) ?? VENUS_SITE_CANONICAL
-}
-
-function hasUnsafeInternalPathChar(value: string): boolean {
-  for (const char of value) {
-    const code = char.charCodeAt(0)
-    if (char === '\\' || code <= 0x1f || code === 0x7f) return true
-  }
-  return false
-}
-
 function isInternalLogoutNextPath(raw: string | null): string | null {
-  const next = raw?.trim()
-  if (!next || hasUnsafeInternalPathChar(next)) return null
-  if (!next.startsWith('/') || next.startsWith('//')) return null
-  try {
-    const candidate = new URL(next, VENUS_SITE_CANONICAL)
-    if (candidate.origin !== VENUS_SITE_CANONICAL) return null
-    return `${candidate.pathname}${candidate.search}${candidate.hash}`
-  } catch {
-    return null
-  }
+  return safeVenusInternalPath(raw)
 }
 
 /** Allowlisted Mercury login / home URLs only (open-redirect safe). */

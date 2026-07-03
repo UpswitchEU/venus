@@ -63,7 +63,7 @@ export class DownloadService {
 
       // Create temporary element
       const tempDiv = document.createElement('div')
-      tempDiv.innerHTML = HTMLProcessor.sanitize(htmlContent)
+      tempDiv.replaceChildren(HTMLProcessor.sanitizeToFragment(htmlContent, document))
       tempDiv.style.position = 'absolute'
       tempDiv.style.left = '-9999px'
       document.body.appendChild(tempDiv)
@@ -103,8 +103,10 @@ export class DownloadService {
   private static generateStandaloneHTML(data: ValuationData, _options: DownloadOptions): string {
     const currentDate = new Date().toLocaleDateString()
     const companyName = data.companyName || 'Company'
+    const safeCompanyName = escapeHtml(companyName)
     const valuationAmount = data.valuationAmount ? data.valuationAmount.toLocaleString() : 'N/A'
     const method = data.method || 'DCF Analysis'
+    const safeMethod = escapeHtml(method)
     const confidenceScore = data.confidenceScore ? Math.round(data.confidenceScore * 100) : 'N/A'
 
     return `
@@ -113,7 +115,7 @@ export class DownloadService {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Valuation Report - ${companyName}</title>
+    <title>Valuation Report - ${safeCompanyName}</title>
     <style>
         * {
             margin: 0;
@@ -283,7 +285,7 @@ export class DownloadService {
 <body>
     <div class="header">
         <h1>Valuation Report</h1>
-        <div class="subtitle">${companyName} • ${currentDate}</div>
+        <div class="subtitle">${safeCompanyName} • ${currentDate}</div>
     </div>
     
     <div class="container">
@@ -294,7 +296,7 @@ export class DownloadService {
             </div>
             <div class="summary-card">
                 <h3>Method</h3>
-                <div class="value">${method}</div>
+                <div class="value">${safeMethod}</div>
             </div>
             <div class="summary-card">
                 <h3>Confidence</h3>
@@ -307,11 +309,11 @@ export class DownloadService {
             <div class="metrics-grid">
                 <div class="metric">
                     <span class="metric-label">Company</span>
-                    <span class="metric-value">${companyName}</span>
+                    <span class="metric-value">${safeCompanyName}</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">Method</span>
-                    <span class="metric-value">${method}</span>
+                    <span class="metric-value">${safeMethod}</span>
                 </div>
                 <div class="metric">
                     <span class="metric-label">Date</span>
@@ -359,4 +361,15 @@ export class DownloadService {
       : 'company'
     return `${company}-valuation-${date}.${format}`
   }
+}
+
+function escapeHtml(value: string): string {
+  const replacements: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }
+  return value.replace(/[&<>"']/g, (character) => replacements[character])
 }

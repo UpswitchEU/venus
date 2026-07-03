@@ -26,6 +26,24 @@ export function isLegacyReturnUrl(url: string): boolean {
   return LEGACY_ROUTE_PATTERNS.some((pattern) => url.includes(pattern))
 }
 
+function hasUnsafeReturnUrlChar(value: string): boolean {
+  for (const char of value) {
+    const code = char.charCodeAt(0)
+    if (char === '\\' || code <= 0x1f || code === 0x7f) return true
+  }
+  return false
+}
+
+function isSafeInternalReturnPath(value: string): boolean {
+  if (!value.startsWith('/') || value.startsWith('//')) return false
+  if (hasUnsafeReturnUrlChar(value)) return false
+  try {
+    return new URL(value, 'https://upswitch.local').origin === 'https://upswitch.local'
+  } catch {
+    return false
+  }
+}
+
 /**
  * Whether a raw Mercury return_url value is safe to persist/read.
  * Treat stored session values as untrusted until they pass this check.
@@ -35,6 +53,7 @@ export function isSafeMercuryReturnUrlInput(
 ): storedUrl is string {
   const raw = storedUrl?.trim()
   if (!raw || isLegacyReturnUrl(raw)) return false
+  if (hasUnsafeReturnUrlChar(raw)) return false
 
   if (raw.startsWith('http://') || raw.startsWith('https://')) {
     try {
@@ -45,7 +64,7 @@ export function isSafeMercuryReturnUrlInput(
     }
   }
 
-  return !raw.startsWith('//')
+  return isSafeInternalReturnPath(raw)
 }
 
 export function isSafeMercuryNavigationUrlInput(
@@ -53,6 +72,7 @@ export function isSafeMercuryNavigationUrlInput(
 ): targetUrl is string {
   const raw = targetUrl?.trim()
   if (!raw || isLegacyReturnUrl(raw) || raw.startsWith('//')) return false
+  if (hasUnsafeReturnUrlChar(raw)) return false
 
   if (raw.startsWith('http://') || raw.startsWith('https://')) {
     try {
@@ -69,7 +89,7 @@ export function isSafeMercuryNavigationUrlInput(
     }
   }
 
-  return raw.startsWith('/')
+  return isSafeInternalReturnPath(raw)
 }
 
 function coerceSafeMercuryNavigationUrl(targetUrl: string | null | undefined): string | null {

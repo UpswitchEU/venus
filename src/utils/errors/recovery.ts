@@ -257,7 +257,7 @@ export class ErrorRecoveryManager {
           setActiveRefreshPromise(promise)
           return awaitRefreshOk(promise)
         } catch {
-          window.location.href = '/login'
+          window.location.assign('/login')
           return false
         }
       },

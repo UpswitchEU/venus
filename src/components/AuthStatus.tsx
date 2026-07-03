@@ -9,6 +9,7 @@
 
 import { useTranslations } from 'next-intl'
 import React from 'react'
+import { navigateToSafeMercuryNavigationUrl } from '@/lib/return-url'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { useAuth } from '../lib/auth'
 
@@ -35,7 +36,7 @@ export const AuthStatus: React.FC = () => {
         <div className="auth-status-content">
           <p className="auth-status-message">{t('unableToVerify')}</p>
           <button
-            onClick={() => (window.location.href = getMercuryUrl())}
+            onClick={() => navigateToSafeMercuryNavigationUrl('/')}
             style={{
               marginTop: '0.75rem',
               padding: '0.5rem 1rem',

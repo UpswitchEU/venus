@@ -14,7 +14,7 @@
  */
 
 // Worker scope
-/* global self, DOMParser */
+/* global self, DOMParser, XMLSerializer */
 
 /**
  * Parse HTML and extract metadata
@@ -98,23 +98,36 @@ function sanitizeHTML(html) {
     doc.querySelectorAll(tag).forEach((el) => el.remove())
   })
 
-  // Remove dangerous attributes
-  const dangerousAttrs = ['onclick', 'onerror', 'onload', 'onmouseover']
   doc.querySelectorAll('*').forEach((el) => {
-    dangerousAttrs.forEach((attr) => {
-      if (el.hasAttribute(attr)) {
-        el.removeAttribute(attr)
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase()
+      const value = attr.value.trim().toLowerCase()
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name)
+        continue
       }
-    })
+      if ((name === 'href' || name === 'src' || name === 'xlink:href') && isUnsafeUrl(value)) {
+        el.removeAttribute(attr.name)
+      }
+    }
   })
 
-  const sanitized = doc.documentElement.outerHTML
+  const sanitized = `<!DOCTYPE html>\n${new XMLSerializer().serializeToString(doc.documentElement)}`
   const duration = performance.now() - startTime
 
   return {
     html: sanitized,
     duration_ms: Math.round(duration),
   }
+}
+
+function isUnsafeUrl(value) {
+  return (
+    value.startsWith('javascript:') ||
+    value.startsWith('vbscript:') ||
+    value.startsWith('data:text/html') ||
+    value.startsWith('data:application/xhtml')
+  )
 }
 
 /**
@@ -229,4 +242,3 @@ self.addEventListener('message', (event) => {
 
 // Ready signal
 self.postMessage({ type: 'ready' })
-

@@ -129,6 +129,20 @@ describe('buildPostDeleteNewValuationUrl', () => {
     })
     const safeParams = new URLSearchParams(safeReturnUrl.split('?')[1] ?? '')
     expect(safeParams.get('return_url')).toBe('/en/advisor/clients/client-123')
+
+    const evilAbsolute = buildPostDeleteNewValuationUrl({
+      locale: 'en',
+      companyName: 'Safe Co',
+      currentSearch: '?return_url=https%3A%2F%2Fevil.example%2Fphish',
+    })
+    expect(new URLSearchParams(evilAbsolute.split('?')[1] ?? '').get('return_url')).toBeNull()
+
+    const browserNormalized = buildPostDeleteNewValuationUrl({
+      locale: 'en',
+      companyName: 'Safe Co',
+      currentSearch: '?return_url=%2F%5Cevil.example%2Fphish',
+    })
+    expect(new URLSearchParams(browserNormalized.split('?')[1] ?? '').get('return_url')).toBeNull()
   })
 })
 

@@ -21,6 +21,7 @@ import {
   ModalTitle,
   springGentle,
 } from '@/design-system'
+import { safeVenusInternalPath } from '@/utils/safeVenusRedirect'
 
 export interface ErrorFallbackProps {
   error: Error & { digest?: string }
@@ -110,7 +111,8 @@ export function ErrorFallback({
         </AuroraButton>
         <AuroraButton
           onClick={() => {
-            window.location.href = homeHref
+            const trimmedHomeHref = homeHref.trim()
+            window.location.assign(safeVenusInternalPath(trimmedHomeHref) ?? '/')
           }}
           variant="ghost"
           size="lg"

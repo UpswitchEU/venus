@@ -13,13 +13,18 @@ vi.mock('next-intl/middleware', () => ({
 
 import { middleware } from '../../middleware'
 
-function request(path: string, cookie?: string): NextRequest {
+function request(
+  path: string,
+  cookie?: string,
+  origin = 'https://valuation.upswitch.app',
+  host = new URL(origin).host
+): NextRequest {
   const headers = new Headers({
-    host: 'valuation.upswitch.app',
+    host,
   })
   if (cookie) headers.set('cookie', cookie)
 
-  return new NextRequest(`https://valuation.upswitch.app${path}`, {
+  return new NextRequest(`${origin}${path}`, {
     headers,
   })
 }
@@ -47,6 +52,39 @@ describe('Venus middleware report access gate', () => {
 
     expect(response.status).toBe(307)
     expect(redirectLocation(response)).toContain('https://www.upswitch.app/nl/auth/login')
+  })
+
+  it('does not derive Mercury login or Venus returnUrl from a hostile valuation-like host', async () => {
+    const response = await middleware(
+      request(
+        '/en/reports/report-123',
+        undefined,
+        'https://preview.valuation.evil-phishing.example',
+        'preview.valuation.evil-phishing.example'
+      )
+    )
+    const location = new URL(redirectLocation(response))
+
+    expect(location.origin).toBe('https://www.upswitch.app')
+    expect(location.pathname).toBe('/en/auth/login')
+    expect(location.searchParams.get('returnUrl')).toBe(
+      'https://valuation.upswitch.app/en/reports/report-123'
+    )
+  })
+
+  it('canonicalizes locale redirects away from hostile request origins', async () => {
+    const response = await middleware(
+      request(
+        '/reports/report-123?locale=nl',
+        'upswitch_refresh_token=refresh-token',
+        'https://evil-phishing.example',
+        'evil-phishing.example'
+      )
+    )
+
+    expect(redirectLocation(response)).toBe(
+      'https://valuation.upswitch.app/nl/reports/report-123'
+    )
   })
 
   it('allows report access when the refresh cookie is present', async () => {

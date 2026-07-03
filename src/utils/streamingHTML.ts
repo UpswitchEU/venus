@@ -14,6 +14,7 @@
  */
 
 import { generalLogger } from './logger'
+import { HTMLProcessor } from './htmlProcessor'
 
 /**
  * Configuration for HTML streaming
@@ -116,30 +117,40 @@ export async function streamHTMLToElement(
   targetElement: HTMLElement,
   config: StreamingHTMLConfig = {}
 ): Promise<void> {
-  // Clear existing content
-  targetElement.innerHTML = ''
-
-  // Create a document fragment for better performance
-  const fragment = document.createDocumentFragment()
-  const tempContainer = document.createElement('div')
+  const { chunkSize = 50000, delay = 0, onProgress, onChunk } = config
+  targetElement.replaceChildren()
 
   try {
-    for await (const chunk of streamHTMLChunks(htmlContent, config)) {
-      // Parse chunk into DOM
-      tempContainer.innerHTML = chunk
+    const sanitizedFragment = HTMLProcessor.sanitizeToFragment(
+      htmlContent,
+      targetElement.ownerDocument
+    )
+    const nodes = Array.from(sanitizedFragment.childNodes)
+    if (nodes.length === 0) {
+      onProgress?.(100)
+      generalLogger.info('[StreamingHTML] Empty sanitized content rendered to element')
+      return
+    }
 
-      // Move nodes from temp container to fragment
-      while (tempContainer.firstChild) {
-        fragment.appendChild(tempContainer.firstChild)
+    const estimatedChunks = Math.max(1, Math.ceil(htmlContent.length / chunkSize))
+    const nodesPerChunk = Math.max(1, Math.ceil(nodes.length / estimatedChunks))
+    const totalChunks = Math.ceil(nodes.length / nodesPerChunk)
+
+    for (let index = 0; index < nodes.length; index += nodesPerChunk) {
+      const chunkIndex = Math.floor(index / nodesPerChunk)
+      const fragment = targetElement.ownerDocument.createDocumentFragment()
+      const chunkNodes = nodes.slice(index, index + nodesPerChunk)
+
+      for (const node of chunkNodes) {
+        fragment.appendChild(node)
       }
 
-      // Append fragment to target element
-      targetElement.appendChild(fragment.cloneNode(true))
+      targetElement.appendChild(fragment)
+      const progress = Math.min(100, Math.round(((chunkIndex + 1) / totalChunks) * 100))
+      onProgress?.(progress)
+      onChunk?.(chunkIndex + 1, totalChunks)
 
-      // Clear fragment for next iteration
-      while (fragment.firstChild) {
-        fragment.removeChild(fragment.firstChild)
-      }
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
 
     generalLogger.info('[StreamingHTML] Content fully rendered to element')
@@ -152,8 +163,8 @@ export async function streamHTMLToElement(
 }
 
 /**
- * Stream HTML content with React
- * Returns chunks as they're ready for React rendering
+ * Stream sanitized HTML content with React.
+ * Returns sanitized string chunks as they're ready for React rendering.
  *
  * Usage:
  * ```tsx
@@ -165,13 +176,7 @@ export async function streamHTMLToElement(
  *   })
  * }, [htmlReport])
  *
- * return (
- *   <div>
- *     {htmlChunks.map((chunk, i) => (
- *       <div key={i} dangerouslySetInnerHTML={{ __html: chunk }} />
- *     ))}
- *   </div>
- * )
+ * return <pre>{htmlChunks.join('')}</pre>
  * ```
  *
  * @param htmlContent - Full HTML string to stream
@@ -186,7 +191,8 @@ export async function streamHTMLForReact(
   let chunkIndex = 0
 
   try {
-    for await (const chunk of streamHTMLChunks(htmlContent, config)) {
+    const sanitizedHtml = HTMLProcessor.sanitize(htmlContent)
+    for await (const chunk of streamHTMLChunks(sanitizedHtml, config)) {
       onChunk(chunk, chunkIndex)
       chunkIndex++
     }

@@ -2,6 +2,7 @@ import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback 
 import { toast } from 'sonner'
 import { requestStartupSubmitReview } from '@/features/startup-studio/utils/startupSubmitReviewRequest'
 import { trackReturnToMercury } from '@/lib/analytics'
+import { navigateToSafeMercuryNavigationUrl } from '@/lib/return-url'
 import type { ChatMessage, ValuationFormData } from '../../../components/calculator'
 import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { useClientContext } from '../../../stores/clientContext'
@@ -246,13 +247,15 @@ export function useManualAiProposalActions({
       })
 
       trackReturnToMercury()
-      window.location.href = buildManualListingWizardUrl({
-        mercuryUrl: getMercuryUrl(),
-        locale: mercuryLocale,
-        reportId: reportIdForListing,
-        relationshipId,
-        visibility: visibility ?? 'private',
-      })
+      navigateToSafeMercuryNavigationUrl(
+        buildManualListingWizardUrl({
+          mercuryUrl: getMercuryUrl(),
+          locale: mercuryLocale,
+          reportId: reportIdForListing,
+          relationshipId,
+          visibility: visibility ?? 'private',
+        })
+      )
     },
     [
       activeSessionKey,

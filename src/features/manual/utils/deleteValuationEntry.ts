@@ -1,4 +1,5 @@
 import { PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS } from '@/lib/cross-app/preservedReportBootstrapParams'
+import { isSafeMercuryReturnUrlInput } from '@/lib/return-url'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type { RecentValuation } from '../../../components/calculator'
 import { isSessionKey } from '../../../utils/identifiers'
@@ -60,13 +61,7 @@ function normalizeText(value?: string | null): string | null {
 function isSafePassthroughParam(key: string, value: string): boolean {
   if (!value) return false
   if (key !== 'return_url') return true
-  if (value.startsWith('/') && !value.startsWith('//')) return true
-  try {
-    const url = new URL(value)
-    return url.protocol === 'https:' || url.protocol === 'http:'
-  } catch {
-    return false
-  }
+  return isSafeMercuryReturnUrlInput(value)
 }
 
 function normalizeSearchParams(input?: string | URLSearchParams | null): URLSearchParams {

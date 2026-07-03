@@ -4,7 +4,7 @@ import { X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { navigateToMercuryFromManualHandoff } from '@/features/manual/utils/manualMercuryNavigate'
-import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { navigateToSafeMercuryNavigationUrl } from '@/lib/return-url'
 import { generalLogger } from '@/utils/logger'
 import { useAuth } from '../lib/auth'
 import { clearDelegatedClientContext } from '../lib/auth/persistedClientContext'
@@ -63,7 +63,7 @@ export function ClientContextBanner() {
       try {
         const loc =
           locale && (locale === 'en' || locale === 'nl' || locale === 'fr') ? locale : 'en'
-        window.location.href = `${getMercuryUrl()}/${loc}/advisor/dashboard`
+        navigateToSafeMercuryNavigationUrl(`/${loc}/advisor/dashboard`)
       } catch (fallbackError) {
         generalLogger.error('[ClientContextBanner] Fallback navigation also failed', {
           error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),

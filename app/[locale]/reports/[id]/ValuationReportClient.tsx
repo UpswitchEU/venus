@@ -23,6 +23,7 @@ import {
   buildMercuryDelegatedHandoffSignals,
   isDelegatedMercuryAccountantHandoff,
 } from '../../../../src/lib/mercury/sessionReadiness'
+import { navigateToSafeMercuryNavigationUrl } from '../../../../src/lib/return-url'
 import { useManualFormStore } from '../../../../src/store/manual/useManualFormStore'
 import { useClientContext } from '../../../../src/stores/clientContext'
 import { getMercuryUrl } from '../../../../src/utils/getMercuryUrl'
@@ -87,7 +88,10 @@ function TokenRefreshGuard() {
       typeof window !== 'undefined'
         ? window.location.pathname.match(/^\/(en|nl|fr)\//)?.[1] || 'en'
         : 'en'
-    window.location.href = `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`
+    navigateToSafeMercuryNavigationUrl(
+      `${mercuryUrl}/${locale}/auth/login?returnUrl=${encodeURIComponent(currentUrl)}`,
+      `/${locale}/auth/login`
+    )
   }, [])
   useTokenRefresh({ onTokenExpired: handleTokenExpired })
   return null

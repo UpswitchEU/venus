@@ -14,7 +14,9 @@ import {
   redirectToMercuryLogin,
   shouldAllowLocalDevelopmentDraftReportRequest,
 } from '@/middleware/reportAccess'
+import { deriveMercuryOriginFromTrustedVenusHostname } from '@/utils/getMercuryUrl'
 import { MERCURY_SITE_WWW_CANONICAL, tryNormalizeToOrigin } from '@/utils/normalizeExplicitUrl'
+import { venusInternalRedirectUrl } from '@/utils/safeVenusRedirect'
 import { defaultLocale, locales } from './i18n'
 
 /**
@@ -28,23 +30,8 @@ function deriveMercuryUrl(request: NextRequest): string {
     if (origin) return origin
   }
 
-  const host = request.headers.get('host') || ''
-  if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
-    return 'http://localhost:3000'
-  }
-  if (host.startsWith('preview.valuation.')) {
-    return `https://preview.${host.replace('preview.valuation.', '')}`
-  }
-  if (host.startsWith('staging.valuation.')) {
-    return `https://staging.${host.replace('staging.valuation.', '')}`
-  }
-  if (host.startsWith('valuation.')) {
-    const hostOnly = host.split(':')[0]
-    const apex = hostOnly.replace(/^valuation\./, '')
-    if (apex === 'upswitch.app') return MERCURY_SITE_WWW_CANONICAL
-    return `https://${apex}`
-  }
-  return MERCURY_SITE_WWW_CANONICAL
+  const host = request.headers.get('host') || request.nextUrl.hostname || ''
+  return deriveMercuryOriginFromTrustedVenusHostname(host) ?? MERCURY_SITE_WWW_CANONICAL
 }
 
 /**
@@ -85,8 +72,8 @@ function getLocaleCookieOptions(request: NextRequest): {
   sameSite: 'lax'
   domain?: string
 } {
-  const host = request.headers.get('host') || request.nextUrl.hostname || ''
-  const isProduction = host.includes('upswitch.app')
+  const host = (request.headers.get('host') || request.nextUrl.hostname || '').split(':')[0]
+  const isProduction = host === 'upswitch.app' || host.endsWith('.upswitch.app')
   return {
     path: '/',
     maxAge: 60 * 60 * 24 * 365,
@@ -164,8 +151,12 @@ export async function middleware(request: NextRequest) {
   const calculatorMatch = pathname === '/calculate' || pathname === '/calculator'
   if (calculatorMatch) {
     const locale = detectLocale(request)
-    const newUrl = request.nextUrl.clone()
-    newUrl.pathname = `/${locale}/reports/new`
+    const newUrl = venusInternalRedirectUrl(
+      request.nextUrl.origin,
+      `/${locale}/reports/new`,
+      request.nextUrl.search
+    )
+    newUrl.searchParams.delete('locale')
     return NextResponse.redirect(newUrl)
   }
 
@@ -175,8 +166,12 @@ export async function middleware(request: NextRequest) {
   if (reportsMatch) {
     const reportId = reportsMatch[1]
     const locale = detectLocale(request)
-    const newUrl = request.nextUrl.clone()
-    newUrl.pathname = `/${locale}/reports/${reportId}`
+    const newUrl = venusInternalRedirectUrl(
+      request.nextUrl.origin,
+      `/${locale}/reports/${reportId}`,
+      request.nextUrl.search
+    )
+    newUrl.searchParams.delete('locale')
     return NextResponse.redirect(newUrl)
   }
 
@@ -217,7 +212,11 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith(`/${localeParam}/`)) {
       // Path already has the correct locale — strip the query param and return
       // to prevent intlMiddleware from overriding via Accept-Language header
-      const cleanUrl = request.nextUrl.clone()
+      const cleanUrl = venusInternalRedirectUrl(
+        request.nextUrl.origin,
+        pathname,
+        request.nextUrl.search
+      )
       cleanUrl.searchParams.delete('locale')
       const res = NextResponse.redirect(cleanUrl)
       res.cookies.set('NEXT_LOCALE', localeParam, getLocaleCookieOptions(request))
@@ -227,8 +226,11 @@ export async function middleware(request: NextRequest) {
     // Path does NOT have the locale prefix — redirect to /{locale}/...
     // Strip existing locale from path (e.g. /en/reports/123 -> /reports/123) before prepending new locale
     const pathWithoutLocale = pathname.replace(/^\/[a-z]{2}(\/|$)/, '$1') || '/'
-    const newUrl = request.nextUrl.clone()
-    newUrl.pathname = `/${localeParam}${pathWithoutLocale}`
+    const newUrl = venusInternalRedirectUrl(
+      request.nextUrl.origin,
+      `/${localeParam}${pathWithoutLocale}`,
+      request.nextUrl.search
+    )
     newUrl.searchParams.delete('locale')
     const res = NextResponse.redirect(newUrl)
     res.cookies.set('NEXT_LOCALE', localeParam, getLocaleCookieOptions(request))

@@ -3,6 +3,7 @@ import { useManualFormStore } from '../../../store/manual'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useClientContext } from '../../../stores/clientContext'
 import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
+import { safeVenusInternalPath } from '../../../utils/safeVenusRedirect'
 import { buildManualNewValuationUrl } from '../utils/manualNewValuation'
 import { resetManualWorkspaceState } from '../utils/resetManualWorkspaceState'
 
@@ -68,7 +69,7 @@ export function useManualNewValuationFlow({
 
       const ctx = useClientContext.getState()
       const currentSearch = typeof window !== 'undefined' ? window.location.search : undefined
-      window.location.href = buildManualNewValuationUrl({
+      const targetUrl = buildManualNewValuationUrl({
         locale: currentLocale,
         collectedCompanyName,
         isAccountantFlow,
@@ -79,6 +80,7 @@ export function useManualNewValuationFlow({
         relationshipId: ctx?.relationshipId,
         currentSearch,
       })
+      window.location.assign(safeVenusInternalPath(targetUrl) ?? `/${currentLocale}/reports/new`)
     } finally {
       setIsConfirmingNewValuation(false)
     }
