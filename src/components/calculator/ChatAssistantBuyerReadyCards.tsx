@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { openSafeNewTabUrl } from '@/utils/safeVenusRedirect'
 import {
   buildAgentToolActionHeaders,
   buildBuyerReadyPackageActions,
@@ -234,7 +235,7 @@ function BuyerReadyCard({
 
     const entityId = extractGeneratedEntityId(json)
     if (entityId && typeof window !== 'undefined') {
-      window.open(buyerReadyRoomUrl(locale, entityId), '_blank', 'noopener,noreferrer')
+      openSafeNewTabUrl(buyerReadyRoomUrl(locale, entityId))
     }
   }
 

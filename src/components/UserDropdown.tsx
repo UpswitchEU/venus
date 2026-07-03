@@ -18,6 +18,7 @@ import UrlGeneratorService from '../services/urlGenerator'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
+import { openSafeNewTabUrl } from '../utils/safeVenusRedirect'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
 import {
@@ -149,7 +150,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
       window.parent.postMessage({ type: 'OPEN_SIGNUP' }, '*')
     } else {
       // Fallback: open in same window
-      window.open(`${getMercuryUrl()}/${mercuryLocale}/auth/signup`, '_blank')
+      openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/auth/signup`)
     }
   }
 
@@ -211,7 +212,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
       window.parent.postMessage({ type: 'NAVIGATE_TO_SETTINGS' }, '*')
     } else {
       // Fallback: open in same window
-      window.open(`${getMercuryUrl()}/${mercuryLocale}/users/profile`, '_blank')
+      openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/users/profile`)
     }
   }
 
@@ -222,7 +223,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
       window.parent.postMessage({ type: 'NAVIGATE_TO_VALUATION' }, '*')
     } else {
       // Fallback: open in same window
-      window.open(`${getMercuryUrl()}/${mercuryLocale}/valuation`, '_blank')
+      openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/valuation`)
     }
   }
 

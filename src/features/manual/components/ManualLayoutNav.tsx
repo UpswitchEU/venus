@@ -4,6 +4,7 @@ import {
   type DownloadHistoryItem,
 } from '../../../components/calculator'
 import type { User } from '../../../contexts/AuthContextTypes'
+import { openSafeNewTabUrl } from '../../../utils/safeVenusRedirect'
 import { getManualUserInitials } from '../utils/manualLayoutAdapters'
 
 export interface ManualLayoutNavProps {
@@ -174,7 +175,7 @@ export function ManualLayoutNav({
                 return
               }
               if (item.url) {
-                window.open(item.url, '_blank')
+                openSafeNewTabUrl(item.url)
                 return
               }
               void handleExport()

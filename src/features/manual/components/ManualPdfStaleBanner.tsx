@@ -2,6 +2,7 @@ import { AlertCircle, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ValuationReportData } from '../../../components/calculator'
 import { AuroraButton } from '../../../design-system/components/Button'
+import { openSafeNewTabUrl } from '../../../utils/safeVenusRedirect'
 
 interface ManualPdfStaleBannerProps {
   canDownloadPdf: boolean
@@ -85,7 +86,7 @@ export function ManualPdfStaleBanner({
             variant="outline"
             disabled={isPdfRetrying}
             onClick={() => {
-              window.open(lastPdfUrl, '_blank', 'noopener,noreferrer')
+              openSafeNewTabUrl(lastPdfUrl)
             }}
           >
             {translate('pdfOpenLastVersion')}

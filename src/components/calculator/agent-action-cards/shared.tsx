@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
 import { createContext, useCallback, useContext, useState } from 'react'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
+import { openSafeNewTabUrl } from '@/utils/safeVenusRedirect'
 
 interface InlineActionCardProps {
   id: string
@@ -132,7 +133,7 @@ export function extractErrorMessage(payload: unknown, status: number): string {
 
 export function openInNewTab(url: string) {
   if (typeof window === 'undefined') return
-  window.open(url, '_blank', 'noopener,noreferrer')
+  openSafeNewTabUrl(url)
 }
 
 export function mercuryPath(

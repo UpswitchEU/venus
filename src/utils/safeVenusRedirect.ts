@@ -107,6 +107,7 @@ export function venusInternalRedirectUrl(
 export type SafeNewTabUrlOptions = {
   allowExternalHttps?: boolean
   allowBlob?: boolean
+  allowInternalPath?: boolean
 }
 
 export function safeNewTabUrl(
@@ -115,14 +116,19 @@ export function safeNewTabUrl(
 ): string | null {
   const target = raw?.trim()
   if (!target) return null
-  const { allowExternalHttps = true, allowBlob = false } = options
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : VENUS_SITE_CANONICAL
+  const { allowExternalHttps = true, allowBlob = false, allowInternalPath = true } = options
+  const currentOrigin =
+    typeof window !== 'undefined' ? window.location.origin : VENUS_SITE_CANONICAL
   const internalPath = safeVenusInternalPath(target)
-  if (internalPath) return internalPath
+  if (allowInternalPath && internalPath) return internalPath
 
   try {
     const parsed = new URL(target, currentOrigin)
-    if (parsed.origin === currentOrigin && safeVenusInternalPath(parsed.pathname)) {
+    if (
+      allowInternalPath &&
+      parsed.origin === currentOrigin &&
+      safeVenusInternalPath(parsed.pathname)
+    ) {
       return parsed.toString()
     }
     if (allowExternalHttps && parsed.protocol === 'https:') return parsed.toString()
@@ -136,6 +142,10 @@ export function safeNewTabUrl(
   } catch {
     return null
   }
+}
+
+export function safeExternalHref(raw: string | null | undefined): string | null {
+  return safeNewTabUrl(raw, { allowInternalPath: false })
 }
 
 export function openSafeNewTabUrl(

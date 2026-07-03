@@ -10,6 +10,7 @@ import { TooltipWithBounds, useTooltip } from '@visx/tooltip'
 import { motion } from 'framer-motion'
 import { type KeyboardEvent, type MouseEvent, type PointerEvent, useId, useMemo } from 'react'
 import { useReducedMotion } from '@/design-system/hooks/useReducedMotion'
+import { safeExternalHref } from '@/utils/safeVenusRedirect'
 
 import { ChartGradientDefs, chartGradientIds } from './chart-primitives'
 import { XAxisTickLabels, YAxisTickLabels } from './ValuationGraphAxes'
@@ -474,17 +475,9 @@ export function ValuationVisxChart({
                 if (mx < -6 || mx > innerWidth + 6) return null
                 const isEvent = isMarketExitEvent(m.type)
                 const color = isEvent ? 'hsl(var(--accent))' : 'hsl(var(--primary))'
-                return (
-                  <a
-                    key={m.id}
-                    href={m.sourceUrl ?? undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={m.detail}
-                    className={m.sourceUrl ? 'cursor-pointer' : undefined}
-                    onPointerMove={handlePointer}
-                    onPointerDown={handlePointer}
-                  >
+                const href = safeExternalHref(m.sourceUrl)
+                const marker = (
+                  <>
                     <title>
                       {m.detail}
                       {m.sourceOutlet ? `: ${m.sourceOutlet}` : ''}
@@ -517,7 +510,30 @@ export function ValuationVisxChart({
                         strokeWidth={1.5}
                       />
                     )}
+                  </>
+                )
+                return href ? (
+                  <a
+                    key={m.id}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={m.detail}
+                    className="cursor-pointer"
+                    onPointerMove={handlePointer}
+                    onPointerDown={handlePointer}
+                  >
+                    {marker}
                   </a>
+                ) : (
+                  <g
+                    key={m.id}
+                    aria-label={m.detail}
+                    onPointerMove={handlePointer}
+                    onPointerDown={handlePointer}
+                  >
+                    {marker}
+                  </g>
                 )
               })
             : null}
