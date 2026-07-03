@@ -94,6 +94,7 @@ describe('pdfGenerationClient', () => {
       .fn()
       .mockResolvedValueOnce(jsonResponse({ error: 'pooler' }, 503))
       .mockResolvedValueOnce(jsonResponse({ error: 'plan' }, 402))
+      .mockResolvedValueOnce(jsonResponse({ status: 'pending', error: 'queue settling' }))
       .mockResolvedValueOnce(jsonResponse({ status: 'completed', pdfUrl: 'https://cdn/fresh.pdf' }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -107,6 +108,9 @@ describe('pdfGenerationClient', () => {
       status: 'access-gated',
     })
     await expect(requestPdfStatusPoll({ headers, jobId: 'job-1', signal })).resolves.toEqual({
+      status: 'pending',
+    })
+    await expect(requestPdfStatusPoll({ headers, jobId: 'job-1', signal })).resolves.toEqual({
       pdfUrl: 'https://cdn/fresh.pdf',
       status: 'ready',
     })
@@ -116,6 +120,7 @@ describe('pdfGenerationClient', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse({ error: 'pooler' }, 503))
+      .mockResolvedValueOnce(jsonResponse({ error: 'report changed during rendering' }, 409))
       .mockResolvedValueOnce(new Response('%PDF-1.7', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -125,6 +130,11 @@ describe('pdfGenerationClient', () => {
       requestPdfDownload({ headers, reportId: 'report-1', signal })
     ).rejects.toMatchObject({
       statusCode: 503,
+    })
+    await expect(
+      requestPdfDownload({ headers, reportId: 'report-1', signal })
+    ).rejects.toMatchObject({
+      statusCode: 409,
     })
     await expect(
       requestPdfDownload({ headers, reportId: 'report-1', signal })

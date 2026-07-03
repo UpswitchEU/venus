@@ -5,8 +5,8 @@ import {
 } from './pdfTransientUpstream'
 
 describe('pdfTransientUpstream', () => {
-  it('treats 429/502/503/504 as transient', () => {
-    for (const status of [429, 502, 503, 504]) {
+  it('treats PDF save-race and upstream outage statuses as transient', () => {
+    for (const status of [409, 429, 502, 503, 504]) {
       expect(PDF_TRANSIENT_UPSTREAM_STATUSES.has(status)).toBe(true)
       expect(isPdfTransientUpstreamStatus(status)).toBe(true)
     }

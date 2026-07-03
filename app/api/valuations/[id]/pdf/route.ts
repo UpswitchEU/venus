@@ -22,6 +22,7 @@ import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { createContextLogger } from '@/utils/logger'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
+import { isPdfTransientUpstreamStatus } from '@/utils/pdfTransientUpstream'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
@@ -112,7 +113,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         stringField(errBody, 'error') ||
         stringField(errBody, 'detail') ||
         'PDF generation failed'
-      if (response.status !== 402) {
+      if (isPdfTransientUpstreamStatus(response.status)) {
+        pdfLogger.warn('Titan PDF API returned a transient status', {
+          status: response.status,
+          body: errBody,
+        })
+      } else if (response.status !== 402) {
         pdfLogger.error('Titan PDF API returned an error', {
           status: response.status,
           body: errBody,

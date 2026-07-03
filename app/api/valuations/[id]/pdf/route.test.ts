@@ -229,6 +229,28 @@ describe('/api/valuations/[id]/pdf', () => {
     vi.useRealTimers()
   })
 
+  it('passes through transient Titan generation conflicts without error logging', async () => {
+    authFromCookieStore()
+    mocks.fetch.mockResolvedValue(
+      titanJsonResponse(409, { error: 'Report changed while the PDF was rendering.' })
+    )
+
+    const res = await POST(request('POST'), {
+      params: Promise.resolve({ id: 'report-1' }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({
+      success: false,
+      error: 'Report changed while the PDF was rendering.',
+    })
+    expect(loggerMock.warn).toHaveBeenCalledWith('Titan PDF API returned a transient status', {
+      status: 409,
+      body: { error: 'Report changed while the PDF was rendering.' },
+    })
+    expect(loggerMock.error).not.toHaveBeenCalled()
+  })
+
   it('returns 504 when Titan PDF lookup times out', async () => {
     authFromCookieStore()
     mocks.fetch.mockRejectedValue(upstreamTimeoutError())

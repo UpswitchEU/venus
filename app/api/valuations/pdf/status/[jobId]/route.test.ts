@@ -140,6 +140,34 @@ describe('/api/valuations/pdf/status/[jobId]', () => {
     )
   })
 
+  it('preserves pending Titan PDF status responses so the client keeps polling', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: 'upswitch_access_token=jwt-token; upswitch_refresh_token=refresh-token',
+      cookieSource: 'cookieStore',
+    })
+    mocks.fetch.mockResolvedValue(
+      titanJsonResponse(200, {
+        success: true,
+        status: 'pending',
+        progress: 0,
+        error: 'Could not read PDF job from queue yet: Connection is closed',
+      })
+    )
+
+    const res = await GET(request(), {
+      params: Promise.resolve({ jobId: 'pdf_report-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      success: true,
+      status: 'pending',
+      pdfUrl: null,
+      progress: 0,
+      error: 'Could not read PDF job from queue yet: Connection is closed',
+    })
+  })
+
   it('rejects polling when neither request nor cookie store has Titan auth', async () => {
     mocks.getBffCookieHeaderForTitan.mockResolvedValue({
       cookieHeader: '',
