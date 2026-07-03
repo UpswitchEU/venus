@@ -128,10 +128,10 @@ export function performManualMercuryNavigation({
   if (isManualMercuryEmbeddedContext() && path) {
     try {
       const didPost = postMessageToMercuryParent({
-          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury,
-          source: 'venus',
-          data: { url: path },
-        })
+        type: ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury,
+        source: 'venus',
+        data: { url: path },
+      })
       if (didPost) {
         window.setTimeout(() => {
           window.location.assign(safeTargetUrl)

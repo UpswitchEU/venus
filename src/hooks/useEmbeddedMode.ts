@@ -1,8 +1,8 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
-import { postMessageToMercuryParent } from '../utils/mercuryParentMessaging'
 import { generalLogger } from '../utils/logger'
+import { postMessageToMercuryParent } from '../utils/mercuryParentMessaging'
 
 export const EMBEDDED_STORAGE_KEY = 'upswitch_venus_embedded'
 

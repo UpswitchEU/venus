@@ -1,8 +1,5 @@
 import { getMercuryUrl } from './getMercuryUrl'
-import {
-  MERCURY_SITE_WWW_CANONICAL,
-  tryNormalizeToOrigin,
-} from './normalizeExplicitUrl'
+import { MERCURY_SITE_WWW_CANONICAL, tryNormalizeToOrigin } from './normalizeExplicitUrl'
 
 const STATIC_TRUSTED_MERCURY_PARENT_HOSTS = new Set([
   'upswitch.app',
@@ -14,7 +11,7 @@ const STATIC_TRUSTED_MERCURY_PARENT_HOSTS = new Set([
   'mercury-git-staging-upswitch.vercel.app',
 ])
 
-export type MercuryParentMessage = Record<string, unknown> & {
+export type MercuryParentMessage = {
   type: string
 }
 
@@ -61,7 +58,7 @@ export function resolveMercuryParentTargetOrigin(): string {
   return configuredOrigin
 }
 
-export function postMessageToMercuryParent(message: MercuryParentMessage): boolean {
+export function postMessageToMercuryParent<T extends MercuryParentMessage>(message: T): boolean {
   if (typeof window === 'undefined' || window.parent === window) return false
 
   try {
