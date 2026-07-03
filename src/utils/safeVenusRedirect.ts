@@ -145,7 +145,9 @@ export function safeNewTabUrl(
 }
 
 export function safeExternalHref(raw: string | null | undefined): string | null {
-  return safeNewTabUrl(raw, { allowInternalPath: false })
+  const target = raw?.trim()
+  if (!target || !/^https?:\/\//i.test(target)) return null
+  return safeNewTabUrl(target, { allowInternalPath: false })
 }
 
 export function openSafeNewTabUrl(

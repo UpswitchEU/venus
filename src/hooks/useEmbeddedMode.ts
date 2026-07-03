@@ -1,6 +1,7 @@
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
+import { postMessageToMercuryParent } from '../utils/mercuryParentMessaging'
 import { generalLogger } from '../utils/logger'
 
 export const EMBEDDED_STORAGE_KEY = 'upswitch_venus_embedded'
@@ -13,10 +14,10 @@ export function closeEmbeddedIfActive(): void {
   if (typeof window === 'undefined') return
   try {
     if (sessionStorage.getItem(EMBEDDED_STORAGE_KEY) === 'true') {
-      window.parent.postMessage(
-        { type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose, source: 'venus' },
-        '*'
-      )
+      postMessageToMercuryParent({
+        type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose,
+        source: 'venus',
+      })
     }
   } catch {
     // Ignore
@@ -94,13 +95,10 @@ export function useEmbeddedMode() {
   // Notify parent (Mercury) that the engine is ready
   useEffect(() => {
     if (isEmbedded && typeof window !== 'undefined') {
-      window.parent.postMessage(
-        {
-          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineReady,
-          timestamp: Date.now(),
-        },
-        '*'
-      ) // Mercury verifies origin on receipt
+      postMessageToMercuryParent({
+        type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineReady,
+        timestamp: Date.now(),
+      })
     }
   }, [isEmbedded])
 
@@ -143,13 +141,10 @@ export function useEmbeddedMode() {
     // Send close message to parent (always try, even if we're not sure we're embedded)
     // Mercury verifies the source origin before honouring this.
     try {
-      window.parent.postMessage(
-        {
-          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose,
-          timestamp: Date.now(),
-        },
-        '*'
-      )
+      postMessageToMercuryParent({
+        type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose,
+        timestamp: Date.now(),
+      })
       generalLogger.debug('[useEmbeddedMode] Sent engine-close message to parent')
     } catch (error) {
       generalLogger.warn('[useEmbeddedMode] Failed to send engine-close message', { error })
@@ -161,14 +156,11 @@ export function useEmbeddedMode() {
 
     // Always try to notify parent (Mercury will ignore if not relevant)
     try {
-      window.parent.postMessage(
-        {
-          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.valuationComplete,
-          data: { reportId },
-          timestamp: Date.now(),
-        },
-        '*'
-      )
+      postMessageToMercuryParent({
+        type: ENGINE_TO_MERCURY_MESSAGE_TYPES.valuationComplete,
+        data: { reportId },
+        timestamp: Date.now(),
+      })
     } catch (error) {
       generalLogger.warn('[useEmbeddedMode] Failed to send valuation complete message', { error })
     }

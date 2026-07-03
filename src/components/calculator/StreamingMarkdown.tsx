@@ -26,6 +26,7 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cn } from '@/design-system/utils'
 import { useTransientFlag } from '@/hooks/useTransientFlag'
+import { safeNewTabUrl } from '@/utils/safeVenusRedirect'
 
 // ---------------------------------------------------------------------------
 // Command-pill context — lets the module-scope `em` renderer fire the parent's
@@ -232,17 +233,21 @@ const MARKDOWN_COMPONENTS: Components = {
       {children}
     </td>
   ),
-  a: ({ children, href }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-primary hover:text-primary/80 underline underline-offset-2 decoration-primary/30 hover:decoration-primary/60 transition-colors"
-    >
-      {children}
-      <ExternalLink className="w-3 h-3 shrink-0" />
-    </a>
-  ),
+  a: ({ children, href }) => {
+    const safeHref = safeNewTabUrl(href)
+    if (!safeHref) return <span>{children}</span>
+    return (
+      <a
+        href={safeHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-primary hover:text-primary/80 underline underline-offset-2 decoration-primary/30 hover:decoration-primary/60 transition-colors"
+      >
+        {children}
+        <ExternalLink className="w-3 h-3 shrink-0" />
+      </a>
+    )
+  },
   hr: () => <hr className="my-4 border-foreground/[0.08]" />,
 }
 

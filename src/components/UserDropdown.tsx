@@ -18,6 +18,7 @@ import UrlGeneratorService from '../services/urlGenerator'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
+import { postMessageToMercuryParent } from '../utils/mercuryParentMessaging'
 import { openSafeNewTabUrl } from '../utils/safeVenusRedirect'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
@@ -146,12 +147,15 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const handleCreateAccount = () => {
     setIsOpen(false)
     // Open parent window to sign up
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'OPEN_SIGNUP' }, '*')
-    } else {
-      // Fallback: open in same window
-      openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/auth/signup`)
+    if (
+      window.parent &&
+      window.parent !== window &&
+      postMessageToMercuryParent({ type: 'OPEN_SIGNUP' })
+    ) {
+      return
     }
+    // Fallback: open in same window
+    openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/auth/signup`)
   }
 
   const broadcastReportUpdateBeforeMercuryReturn = () => {
@@ -208,23 +212,29 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const handleAccountSettings = () => {
     setIsOpen(false)
     // Navigate to parent window settings
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'NAVIGATE_TO_SETTINGS' }, '*')
-    } else {
-      // Fallback: open in same window
-      openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/users/profile`)
+    if (
+      window.parent &&
+      window.parent !== window &&
+      postMessageToMercuryParent({ type: 'NAVIGATE_TO_SETTINGS' })
+    ) {
+      return
     }
+    // Fallback: open in same window
+    openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/users/profile`)
   }
 
   const handleLearnMore = () => {
     setIsOpen(false)
     // Navigate to parent window valuation page
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'NAVIGATE_TO_VALUATION' }, '*')
-    } else {
-      // Fallback: open in same window
-      openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/valuation`)
+    if (
+      window.parent &&
+      window.parent !== window &&
+      postMessageToMercuryParent({ type: 'NAVIGATE_TO_VALUATION' })
+    ) {
+      return
     }
+    // Fallback: open in same window
+    openSafeNewTabUrl(`${getMercuryUrl()}/${mercuryLocale}/valuation`)
   }
 
   /**

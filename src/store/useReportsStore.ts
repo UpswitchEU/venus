@@ -10,6 +10,7 @@ import { reportService } from '../services/reports'
 import type { ValuationSession } from '../types/valuation'
 import { isSessionKey, isValuationIdSameAsActiveReport } from '../utils/identifiers'
 import { createContextLogger } from '../utils/logger'
+import { postMessageToMercuryParent } from '../utils/mercuryParentMessaging'
 
 const reportsLogger = createContextLogger('ReportsStore')
 
@@ -165,10 +166,11 @@ export const useReportsStore = create<ReportsStore>((set, get) => ({
         if (typeof window !== 'undefined' && window !== window.parent) {
           const isEmbedded = sessionStorage.getItem('upswitch_venus_embedded') === 'true'
           if (isEmbedded) {
-            window.parent.postMessage(
-              { type: 'venus-report-deleted', data: { reportId }, source: 'venus' },
-              '*'
-            )
+            postMessageToMercuryParent({
+              type: 'venus-report-deleted',
+              data: { reportId },
+              source: 'venus',
+            })
             if (didClearSession) {
               const localeMatch = window.location.pathname.match(/^\/(en|nl|fr)/)
               const locale = localeMatch?.[1] ?? 'en'

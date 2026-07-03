@@ -13,6 +13,7 @@ import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useClientContext } from '../../../stores/clientContext'
 import { isValuationIdSameAsActiveReport } from '../../../utils/identifiers'
 import { generalLogger } from '../../../utils/logger'
+import { postMessageToMercuryParent } from '../../../utils/mercuryParentMessaging'
 import { writeNewValuationPrefill } from '../../../utils/newValuationPrefillStorage'
 import {
   buildCurrentReportDeletedMercuryMessage,
@@ -176,14 +177,13 @@ export function useManualRecentValuationDeletion({
           })
 
           if (isEmbeddedAccountantMode(isAccountantMode) && typeof window !== 'undefined') {
-            window.parent.postMessage(
+            postMessageToMercuryParent(
               buildCurrentReportDeletedMercuryMessage({
                 reportId: id,
                 currentLocale,
                 clientContextId,
                 hasRemainingValuations: remaining.length > 0,
-              }),
-              '*'
+              })
             )
           }
 
@@ -219,12 +219,11 @@ export function useManualRecentValuationDeletion({
           fetchRecentValuations()
 
           if (isEmbeddedAccountantMode(isAccountantMode) && typeof window !== 'undefined') {
-            window.parent.postMessage(
+            postMessageToMercuryParent(
               buildSidebarReportDeletedMercuryMessage({
                 reportId: id,
                 clientContextId,
-              }),
-              '*'
+              })
             )
           }
         }

@@ -7,6 +7,7 @@ import {
 } from '@/lib/return-url'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { generalLogger } from '@/utils/logger'
+import { postMessageToMercuryParent } from '@/utils/mercuryParentMessaging'
 import {
   buildManualExitClientViewFallbackUrl,
   buildManualExitClientViewTarget,
@@ -126,28 +127,27 @@ export function performManualMercuryNavigation({
 
   if (isManualMercuryEmbeddedContext() && path) {
     try {
-      window.parent.postMessage(
-        {
+      const didPost = postMessageToMercuryParent({
           type: ENGINE_TO_MERCURY_MESSAGE_TYPES.navigateToMercury,
           source: 'venus',
           data: { url: path },
-        },
-        '*'
-      )
-      window.setTimeout(() => {
-        window.location.assign(safeTargetUrl)
-      }, 750)
-      return
+        })
+      if (didPost) {
+        window.setTimeout(() => {
+          window.location.assign(safeTargetUrl)
+        }, 750)
+        return
+      }
     } catch (error) {
       generalLogger.warn('[manualMercuryNavigate] navigateToMercury postMessage failed', {
         error: error instanceof Error ? error.message : String(error),
       })
       if (postEngineCloseOnEmbedFailure) {
         try {
-          window.parent.postMessage(
-            { type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose, source: 'venus' },
-            '*'
-          )
+          postMessageToMercuryParent({
+            type: ENGINE_TO_MERCURY_MESSAGE_TYPES.engineClose,
+            source: 'venus',
+          })
         } catch {
           // Cross-window messaging can fail in hardened browser contexts.
         }
