@@ -93,7 +93,7 @@
     "d3-array": "^3.2.4",
     "date-fns": "^3.6.0",
     "decimal.js": "^10.4.3",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.12",
     "eventsource": "^4.0.0",
     "framer-motion": "^12.23.12",
     "html2pdf.js": "^0.14.0",
