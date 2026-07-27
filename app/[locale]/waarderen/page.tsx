@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import {
   UPSWITCH_BRAND_OG_IMAGE,
   UPSWITCH_BRAND_TWITTER_IMAGE,
 } from '../../../src/lib/brand-og-image'
-import Link from 'next/link'
 
 export const dynamic = 'force-static'
 

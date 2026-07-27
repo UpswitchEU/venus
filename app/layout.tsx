@@ -5,10 +5,7 @@ import './globals.css'
 import { defaultLocale, type Locale, locales } from '../i18n'
 import { VenusAnalytics } from '../src/components/analytics/VenusAnalytics'
 import { VenusIdentitySync } from '../src/components/analytics/VenusIdentitySync'
-import {
-  UPSWITCH_BRAND_OG_IMAGE,
-  UPSWITCH_BRAND_TWITTER_IMAGE,
-} from '../src/lib/brand-og-image'
+import { UPSWITCH_BRAND_OG_IMAGE, UPSWITCH_BRAND_TWITTER_IMAGE } from '../src/lib/brand-og-image'
 import { Providers } from './providers'
 
 export function generateStaticParams() {
