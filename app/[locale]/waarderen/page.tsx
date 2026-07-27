@@ -1,4 +1,8 @@
 import type { Metadata } from 'next'
+import {
+  UPSWITCH_BRAND_OG_IMAGE,
+  UPSWITCH_BRAND_TWITTER_IMAGE,
+} from '../../../src/lib/brand-og-image'
 import Link from 'next/link'
 
 export const dynamic = 'force-static'
@@ -248,11 +252,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: 'website',
       url: `/${locale}/waarderen`,
       locale: locale === 'en' ? 'en_BE' : locale === 'fr' ? 'fr_BE' : 'nl_BE',
+      images: [UPSWITCH_BRAND_OG_IMAGE],
     },
     twitter: {
       card: 'summary_large_image',
       title: copy.meta.title,
       description: copy.meta.description,
+      images: [UPSWITCH_BRAND_TWITTER_IMAGE],
     },
   }
 }

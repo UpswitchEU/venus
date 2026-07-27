@@ -1,5 +1,9 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import {
+  UPSWITCH_BRAND_OG_IMAGE,
+  UPSWITCH_BRAND_TWITTER_IMAGE,
+} from '../../../src/lib/brand-og-image'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,11 +72,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: 'website',
       url: path,
       locale: meta.locale,
+      images: [UPSWITCH_BRAND_OG_IMAGE],
     },
     twitter: {
       card: 'summary_large_image',
       title: meta.title,
       description: meta.description,
+      images: [UPSWITCH_BRAND_TWITTER_IMAGE],
     },
     // The Studio is opinionated UX, not a content page.
     robots: { index: false, follow: false },

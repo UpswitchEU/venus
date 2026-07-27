@@ -35,6 +35,10 @@
 import type { Metadata } from 'next'
 import { loadLocaleMessages } from '@/lib/i18n/loadLocaleMessages'
 import type { Locale } from '../../../../i18n'
+import {
+  UPSWITCH_BRAND_OG_IMAGE,
+  UPSWITCH_BRAND_TWITTER_IMAGE,
+} from '../../../../src/lib/brand-og-image'
 import { LandingStartupContent } from './LandingStartupContent'
 
 interface PageProps {
@@ -73,6 +77,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: meta.description,
       type: 'website',
       url: `/${locale}/landing/startup`,
+      images: [UPSWITCH_BRAND_OG_IMAGE],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: meta.title,
+      description: meta.description,
+      images: [UPSWITCH_BRAND_TWITTER_IMAGE],
     },
     // Surface is meant for the conversion funnel — keep duplicate-content
     // away from the indexable content surface at /[locale]/startup-valuation.

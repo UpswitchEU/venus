@@ -66,5 +66,11 @@ describe('/[locale]/waarderen landing', () => {
       'Valoriser une startup — Upswitch · Valorisation pré-revenus gratuite'
     )
     expect(frMeta.alternates?.canonical).toBe('/fr/waarderen')
+    expect(enMeta.openGraph).toMatchObject({
+      images: [expect.objectContaining({ url: '/og-image.png' })],
+    })
+    expect(enMeta.twitter).toMatchObject({
+      images: ['/og-image.png'],
+    })
   })
 })

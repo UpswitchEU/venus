@@ -5,6 +5,10 @@ import './globals.css'
 import { defaultLocale, type Locale, locales } from '../i18n'
 import { VenusAnalytics } from '../src/components/analytics/VenusAnalytics'
 import { VenusIdentitySync } from '../src/components/analytics/VenusIdentitySync'
+import {
+  UPSWITCH_BRAND_OG_IMAGE,
+  UPSWITCH_BRAND_TWITTER_IMAGE,
+} from '../src/lib/brand-og-image'
 import { Providers } from './providers'
 
 export function generateStaticParams() {
@@ -76,11 +80,13 @@ export const metadata: Metadata = {
     siteName: 'Upswitch',
     title: 'Upswitch | Indicatieve bedrijfsschatting',
     description: 'Het platform waarmee accountants indicatieve bedrijfsschattingen uitvoeren.',
+    images: [UPSWITCH_BRAND_OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Upswitch | Indicatieve bedrijfsschatting',
     description: 'Het platform waarmee accountants indicatieve bedrijfsschattingen uitvoeren.',
+    images: [UPSWITCH_BRAND_TWITTER_IMAGE],
   },
   robots: {
     index: true,
