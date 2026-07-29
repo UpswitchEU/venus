@@ -4,10 +4,7 @@
   "buildCommand": "npm run build",
   "regions": ["fra1"],
   "git": {
-    "deploymentEnabled": {
-      "**": false,
-      "main": true
-    }
+    "deploymentEnabled": false
   },
   "headers": [
     {
