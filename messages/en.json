@@ -2067,6 +2067,10 @@
 			"estimatedMarketRentEbitdaHint": "Enter your best estimate of annual market rent (not book). The valuation engine uses this to normalize EBITDA when the operating company no longer owns the bricks.",
 			"advancedAdvisorControls": {
 				"title": "Advanced advisor controls",
+				"fallbackToggle": "Allow a disclosed external market fallback",
+				"fallbackWarning": "Advisor dossiers only, when no resolved Upswitch Index contract exists. The result remains indicative, has no empirical percentiles, and must not be described as Belgian transaction evidence or a fairness opinion.",
+				"fallbackReason": "Written fallback rationale",
+				"fallbackReasonRequired": "Document why this fallback is accepted for this dossier.",
 				"waterfallToggle": "Show Enterprise-to-Equity Bridge (Waterfall)",
 				"sectorMultiple": "Sector average multiple",
 				"specificPremium": "Specific risk/quality premium",

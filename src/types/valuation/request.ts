@@ -418,6 +418,12 @@ export interface ValuationRequest {
   historical_ebitda_weighting_mode?: 'standard' | 'weighted'
   historical_ebitda_weights?: Record<number, number>
   show_enterprise_to_equity_bridge?: boolean
+  /** Advisor-only, fail-closed consent for a disclosed non-Index market fallback. */
+  allow_untrusted_multiples_fallback?: boolean
+  /** Required audit-trail rationale when fallback consent is enabled. */
+  untrusted_multiples_fallback_reason?: string
+  /** Primary value basis for the report and private ValuationIQ timeline. */
+  headline_value_basis?: 'equity_value' | 'enterprise_value'
 
   /** Accountant-tier: override EV/EBITDA median vs Upswitch benchmark (see preparer_ev_ebitda_override) */
   preparer_ev_ebitda_median?: number
@@ -632,6 +638,9 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   historical_ebitda_weighting_mode?: 'standard' | 'weighted'
   historical_ebitda_weights?: Record<number, number>
   show_enterprise_to_equity_bridge?: boolean
+  allow_untrusted_multiples_fallback?: boolean
+  untrusted_multiples_fallback_reason?: string
+  headline_value_basis?: 'equity_value' | 'enterprise_value'
   /**
    * Asset-vs-share deal selector. 'compare' returns both scenarios.
    * Triggers `deal_structure_comparison` in the engine response.

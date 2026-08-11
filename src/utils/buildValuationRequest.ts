@@ -444,6 +444,19 @@ export function buildValuationRequest(
   const historicalEbitdaWeightingMode: 'standard' | 'weighted' =
     hasValidCustomHistoricalEbitdaWeights ? 'weighted' : 'standard'
   const showEnterpriseToEquityBridge = toBooleanOrNull(fd.show_enterprise_to_equity_bridge)
+  const allowUntrustedMultiplesFallback =
+    toBooleanOrNull(fd.allow_untrusted_multiples_fallback) === true
+  const untrustedMultiplesFallbackReason =
+    typeof fd.untrusted_multiples_fallback_reason === 'string'
+      ? fd.untrusted_multiples_fallback_reason.trim()
+      : ''
+  if (allowUntrustedMultiplesFallback && !untrustedMultiplesFallbackReason) {
+    throw new ValidationError(
+      'A written advisor rationale is required for a disclosed market fallback.',
+      'untrusted_multiples_fallback_reason',
+      fd.untrusted_multiples_fallback_reason
+    )
+  }
   const ownerSalaryAddback = toFiniteNumber(fd.owner_salary_addback)
   const { registrationNumber, kboNumber, kvkNumber, vatNumber, legalForm, postalCode, city } =
     resolveValuationRequestIdentity({
@@ -478,8 +491,8 @@ export function buildValuationRequest(
     number_of_employees: numberOfEmployees,
     number_of_owners: numberOfOwners,
     recurring_revenue_percentage: recurringRevenuePercentage,
-    use_dcf: true,
-    use_multiples: true,
+    use_dcf: formData.use_dcf ?? true,
+    use_multiples: formData.use_multiples ?? true,
     ...(userConfiguredDcf && { user_configured_dcf: true }),
     projection_years: projectionYears,
     ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
@@ -541,6 +554,13 @@ export function buildValuationRequest(
     }),
     ...(showEnterpriseToEquityBridge != null && {
       show_enterprise_to_equity_bridge: showEnterpriseToEquityBridge,
+    }),
+    ...(allowUntrustedMultiplesFallback && {
+      allow_untrusted_multiples_fallback: true,
+      untrusted_multiples_fallback_reason: untrustedMultiplesFallbackReason,
+    }),
+    ...(fd.headline_value_basis && {
+      headline_value_basis: fd.headline_value_basis,
     }),
     ...(ownerSalaryAddback != null && {
       owner_salary_addback: ownerSalaryAddback,

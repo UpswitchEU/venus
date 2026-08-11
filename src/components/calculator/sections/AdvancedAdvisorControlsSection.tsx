@@ -52,6 +52,8 @@ export interface AdvancedAdvisorControlsSectionProps {
   historicalEbitdaWeightingMode?: WeightingMode
   historicalEbitdaWeights?: Record<number, number>
   showEnterpriseToEquityBridge?: boolean
+  allowUntrustedMultiplesFallback?: boolean
+  untrustedMultiplesFallbackReason?: string
   /**
    * Fields on this step that were seeded from the advisor's saved defaults
    * (Mercury settings → Titan `accountant_settings`). Renders a small
@@ -89,6 +91,8 @@ export function AdvancedAdvisorControlsSection({
   historicalEbitdaWeightingMode,
   historicalEbitdaWeights,
   showEnterpriseToEquityBridge,
+  allowUntrustedMultiplesFallback,
+  untrustedMultiplesFallbackReason,
   advisorDefaultsAppliedFields,
   chrome = 'section',
   onFieldChange,
@@ -232,6 +236,42 @@ export function AdvancedAdvisorControlsSection({
       {prefilledHint}
 
       <div className="rounded-lg border border-foreground/10 bg-foreground/[0.025] p-4 space-y-4">
+        <div className="space-y-3" data-testid="advisor-untrusted-fallback-control">
+          <Switch
+            checked={allowUntrustedMultiplesFallback ?? false}
+            onChange={(checked) => {
+              onFieldChange('allow_untrusted_multiples_fallback', checked)
+              if (!checked) onFieldChange('untrusted_multiples_fallback_reason', undefined)
+            }}
+            label={t('fallbackToggle')}
+            disabled={disabled}
+          />
+          {allowUntrustedMultiplesFallback && (
+            <>
+              <AuroraFormAlert type="warning">{t('fallbackWarning')}</AuroraFormAlert>
+              <AuroraTextarea
+                id="untrusted-multiples-fallback-reason"
+                name="untrusted_multiples_fallback_reason"
+                label={t('fallbackReason')}
+                value={untrustedMultiplesFallbackReason ?? ''}
+                onChange={(event) =>
+                  onFieldChange('untrusted_multiples_fallback_reason', event.target.value)
+                }
+                size="sm"
+                rows={3}
+                required
+                touched
+                error={
+                  untrustedMultiplesFallbackReason?.trim()
+                    ? undefined
+                    : t('fallbackReasonRequired')
+                }
+                disabled={disabled}
+              />
+            </>
+          )}
+        </div>
+
         <Switch
           checked={showEnterpriseToEquityBridge ?? true}
           onChange={(checked) => onFieldChange('show_enterprise_to_equity_bridge', checked)}

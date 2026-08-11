@@ -159,6 +159,8 @@ export function AdvisorControlsTrigger({
         historicalEbitdaWeightingMode={formData.historical_ebitda_weighting_mode}
         historicalEbitdaWeights={formData.historical_ebitda_weights}
         showEnterpriseToEquityBridge={formData.show_enterprise_to_equity_bridge}
+        allowUntrustedMultiplesFallback={formData.allow_untrusted_multiples_fallback}
+        untrustedMultiplesFallbackReason={formData.untrusted_multiples_fallback_reason}
         advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
         onFieldChange={(field, value) => {
           setFormData((prev) => ({ ...prev, [field]: value }))

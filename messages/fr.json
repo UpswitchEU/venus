@@ -2069,6 +2069,10 @@
 			"estimatedMarketRentEbitdaHint": "Entrez votre meilleure estimation du loyer annuel du marché (pas de livre). Le moteur de valorisation l'utilise pour normaliser l'EBITDA lorsque la société exploitante ne possède plus les briques.",
 			"advancedAdvisorControls": {
 				"title": "Contrôles avancés du conseiller",
+				"fallbackToggle": "Autoriser une référence de marché externe divulguée",
+				"fallbackWarning": "Réservé aux dossiers de conseil sans contrat Upswitch Index résolu. Le résultat reste indicatif, ne comporte aucun percentile empirique et ne peut être présenté comme une preuve de transactions belges ni comme une attestation d'équité.",
+				"fallbackReason": "Justification écrite de la référence externe",
+				"fallbackReasonRequired": "Documentez pourquoi cette référence est acceptée pour ce dossier.",
 				"waterfallToggle": "Afficher le pont entreprise-équité (cascade)",
 				"sectorMultiple": "Multiple moyen sectoriel",
 				"specificPremium": "Prime spécifique risque/qualité",

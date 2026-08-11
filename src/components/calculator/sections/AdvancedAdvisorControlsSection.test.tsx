@@ -40,6 +40,42 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(screen.getByText('calibrationNoteRequired')).toBeInTheDocument()
   })
 
+  it('keeps fallback consent off by default and requires a reason when enabled', () => {
+    const { rerender } = render(<AdvancedAdvisorControlsSection {...baseProps} />)
+
+    const toggle = screen.getByRole('switch', { name: /fallbackToggle/ })
+    expect(toggle).not.toBeChecked()
+    expect(screen.queryByLabelText(/fallbackReason/)).not.toBeInTheDocument()
+
+    rerender(
+      <AdvancedAdvisorControlsSection {...baseProps} allowUntrustedMultiplesFallback />
+    )
+    const reason = screen.getByLabelText(/fallbackReason/)
+    expect(reason).toBeRequired()
+    expect(reason).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByText('fallbackWarning')).toBeInTheDocument()
+  })
+
+  it('clears the fallback rationale when advisor consent is disabled', () => {
+    render(
+      <AdvancedAdvisorControlsSection
+        {...baseProps}
+        allowUntrustedMultiplesFallback
+        untrustedMultiplesFallbackReason="Dossier-specific consent"
+      />
+    )
+
+    fireEvent.click(screen.getByRole('switch', { name: /fallbackToggle/ }))
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith(
+      'allow_untrusted_multiples_fallback',
+      false
+    )
+    expect(baseProps.onFieldChange).toHaveBeenCalledWith(
+      'untrusted_multiples_fallback_reason',
+      undefined
+    )
+  })
+
   it('keeps the calibration note valid when an audit note is supplied', () => {
     render(
       <AdvancedAdvisorControlsSection

@@ -2069,6 +2069,10 @@
 			"estimatedMarketRentEbitdaHint": "Vul het geschatte jaarlijks markthuur (niet de boekwaarde). De motor gebruikt dit om EBITDA te normaliseren als de vennootschap het pand niet meer bezit.",
 			"advancedAdvisorControls": {
 				"title": "Geavanceerde adviseurscontrole",
+				"fallbackToggle": "Sta een openbaar gemaakte externe marktfallback toe",
+				"fallbackWarning": "Alleen voor adviseursdossiers zonder opgelost Upswitch Index-contract. De uitkomst blijft indicatief, bevat geen empirische percentielen en mag niet als Belgische transactiebenchmark of fairness opinion worden voorgesteld.",
+				"fallbackReason": "Schriftelijke reden voor de fallback",
+				"fallbackReasonRequired": "Leg vast waarom deze fallback voor dit dossier wordt aanvaard.",
 				"waterfallToggle": "Toon Enterprise-to-Equity Bridge (Waterfall)",
 				"sectorMultiple": "Sectorgemiddelde multiple",
 				"specificPremium": "Specifieke risico-/kwaliteitspremie",

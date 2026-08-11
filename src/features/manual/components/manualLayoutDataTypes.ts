@@ -73,6 +73,9 @@ export interface CollectedData {
   historical_ebitda_weighting_mode?: 'standard' | 'weighted'
   historical_ebitda_weights?: Record<number, number>
   show_enterprise_to_equity_bridge?: boolean
+  allow_untrusted_multiples_fallback?: boolean
+  untrusted_multiples_fallback_reason?: string
+  headline_value_basis?: 'equity_value' | 'enterprise_value'
   owner_salary_addback?: number
   owner_role?: 'working' | 'passive'
 }

@@ -9,6 +9,40 @@ import { getCurrentFilingYear } from '../fiscalYear'
 import { makeFormData } from './buildValuationRequest.testUtils'
 
 describe('buildValuationRequest advisor controls and DCF contract', () => {
+  it('keeps the untrusted fallback disabled by default', () => {
+    const result = buildValuationRequest(makeFormData({}), [])
+    expect(result.allow_untrusted_multiples_fallback).toBeUndefined()
+    expect(result.untrusted_multiples_fallback_reason).toBeUndefined()
+  })
+
+  it('requires and forwards the advisor fallback rationale and EV headline basis', () => {
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({ allow_untrusted_multiples_fallback: true }),
+        []
+      )
+    ).toThrow('written advisor rationale is required')
+
+    const result = buildValuationRequest(
+      makeFormData({
+        allow_untrusted_multiples_fallback: true,
+        untrusted_multiples_fallback_reason: '  No resolved pharmacy × BE contract.  ',
+        headline_value_basis: 'enterprise_value',
+        use_dcf: false,
+        use_multiples: true,
+      }),
+      []
+    )
+
+    expect(result).toMatchObject({
+      allow_untrusted_multiples_fallback: true,
+      untrusted_multiples_fallback_reason: 'No resolved pharmacy × BE contract.',
+      headline_value_basis: 'enterprise_value',
+      use_dcf: false,
+      use_multiples: true,
+    })
+  })
+
   it('forwards owner_salary_addback on the valuation request for SDE', () => {
     const result = buildValuationRequest(makeFormData({ owner_salary_addback: 85_000 }), [])
     expect(result.owner_salary_addback).toBe(85_000)
