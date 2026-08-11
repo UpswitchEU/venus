@@ -130,10 +130,10 @@ export function FiscalInputsSection({
     // the panel out from under the user mid-edit.
   }, [altFilled])
 
-  const ariaAnchor1 = `${t('anchor1Eyebrow')} — ${t('anchor1Label')}`
-  const ariaAnchor2 = `${t('anchor2Eyebrow')} — ${t('anchor2Short')}`
-  const ariaAnchor3 = `${t('anchor3Eyebrow')} — ${t('anchor3Short')}`
-  const ariaAnchor4 = `${t('anchor4Eyebrow')} — ${t('anchor4Short')}`
+  const ariaAnchor1 = `${t('anchor1Eyebrow')}: ${t('anchor1Label')}`
+  const ariaAnchor2 = `${t('anchor2Eyebrow')}: ${t('anchor2Short')}`
+  const ariaAnchor3 = `${t('anchor3Eyebrow')}: ${t('anchor3Short')}`
+  const ariaAnchor4 = `${t('anchor4Eyebrow')}: ${t('anchor4Short')}`
 
   return (
     <motion.section
@@ -145,11 +145,7 @@ export function FiscalInputsSection({
       data-testid="fiscal-inputs-section"
     >
       <div className="space-y-1.5">
-        <ValuationSectionHeader
-          step={step}
-          title={t('title')}
-          complete
-        />
+        <ValuationSectionHeader step={step} title={t('title')} complete />
         <p className="pl-8 text-[11px] leading-snug text-muted-foreground">{t('subtitle')}</p>
       </div>
 

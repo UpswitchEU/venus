@@ -109,11 +109,11 @@ describe('FiscalReferenceSectionStack', () => {
     expect(screen.getByText('fiscal-inputs:6')).toBeInTheDocument()
     expect(mocks.previewProps.at(-1)?.fiscalPreview).toMatchObject({
       available: true,
-      ebitdaForAnchor: 300_000,
-      ebitdaSource: 'weighted_normalized_historical',
-      fiscalAnchor: 1_200_000,
+      ebitdaForAnchor: 180_000,
+      ebitdaSource: 'reported_latest_complete_year',
+      fiscalAnchor: 720_000,
       bookEquityUsed: 400_000,
-      impliedFiscalEquity: 800_000,
+      impliedFiscalEquity: 560_000,
       ownershipMultiplierApplied: 0.5,
     })
     expect(mocks.inputProps.at(-1)).toMatchObject({

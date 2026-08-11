@@ -77,11 +77,7 @@ export function FiscalReferenceSectionStack({
       bookEquity: resolveBookEquityFromYearRow(row ?? undefined),
       sharesForSale: formData.shares_for_sale ?? 100,
     })
-  }, [
-    latestCompleteYearlyFinancial,
-    formData.country,
-    formData.shares_for_sale,
-  ])
+  }, [latestCompleteYearlyFinancial, formData.country, formData.shares_for_sale])
 
   if (!showFiscalNotice && !showFiscalInputs) return null
 

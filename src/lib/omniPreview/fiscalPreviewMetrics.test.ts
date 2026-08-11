@@ -44,16 +44,16 @@ describe('computeFiscal4xPreview', () => {
     expect(out.ebitdaSource).toBe('reported_latest_complete_year')
   })
 
-  it('records weighted-normalized EBITDA source when provided', () => {
+  it('rejects weighted normalized EBITDA', () => {
     const out = computeFiscal4xPreview({
       countryCode: 'BE',
       ebitda: 398_000,
       ebitdaSource: 'weighted_normalized_historical',
       bookEquity: 100_000,
     })
-    expect(out.available).toBe(true)
-    expect(out.ebitdaSource).toBe('weighted_normalized_historical')
-    expect(out.ebitdaForAnchor).toBe(398_000)
-    expect(out.fiscalAnchor).toBe(398_000 * FISCAL_EBITDA_MULTIPLIER)
+    expect(out.available).toBe(false)
+    expect(out.unavailableReason).toBe('non_statutory_ebitda')
+    expect(out.ebitdaSource).toBeNull()
+    expect(out.fiscalAnchor).toBeNull()
   })
 })

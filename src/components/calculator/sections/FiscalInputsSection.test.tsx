@@ -83,20 +83,20 @@ describe('FiscalInputsSection', () => {
     render(<FiscalInputsSection {...makeProps()} />)
 
     expect(screen.getByTestId('section-title')).toHaveTextContent('title')
-    expect(screen.getByTestId('section-header')).toHaveAttribute('data-complete', 'false')
+    expect(screen.getByTestId('section-header')).toHaveAttribute('data-complete', 'true')
     expect(screen.getByText('subtitle')).toBeTruthy()
     expect(screen.getByTestId('fiscal-inputs-progress')).toHaveTextContent(
       'progress:filled=0,total=4'
     )
   })
 
-  it('wires the anchor-1 visible label to the input via htmlFor / aria-label', () => {
+  it('wires the first visible label to the input through htmlFor and aria-label', () => {
     render(<FiscalInputsSection {...makeProps()} />)
 
     // `getByLabelText` reaches into both <label htmlFor> and aria-label;
     // we want both signals because sighted users get the visible label
-    // and AT users get the composite "Anchor 1 — <label>" name.
-    const input = screen.getByLabelText('anchor1Eyebrow — anchor1Label')
+    // and assistive technology gets one clear composite name.
+    const input = screen.getByLabelText('anchor1Eyebrow: anchor1Label')
     expect(input).toBeTruthy()
     expect(input.tagName).toBe('INPUT')
   })
@@ -133,9 +133,9 @@ describe('FiscalInputsSection', () => {
     )
     expect(screen.getByTestId('fiscal-alternative-anchors-panel')).toBeTruthy()
     // All three alternative anchor inputs are now in the DOM.
-    expect(screen.getByLabelText('anchor2Eyebrow — anchor2Short')).toBeTruthy()
-    expect(screen.getByLabelText('anchor3Eyebrow — anchor3Short')).toBeTruthy()
-    expect(screen.getByLabelText('anchor4Eyebrow — anchor4Short')).toBeTruthy()
+    expect(screen.getByLabelText('anchor2Eyebrow: anchor2Short')).toBeTruthy()
+    expect(screen.getByLabelText('anchor3Eyebrow: anchor3Short')).toBeTruthy()
+    expect(screen.getByLabelText('anchor4Eyebrow: anchor4Short')).toBeTruthy()
   })
 
   it('auto-opens the disclosure when an alternative anchor is already filled on mount', () => {
@@ -210,7 +210,7 @@ describe('FiscalInputsSection', () => {
     const onFieldChange = vi.fn()
     render(<FiscalInputsSection {...makeProps({ onFieldChange })} />)
 
-    fireEvent.change(screen.getByLabelText('anchor1Eyebrow — anchor1Label'), {
+    fireEvent.change(screen.getByLabelText('anchor1Eyebrow: anchor1Label'), {
       target: { value: '1500000' },
     })
 
@@ -228,7 +228,7 @@ describe('FiscalInputsSection', () => {
       />
     )
 
-    fireEvent.change(screen.getByLabelText('anchor1Eyebrow — anchor1Label'), {
+    fireEvent.change(screen.getByLabelText('anchor1Eyebrow: anchor1Label'), {
       target: { value: '' },
     })
 
@@ -247,10 +247,10 @@ describe('FiscalInputsSection', () => {
       />
     )
 
-    expect(screen.getByLabelText('anchor1Eyebrow — anchor1Label')).toBeDisabled()
-    expect(screen.getByLabelText('anchor2Eyebrow — anchor2Short')).toBeDisabled()
-    expect(screen.getByLabelText('anchor3Eyebrow — anchor3Short')).toBeDisabled()
-    expect(screen.getByLabelText('anchor4Eyebrow — anchor4Short')).toBeDisabled()
+    expect(screen.getByLabelText('anchor1Eyebrow: anchor1Label')).toBeDisabled()
+    expect(screen.getByLabelText('anchor2Eyebrow: anchor2Short')).toBeDisabled()
+    expect(screen.getByLabelText('anchor3Eyebrow: anchor3Short')).toBeDisabled()
+    expect(screen.getByLabelText('anchor4Eyebrow: anchor4Short')).toBeDisabled()
   })
 
   it('counts all four anchors in the progress chip total', () => {
