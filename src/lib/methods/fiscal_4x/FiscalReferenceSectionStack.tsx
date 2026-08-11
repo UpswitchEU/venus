@@ -35,6 +35,8 @@ function fiscalPreviewUnavailableMessage(
   switch (reason) {
     case 'non_be':
       return t('fields.fiscalPreviewUnavailableNonBe')
+    case 'non_statutory_ebitda':
+      return t('fields.fiscalPreviewUnavailableNonStatutoryEbitda')
     case 'non_positive_ebitda':
       return t('fields.fiscalPreviewUnavailableEbitda')
     case 'missing_ebitda':
@@ -56,8 +58,6 @@ export function FiscalReferenceSectionStack({
   firmCountryCode,
   onFieldChange,
   disabled,
-  fiscalWeightedNormalizedEbitda,
-  fiscalWeightedHistoricalYearCount,
 }: FiscalReferenceSectionStackProps) {
   const t = useTranslations('manualInput.methodSelector')
   const showFiscalNotice = shouldShowFiscalReferenceNotice(methods, firmCountryCode)
@@ -68,19 +68,11 @@ export function FiscalReferenceSectionStack({
     const reportedLatest =
       row != null && Number.isFinite(Number(row.ebitda)) ? Number(row.ebitda) : undefined
 
-    const hasWeighted =
-      (fiscalWeightedHistoricalYearCount ?? 0) > 0 &&
-      fiscalWeightedNormalizedEbitda != null &&
-      Number.isFinite(fiscalWeightedNormalizedEbitda)
-
-    const ebitda = hasWeighted ? fiscalWeightedNormalizedEbitda : reportedLatest
-    const ebitdaSource = (
-      hasWeighted ? 'weighted_normalized_historical' : 'reported_latest_complete_year'
-    ) satisfies FiscalPreviewEbitdaSource
+    const ebitdaSource = 'reported_latest_complete_year' satisfies FiscalPreviewEbitdaSource
 
     return computeFiscal4xPreview({
       countryCode: formData.country?.trim() || 'BE',
-      ebitda,
+      ebitda: reportedLatest,
       ebitdaSource,
       bookEquity: resolveBookEquityFromYearRow(row ?? undefined),
       sharesForSale: formData.shares_for_sale ?? 100,
@@ -89,8 +81,6 @@ export function FiscalReferenceSectionStack({
     latestCompleteYearlyFinancial,
     formData.country,
     formData.shares_for_sale,
-    fiscalWeightedNormalizedEbitda,
-    fiscalWeightedHistoricalYearCount,
   ])
 
   if (!showFiscalNotice && !showFiscalInputs) return null

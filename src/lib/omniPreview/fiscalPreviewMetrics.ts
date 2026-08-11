@@ -34,6 +34,7 @@ export type Fiscal4xPreviewInputs = {
 
 export type Fiscal4xUnavailableReason =
   | 'non_be'
+  | 'non_statutory_ebitda'
   | 'non_positive_ebitda'
   | 'missing_ebitda'
   | 'missing_book_equity'
@@ -81,6 +82,14 @@ export function computeFiscal4xPreview(input: Fiscal4xPreviewInputs): Fiscal4xPr
 
   if (normCountry(countryCode) !== 'BE') {
     return { available: false, unavailableReason: 'non_be', ...baseNull }
+  }
+
+  if (ebitdaSource === 'weighted_normalized_historical') {
+    return {
+      available: false,
+      unavailableReason: 'non_statutory_ebitda',
+      ...baseNull,
+    }
   }
 
   if (ebitda == null || !Number.isFinite(ebitda)) {

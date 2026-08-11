@@ -1,39 +1,35 @@
 'use client'
 
 /**
- * Meerwaarde-tax left-panel section — pure data input.
+ * Belgian historical value evidence in the existing input flow.
  *
- * Captures the four amount values used as a possible 31/12/2025 cost-basis
- * reference under the Belgian capital-gains regime (Art. 90 WIB 92; final
- * filing treatment to be confirmed with a tax advisor):
+ * The engine calculates the statutory equity plus four times EBITDA formula.
+ * This section captures four optional pieces of supporting evidence under
+ * Art. 102, § 4 WIB 92:
  *
- *   1. Aanschaffingswaarde (historische kostprijs van de aandelen) — primary
- *   2. Anker 2 — contractuele formule (aandeelhoudersovereenkomst) — fallback
- *   3. Anker 3 — markttransactie 2025 — fallback
- *   4. Anker 4 — onafhankelijk waarderingsverslag — fallback
+ *   1. Proven historical share cost
+ *   2. Contractual formula in force on 1 January 2026
+ *   3. Qualifying transaction, incorporation or capital increase in 2025
+ *   4. Professional report completed by 31 December 2027
  *
  * UX (rebuild 2026-05-12):
- * - Anchor 1 (notarial acquisition cost) is rendered as a primary hero
- *   block. It is the source of truth in ~90% of cases.
- * - Anchors 2-4 collapse behind an "Alternative anchors" disclosure with
+ * - Historical cost evidence is visible first because it is a distinct option.
+ * - The three statutory methods collapse behind an existing disclosure with
  *   a filled-count chip ("0 of 3"). The disclosure latches open the
  *   moment any alternative value transitions from undefined to defined,
  *   so a saved draft hydrating after mount still surfaces its values
  *   (the naïve `useState(altFilled > 0)` only ran on mount and silently
  *   hid hydrated drafts).
- * - Anchors 2-4 render as a vertical stack (not a 3-col grid) — long
- *   NL labels were getting crushed at left-panel widths and the parallel
- *   3-card layout falsely implied equal importance with anchor 1.
- * - Section subtitle states the "hoogste-van-vier" rule once, inline,
- *   instead of relying on the report page to do so.
- * - Progress chip ("X of 4 anchors filled") mirrors the
+ * - The three methods render as a vertical stack for narrow panel widths.
+ * - Progress shows evidence supplied, not calculation completeness.
+ * - The progress chip mirrors the
  *   LiquidationInputsSection pattern for visual consistency across
  *   manual-flow advisor sections.
  *
  * A11y:
  * - Each AnchorRow generates a stable id via `useId`, wires
  *   `<label htmlFor={id}>` to the input, and passes the composite
- *   "{Eyebrow} — {label}" as `ariaLabel` so screen readers get a
+ *   eyebrow and label as `ariaLabel` so screen readers get a
  *   single accessible name even when the eyebrow chip is decorative.
  * - The disclosure button is a real `<button aria-expanded
  *   aria-controls>` pair, and the chevron rotates rather than
@@ -45,9 +41,8 @@
  *   - fiscal_anchor_3_value     → fiscal_inputs.anchor_3_value
  *   - fiscal_anchor_4_value     → fiscal_inputs.anchor_4_value
  *
- * Advisory metadata (peildatum, company role, EBITDA basis, internal-
- * transfer flag, acknowledged-anchors attestation) is intentionally
- * NOT captured here — auto-derived by the report builder.
+ * Advisory metadata is intentionally not captured here. The report builder
+ * derives it from governed evidence.
  */
 
 import { motion } from 'framer-motion'
@@ -153,12 +148,12 @@ export function FiscalInputsSection({
         <ValuationSectionHeader
           step={step}
           title={t('title')}
-          complete={fiscalAcquisitionCost !== undefined}
+          complete
         />
         <p className="pl-8 text-[11px] leading-snug text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      {/* Progress chip — same visual rhythm as LiquidationInputsSection. */}
+      {/* Progress reflects optional evidence, not formula readiness. */}
       <div
         className="flex items-center gap-2 rounded-md bg-primary/[0.06] px-2.5 py-1.5 text-[11px] text-foreground/70"
         data-testid="fiscal-inputs-progress"
@@ -168,8 +163,7 @@ export function FiscalInputsSection({
         {t('progress', { filled: totalFilled, total: 4 })}
       </div>
 
-      {/* Primary: Anchor 1 — notarial acquisition value. Hero card with
-          a stronger border so it visually outranks the alternatives. */}
+      {/* Proven historical cost is separate from the statutory formula. */}
       <div
         className="space-y-2 rounded-lg border border-primary/15 bg-background/80 p-3"
         data-testid="fiscal-anchor-1-block"
@@ -191,8 +185,7 @@ export function FiscalInputsSection({
         </AnchorRow>
       </div>
 
-      {/* Alternative anchors — collapsed by default. Highest of four
-          rule means most advisors only need anchor 1. */}
+      {/* Other statutory methods remain in the existing disclosure. */}
       <div className="space-y-2">
         <button
           type="button"
