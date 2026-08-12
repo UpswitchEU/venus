@@ -153,7 +153,18 @@ export function mergeOptionalSessionPrefillFields(
         existing,
         incoming
       )
-      if (!canBackfillZeroPlaceholder && !canBackfillDefaultDcfInputMode) continue
+      const canBackfillDefaultSharesForSale =
+        key === 'shares_for_sale' &&
+        existing === 100 &&
+        isFiniteNumber(incoming) &&
+        incoming >= 0 &&
+        incoming <= 100
+      if (
+        !canBackfillZeroPlaceholder &&
+        !canBackfillDefaultDcfInputMode &&
+        !canBackfillDefaultSharesForSale
+      )
+        continue
     }
     ;(out as Record<string, unknown>)[key] = incoming
   }

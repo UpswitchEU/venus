@@ -6,6 +6,7 @@ import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
 } from '@/utils/fiscalYear'
+import { pickManualMethodInputParityFields } from '@/utils/manualMethodInputParity'
 import { hasUsableOfficialFinancialsContent } from '@/utils/officialFinancialsContent'
 import {
   buildCurrentYearData,
@@ -94,6 +95,7 @@ export function mapClarityFormToVenusStore(
   const companySectionActive = hasKbo || hasNaceFields
 
   return {
+    ...pickManualMethodInputParityFields(data),
     company_name: data.companyName || '',
     country_code: coerceIso2OrNull(data.country) ?? 'BE',
     industry: data.industry || 'services',
@@ -111,7 +113,10 @@ export function mapClarityFormToVenusStore(
     })(),
     number_of_owners: data.ownerManagers || 1,
     number_of_employees: data.fteEmployees,
-    shares_for_sale: 100,
+    shares_for_sale: data.shares_for_sale ?? storeForm.shares_for_sale ?? 100,
+    ...(typeof data.currency === 'string' && data.currency.trim()
+      ? { currency: data.currency.trim().toUpperCase() }
+      : {}),
     business_type: data.businessStructure === 'sole-trader' ? 'sole-trader' : 'company',
     revenue: current?.revenue,
     ebitda: current?.ebitda,

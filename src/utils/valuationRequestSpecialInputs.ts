@@ -11,6 +11,10 @@ import type { SafeNoteInput, ValuationFormData, ValuationRequest } from '../type
 
 type FormDataRecord = Record<string, unknown>
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 function toFiniteNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
     return null
@@ -41,6 +45,14 @@ export function applyTaxLatencyBalanceSheetAdjustments(
           temporary_difference: Math.abs(item.temporaryDifference),
           tax_rate: item.taxRate,
           tax_latency_type: item.type,
+          ...(item.status ? { status: item.status } : {}),
+          ...(item.evidence_id ? { evidence_id: item.evidence_id } : {}),
+          ...(item.reviewed_at ? { reviewed_at: item.reviewed_at } : {}),
+          ...(item.rule_version ? { rule_version: item.rule_version } : {}),
+          ...(item.approved_by ? { approved_by: item.approved_by } : {}),
+          ...(item.currency ? { currency: item.currency } : {}),
+          ...(item.fiscal_year != null ? { fiscal_year: item.fiscal_year } : {}),
+          ...(item.effective_date ? { effective_date: item.effective_date } : {}),
         }))
       : []
 
@@ -57,9 +69,24 @@ export function applyTaxLatencyBalanceSheetAdjustments(
   if (mergedBalanceSheetAdjustments.length > 0) {
     request.balance_sheet_adjustments = mergedBalanceSheetAdjustments
   }
+
+  const hasTaxLatencyAdjustment = mergedBalanceSheetAdjustments.some(
+    (adjustment) => adjustment.category === 'tax_latency'
+  )
+  if (
+    !hasTaxLatencyAdjustment &&
+    Array.isArray(formData.tax_latencies) &&
+    formData.tax_latencies.length > 0
+  ) {
+    request.tax_latencies = formData.tax_latencies
+  }
 }
 
 export function applyCapitalHistoryInputs(request: ValuationRequest, fd: FormDataRecord): void {
+  const directInvestmentAmount = toFiniteNumber(fd.investment_amount_sought)
+  if (directInvestmentAmount != null && directInvestmentAmount >= 0) {
+    request.investment_amount_sought = directInvestmentAmount
+  }
   const capRoundAmount = toFiniteNumber(fd.capital_round_amount)
   if (capRoundAmount != null && capRoundAmount > 0) {
     request.investment_amount_sought = capRoundAmount
@@ -96,8 +123,14 @@ export function applyCapitalHistoryInputs(request: ValuationRequest, fd: FormDat
       (lastRoundPostMoney != null && lastRoundPostMoney > 0) ||
       lastRoundDate != null)
 
+  const directCapTable = isRecord(fd.cap_table) ? fd.cap_table : null
+  if (directCapTable) {
+    request.cap_table = { ...directCapTable } as ValuationRequest['cap_table']
+  }
+
   if (hasCapTableSignal) {
     request.cap_table = {
+      ...(request.cap_table ?? {}),
       ...(optionPoolPct != null ? { option_pool_pct: optionPoolPct } : {}),
       ...(cleanedSafeNotes.length > 0
         ? {
@@ -114,7 +147,9 @@ export function applyCapitalHistoryInputs(request: ValuationRequest, fd: FormDat
 }
 
 export function applyLiquidationInputs(request: ValuationRequest, fd: FormDataRecord): void {
-  const liquidationInputs: Record<string, unknown> = {}
+  const liquidationInputs: Record<string, unknown> = isRecord(fd.liquidation_inputs)
+    ? { ...fd.liquidation_inputs }
+    : {}
   if (fd.liq_headcount != null && Number.isFinite(Number(fd.liq_headcount))) {
     liquidationInputs.headcount = Math.max(0, Math.floor(Number(fd.liq_headcount)))
   }
@@ -198,7 +233,9 @@ export function applyLiquidationInputs(request: ValuationRequest, fd: FormDataRe
 }
 
 export function applyFiscalInputs(request: ValuationRequest, fd: FormDataRecord): void {
-  const fiscalInputs: Record<string, unknown> = {}
+  const fiscalInputs: Record<string, unknown> = isRecord(fd.fiscal_inputs)
+    ? { ...fd.fiscal_inputs }
+    : {}
   if (fd.fiscal_acquisition_cost != null && Number.isFinite(Number(fd.fiscal_acquisition_cost))) {
     fiscalInputs.acquisition_cost = Number(fd.fiscal_acquisition_cost)
   }

@@ -16,18 +16,28 @@ export function isYearRowForecast(
 }
 
 export const OPTIONAL_YEAR_DATA_FIELDS: Array<keyof YearDataInput> = [
+  'operating_revenue',
+  'reported_ebitda',
+  'normalized_ebitda',
   'cogs',
   'gross_profit',
+  'financial_income',
+  'extraordinary_income',
+  'extraordinary_items',
   'operating_expenses',
   'ebit',
   'capex',
   'depreciation',
+  'depreciation_amortization',
   'amortization',
   'interest_expense',
   'tax_expense',
+  'owner_director_compensation',
+  'personnel_costs',
   'net_income',
   'total_assets',
   'current_assets',
+  'fixed_assets',
   'cash',
   'accounts_receivable',
   'accounts_payable',
@@ -37,8 +47,19 @@ export const OPTIONAL_YEAR_DATA_FIELDS: Array<keyof YearDataInput> = [
   'short_term_debt',
   'total_debt',
   'total_equity',
+  'minority_interest_result_share',
   'nwc_change',
+  'operating_cash_flow',
+  'investing_cash_flow',
+  'financing_cash_flow',
   'free_cash_flow',
+  'rent_expense',
+  'paid_up_capital',
+  'capital_subsidies',
+  'deferred_tax_liabilities',
+  'buildings',
+  'machinery_equipment',
+  'other_provisions',
 ]
 
 export function pickDefinedYearDataFields(
@@ -73,6 +94,12 @@ export function buildCurrentYearData(args: {
     revenue: parseFlexibleNumber(args.revenue) ?? parseFlexibleNumber(current.revenue) ?? 0,
     ebitda: parseFlexibleNumber(args.ebitda) ?? parseFlexibleNumber(current.ebitda) ?? 0,
     ...pickDefinedYearDataFields(current),
+    ...(typeof current.ebitda_normalized === 'boolean'
+      ? { ebitda_normalized: current.ebitda_normalized }
+      : {}),
+    ...(current.ebitda_normalization_metadata
+      ? { ebitda_normalization_metadata: current.ebitda_normalization_metadata }
+      : {}),
   }
 }
 
@@ -122,6 +149,12 @@ export function mergeYearDataRows(
         revenue: revenue ?? 0,
         ebitda: ebitda ?? 0,
         ...pickDefinedYearDataFields(existing),
+        ...(typeof existing?.ebitda_normalized === 'boolean'
+          ? { ebitda_normalized: existing.ebitda_normalized }
+          : {}),
+        ...(existing?.ebitda_normalization_metadata
+          ? { ebitda_normalization_metadata: existing.ebitda_normalization_metadata }
+          : {}),
         ...(capex !== undefined ? { capex } : {}),
         ...(depreciation !== undefined ? { depreciation } : {}),
         ...(nwcChange !== undefined ? { nwc_change: nwcChange } : {}),

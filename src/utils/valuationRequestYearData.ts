@@ -2,7 +2,8 @@ import { ValidationError } from '../types/errors'
 import type { YearDataInput } from '../types/valuation'
 import type { NormYearEntry } from './buildValuationRequest.helpers'
 import {
-  hasPositiveHistoricalRevenue,
+  hasNonNegativeHistoricalRevenue,
+  hasUsableHistoricalEvidence,
   pickOptionalYearDataFields,
   requireNonNegativeRevenue,
   toFiniteNumber,
@@ -10,6 +11,19 @@ import {
 import { deriveNwcChangesForActualYears } from './yearData'
 
 type DcfInputMode = 'ebitda' | 'fcff_only'
+
+function reportedEbitda(year: YearDataInput, fallback = 0): number {
+  return toFiniteNumber(year.reported_ebitda) ?? toFiniteNumber(year.ebitda) ?? fallback
+}
+
+function existingNormalizedEbitda(year: YearDataInput): number | null {
+  const explicit = toFiniteNumber(year.normalized_ebitda)
+  if (explicit !== null) return explicit
+  const metadata = year.ebitda_normalization_metadata
+  const metadataNormalized = toFiniteNumber(metadata?.normalized_ebitda)
+  if (metadataNormalized !== null) return metadataNormalized
+  return year.ebitda_normalized ? toFiniteNumber(year.ebitda) : null
+}
 
 export interface ValuationRequestYearDataInput {
   currentFiscalYear: number
@@ -35,27 +49,42 @@ function applyNormalization(
   normalization?: NormYearEntry
 ): YearDataInput {
   if (!normalization) {
+    const reported = reportedEbitda(year)
+    const normalized = existingNormalizedEbitda(year)
     return {
       year: Math.min(Math.max(year.year, 2000), 2100),
       revenue: normalizedRevenue,
-      ebitda: toFiniteNumber(year.ebitda) ?? 0,
+      ebitda: normalized ?? toFiniteNumber(year.ebitda) ?? reported,
+      reported_ebitda: reported,
+      ...(normalized !== null ? { normalized_ebitda: normalized } : {}),
       ...pickOptionalYearDataFields(year),
-      ebitda_normalized: false,
+      ebitda_normalized: normalized !== null,
+      ...(year.ebitda_normalization_metadata
+        ? { ebitda_normalization_metadata: year.ebitda_normalization_metadata }
+        : {}),
     }
   }
 
-  const reportedEbitda = toFiniteNumber(year.ebitda) ?? 0
+  const reported = reportedEbitda(year)
+  const hasAcceptedAdjustment = normalization.count > 0
+  const existingNormalized = existingNormalizedEbitda(year)
+  const normalized = hasAcceptedAdjustment
+    ? reported + normalization.totalAdjustment
+    : existingNormalized
   return {
     year: Math.min(Math.max(year.year, 2000), 2100),
     revenue: normalizedRevenue,
-    ebitda: reportedEbitda + normalization.totalAdjustment,
+    ebitda: normalized ?? toFiniteNumber(year.ebitda) ?? reported,
+    reported_ebitda: reported,
+    ...(normalized !== null ? { normalized_ebitda: normalized } : {}),
     ...pickOptionalYearDataFields(year),
-    ebitda_normalized: true,
+    ebitda_normalized: normalized !== null,
     ebitda_normalization_metadata: {
-      reported_ebitda: reportedEbitda,
-      normalized_ebitda: reportedEbitda + normalization.totalAdjustment,
+      reported_ebitda: reported,
+      normalized_ebitda: normalized ?? reported,
       total_adjustments: normalization.totalAdjustment,
       adjustment_count: normalization.count,
+      pending_adjustment_count: normalization.pendingCount ?? 0,
       confidence_score: normalization.confidence,
       has_custom_adjustments: normalization.hasCustomAdjustments,
       adjustments: normalization.items,
@@ -71,10 +100,11 @@ function buildHistoricalYearsData(args: {
     args.actualHistoricalData
       .filter(
         (year) =>
-          toFiniteNumber(year.ebitda) != null &&
+          (toFiniteNumber(year.reported_ebitda) ?? toFiniteNumber(year.ebitda)) != null &&
           year.year >= 2000 &&
           year.year <= 2100 &&
-          hasPositiveHistoricalRevenue(year)
+          hasNonNegativeHistoricalRevenue(year) &&
+          hasUsableHistoricalEvidence(year)
       )
       .map((year) =>
         applyNormalization(
@@ -197,24 +227,44 @@ export function buildValuationRequestYearData(
   args: ValuationRequestYearDataInput
 ): ValuationRequestYearData {
   const currentYearNormalization = args.normByYear[args.currentFiscalYear]
+  const sourceCurrentYear: YearDataInput = args.effectiveCurrentYearData ?? {
+    year: args.currentFiscalYear,
+    revenue: args.revenue,
+    ebitda: args.ebitda,
+  }
+  const currentReportedEbitda = reportedEbitda(sourceCurrentYear, args.ebitda)
+  const currentExistingNormalizedEbitda = existingNormalizedEbitda(sourceCurrentYear)
+  const hasAcceptedCurrentAdjustment = (currentYearNormalization?.count ?? 0) > 0
+  const currentNormalizedEbitda = hasAcceptedCurrentAdjustment
+    ? currentReportedEbitda + (currentYearNormalization?.totalAdjustment ?? 0)
+    : currentExistingNormalizedEbitda
   const currentYearData: YearDataInput = {
     year: args.currentFiscalYear,
     revenue: args.revenue,
-    ebitda: currentYearNormalization
-      ? args.ebitda + currentYearNormalization.totalAdjustment
-      : args.ebitda,
+    ebitda: currentNormalizedEbitda ?? args.ebitda,
+    reported_ebitda: currentReportedEbitda,
+    ...(currentNormalizedEbitda !== null ? { normalized_ebitda: currentNormalizedEbitda } : {}),
     ...(currentYearNormalization && {
-      ebitda_normalized: true,
+      ebitda_normalized: currentNormalizedEbitda !== null,
       ebitda_normalization_metadata: {
-        reported_ebitda: args.ebitda,
-        normalized_ebitda: args.ebitda + currentYearNormalization.totalAdjustment,
+        reported_ebitda: currentReportedEbitda,
+        normalized_ebitda: currentNormalizedEbitda ?? currentReportedEbitda,
         total_adjustments: currentYearNormalization.totalAdjustment,
         adjustment_count: currentYearNormalization.count,
+        pending_adjustment_count: currentYearNormalization.pendingCount ?? 0,
         confidence_score: currentYearNormalization.confidence,
         has_custom_adjustments: currentYearNormalization.hasCustomAdjustments,
         adjustments: currentYearNormalization.items,
       },
     }),
+    ...(!currentYearNormalization && currentExistingNormalizedEbitda !== null
+      ? {
+          ebitda_normalized: true,
+          ...(sourceCurrentYear.ebitda_normalization_metadata
+            ? { ebitda_normalization_metadata: sourceCurrentYear.ebitda_normalization_metadata }
+            : {}),
+        }
+      : {}),
     ...pickOptionalYearDataFields(args.effectiveCurrentYearData),
   }
 

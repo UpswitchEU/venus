@@ -47,7 +47,23 @@ describe('buildValuationRequest normalization integrity guards', () => {
     )
 
     expect(result.current_year_data.ebitda).toBe(290_000)
-    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+    expect(result.current_year_data.reported_ebitda).toBe(290_000)
+    expect(result.current_year_data.normalized_ebitda).toBeUndefined()
+    expect(result.current_year_data.ebitda_normalized).toBe(false)
+    expect(result.current_year_data.ebitda_normalization_metadata).toMatchObject({
+      total_adjustments: 0,
+      adjustment_count: 0,
+      pending_adjustment_count: 1,
+      adjustments: [expect.objectContaining({ id: 'norm-pending-1', status: 'proposed' })],
+    })
+    expect(result.normalizations).toEqual([
+      expect.objectContaining({
+        id: 'norm-pending-1',
+        status: 'proposed',
+        original_value: 290_000,
+        adjustment_amount: 280_000,
+      }),
+    ])
 
     const matched = warnSpy.mock.calls.find(
       ([msg]) => typeof msg === 'string' && msg.includes('Pending normalizations left unapplied')
@@ -134,7 +150,20 @@ describe('buildValuationRequest normalization integrity guards', () => {
     )
 
     expect(result.current_year_data.ebitda).toBe(260_000)
-    expect(result.current_year_data.ebitda_normalization_metadata).toBeUndefined()
+    expect(result.current_year_data.reported_ebitda).toBe(260_000)
+    expect(result.current_year_data.normalized_ebitda).toBeUndefined()
+    expect(result.current_year_data.ebitda_normalized).toBe(false)
+    expect(result.current_year_data.ebitda_normalization_metadata).toMatchObject({
+      total_adjustments: 0,
+      adjustment_count: 0,
+      pending_adjustment_count: 1,
+      adjustments: [
+        expect.objectContaining({
+          id: `imported_sde_${lastFullYear}_610000_0`,
+          status: 'proposed',
+        }),
+      ],
+    })
 
     const matched = warnSpy.mock.calls.find(
       ([msg]) => typeof msg === 'string' && msg.includes('Pending normalizations left unapplied')

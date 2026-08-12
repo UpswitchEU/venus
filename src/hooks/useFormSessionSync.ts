@@ -59,7 +59,14 @@ const SKIP_OPTIONAL_SESSION_SYNC_KEYS = new Set<string>(['revenue', 'ebitda', 's
 
 type AutosyncDataRoot = Record<string, unknown>
 
-const AUTOSYNC_YEAR_FIELDS = ['year', 'revenue', 'ebitda', ...OPTIONAL_YEAR_DATA_FIELDS] as const
+const AUTOSYNC_YEAR_FIELDS = [
+  'year',
+  'revenue',
+  'ebitda',
+  'ebitda_normalized',
+  'ebitda_normalization_metadata',
+  ...OPTIONAL_YEAR_DATA_FIELDS,
+] as const
 
 function normalizeComparableAutosyncValue(value: unknown): string {
   if (value === undefined || value === null) return ''
@@ -436,7 +443,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           comparables: data.comparables,
           business_type_id: normalizeBusinessTypeId(data.business_type_id),
           business_type: data.business_type,
-          shares_for_sale: 100,
+          shares_for_sale: data.shares_for_sale ?? 100,
           business_context: data.business_context,
           rev_recurring_amount: data.rev_recurring_amount,
           rev_top_client_amount: data.rev_top_client_amount,

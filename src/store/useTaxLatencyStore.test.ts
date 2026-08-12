@@ -175,4 +175,46 @@ describe('useTaxLatencyStore.setCandidates auto-promotion (zero-draft)', () => {
     expect(items).toEqual([])
     expect(candidates).toHaveLength(1)
   })
+
+  it('preserves imported governance but invalidates approval after a user edit', () => {
+    useTaxLatencyStore.getState().setItems(
+      [
+        {
+          id: 'governed-tax-1',
+          type: 'passive',
+          description: 'Reviewed deferred tax',
+          temporaryDifference: 100_000,
+          taxRate: 25,
+          status: 'accepted',
+          evidence_id: 'evidence-tax-1',
+          reviewed_at: '2026-08-12T09:30:00Z',
+          rule_version: 'equity-bridge-v1',
+          approved_by: 'advisor-17',
+          currency: 'EUR',
+          fiscal_year: 2025,
+          effective_date: '2025-12-31',
+        },
+      ],
+      { source: 'system' }
+    )
+
+    expect(useTaxLatencyStore.getState().items[0]).toMatchObject({
+      status: 'accepted',
+      evidence_id: 'evidence-tax-1',
+    })
+
+    useTaxLatencyStore.getState().updateItem('governed-tax-1', { taxRate: 30 })
+    const edited = useTaxLatencyStore.getState().items[0]
+    expect(edited).toMatchObject({
+      taxRate: 30,
+      status: 'proposed',
+      currency: 'EUR',
+      fiscal_year: 2025,
+      effective_date: '2025-12-31',
+    })
+    expect(edited).not.toHaveProperty('evidence_id')
+    expect(edited).not.toHaveProperty('reviewed_at')
+    expect(edited).not.toHaveProperty('rule_version')
+    expect(edited).not.toHaveProperty('approved_by')
+  })
 })

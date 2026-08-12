@@ -42,21 +42,36 @@ export enum BusinessModel {
 export interface YearDataInput {
   year: number
   revenue: number
+  /** Operating top line after excluding financial and extraordinary income. */
+  operating_revenue?: number
   ebitda: number
+  /** Source-reported EBITDA before any accepted normalization decision. */
+  reported_ebitda?: number
+  /** EBITDA after accepted/verified normalizations; never a proposed scenario. */
+  normalized_ebitda?: number
   ebitda_normalized?: boolean
   ebitda_normalization_metadata?: {
     reported_ebitda?: number
     normalized_ebitda?: number
     total_adjustments?: number
     adjustment_count?: number
+    pending_adjustment_count?: number
     confidence_score?: string
     has_custom_adjustments?: boolean
     adjustments?: Array<{
+      id?: string
       category: string
       amount: number
       label?: string
       note?: string
       source: string
+      status?: 'accepted' | 'verified' | 'proposed' | 'rejected'
+      evidence_id?: string
+      reviewed_at?: string
+      rule_version?: string
+      owner_role?: 'working' | 'passive'
+      actual_owner_compensation?: number
+      replacement_owner_compensation?: number
       confidence: string
       ledger_code?: string
     }>
@@ -65,12 +80,18 @@ export interface YearDataInput {
   // Optional detailed financials
   cogs?: number
   gross_profit?: number
+  financial_income?: number
+  extraordinary_income?: number
+  extraordinary_items?: number
   operating_expenses?: number
   ebit?: number
   depreciation?: number
+  depreciation_amortization?: number
   amortization?: number
   interest_expense?: number
   tax_expense?: number
+  owner_director_compensation?: number
+  personnel_costs?: number
   net_income?: number
   capex?: number
 
@@ -86,9 +107,18 @@ export interface YearDataInput {
   short_term_debt?: number
   total_debt?: number
   total_equity?: number
+  minority_interest_result_share?: number
+  fixed_assets?: number
+  capital_subsidies?: number
+  buildings?: number
+  machinery_equipment?: number
+  other_provisions?: number
 
   // Cash flow
   nwc_change?: number
+  operating_cash_flow?: number
+  investing_cash_flow?: number
+  financing_cash_flow?: number
   /** Explicit FCFF for forecast years (DCF “zonder EBITDA” mode). */
   free_cash_flow?: number
 
@@ -129,6 +159,34 @@ export interface YearDataInput {
 
   // Forecast flag — distinguishes user-provided projections from historical actuals
   is_forecast?: boolean
+}
+
+/**
+ * Evidence-linked normalization decision transported to Titan/ValuationIQ.
+ * The annual reported/normalized pair remains on YearDataInput for backwards
+ * compatibility; this ledger is the canonical source for priced vs scenario
+ * treatment and provenance.
+ */
+export interface ValuationNormalizationDecisionInput {
+  id?: string
+  fiscal_year: number
+  field: string
+  category?: string
+  label: string
+  original_value: number
+  adjusted_value: number
+  adjustment_amount: number
+  reason: string
+  source: string
+  status: 'accepted' | 'verified' | 'applied' | 'proposed' | 'rejected'
+  approved_by?: string
+  evidence_id?: string
+  reviewed_at?: string
+  rule_version?: string
+  currency?: string
+  owner_role?: 'working' | 'passive'
+  actual_owner_compensation?: number
+  replacement_owner_compensation?: number
 }
 
 export interface OfficialVerificationBadge {
@@ -206,6 +264,8 @@ export interface ValuationRequest {
   // Company information (all required)
   company_name: string
   country_code: string // 2-letter ISO code (e.g., "BE", "DE", "US")
+  /** Explicit ISO-4217 currency. Omitted means unresolved; never infer EUR at this boundary. */
+  currency?: string
   industry: IndustryCode | string // Backend expects IndustryCode enum
   business_model: BusinessModel | string // Backend expects BusinessModel enum
   founding_year: number // Required by backend
@@ -216,6 +276,8 @@ export interface ValuationRequest {
   filing_year_confirmed?: boolean
   historical_years_data?: YearDataInput[]
   forecast_years_data?: YearDataInput[]
+  /** Canonical raw decision ledger; ValuationIQ alone decides which statuses are priced. */
+  normalizations?: ValuationNormalizationDecisionInput[]
   official_financials?: OfficialFinancialsPayload
   official_variance_analysis?: OfficialVarianceAnalysis
   official_verification_badge?: OfficialVerificationBadge
@@ -373,6 +435,13 @@ export interface ValuationRequest {
   metadata?: Record<string, unknown>
 
   /**
+   * Canonical evidence/decision envelope. Venus only transports decisions
+   * created by an authorised workflow; selecting a field in the UI never
+   * manufactures an approval record.
+   */
+  valuation_case?: ValuationCaseInput
+
+  /**
    * Optional capital history forwarded to the SaaS / non-startup methods'
    * cap-table simulator.  Mirrors the Pydantic ``CapTableSummary`` on the
    * Python side and the Zod ``capTableSummarySchema`` on the Titan side
@@ -383,7 +452,7 @@ export interface ValuationRequest {
   cap_table?: CapTableSummaryInput
 
   /**
-   * Round size the founder is currently raising (EUR).  Drives the
+   * Round size the founder is currently raising in the request currency. Drives the
    * cap-table simulator on the SaaS / non-startup result.  Mirrors
    * ``startup_inputs.investment_amount_sought`` for the venture path.
    */
@@ -432,6 +501,79 @@ export interface ValuationRequest {
     note?: string
     acknowledged_extreme?: boolean
   }
+
+  /** Evidence-first controls accepted by Titan and forwarded to ValuationIQ. */
+  asking_price_buffer_pct?: number
+  business_type_multiple_overrides?: Record<string, number>
+  business_type_multiple_override_note?: string
+  has_audit?: boolean
+  audited_financials?: boolean
+  is_audited?: boolean
+  owner_dependency_factors?: OwnerDependencyFactorsInput
+  shareholder_roster?: ShareholderRosterEntryInput[]
+  ownership_summary?: OwnershipSummaryInput
+  holdings_consolidation?: HoldingConsolidationInput
+  fiscal_inputs?: Record<string, unknown>
+}
+
+export type OwnerDependencyLevel = 'very_low' | 'low' | 'medium' | 'high' | 'very_high'
+
+export interface OwnerDependencyFactorsInput {
+  owner_fte_ratio?: number | null
+  number_of_owners?: number | null
+  number_of_employees?: number | null
+  client_concentration: OwnerDependencyLevel
+  operational_knowledge: OwnerDependencyLevel
+  sales_relationship: OwnerDependencyLevel
+  technical_expertise: OwnerDependencyLevel
+  industry_network: OwnerDependencyLevel
+  decision_making: OwnerDependencyLevel
+  brand_reputation: OwnerDependencyLevel
+  process_documentation: OwnerDependencyLevel
+  team_capability: OwnerDependencyLevel
+  succession_planning: OwnerDependencyLevel
+  business_scalability: OwnerDependencyLevel
+  contract_transferability: OwnerDependencyLevel
+}
+
+export interface ShareholderRosterEntryInput {
+  id?: string
+  display_name: string
+  ownership_pct: number
+  is_working_owner: boolean
+  role_title?: string | null
+}
+
+export interface OwnershipSummaryInput {
+  total_shareholder_count: number
+  working_owner_count: number
+  working_ownership_pct: number
+  passive_shareholder_count: number
+  passive_ownership_pct: number
+}
+
+export interface HoldingConsolidationEntityInput {
+  id?: string
+  name?: string
+  title?: string
+  legal_name?: string
+  ownership_pct?: number
+  ownership_pct_in_parent?: number
+  parent_ownership_pct?: number
+  lines?: Record<string, unknown>
+  financial_lines?: Record<string, unknown>
+  financials?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export interface HoldingConsolidationInput {
+  parent: HoldingConsolidationEntityInput
+  subsidiaries: HoldingConsolidationEntityInput[]
+  eliminations?: Record<string, unknown>
+  intercompany_transactions?: Array<Record<string, unknown>>
+  mode?: 'pro_rata' | 'full'
+  subsidiary_run_ids?: string[]
+  require_valid?: boolean
 }
 
 export interface BusinessTypeSegmentInput {
@@ -451,11 +593,57 @@ export interface BusinessTypeSegmentInput {
 }
 
 export interface TaxLatencyInput {
+  id?: string
   type: 'active' | 'passive'
   description: string
   temporary_difference: number
   tax_rate: number
   account_code?: string
+  status?: string
+  evidence_id?: string
+  reviewed_at?: string
+  rule_version?: string
+  approved_by?: string
+  currency?: string
+  fiscal_year?: number
+  effective_date?: string
+}
+
+export type ValuationInputDecisionState = 'accepted' | 'edited' | 'rejected' | 'proposed'
+
+/** Mirrors ValuationIQ's `ValuationInputDecision` wire contract. */
+export interface ValuationInputDecisionInput {
+  schema_version?: 'valuation_input_decision.v1'
+  decision_id: string
+  evidence_id: string
+  field_key: string
+  fiscal_year?: number
+  category: string
+  state: ValuationInputDecisionState
+  signed_amount?: number
+  currency?: string
+  unit?: string
+  reason?: string
+  rule_version?: string
+  decided_by?: string
+  decided_at?: string
+}
+
+/** Mirrors the additive subset of ValuationIQ's `ValuationCase` contract. */
+export interface ValuationCaseInput {
+  schema_version?: 'valuation_case.v1'
+  case_id: string
+  company_id?: string
+  scenario_id?: string
+  evidence_revision_id?: string
+  accounting_evidence?: Record<string, unknown>
+  input_decisions?: ValuationInputDecisionInput[]
+  forecast_revision_id?: string
+  ownership_revision_id?: string
+  holdings_revision_id?: string
+  capital_structure_revision_id?: string
+  benchmark_snapshot_ids?: string[]
+  policy_version?: string
 }
 
 /**
@@ -501,6 +689,14 @@ export interface BalanceSheetAdjustmentInput {
   tax_rate?: number
   /** active | passive — when category is tax_latency */
   tax_latency_type?: 'active' | 'passive'
+  status?: string
+  evidence_id?: string
+  reviewed_at?: string
+  rule_version?: string
+  approved_by?: string
+  currency?: string
+  fiscal_year?: number
+  effective_date?: string
 }
 
 // Extended request type for frontend form state

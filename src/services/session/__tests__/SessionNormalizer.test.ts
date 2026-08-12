@@ -302,7 +302,7 @@ describe('normalizeSessionData', () => {
     expect(normalized.reportReady).toBe(false)
   })
 
-  it('normalizes legacy shares_for_sale values to 100', () => {
+  it('preserves legacy shares_for_sale values', () => {
     const normalizedSnake = normalizeSessionData({
       session_key: 'val_shares_snake',
       session_data: {
@@ -319,8 +319,8 @@ describe('normalizeSessionData', () => {
       },
     })
 
-    expect(normalizedSnake.formData.shares_for_sale).toBe(100)
-    expect(normalizedCamel.formData.shares_for_sale).toBe(100)
+    expect(normalizedSnake.formData.shares_for_sale).toBe(40)
+    expect(normalizedCamel.formData.shares_for_sale).toBe(25)
   })
 
   it('restores filing year confirmation from snake_case and camelCase payloads', () => {

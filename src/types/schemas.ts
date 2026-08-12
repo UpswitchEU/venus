@@ -56,6 +56,10 @@ export const ValuationRequestSchema = z
   .object({
     company_name: z.string().min(1, 'Company name is required'),
     country_code: z.string().length(2, 'Country code must be 2 characters'),
+    currency: z
+      .string()
+      .regex(/^[A-Z]{3}$/, 'Currency must be an ISO-4217 code')
+      .optional(),
     industry: z.string().min(1, 'Industry is required'),
     business_model: z.string().optional(),
     founding_year: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
@@ -65,8 +69,16 @@ export const ValuationRequestSchema = z
     number_of_employees: z.number().int().min(0).optional(),
     number_of_owners: z.number().int().min(1).optional(),
     recurring_revenue_percentage: z.number().min(0).max(100).optional(),
-    /** Venus always values 100% of the business; omit or set exactly 100. */
-    shares_for_sale: z.literal(100).optional(),
+    /** Percentage sold; the default manual UI remains 100%, but imports stay lossless. */
+    shares_for_sale: z
+      .number()
+      .min(0)
+      .max(100)
+      .refine(
+        (value) => Math.abs(value * 100 - Math.round(value * 100)) < Number.EPSILON * 100,
+        'Shares for sale supports at most two decimals'
+      )
+      .optional(),
     business_type_id: z.string().optional(),
     business_context: z.record(z.unknown()).optional(),
     comparables: z.array(z.unknown()).optional(),

@@ -9,3 +9,11 @@ onlyBuiltDependencies:
   - '@swc/core'
   - 'core-js'
   - 'esbuild'
+
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  '@swc/core': set this to true or false
+  core-js: set this to true or false
+  esbuild: set this to true or false
+  protobufjs: set this to true or false
+  sharp: set this to true or false

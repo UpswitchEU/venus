@@ -18,7 +18,7 @@ import {
 import { normalizeDcfSessionFields } from './SessionDcfFieldNormalizer'
 
 type SessionRecord = Record<string, unknown>
-type SessionYearRow = { year: number; revenue?: number; ebitda?: number }
+type SessionYearRow = { year: number; revenue?: number; ebitda?: number } & SessionRecord
 
 function isRecord(value: unknown): value is SessionRecord {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -58,6 +58,7 @@ function buildYearRowsFromMap(yearData: unknown): Map<number, SessionYearRow> {
     if (!row || typeof row !== 'object' || Array.isArray(row)) continue
     const rowObj = row as Record<string, unknown>
     yearRowsFromMap.set(year, {
+      ...rowObj,
       year,
       revenue: toOptionalNumeric(rowObj.revenue),
       ebitda: toOptionalNumeric(rowObj.ebitda),
@@ -88,7 +89,7 @@ function mergeYearDataIntoHistoricalRows(
   }
 
   if (Array.isArray(fd.historical_years_data) && yearRowsFromMap.size > 0) {
-    const mergedByYear = new Map<number, { year: number; revenue?: number; ebitda?: number }>()
+    const mergedByYear = new Map<number, SessionYearRow>()
     for (const row of fd.historical_years_data as Array<{
       year?: number
       revenue?: number
@@ -97,6 +98,7 @@ function mergeYearDataIntoHistoricalRows(
       if (!row || !Number.isFinite(Number(row.year))) continue
       const year = Number(row.year)
       mergedByYear.set(year, {
+        ...(row as Record<string, unknown>),
         year,
         revenue: toOptionalNumeric(row.revenue),
         ebitda: toOptionalNumeric(row.ebitda),
@@ -129,6 +131,7 @@ function readHistoricalRows(fd: Record<string, unknown>): SessionYearRow[] {
     const year = Number(record.year)
     if (!Number.isFinite(year) || year < 2000 || year > 2100) return null
     return {
+      ...record,
       year,
       revenue: toOptionalNumeric(record.revenue),
       ebitda: toOptionalNumeric(record.ebitda),
@@ -491,10 +494,6 @@ export function extractFormData(sessionData: SessionRecord): Partial<ValuationRe
     if (value !== undefined && value !== null) {
       formDataRecord[primaryKey] = value
     }
-  }
-
-  if (Object.keys(formData).length > 0) {
-    ;(formData as Partial<ValuationRequest>).shares_for_sale = 100
   }
 
   const fd = formData as Record<string, unknown>

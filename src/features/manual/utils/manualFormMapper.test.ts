@@ -238,9 +238,64 @@ describe('mapClarityFormToVenusStore', () => {
   })
 
   it('preserves method-specific valuation fields', () => {
+    const advancedMethodInputs = {
+      nav_real_estate_book_value: 650_000,
+      nav_real_estate_appraisal_value: 900_000,
+      nav_per_asset_tax_rates: { real_estate: 25, inventory: 20 },
+      nav_equipment_revaluation: {
+        original_cost: 200_000,
+        acquisition_year: 2020,
+        tax_book_value: 40_000,
+        economic_useful_life_years: 10,
+      },
+      deal_type: 'compare',
+      deal_goodwill_amount: 175_000,
+      deal_seller_share_basis: 300_000,
+      deal_seller_is_individual: true,
+      deal_buyer_discount_rate_pct: 9,
+      deal_registration_duty_pct: 12.5,
+      rev_capitalized_rd_amount: 85_000,
+      liq_headcount: 8,
+      liq_monthly_rent: 5_000,
+      liq_paid_up_capital: 150_000,
+      liq_deferred_tax: 25_000,
+      liq_premise_override: 'orderly_liquidation',
+      liq_realised_capital_gains: 40_000,
+      liq_taxable_reserves: 30_000,
+      liq_runway_months_orderly: 9,
+      liq_runway_months_forced: 3,
+      liq_distress_wacc_orderly: 18,
+      liq_distress_wacc_forced: 30,
+      liq_intangibles_uplift_pct: 5,
+      liq_multiples_value_override: 425_000,
+      liq_lb_super_preferent_employees: 10_000,
+      liq_lb_preferent_tax: 20_000,
+      liq_lb_preferent_other: 30_000,
+      liq_lb_secured: 40_000,
+      liq_lb_unsecured: 50_000,
+      liq_lb_subordinated: 60_000,
+      liq_lb_estate_costs: 70_000,
+      liq_ao_land: 80_000,
+      liq_ao_buildings: 90_000,
+      liq_ao_machinery_equipment: 100_000,
+      liq_ao_vehicles: 110_000,
+      liq_ao_it_equipment: 120_000,
+      liq_ao_intangibles: 130_000,
+      liq_ao_inventory_raw: 140_000,
+      liq_ao_inventory_wip: 150_000,
+      liq_ao_inventory_finished: 160_000,
+      liq_ao_trade_receivables: 170_000,
+      liq_ao_other_receivables: 180_000,
+      liq_ao_cash: 190_000,
+      fiscal_acquisition_cost: 750_000,
+      fiscal_anchor_2_value: 800_000,
+      fiscal_anchor_3_value: 825_000,
+      fiscal_anchor_4_value: 0,
+    } as const
     const mapped = mapClarityFormToVenusStore(
       {
         companyName: 'Acme',
+        currency: 'gbp',
         dcf_wacc_pct: 12,
         dcf_discounting_convention: 'year_end',
         dcf_tax_shield_projections: [1.5, 1.125, 0.75],
@@ -254,6 +309,7 @@ describe('mapClarityFormToVenusStore', () => {
         risk_analysis_enabled: false,
         discount_floor_factor: 0.4,
         owner_salary_addback: 80_000,
+        ...advancedMethodInputs,
       },
       storeForm()
     )
@@ -272,6 +328,8 @@ describe('mapClarityFormToVenusStore', () => {
       risk_analysis_enabled: false,
       discount_floor_factor: 0.4,
       owner_salary_addback: 80_000,
+      currency: 'GBP',
     })
+    expect(mapped).toMatchObject(advancedMethodInputs)
   })
 })

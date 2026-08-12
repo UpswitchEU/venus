@@ -28,6 +28,7 @@ import {
 export interface BuildStartupValuationRequestOptions {
   companyName: string
   countryCode?: string
+  currency?: string
   industry?: string
   businessModel?: string
   foundingYear?: number
@@ -76,6 +77,7 @@ function buildAdvisorCtaUrl(locale?: 'nl' | 'en' | 'fr'): string {
 export function buildStartupValuationRequest({
   companyName,
   countryCode,
+  currency,
   industry,
   businessModel,
   foundingYear,
@@ -91,6 +93,9 @@ export function buildStartupValuationRequest({
 }: BuildStartupValuationRequestOptions): ValuationRequest {
   const cleanCompanyName = (companyName || 'Unknown Startup').trim() || 'Unknown Startup'
   const cleanCountry = coerceIso2OrNull(countryCode) ?? 'BE'
+  const cleanCurrency = /^[A-Z]{3}$/.test(currency?.trim().toUpperCase() ?? '')
+    ? currency?.trim().toUpperCase()
+    : undefined
   const normalizedBusinessTypeId = normalizeBusinessTypeId(businessTypeId)
   const cleanBusinessTypeId =
     normalizedBusinessTypeId && !isLegalFormBusinessTypeValue(normalizedBusinessTypeId)
@@ -115,6 +120,7 @@ export function buildStartupValuationRequest({
   return {
     company_name: cleanCompanyName,
     country_code: cleanCountry,
+    ...(cleanCurrency ? { currency: cleanCurrency } : {}),
     industry: industry || DEFAULT_INDUSTRY,
     business_model: businessModel || DEFAULT_BUSINESS_MODEL,
     founding_year: cleanFoundingYear,

@@ -27,7 +27,7 @@ describe('shareholding utilities', () => {
     expect(hasAtMostTwoShareholdingDecimals(33.333)).toBe(false)
   })
 
-  it('ValuationRequestSchema allows shares_for_sale only as omitted or exactly 100', () => {
+  it('ValuationRequestSchema accepts an omitted, full, or partial stake with two decimals', () => {
     const omitted = ValuationRequestSchema.safeParse({
       company_name: 'Precision Co',
       country_code: 'BE',
@@ -58,11 +58,11 @@ describe('shareholding utilities', () => {
 
     expect(omitted.success).toBe(true)
     expect(full.success).toBe(true)
-    expect(partial.success).toBe(false)
+    expect(partial.success).toBe(true)
     expect(tooManyDecimals.success).toBe(false)
   })
 
-  it('ValuationRequestSchema rejects non-100 numeric shares_for_sale including 0 and >100', () => {
+  it('ValuationRequestSchema accepts zero and rejects shares_for_sale above 100', () => {
     const zero = ValuationRequestSchema.safeParse({
       company_name: 'Precision Co',
       country_code: 'BE',
@@ -78,7 +78,7 @@ describe('shareholding utilities', () => {
       shares_for_sale: 100.01,
     })
 
-    expect(zero.success).toBe(false)
+    expect(zero.success).toBe(true)
     expect(aboveRange.success).toBe(false)
   })
 })

@@ -762,7 +762,7 @@ describe('SessionRestorationService', () => {
     ])
   })
 
-  it('normalizes restored partial shares_for_sale back to 100', async () => {
+  it('preserves restored partial shares_for_sale', async () => {
     await SessionRestorationService.restore('val_partial_shares', {
       reportId: 'val_partial_shares',
       sessionData: {
@@ -772,7 +772,7 @@ describe('SessionRestorationService', () => {
     })
 
     const state = useManualFormStore.getState()
-    expect(state.formData.shares_for_sale).toBe(100)
+    expect(state.formData.shares_for_sale).toBe(40)
   })
 
   it('does not hydrate manual results from ValuationIQ safety-net summary in package', () => {

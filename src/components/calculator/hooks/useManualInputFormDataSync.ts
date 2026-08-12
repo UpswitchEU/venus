@@ -1,6 +1,7 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
+import { pickManualMethodInputParityFields } from '../../../utils/manualMethodInputParity'
 import { buildCurrentYearData } from '../../../utils/yearData'
 
 export interface UseManualInputFormDataSyncParams {
@@ -25,6 +26,7 @@ export function useManualInputFormDataSync({
     const current = latestCompleteYearlyFinancial
 
     Object.assign(formDataRef.current, {
+      ...pickManualMethodInputParityFields(formData),
       businessType: normalizeBusinessTypeId(formData.businessType) ?? formData.businessType,
       yearlyFinancials: formData.yearlyFinancials,
       real_estate_treatment: formData.real_estate_treatment,
@@ -57,6 +59,7 @@ export function useManualInputFormDataSync({
     // Registry + NACE/SBI must flow to ManualLayout -> Zustand on every change
     // so session autosave and refresh never race ahead with stale company data.
     onFormDataChangeRef.current({
+      ...pickManualMethodInputParityFields(formData),
       companyName: formData.companyName,
       kboNumber: formData.kboNumber,
       legalForm: formData.legalForm,
@@ -66,6 +69,8 @@ export function useManualInputFormDataSync({
       naceDescription: formData.naceDescription,
       industry: formData.industry,
       country: formData.country,
+      currency: formData.currency,
+      shares_for_sale: formData.shares_for_sale,
       businessModel: formData.business_model ?? storeBusinessModel,
       yearFounded: formData.yearFounded,
       ownerManagers: formData.ownerManagers,

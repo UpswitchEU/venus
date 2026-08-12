@@ -151,6 +151,19 @@ describe('mergeOptionalSessionPrefillFields', () => {
         nav_per_asset_tax_rates: { real_estate: 20, inventory: 25 },
         nav_equipment_revaluation: { original_cost: 100000, tax_book_value: 40000 },
         capital_safe_notes: [{ amount: 50000, discount_pct: 20 }],
+        valuation_case: {
+          case_id: 'case-1',
+          evidence_revision_id: 'evidence-revision-1',
+          input_decisions: [
+            {
+              decision_id: 'decision-re-1',
+              evidence_id: 'evidence-property-1',
+              field_key: 'real_estate_treatment',
+              category: 'transaction_perimeter',
+              state: 'accepted',
+            },
+          ],
+        },
       },
       {
         ...baseForm,
@@ -170,6 +183,10 @@ describe('mergeOptionalSessionPrefillFields', () => {
     expect((patch as Record<string, unknown>).capital_safe_notes).toEqual([
       { amount: 50000, discount_pct: 20 },
     ])
+    expect((patch as Record<string, unknown>).valuation_case).toMatchObject({
+      case_id: 'case-1',
+      evidence_revision_id: 'evidence-revision-1',
+    })
   })
 
   it('merges historical_years_data when form has no historical rows', () => {

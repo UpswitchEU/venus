@@ -12,6 +12,13 @@ export interface ImportedLedgerTaxLatencyCandidate {
   temporary_difference?: number
   type?: 'active' | 'passive'
   auto_apply?: boolean
+  status?: string
+  evidence_id?: string
+  reviewed_at?: string
+  rule_version?: string
+  approved_by?: string
+  currency?: string
+  effective_date?: string
 }
 
 export interface ImportedLedgerTaxLatencyAnalysisLike {
@@ -50,5 +57,13 @@ export function buildTaxLatencyCandidatesFromImportedLedgerAnalysis(
       taxRate: candidate.tax_rate != null ? Number(candidate.tax_rate) : 25,
       year: candidate.fiscal_year,
       autoApply: Boolean(candidate.auto_apply),
+      ...(candidate.status ? { status: candidate.status } : {}),
+      ...(candidate.evidence_id ? { evidence_id: candidate.evidence_id } : {}),
+      ...(candidate.reviewed_at ? { reviewed_at: candidate.reviewed_at } : {}),
+      ...(candidate.rule_version ? { rule_version: candidate.rule_version } : {}),
+      ...(candidate.approved_by ? { approved_by: candidate.approved_by } : {}),
+      ...(candidate.currency ? { currency: candidate.currency.toUpperCase() } : {}),
+      ...(candidate.fiscal_year != null ? { fiscal_year: candidate.fiscal_year } : {}),
+      ...(candidate.effective_date ? { effective_date: candidate.effective_date } : {}),
     }))
 }

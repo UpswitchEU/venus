@@ -100,24 +100,17 @@ export function buildPreCalculationSessionUpdate(
   })
 
   return {
+    ...formData,
     company_name: formData.company_name,
     country_code: formData.country_code,
     industry: formData.industry,
     business_model: formData.business_model,
     founding_year: formData.founding_year,
     current_year_data: {
+      ...formData.current_year_data,
       year: currentYear,
       revenue: currentYearFinancialNumberOrZero(currentYearFinancials.revenueInput),
       ebitda: currentYearFinancialNumberOrZero(currentYearFinancials.ebitdaInput),
-      ...(formData.current_year_data?.total_assets != null && {
-        total_assets: formData.current_year_data.total_assets,
-      }),
-      ...(formData.current_year_data?.total_debt != null && {
-        total_debt: formData.current_year_data.total_debt,
-      }),
-      ...(formData.current_year_data?.cash != null && {
-        cash: formData.current_year_data.cash,
-      }),
     },
     historical_years_data: normalizedHistoricalYears,
     number_of_employees: formData.number_of_employees,
@@ -127,7 +120,7 @@ export function buildPreCalculationSessionUpdate(
     business_type_id: formData.business_type_id,
     business_type_segments: formData.business_type_segments,
     business_type: formData.business_type,
-    shares_for_sale: 100,
+    shares_for_sale: formData.shares_for_sale ?? 100,
     business_context: formData.business_context,
   }
 }

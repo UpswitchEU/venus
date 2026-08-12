@@ -38,6 +38,7 @@ export function buildManualValuationRequest(
     return buildStartupValuationRequest({
       companyName: formData.company_name ?? 'Unknown Startup',
       countryCode: resolvedCountry,
+      currency: formData.currency,
       industry: formData.industry,
       businessModel: formData.business_model,
       foundingYear: formData.founding_year,

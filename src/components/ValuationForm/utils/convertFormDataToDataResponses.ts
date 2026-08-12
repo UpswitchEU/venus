@@ -74,7 +74,7 @@ export function convertFormDataToDataResponses(formData: ValuationFormData): Dat
   addResponse('business_type', formData.business_type)
   addResponse('number_of_owners', formData.number_of_owners)
   addResponse('number_of_employees', formData.number_of_employees)
-  addResponse('shares_for_sale', 100)
+  addResponse('shares_for_sale', formData.shares_for_sale ?? 100)
 
   // Historical Data
   const normalizedHistoricalYears = normalizeHistoricalYearsForFiling(

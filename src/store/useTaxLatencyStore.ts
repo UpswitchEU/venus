@@ -57,6 +57,15 @@ export interface TaxLatencyItem {
   description: string
   temporaryDifference: number
   taxRate: number
+  /** Optional canonical governance; absence means proposed/unpriced. */
+  status?: string
+  evidence_id?: string
+  reviewed_at?: string
+  rule_version?: string
+  approved_by?: string
+  currency?: string
+  fiscal_year?: number
+  effective_date?: string
 }
 
 export interface TaxLatencyCandidate {
@@ -71,11 +80,33 @@ export interface TaxLatencyCandidate {
   taxRate: number
   year?: number
   autoApply?: boolean
+  status?: string
+  evidence_id?: string
+  reviewed_at?: string
+  rule_version?: string
+  approved_by?: string
+  currency?: string
+  fiscal_year?: number
+  effective_date?: string
 }
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
   const numeric = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(numeric) ? numeric : fallback
+}
+
+function optionalString(record: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return undefined
+}
+
+function optionalFiscalYear(record: Record<string, unknown>): number | undefined {
+  const value = record.fiscal_year ?? record.fiscalYear
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isInteger(numeric) && numeric >= 1900 && numeric <= 2100 ? numeric : undefined
 }
 
 function normalizeTaxLatencyItem(input: unknown): TaxLatencyItem | null {
@@ -84,6 +115,15 @@ function normalizeTaxLatencyItem(input: unknown): TaxLatencyItem | null {
   const record = input as Record<string, unknown>
   const id = typeof record.id === 'string' && record.id ? record.id : ''
   if (!id) return null
+
+  const status = optionalString(record, 'status')
+  const evidenceId = optionalString(record, 'evidence_id', 'evidenceId')
+  const reviewedAt = optionalString(record, 'reviewed_at', 'reviewedAt')
+  const ruleVersion = optionalString(record, 'rule_version', 'ruleVersion')
+  const approvedBy = optionalString(record, 'approved_by', 'approvedBy')
+  const currency = optionalString(record, 'currency')?.toUpperCase()
+  const fiscalYear = optionalFiscalYear(record)
+  const effectiveDate = optionalString(record, 'effective_date', 'effectiveDate')
 
   return {
     id,
@@ -111,6 +151,14 @@ function normalizeTaxLatencyItem(input: unknown): TaxLatencyItem | null {
       )
     ),
     taxRate: Math.min(100, Math.max(0, toFiniteNumber(record.taxRate ?? record.tax_rate, 25))),
+    ...(status ? { status } : {}),
+    ...(evidenceId ? { evidence_id: evidenceId } : {}),
+    ...(reviewedAt ? { reviewed_at: reviewedAt } : {}),
+    ...(ruleVersion ? { rule_version: ruleVersion } : {}),
+    ...(approvedBy ? { approved_by: approvedBy } : {}),
+    ...(currency ? { currency } : {}),
+    ...(fiscalYear != null ? { fiscal_year: fiscalYear } : {}),
+    ...(effectiveDate ? { effective_date: effectiveDate } : {}),
   }
 }
 
@@ -119,6 +167,15 @@ function normalizeTaxLatencyItems(input: unknown): TaxLatencyItem[] {
   return input
     .map((item) => normalizeTaxLatencyItem(item))
     .filter((item): item is TaxLatencyItem => item !== null)
+}
+
+function invalidateTaxLatencyApproval(item: TaxLatencyItem): TaxLatencyItem {
+  const proposed = { ...item, status: 'proposed' }
+  delete proposed.evidence_id
+  delete proposed.reviewed_at
+  delete proposed.rule_version
+  delete proposed.approved_by
+  return proposed
 }
 
 function getTaxLatencySessionPersistDeferRemainingMs(reportId: string): number {
@@ -291,7 +348,8 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
             items: state.items.map((i) => {
               if (i.id !== id) return i
               const merged = { ...i, ...partial }
-              return normalizeTaxLatencyItem(merged) ?? i
+              const normalized = normalizeTaxLatencyItem(merged)
+              return normalized ? invalidateTaxLatencyApproval(normalized) : i
             }),
             _lastMutationSource: 'user',
             _mutationSeq: state._mutationSeq + 1,
@@ -357,6 +415,14 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
                 description: candidate.description,
                 temporaryDifference: candidate.temporaryDifference,
                 taxRate: candidate.taxRate,
+                status: candidate.status,
+                evidence_id: candidate.evidence_id,
+                reviewed_at: candidate.reviewed_at,
+                rule_version: candidate.rule_version,
+                approved_by: candidate.approved_by,
+                currency: candidate.currency,
+                fiscal_year: candidate.fiscal_year,
+                effective_date: candidate.effective_date,
               })
               if (item) promoted.push(item)
             }

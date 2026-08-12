@@ -268,7 +268,13 @@ describe('buildValuationRequest core registry and financial contract', () => {
     )
 
     expect(result.historical_years_data).toEqual([
-      { year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000, ebitda_normalized: false },
+      {
+        year: lastFullYear - 1,
+        revenue: 900_000,
+        ebitda: 90_000,
+        reported_ebitda: 90_000,
+        ebitda_normalized: false,
+      },
     ])
   })
 
@@ -494,7 +500,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
     )
   })
 
-  it('always forces shares_for_sale to 100', () => {
+  it('preserves explicit shares_for_sale and defaults to 100 when absent', () => {
     const decimalResult = buildValuationRequest(
       makeFormData({
         shares_for_sale: 33.33,
@@ -509,8 +515,8 @@ describe('buildValuationRequest core registry and financial contract', () => {
     )
     const defaultResult = buildValuationRequest(makeFormData(), [])
 
-    expect(decimalResult.shares_for_sale).toBe(100)
-    expect(zeroResult.shares_for_sale).toBe(100)
+    expect(decimalResult.shares_for_sale).toBe(33.33)
+    expect(zeroResult.shares_for_sale).toBe(0)
     expect(defaultResult.shares_for_sale).toBe(100)
   })
 
@@ -524,6 +530,14 @@ describe('buildValuationRequest core registry and financial contract', () => {
         description: 'Belastinglatentie op meerwaarde gebouw',
         temporaryDifference: 150_000,
         taxRate: 25,
+        status: 'accepted',
+        evidence_id: 'evidence-property-tax-1',
+        reviewed_at: '2026-08-12T09:30:00Z',
+        rule_version: 'equity-bridge-v1',
+        approved_by: 'advisor-17',
+        currency: 'EUR',
+        fiscal_year: 2025,
+        effective_date: '2025-12-31',
       },
     ])
 
@@ -541,6 +555,14 @@ describe('buildValuationRequest core registry and financial contract', () => {
         temporary_difference: 150_000,
         tax_rate: 25,
         tax_latency_type: 'passive',
+        status: 'accepted',
+        evidence_id: 'evidence-property-tax-1',
+        reviewed_at: '2026-08-12T09:30:00Z',
+        rule_version: 'equity-bridge-v1',
+        approved_by: 'advisor-17',
+        currency: 'EUR',
+        fiscal_year: 2025,
+        effective_date: '2025-12-31',
       }),
     ])
 
@@ -721,7 +743,13 @@ describe('buildValuationRequest core registry and financial contract', () => {
     expect(result.current_year_data.year).toBe(2024)
     expect(result.current_year_data.revenue).toBe(1_500_000)
     expect(result.historical_years_data).toEqual([
-      { year: 2023, revenue: 1_000_000, ebitda: 100_000, ebitda_normalized: false },
+      {
+        year: 2023,
+        revenue: 1_000_000,
+        ebitda: 100_000,
+        reported_ebitda: 100_000,
+        ebitda_normalized: false,
+      },
     ])
   })
 
@@ -755,7 +783,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
     expect(result.historical_years_data.map((row) => row.year)).toEqual([2023, 2024])
   })
 
-  it('drops historical rows without positive revenue before building the request', () => {
+  it('preserves zero-revenue historical rows when they carry earnings evidence', () => {
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({
@@ -764,7 +792,39 @@ describe('buildValuationRequest core registry and financial contract', () => {
       []
     )
 
-    expect(result.historical_years_data).toEqual([])
+    expect(result.historical_years_data).toEqual([
+      expect.objectContaining({ year: lastFullYear - 1, revenue: 0, ebitda: 90_000 }),
+    ])
+  })
+
+  it('preserves asset-only holding history with explicit zero revenue and EBITDA', () => {
+    const lastFullYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        business_type_id: 'holding-company',
+        historical_years_data: [
+          {
+            year: lastFullYear - 1,
+            revenue: 0,
+            ebitda: 0,
+            total_assets: 2_500_000,
+            total_liabilities: 900_000,
+            total_equity: 1_600_000,
+          },
+        ],
+      }),
+      []
+    )
+
+    expect(result.historical_years_data).toEqual([
+      expect.objectContaining({
+        year: lastFullYear - 1,
+        revenue: 0,
+        ebitda: 0,
+        total_assets: 2_500_000,
+        total_equity: 1_600_000,
+      }),
+    ])
   })
 
   it('builds the Upswitch one-year valuation payload without zero-revenue historical rows', () => {

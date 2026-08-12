@@ -356,7 +356,13 @@ describe('buildValuationRequest business segments and forecast hygiene', () => {
       []
     )
     expect(result.historical_years_data).toEqual([
-      { year: lastFullYear - 1, revenue: 900_000, ebitda: 90_000, ebitda_normalized: false },
+      {
+        year: lastFullYear - 1,
+        revenue: 900_000,
+        ebitda: 90_000,
+        reported_ebitda: 90_000,
+        ebitda_normalized: false,
+      },
     ])
     expect(result.forecast_years_data).toEqual([
       {
@@ -554,6 +560,7 @@ describe('buildValuationRequest business segments and forecast hygiene', () => {
         year: filingYear - 1,
         revenue: 900_000,
         ebitda: 90_000,
+        reported_ebitda: 90_000,
         ebitda_normalized: false,
       },
     ])

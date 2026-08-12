@@ -15,14 +15,23 @@ export interface NormYearEntry {
   confidence: string
   hasCustomAdjustments: boolean
   items: Array<{
+    id?: string
     category: string
     amount: number
     label?: string
     note?: string
     source: string
+    status?: 'accepted' | 'verified' | 'proposed' | 'rejected'
+    evidence_id?: string
+    reviewed_at?: string
+    rule_version?: string
+    owner_role?: 'working' | 'passive'
+    actual_owner_compensation?: number
+    replacement_owner_compensation?: number
     confidence: string
     ledger_code?: string
   }>
+  pendingCount?: number
 }
 
 export function toFiniteNumber(value: unknown): number | null {
@@ -175,18 +184,26 @@ export function requireNonNegativeRevenue(value: unknown, field: string): number
 }
 
 const YEAR_DATA_OPTIONAL_FIELDS = [
+  'operating_revenue',
   'cogs',
   'gross_profit',
+  'financial_income',
+  'extraordinary_income',
+  'extraordinary_items',
   'operating_expenses',
   'ebit',
   'capex',
   'depreciation',
+  'depreciation_amortization',
   'amortization',
   'interest_expense',
   'tax_expense',
+  'owner_director_compensation',
+  'personnel_costs',
   'net_income',
   'total_assets',
   'current_assets',
+  'fixed_assets',
   'cash',
   'accounts_receivable',
   'accounts_payable',
@@ -196,18 +213,32 @@ const YEAR_DATA_OPTIONAL_FIELDS = [
   'short_term_debt',
   'total_debt',
   'total_equity',
+  'minority_interest_result_share',
   'nwc_change',
+  'operating_cash_flow',
+  'investing_cash_flow',
+  'financing_cash_flow',
   'free_cash_flow',
+  'rent_expense',
   'paid_up_capital',
+  'capital_subsidies',
   'deferred_tax_liabilities',
+  'buildings',
+  'machinery_equipment',
+  'other_provisions',
 ] as const
 
 const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
   'cogs',
+  'operating_revenue',
   'operating_expenses',
   'capex',
   'depreciation',
+  'depreciation_amortization',
   'amortization',
+  'owner_director_compensation',
+  'personnel_costs',
+  'rent_expense',
   'total_assets',
   'current_assets',
   'cash',
@@ -216,8 +247,13 @@ const NON_NEGATIVE_YEAR_FIELDS = new Set<string>([
   'total_liabilities',
   'current_liabilities',
   'total_debt',
+  'fixed_assets',
   'paid_up_capital',
+  'capital_subsidies',
   'deferred_tax_liabilities',
+  'buildings',
+  'machinery_equipment',
+  'other_provisions',
 ])
 
 export function pickOptionalYearDataFields(source: unknown): Record<string, number> {
@@ -242,9 +278,9 @@ export function pickOptionalYearDataFields(source: unknown): Record<string, numb
   return result
 }
 
-export function hasPositiveHistoricalRevenue(source: YearDataInput): boolean {
+export function hasNonNegativeHistoricalRevenue(source: YearDataInput): boolean {
   const revenue = toFiniteNumber(source.revenue)
-  return revenue !== null && revenue > 0
+  return revenue !== null && revenue >= 0
 }
 
 function hasRealRevenueOrEbitda(source: { revenue?: unknown; ebitda?: unknown }): boolean {
@@ -253,9 +289,29 @@ function hasRealRevenueOrEbitda(source: { revenue?: unknown; ebitda?: unknown })
   return (revenue !== null && revenue !== 0) || (ebitda !== null && ebitda !== 0)
 }
 
+function hasMaterialBalanceSheetEvidence(source: YearDataInput | undefined): boolean {
+  if (!source) return false
+  return [
+    source.total_assets,
+    source.total_liabilities,
+    source.total_equity,
+    source.fixed_assets,
+    source.cash,
+    source.inventory,
+  ].some((value) => {
+    const numeric = toFiniteNumber(value)
+    return numeric !== null && numeric !== 0
+  })
+}
+
+export function hasUsableHistoricalEvidence(source: YearDataInput): boolean {
+  return hasRealRevenueOrEbitda(source) || hasMaterialBalanceSheetEvidence(source)
+}
+
 function getLatestRealHistoricalRow(rows: YearDataInput[]): YearDataInput | null {
   return (
-    rows.filter(hasRealRevenueOrEbitda).sort((a, b) => Number(b.year) - Number(a.year))[0] ?? null
+    rows.filter(hasUsableHistoricalEvidence).sort((a, b) => Number(b.year) - Number(a.year))[0] ??
+    null
   )
 }
 
@@ -275,10 +331,11 @@ export function resolveCurrentYearFromHistoricalBackstop(args: {
     ebitda: args.formData.ebitda,
   })
   const currentMissing = !current && !topLevelHasRealFigures
-  const currentPlaceholder = !hasRealRevenueOrEbitda({
-    revenue: current?.revenue,
-    ebitda: current?.ebitda,
-  })
+  const currentPlaceholder =
+    !hasRealRevenueOrEbitda({
+      revenue: current?.revenue,
+      ebitda: current?.ebitda,
+    }) && !hasMaterialBalanceSheetEvidence(current)
   const canTreatCurrentAsStalePlaceholder =
     currentPlaceholder &&
     !topLevelHasRealFigures &&
@@ -308,6 +365,7 @@ export function mapLegacyNormalizationAdjustment(
     category: adjustment.category ?? 'other_adjustments',
     amount: toFiniteNumber(adjustment.amount) ?? 0,
     source: 'manual',
+    status: 'accepted',
     confidence: adjustment.confidence ?? 'medium',
     ...(adjustment.ledger_code && { ledger_code: adjustment.ledger_code }),
   }
@@ -317,9 +375,11 @@ export function mapLegacyCustomAdjustment(
   adjustment: CustomAdjustment
 ): NormYearEntry['items'][number] {
   return {
+    ...(adjustment.id ? { id: adjustment.id } : {}),
     category: 'other_adjustments',
     amount: toFiniteNumber(adjustment.amount) ?? 0,
     source: 'manual',
+    status: 'accepted',
     confidence: 'medium',
   }
 }

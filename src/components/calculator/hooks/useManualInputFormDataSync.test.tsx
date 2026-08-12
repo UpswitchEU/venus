@@ -37,6 +37,16 @@ describe('useManualInputFormDataSync', () => {
       show_enterprise_to_equity_bridge: false,
       owner_salary_addback: 80_000,
       owner_role: 'working',
+      nav_real_estate_book_value: 650_000,
+      nav_real_estate_appraisal_value: 900_000,
+      nav_per_asset_tax_rates: { real_estate: 25 },
+      nav_equipment_revaluation: { original_cost: 200_000, tax_book_value: 40_000 },
+      deal_type: 'compare',
+      liq_headcount: 8,
+      liq_ao_buildings: 900_000,
+      fiscal_acquisition_cost: 750_000,
+      fiscal_anchor_4_value: 0,
+      rev_capitalized_rd_amount: 85_000,
     } as ManualValuationFormData
     const onFormDataChange = vi.fn()
     const formDataRef = { current: {} as Record<string, unknown> }
@@ -63,6 +73,11 @@ describe('useManualInputFormDataSync', () => {
       advisor_discount_weights: { size_discount: 0.5, liquidity_discount: 1.25 },
       risk_analysis_enabled: false,
       discount_floor_factor: 0.4,
+      nav_real_estate_appraisal_value: 900_000,
+      deal_type: 'compare',
+      liq_headcount: 8,
+      fiscal_anchor_4_value: 0,
+      rev_capitalized_rd_amount: 85_000,
     })
 
     await waitFor(() => expect(onFormDataChange).toHaveBeenCalled())
@@ -85,6 +100,16 @@ describe('useManualInputFormDataSync', () => {
       show_enterprise_to_equity_bridge: false,
       owner_salary_addback: 80_000,
       owner_role: 'working',
+      nav_real_estate_book_value: 650_000,
+      nav_real_estate_appraisal_value: 900_000,
+      nav_per_asset_tax_rates: { real_estate: 25 },
+      nav_equipment_revaluation: { original_cost: 200_000, tax_book_value: 40_000 },
+      deal_type: 'compare',
+      liq_headcount: 8,
+      liq_ao_buildings: 900_000,
+      fiscal_acquisition_cost: 750_000,
+      fiscal_anchor_4_value: 0,
+      rev_capitalized_rd_amount: 85_000,
     })
   })
 

@@ -38,6 +38,14 @@ export interface NormalizationItem {
   year: number
   confidence?: 'high' | 'medium' | 'low'
   marketBenchmark?: number
+  /** Economic role used only for owner-compensation normalizations. */
+  ownerRole?: 'working' | 'passive'
+  /** Gross compensation actually paid to the owner in this fiscal year. */
+  actualOwnerCompensation?: number
+  /** Market replacement compensation (zero for a genuinely passive owner). */
+  replacementOwnerCompensation?: number
+  /** Versioned economic policy that authorized this normalization. */
+  ruleVersion?: string
 }
 
 export type SearchableLedgerAccount = LedgerAccount & {

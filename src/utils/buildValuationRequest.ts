@@ -25,9 +25,13 @@ import {
   resolveBusinessTypeSegments,
 } from './normalizeBusinessTypeSegments'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
+import { hasAtMostTwoShareholdingDecimals } from './shareholding'
 import { buildValuationBusinessContext } from './valuationRequestBusinessContext'
 import { resolveValuationRequestIdentity } from './valuationRequestIdentity'
-import { buildValuationRequestNormalizations } from './valuationRequestNormalizations'
+import {
+  buildCanonicalNormalizationDecisions,
+  buildValuationRequestNormalizations,
+} from './valuationRequestNormalizations'
 import {
   applyCapitalHistoryInputs,
   applyFiscalInputs,
@@ -148,6 +152,16 @@ export function buildValuationRequest(
   const countryRaw =
     formData.country_code?.trim() || (formData as { country?: string }).country?.trim() || ''
   const countryCode = coerceIso2OrNull(countryRaw) ?? 'BE'
+  const rawCurrency =
+    typeof formData.currency === 'string' ? formData.currency.trim().toUpperCase() : ''
+  if (rawCurrency && !/^[A-Z]{3}$/.test(rawCurrency)) {
+    throw new ValidationError(
+      'Currency must be a three-letter ISO-4217 code.',
+      'currency',
+      formData.currency
+    )
+  }
+  const currency = rawCurrency || undefined
 
   // Normalize industry and business model
   // Priority: formData.industry > business_type metadata > default
@@ -259,9 +273,10 @@ export function buildValuationRequest(
   const allDataYears = Array.from(new Set([currentFiscalYear, ...historicalYears]))
 
   const yearEbitdaMap: Record<number, number> = {}
-  yearEbitdaMap[currentFiscalYear] = ebitda
+  yearEbitdaMap[currentFiscalYear] =
+    toFiniteNumber(effectiveCurrentYearData?.reported_ebitda) ?? ebitda
   actualHistoricalData.forEach((y) => {
-    const numericEbitda = toFiniteNumber(y.ebitda)
+    const numericEbitda = toFiniteNumber(y.reported_ebitda) ?? toFiniteNumber(y.ebitda)
     if (numericEbitda != null) yearEbitdaMap[y.year] = numericEbitda
   })
 
@@ -271,6 +286,21 @@ export function buildValuationRequest(
     legacyNormalizations,
     allDataYears,
     yearEbitdaMap,
+    ...((formData as ValuationFormData).owner_role
+      ? { ownerRole: (formData as ValuationFormData).owner_role }
+      : {}),
+    ...(toFiniteNumber((formData as ValuationFormData).owner_salary_addback) != null
+      ? {
+          actualOwnerCompensation: toFiniteNumber(
+            (formData as ValuationFormData).owner_salary_addback
+          ) as number,
+        }
+      : {}),
+  })
+  const normalizationDecisions = buildCanonicalNormalizationDecisions({
+    normByYear,
+    yearEbitdaMap,
+    ...(currency ? { currency } : {}),
   })
 
   const { currentYearData, historicalYearsData, forecastYearsData, projectionYears } =
@@ -318,9 +348,13 @@ export function buildValuationRequest(
 
   // Handle sole trader vs company
   const numberOfEmployees =
-    formData.business_type === 'sole-trader' ? undefined : formData.number_of_employees
+    formData.business_type === 'sole-trader'
+      ? undefined
+      : (formData.number_of_employees ?? formData.employee_count ?? formData.employees)
   const numberOfOwners =
-    formData.business_type === 'sole-trader' ? undefined : formData.number_of_owners || 1
+    formData.business_type === 'sole-trader'
+      ? undefined
+      : (formData.number_of_owners ?? formData.owners ?? 1)
 
   // Build business context from internal metadata + adaptive input fields
   const fd = formData as FormDataRecord
@@ -458,6 +492,20 @@ export function buildValuationRequest(
     )
   }
   const ownerSalaryAddback = toFiniteNumber(fd.owner_salary_addback)
+  const explicitSharesForSale = toFiniteNumber(fd.shares_for_sale)
+  if (
+    explicitSharesForSale != null &&
+    (explicitSharesForSale < 0 ||
+      explicitSharesForSale > 100 ||
+      !hasAtMostTwoShareholdingDecimals(explicitSharesForSale))
+  ) {
+    throw new ValidationError(
+      'Shares for sale must be between 0% and 100% with at most two decimals.',
+      'shares_for_sale',
+      fd.shares_for_sale
+    )
+  }
+  const sharesForSale = explicitSharesForSale ?? 100
   const { registrationNumber, kboNumber, kvkNumber, vatNumber, legalForm, postalCode, city } =
     resolveValuationRequestIdentity({
       countryCode,
@@ -469,6 +517,7 @@ export function buildValuationRequest(
   const request: ValuationRequest = {
     company_name: companyName,
     country_code: countryCode,
+    ...(currency ? { currency } : {}),
     industry: industry,
     business_model: businessModel,
     founding_year: foundingYear,
@@ -485,18 +534,39 @@ export function buildValuationRequest(
     ...(legalForm && { legal_form: legalForm }),
     ...(postalCode && { postal_code: postalCode }),
     ...(city && { city }),
+    ...(formData.business_description && {
+      business_description: formData.business_description,
+    }),
+    ...(formData.business_highlights && {
+      business_highlights: formData.business_highlights,
+    }),
+    ...(formData.reason_for_selling && {
+      reason_for_selling: formData.reason_for_selling,
+    }),
     current_year_data: currentYearData,
     historical_years_data: historicalYearsData,
     forecast_years_data: forecastYearsData,
+    ...(normalizationDecisions.length > 0 && { normalizations: normalizationDecisions }),
     number_of_employees: numberOfEmployees,
     number_of_owners: numberOfOwners,
     recurring_revenue_percentage: recurringRevenuePercentage,
     use_dcf: formData.use_dcf ?? true,
     use_multiples: formData.use_multiples ?? true,
+    ...(formData.selected_method && { selected_method: formData.selected_method }),
+    ...(formData.user_weights && { user_weights: formData.user_weights }),
+    ...(formData.user_weight_justification && {
+      user_weight_justification: formData.user_weight_justification,
+    }),
     ...(userConfiguredDcf && { user_configured_dcf: true }),
     projection_years: projectionYears,
     ...(dcfInputMode === 'fcff_only' && { dcf_input_mode: 'fcff_only' as const }),
     comparables: formData.comparables || [],
+    ...(toFiniteNumber(formData.government_bond_yield) != null && {
+      government_bond_yield: toFiniteNumber(formData.government_bond_yield) ?? undefined,
+    }),
+    ...(toFiniteNumber(formData.long_term_gdp_growth) != null && {
+      long_term_gdp_growth: toFiniteNumber(formData.long_term_gdp_growth) ?? undefined,
+    }),
     ...(businessTypeId ? { business_type_id: businessTypeId } : {}),
     ...(businessTypeSegments.length > 0
       ? {
@@ -506,8 +576,10 @@ export function buildValuationRequest(
         }
       : {}),
     business_type: formData.business_type,
-    shares_for_sale: 100,
+    shares_for_sale: sharesForSale,
     business_context: businessContext,
+    ...(formData.metadata && { metadata: { ...formData.metadata } }),
+    ...(formData.valuation_case && { valuation_case: formData.valuation_case }),
     real_estate_treatment: realEstateTreatment,
     exclude_real_estate: realEstateTreatment === 'carve_out',
     ...(realEstateTreatment === 'included' &&
@@ -561,6 +633,31 @@ export function buildValuationRequest(
     }),
     ...(fd.headline_value_basis && {
       headline_value_basis: fd.headline_value_basis,
+    }),
+    ...(toFiniteNumber(fd.asking_price_buffer_pct) != null && {
+      asking_price_buffer_pct: toFiniteNumber(fd.asking_price_buffer_pct) ?? undefined,
+    }),
+    ...(fd.business_type_multiple_overrides && {
+      business_type_multiple_overrides: fd.business_type_multiple_overrides,
+    }),
+    ...(typeof fd.business_type_multiple_override_note === 'string' &&
+      fd.business_type_multiple_override_note.trim() && {
+        business_type_multiple_override_note: fd.business_type_multiple_override_note.trim(),
+      }),
+    ...(typeof fd.has_audit === 'boolean' && { has_audit: fd.has_audit }),
+    ...(typeof fd.audited_financials === 'boolean' && {
+      audited_financials: fd.audited_financials,
+    }),
+    ...(typeof fd.is_audited === 'boolean' && { is_audited: fd.is_audited }),
+    ...(fd.owner_dependency_factors && {
+      owner_dependency_factors: fd.owner_dependency_factors,
+    }),
+    ...(Array.isArray(fd.shareholder_roster) && {
+      shareholder_roster: fd.shareholder_roster,
+    }),
+    ...(fd.ownership_summary && { ownership_summary: fd.ownership_summary }),
+    ...(fd.holdings_consolidation && {
+      holdings_consolidation: fd.holdings_consolidation,
     }),
     ...(ownerSalaryAddback != null && {
       owner_salary_addback: ownerSalaryAddback,
