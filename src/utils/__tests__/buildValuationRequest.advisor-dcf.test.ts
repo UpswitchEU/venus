@@ -54,10 +54,7 @@ describe('buildValuationRequest advisor controls and DCF contract', () => {
 
   it('requires and forwards the advisor fallback rationale and EV headline basis', () => {
     expect(() =>
-      buildValuationRequest(
-        makeFormData({ allow_untrusted_multiples_fallback: true }),
-        []
-      )
+      buildValuationRequest(makeFormData({ allow_untrusted_multiples_fallback: true }), [])
     ).toThrow('written advisor rationale is required')
 
     const result = buildValuationRequest(

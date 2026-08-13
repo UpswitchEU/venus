@@ -108,6 +108,7 @@ export interface YearDataInput {
   current_liabilities?: number
   short_term_debt?: number
   total_debt?: number
+  lease_liabilities?: number
   total_equity?: number
   minority_interest_result_share?: number
   fixed_assets?: number
