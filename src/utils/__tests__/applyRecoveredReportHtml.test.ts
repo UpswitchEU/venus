@@ -9,7 +9,9 @@ import { applyRecoveredReportHtml } from '../applyRecoveredReportHtml'
 
 const safetyNetHtml =
   '<section class="valuation-summary"><h3>Waardeschatting — samenvatting</h3></section>'
-const recoveredHtml = '<main>Recovered full report</main>'
+const fallbackMessage =
+  'This report values one company. The group could not yet be valued because company reports or adviser decisions are incomplete.'
+const recoveredHtml = `<main>Recovered full report<p>${fallbackMessage}</p></main>`
 
 describe('applyRecoveredReportHtml', () => {
   beforeEach(() => {
@@ -49,6 +51,7 @@ describe('applyRecoveredReportHtml', () => {
     })
 
     expect(mergedResult.html_report).toBe(recoveredHtml)
+    expect(mergedResult.html_report).toContain(fallbackMessage)
     expect(mergedResult.details?.html_report).toBe(recoveredHtml)
     expect(useManualResultsStore.getState().result?.html_report).toBe(recoveredHtml)
     expect(useSessionStore.getState().session?.htmlReport).toBe(recoveredHtml)
