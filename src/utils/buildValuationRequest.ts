@@ -551,6 +551,12 @@ export function buildValuationRequest(
     current_year_data: currentYearData,
     historical_years_data: historicalYearsData,
     forecast_years_data: forecastYearsData,
+    ...(fd.restricted_cash !== undefined && { restricted_cash: fd.restricted_cash }),
+    ...(fd.lease_liabilities !== undefined && { lease_liabilities: fd.lease_liabilities }),
+    ...(fd.debt_like_items !== undefined && { debt_like_items: fd.debt_like_items }),
+    ...(fd.normalized_nwc_target !== undefined && {
+      normalized_nwc_target: fd.normalized_nwc_target,
+    }),
     ...(normalizationDecisions.length > 0 && { normalizations: normalizationDecisions }),
     number_of_employees: numberOfEmployees,
     number_of_owners: numberOfOwners,
@@ -585,6 +591,9 @@ export function buildValuationRequest(
     business_context: businessContext,
     ...(formData.metadata && { metadata: { ...formData.metadata } }),
     ...(formData.valuation_case && { valuation_case: formData.valuation_case }),
+    ...(formData.wacc_evidence_contract && {
+      wacc_evidence_contract: formData.wacc_evidence_contract,
+    }),
     real_estate_treatment: realEstateTreatment,
     exclude_real_estate: realEstateTreatment === 'carve_out',
     ...(realEstateTreatment === 'included' &&

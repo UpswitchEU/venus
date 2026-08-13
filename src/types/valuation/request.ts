@@ -163,6 +163,24 @@ export interface YearDataInput {
   is_forecast?: boolean
 }
 
+/** Source-bound, all-in sector WACC reviewed for an advisor DCF. */
+export interface WaccEvidenceContractInput {
+  schema_version: 'wacc_evidence.v1'
+  mode: 'direct_sector_wacc'
+  value_pct: number
+  range_low_pct: number
+  range_high_pct: number
+  period: string
+  source_type: string
+  source_url: string
+  content_sha256: string
+  chart_locator: string
+  methodology: string
+  reviewer: string
+  reviewed_at: string
+  includes_size_premium: true
+}
+
 /**
  * Evidence-linked normalization decision transported to Titan/ValuationIQ.
  * The annual reported/normalized pair remains on YearDataInput for backwards
@@ -290,6 +308,11 @@ export interface ValuationRequest {
   official_financials?: OfficialFinancialsPayload
   official_variance_analysis?: OfficialVarianceAnalysis
   official_verification_badge?: OfficialVerificationBadge
+  /** Completion-account inputs. Null means unresolved and must not become zero. */
+  restricted_cash?: number | null
+  lease_liabilities?: number | null
+  debt_like_items?: number | null
+  normalized_nwc_target?: number | null
 
   // Optional company details
   number_of_employees?: number
@@ -343,6 +366,8 @@ export interface ValuationRequest {
   // Optional market context overrides
   government_bond_yield?: number
   long_term_gdp_growth?: number
+  /** Direct sector WACC evidence transported unchanged to Titan. */
+  wacc_evidence_contract?: WaccEvidenceContractInput
 
   // Localization
   locale?: 'nl' | 'en' | 'fr'
@@ -640,7 +665,7 @@ export interface ValuationInputDecisionInput {
 
 /** Mirrors the additive subset of ValuationIQ's `ValuationCase` contract. */
 export interface ValuationCaseInput {
-  schema_version?: 'valuation_case.v1'
+  schema_version?: 'valuation_case.v1' | 'valuation_case.v2'
   case_id: string
   company_id?: string
   scenario_id?: string

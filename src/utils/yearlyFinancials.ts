@@ -138,6 +138,7 @@ export function historicalYearRowNeedsRemovalWarning(
     tax_expense?: number | null
     cash?: number | null
     total_debt?: number | null
+    lease_liabilities?: number | null
     current_assets?: number | null
     current_liabilities?: number | null
     accounts_receivable?: number | null
@@ -162,6 +163,7 @@ export function historicalYearRowNeedsRemovalWarning(
     'tax_expense',
     'cash',
     'total_debt',
+    'lease_liabilities',
     'current_assets',
     'current_liabilities',
     'accounts_receivable',

@@ -46,6 +46,7 @@ export const OPTIONAL_YEAR_DATA_FIELDS: Array<keyof YearDataInput> = [
   'current_liabilities',
   'short_term_debt',
   'total_debt',
+  'lease_liabilities',
   'total_equity',
   'minority_interest_result_share',
   'nwc_change',

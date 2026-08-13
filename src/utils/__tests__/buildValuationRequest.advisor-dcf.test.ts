@@ -9,6 +9,43 @@ import { getCurrentFilingYear } from '../fiscalYear'
 import { makeFormData } from './buildValuationRequest.testUtils'
 
 describe('buildValuationRequest advisor controls and DCF contract', () => {
+  it('forwards direct WACC evidence and preserves unresolved completion-account nulls', () => {
+    const waccEvidence = {
+      schema_version: 'wacc_evidence.v1' as const,
+      mode: 'direct_sector_wacc' as const,
+      value_pct: 12.2,
+      range_low_pct: 11.4,
+      range_high_pct: 13,
+      period: '2026-07',
+      source_type: 'published_sector_wacc_series',
+      source_url: 'https://evaluation-data.pwc.be/healthcare-pharmaceuticals/',
+      content_sha256: 'c'.repeat(64),
+      chart_locator: 'Healthcare & Pharmaceuticals — July 2026',
+      methodology: 'Published all-in sector WACC including its stated size premium.',
+      reviewer: 'Upswitch valuation committee',
+      reviewed_at: '2026-08-13T12:00:00Z',
+      includes_size_premium: true as const,
+    }
+    const result = buildValuationRequest(
+      makeFormData({
+        wacc_evidence_contract: waccEvidence,
+        restricted_cash: null,
+        lease_liabilities: null,
+        debt_like_items: null,
+        normalized_nwc_target: null,
+      }),
+      []
+    )
+
+    expect(result.wacc_evidence_contract).toEqual(waccEvidence)
+    expect(result).toMatchObject({
+      restricted_cash: null,
+      lease_liabilities: null,
+      debt_like_items: null,
+      normalized_nwc_target: null,
+    })
+  })
+
   it('keeps the untrusted fallback disabled by default', () => {
     const result = buildValuationRequest(makeFormData({}), [])
     expect(result.allow_untrusted_multiples_fallback).toBeUndefined()

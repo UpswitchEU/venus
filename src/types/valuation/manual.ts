@@ -18,6 +18,7 @@ export interface YearlyFinancials {
   tax_expense?: number
   cash?: number
   total_debt?: number
+  lease_liabilities?: number
   current_assets?: number
   current_liabilities?: number
   accounts_receivable?: number
