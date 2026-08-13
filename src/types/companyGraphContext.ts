@@ -12,7 +12,7 @@ import { z } from 'zod'
 export const CompanyGraphContextSchema = z
   .object({
     company_node_id: z.string().uuid(),
-    graph_revision: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+    graph_revision: z.string().regex(/^[0-9a-f]{64}$/),
     maturity_snapshot_id: z.string().uuid(),
     ruleset_version: z
       .string()

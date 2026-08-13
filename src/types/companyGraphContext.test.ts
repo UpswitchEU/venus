@@ -7,7 +7,7 @@ import {
 
 const VALID_CONTEXT = {
   company_node_id: '11111111-1111-4111-8111-111111111111',
-  graph_revision: `sha256:${'a'.repeat(64)}`,
+  graph_revision: 'a'.repeat(64),
   maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
   ruleset_version: 'company-graph-maturity/v3',
   audience: 'owner',
@@ -29,7 +29,8 @@ describe('CompanyGraphContext', () => {
     { ...VALID_CONTEXT, audience: 'public' },
     { ...VALID_CONTEXT, audience: 'buyer' },
     { ...VALID_CONTEXT, graph_revision: 'revision-123' },
-    { ...VALID_CONTEXT, graph_revision: `sha256:${'A'.repeat(64)}` },
+    { ...VALID_CONTEXT, graph_revision: 'A'.repeat(64) },
+    { ...VALID_CONTEXT, graph_revision: `sha256:${'a'.repeat(64)}` },
     { ...VALID_CONTEXT, card_tier: 'T5' },
   ])('rejects non-workspace, non-content-addressed or extended contexts', (candidate) => {
     expect(parseCompanyGraphContext(candidate)).toBeNull()

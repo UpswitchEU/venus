@@ -27,7 +27,7 @@ const REQUIRED = [
 
 const OWNER_GRAPH_CONTEXT = {
   company_node_id: '11111111-1111-4111-8111-111111111111',
-  graph_revision: `sha256:${'a'.repeat(64)}`,
+  graph_revision: 'a'.repeat(64),
   maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
   ruleset_version: 'company-graph-maturity/v3',
   audience: 'owner',
