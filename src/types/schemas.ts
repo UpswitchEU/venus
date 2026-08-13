@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod'
+import { CompanyGraphContextSchema } from './companyGraphContext'
 
 /**
  * Financial Data Schema
@@ -54,6 +55,7 @@ export const YearFinancialDataSchema = z
  */
 export const ValuationRequestSchema = z
   .object({
+    company_graph_context: CompanyGraphContextSchema.optional(),
     company_name: z.string().min(1, 'Company name is required'),
     country_code: z.string().length(2, 'Country code must be 2 characters'),
     currency: z

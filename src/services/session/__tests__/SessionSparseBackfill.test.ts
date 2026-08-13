@@ -64,4 +64,26 @@ describe('backfillSparseSessionFromStoreSeed', () => {
       forecast_years_data: [{ year: 2026, revenue: 1_050_000, ebitda: 105_000 }],
     })
   })
+
+  it('backfills a valid server context unchanged and drops invalid session context', async () => {
+    const reportId = 'val_sparse_graph_context'
+    const companyGraphContext = {
+      company_node_id: '11111111-1111-4111-8111-111111111111',
+      graph_revision: `sha256:${'a'.repeat(64)}`,
+      maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+      ruleset_version: 'company-graph-maturity/v3',
+      audience: 'advisor' as const,
+    }
+    useSessionStore.setState({
+      session: session(reportId, { company_graph_context: companyGraphContext }),
+    })
+    const sparse = session(reportId, {
+      company_graph_context: { ...companyGraphContext, audience: 'buyer' } as never,
+    })
+
+    await backfillSparseSessionFromStoreSeed(reportId, sparse)
+
+    expect(sparse.sessionData?.company_graph_context).toBe(companyGraphContext)
+    expect(sparse.partialData.company_graph_context).toBe(companyGraphContext)
+  })
 })

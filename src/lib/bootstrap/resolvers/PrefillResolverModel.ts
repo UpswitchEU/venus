@@ -1,3 +1,7 @@
+import {
+  type CompanyGraphContext,
+  parseCompanyGraphContext,
+} from '../../../types/companyGraphContext'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { parseEmployeeCount } from '../../../utils/employeeCount'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
@@ -56,6 +60,7 @@ export interface SessionDataForPrefill {
   taxonomy?: string
   canonical_nace_code?: string
   _businessInfo?: Record<string, unknown>
+  company_graph_context?: unknown
 }
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
@@ -158,6 +163,7 @@ export function extractSessionPrefill(sessionData: SessionDataForPrefill): {
   companyInfo?: CompanyInfo
   financials?: PartialFinancials
   businessType?: BusinessTypeInfo
+  companyGraphContext?: CompanyGraphContext
 } {
   const merged = mergeSessionSurfaceForOptionalPrefill(sessionData) as Record<string, unknown>
 
@@ -216,7 +222,9 @@ export function extractSessionPrefill(sessionData: SessionDataForPrefill): {
     }
   }
 
-  return { companyInfo, financials, businessType }
+  const companyGraphContext = parseCompanyGraphContext(merged.company_graph_context) ?? undefined
+
+  return { companyInfo, financials, businessType, companyGraphContext }
 }
 
 export function mergeCompanyInfo(

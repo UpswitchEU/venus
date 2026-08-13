@@ -91,6 +91,39 @@ describe('SessionAPI', () => {
       expect(body.data.session_data.pdf_html_report).toBeUndefined()
     })
 
+    it('preserves a valid graph context and rejects buyer context before create dispatch', async () => {
+      const companyGraphContext = {
+        company_node_id: '11111111-1111-4111-8111-111111111111',
+        graph_revision: `sha256:${'a'.repeat(64)}`,
+        maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+        ruleset_version: 'company-graph-maturity/v3',
+        audience: 'owner' as const,
+      }
+      executeRequestSpy.mockResolvedValue({
+        session_key: 'val_graph_create',
+        session_data: { company_graph_context: companyGraphContext },
+      })
+
+      await api.createValuationSession({
+        sessionData: { company_graph_context: companyGraphContext },
+      } satisfies CreateValuationSessionInput)
+
+      const body = executeRequestSpy.mock.calls[0]?.[0] as {
+        data?: { session_data?: Record<string, unknown> }
+      }
+      expect(body.data?.session_data?.company_graph_context).toBe(companyGraphContext)
+
+      executeRequestSpy.mockClear()
+      await expect(
+        api.createValuationSession({
+          sessionData: {
+            company_graph_context: { ...companyGraphContext, audience: 'buyer' },
+          },
+        } as never)
+      ).rejects.toMatchObject({ field: 'company_graph_context' })
+      expect(executeRequestSpy).not.toHaveBeenCalled()
+    })
+
     it('throws on creation failure', async () => {
       executeRequestSpy.mockRejectedValue({ response: { status: 400, data: 'Invalid data' } })
       await expect(

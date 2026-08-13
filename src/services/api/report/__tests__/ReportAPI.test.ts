@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { APIError } from '../../../../types/errors'
+import { APIError, ValidationError } from '../../../../types/errors'
 import { apiLogger } from '../../../../utils/logger'
 import { HttpClient } from '../../HttpClient'
 import { ReportAPI } from '../ReportAPI'
@@ -69,6 +69,34 @@ describe('ReportAPI', () => {
       const report = await api.updateReport('report-uuid-1', { company_name: 'Creatief bureau' })
 
       expect(report.academic_validation_issues).toEqual(['Terminal growth above GDP guidance'])
+    })
+
+    it('preserves valid graph context and rejects buyer context before report dispatch', async () => {
+      executeRequestSpy.mockResolvedValue({ valuation_id: 'val_updated' })
+      const companyGraphContext = {
+        company_node_id: '11111111-1111-4111-8111-111111111111',
+        graph_revision: `sha256:${'a'.repeat(64)}`,
+        maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+        ruleset_version: 'company-graph-maturity/v3',
+        audience: 'advisor' as const,
+      }
+
+      await api.updateReport('report-uuid-1', {
+        company_graph_context: companyGraphContext,
+      })
+
+      const request = executeRequestSpy.mock.calls[0]?.[0] as {
+        data?: Record<string, unknown>
+      }
+      expect(request.data?.company_graph_context).toBe(companyGraphContext)
+
+      executeRequestSpy.mockClear()
+      await expect(
+        api.updateReport('report-uuid-1', {
+          company_graph_context: { ...companyGraphContext, audience: 'buyer' } as never,
+        })
+      ).rejects.toBeInstanceOf(ValidationError)
+      expect(executeRequestSpy).not.toHaveBeenCalled()
     })
 
     it('treats by-session 404s as expected debug noise while preserving the 404 signal', async () => {

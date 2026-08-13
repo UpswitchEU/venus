@@ -7,6 +7,7 @@ import {
   resolveBusinessTypeSegments,
 } from '../../utils/normalizeBusinessTypeSegments'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
+import { validateOptionalValuationCompanyGraphContext } from '../../utils/valuationCompanyGraphContext'
 import {
   getEquityValueHigh,
   getEquityValueLow,
@@ -56,6 +57,7 @@ export async function saveCompleteValuationSession(
     const sessionUpdate: Partial<ValuationRequest> = {}
 
     if (data.formData) {
+      validateOptionalValuationCompanyGraphContext(data.formData.company_graph_context)
       const businessTypeSegments = resolveBusinessTypeSegments({
         business_type_segments: data.formData.business_type_segments,
         business_type_mix: data.formData.business_type_mix,

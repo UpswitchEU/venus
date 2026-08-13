@@ -10,6 +10,12 @@
  * @module lib/bootstrap/resolvers/PrefillResolver
  */
 
+import {
+  type CompanyGraphContext,
+  companyGraphContextsMatch,
+  isCompanyGraphContextForAudience,
+  parseCompanyGraphContext,
+} from '../../../types/companyGraphContext'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
 import type {
@@ -60,6 +66,24 @@ interface UserProfile {
   employee_count_range?: string
   nace_code?: string
   nace_description?: string
+  company_graph_context?: unknown
+}
+
+function resolveWorkspaceCompanyGraphContext(
+  identity: IdentityState | undefined,
+  ...candidates: Array<CompanyGraphContext | undefined>
+): CompanyGraphContext | undefined {
+  const present = candidates.filter((candidate): candidate is CompanyGraphContext => !!candidate)
+  if (present.length === 0 || !identity) return undefined
+
+  const expectedAudience = identity.type === 'accountant_for_client' ? 'advisor' : 'owner'
+  if (present.some((candidate) => !isCompanyGraphContextForAudience(candidate, expectedAudience))) {
+    return undefined
+  }
+  if (present.some((candidate) => !companyGraphContextsMatch(candidate, present[0]))) {
+    return undefined
+  }
+  return present[0]
 }
 
 export class PrefillResolver implements BootstrapResolver<PrefillData> {
@@ -115,6 +139,11 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
       )
 
       const financials = mergeFinancials(sessionResult?.financials, profileResult?.financials)
+      const companyGraphContext = resolveWorkspaceCompanyGraphContext(
+        identity,
+        sessionResult?.companyGraphContext,
+        profileResult?.companyGraphContext
+      )
 
       let businessType = sessionResult?.businessType || profileResult?.businessType
 
@@ -202,6 +231,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
           fieldsRemaining: remainingFields,
           readOnlyKbo,
           autoAdvancePastPrefilledSteps,
+          companyGraphContext,
         },
         source: sources.join('+') || 'none',
         durationMs: performance.now() - startTime,
@@ -259,6 +289,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
     companyInfo?: CompanyInfo
     financials?: PartialFinancials
     businessType?: BusinessTypeInfo
+    companyGraphContext?: CompanyGraphContext
   } | null> {
     try {
       // Determine which user to fetch profile for
@@ -300,6 +331,13 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
 
       const data = await response.json()
       const profile: UserProfile = data.data || data
+      const candidateCompanyGraphContext = parseCompanyGraphContext(profile.company_graph_context)
+      const expectedAudience = identity.type === 'accountant_for_client' ? 'advisor' : 'owner'
+      const companyGraphContext =
+        candidateCompanyGraphContext &&
+        isCompanyGraphContextForAudience(candidateCompanyGraphContext, expectedAudience)
+          ? candidateCompanyGraphContext
+          : undefined
 
       const companyInfo: CompanyInfo = {
         companyName: profile.company_name,
@@ -330,7 +368,7 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         hasBusinessType: !!businessType,
       })
 
-      return { companyInfo, financials, businessType }
+      return { companyInfo, financials, businessType, companyGraphContext }
     } catch (error) {
       this.logger.error('[PrefillResolver] Profile fetch error:', error)
       return null

@@ -51,6 +51,7 @@ export function mergeBusinessContextGapFill(
 }
 
 export const CORE_PREFILL_GAP_KEYS = [
+  'company_graph_context',
   'company_name',
   'country_code',
   'founding_year',
@@ -106,6 +107,9 @@ export function resolveCountryCode(
 
 export function buildPrefillSessionFields(prefillData: PrefillDataParam): Record<string, unknown> {
   const fields: Record<string, unknown> = {}
+  if (prefillData.companyGraphContext) {
+    fields.company_graph_context = prefillData.companyGraphContext
+  }
   const allowFinancialPrefill = !shouldBlockUntrustedFinancialPrefill(
     prefillData.officialFinancials,
     prefillData.financials?.dataSource

@@ -6,6 +6,7 @@ import { createContextLogger } from '../../utils/logger'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import { mergeSessionFields, normalizeSessionDates } from '../../utils/sessionHelpers'
 import { stripReportBlobsFromSessionPatch } from '../../utils/stripReportBlobsFromSessionPatch'
+import { validateOptionalValuationCompanyGraphContext } from '../../utils/valuationCompanyGraphContext'
 import { backendAPI } from '../backendApi'
 
 const logger = createContextLogger('SessionService')
@@ -64,6 +65,7 @@ export async function saveValuationSession(
     const name = hasExplicitName ? optionalString(updatesRecord.name) : currentSession?.name
     const { currentView: _, name: __, ...sessionDataWithoutView } = updatesRecord
     const sessionData = asRecord(updatesRecord.sessionData) ?? sessionDataWithoutView
+    validateOptionalValuationCompanyGraphContext(sessionData.company_graph_context)
 
     let response: ValuationSessionResponse
 

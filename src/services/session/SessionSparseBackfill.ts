@@ -1,3 +1,4 @@
+import { parseCompanyGraphContext } from '../../types/companyGraphContext'
 import type {
   BusinessTypeSegmentInput,
   ValuationRequest,
@@ -106,6 +107,7 @@ export const BASE_SPARSE_BACKFILL_KEYS = [
   '_imported_ledger_analysis',
   '_imported_saas_metrics',
   '_imported_saas_provenance',
+  'company_graph_context',
 ] as const
 
 const SPARSE_BACKFILL_KEYS = Array.from(
@@ -288,6 +290,15 @@ export async function backfillSparseSessionFromStoreSeed(
     for (const key of SPARSE_BACKFILL_KEYS) {
       const seedValue = seedData[key]
       if (seedValue === undefined) continue
+      if (key === 'company_graph_context') {
+        const seedContext = parseCompanyGraphContext(seedValue)
+        if (!seedContext) continue
+        if (!parseCompanyGraphContext(merged.company_graph_context)) {
+          merged.company_graph_context = seedContext
+          pushMergedKey(mergedKeys, key)
+        }
+        continue
+      }
       if (shouldBackfillSparseValue(key, merged[key], seedValue)) {
         merged[key] = seedValue
         pushMergedKey(mergedKeys, key)
@@ -295,6 +306,16 @@ export async function backfillSparseSessionFromStoreSeed(
     }
 
     canonicalizeSparseDcfForecastRows(merged, mergedKeys)
+
+    if (Object.hasOwn(merged, 'company_graph_context')) {
+      const context = parseCompanyGraphContext(merged.company_graph_context)
+      if (context) {
+        merged.company_graph_context = context
+      } else {
+        delete merged.company_graph_context
+        pushMergedKey(mergedKeys, 'company_graph_context')
+      }
+    }
 
     if (mergedKeys.length > 0) {
       session.sessionData = merged as Partial<ValuationRequest>
@@ -391,6 +412,8 @@ export async function fetchBusinessCardData(
     if (businessCard.legal_form) data.legal_form = businessCard.legal_form
     if (businessCard.nace_code) data.nace_code = businessCard.nace_code
     if (businessCard.nace_description) data.nace_description = businessCard.nace_description
+    const companyGraphContext = parseCompanyGraphContext(businessCard.company_graph_context)
+    if (companyGraphContext) data.company_graph_context = companyGraphContext
 
     return Object.keys(data).length > 0 ? data : null
   } catch (error) {
@@ -408,14 +431,18 @@ export function mergeBusinessCardIntoSession(
   clientContext?: unknown
 ): void {
   const existingSessionData = asRecord(session.sessionData) ?? {}
+  const { company_graph_context: rawCompanyGraphContext, ...businessCardFields } = businessCardData
+  const companyGraphContext = parseCompanyGraphContext(rawCompanyGraphContext)
   session.sessionData = {
     ...existingSessionData,
-    ...businessCardData,
+    ...businessCardFields,
+    ...(companyGraphContext ? { company_graph_context: companyGraphContext } : {}),
     _client_context: clientContext || existingSessionData._client_context,
   } as Partial<ValuationRequest>
 
   session.partialData = {
     ...(session.partialData || {}),
-    ...businessCardData,
+    ...businessCardFields,
+    ...(companyGraphContext ? { company_graph_context: companyGraphContext } : {}),
   }
 }

@@ -22,7 +22,16 @@ const REQUIRED = [
   '_imported_saas_metrics',
   '_imported_saas_provenance',
   'filing_year_confirmed',
+  'company_graph_context',
 ] as const
+
+const OWNER_GRAPH_CONTEXT = {
+  company_node_id: '11111111-1111-4111-8111-111111111111',
+  graph_revision: `sha256:${'a'.repeat(64)}`,
+  maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+  ruleset_version: 'company-graph-maturity/v3',
+  audience: 'owner',
+} as const
 
 describe('BASE_SPARSE_BACKFILL_KEYS integration parity', () => {
   afterEach(() => {
@@ -91,5 +100,36 @@ describe('BASE_SPARSE_BACKFILL_KEYS integration parity', () => {
         'tax-advisory': 35,
       },
     })
+  })
+
+  it('retains an exact owner/advisor graph context from the authenticated Titan card', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        company_name: 'Graph-backed BV',
+        company_graph_context: OWNER_GRAPH_CONTEXT,
+      }),
+    } as Response)
+
+    const result = await fetchBusinessCardData('client-123456')
+
+    expect(result?.company_graph_context).toBe(OWNER_GRAPH_CONTEXT)
+  })
+
+  it.each([
+    'public',
+    'buyer',
+  ])('drops a %s context from private workspace prefill', async (audience) => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        company_name: 'Wrong audience BV',
+        company_graph_context: { ...OWNER_GRAPH_CONTEXT, audience },
+      }),
+    } as Response)
+
+    const result = await fetchBusinessCardData('client-123456')
+
+    expect(result).not.toHaveProperty('company_graph_context')
   })
 })

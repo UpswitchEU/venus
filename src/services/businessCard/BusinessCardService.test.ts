@@ -4,6 +4,32 @@ import { businessCardService } from './BusinessCardService'
 describe('BusinessCardService', () => {
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('strips company graph authority from legacy token cards', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        company_name: 'Legacy Card BV',
+        company_graph_context: {
+          company_node_id: '11111111-1111-4111-8111-111111111111',
+          graph_revision: `sha256:${'a'.repeat(64)}`,
+          maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+          ruleset_version: 'company-graph-maturity/v3',
+          audience: 'owner',
+        },
+      }),
+    } as Response)
+
+    const card = await businessCardService.fetchBusinessCard('legacy token/with spaces')
+
+    expect(card).toEqual({ company_name: 'Legacy Card BV' })
+    expect(card).not.toHaveProperty('company_graph_context')
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('token=legacy%20token%2Fwith%20spaces'),
+      expect.any(Object)
+    )
   })
 
   it('maps revenue-only business cards to the filing year', () => {

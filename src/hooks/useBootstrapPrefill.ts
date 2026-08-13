@@ -75,6 +75,7 @@ export function useBootstrapPrefill(): {
     // Restoration will run when loadSession completes and merge any additional data.
     // Include financials (revenue/EBITDA) so we apply prefill when only financial data exists
     const hasMeaningfulPrefill =
+      !!bootstrap.prefillData.companyGraphContext ||
       (bootstrap.prefillData.fieldsPopulated?.length ?? 0) > 0 ||
       bootstrap.prefillData.confidence >= 0.05 ||
       !!bootstrap.prefillData.companyInfo?.companyName?.trim() ||

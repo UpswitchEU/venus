@@ -1,3 +1,5 @@
+import type { CompanyGraphContext } from '../companyGraphContext'
+
 // =============================================================================
 // DECIMAL PRECISION TYPES
 // =============================================================================
@@ -261,6 +263,13 @@ export interface OfficialFinancialsPayload {
 }
 
 export interface ValuationRequest {
+  /**
+   * Optional, shadow-only company-graph binding issued by Titan for the current
+   * owner/advisor projection. Venus transports it unchanged. It is never
+   * derived from legacy Business Card fields, and Titan must re-authorize it.
+   */
+  company_graph_context?: CompanyGraphContext
+
   // Company information (all required)
   company_name: string
   country_code: string // 2-letter ISO code (e.g., "BE", "DE", "US")

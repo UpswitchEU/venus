@@ -15,6 +15,7 @@
  */
 
 import { isLegalFormBusinessTypeValue } from '../services/naceBusinessTypeService'
+import type { CompanyGraphContext } from '../types/companyGraphContext'
 import type { BusinessTypeSegmentInput, ValuationRequest } from '../types/valuation'
 import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
@@ -40,6 +41,7 @@ export interface BuildStartupValuationRequestOptions {
   businessTypeWeights?: Record<string, number | string | null | undefined>
   businessType?: string
   startupInputs: Record<string, unknown>
+  companyGraphContext?: CompanyGraphContext
   locale?: 'nl' | 'en' | 'fr'
 }
 
@@ -89,6 +91,7 @@ export function buildStartupValuationRequest({
   businessTypeWeights,
   businessType,
   startupInputs,
+  companyGraphContext,
   locale,
 }: BuildStartupValuationRequestOptions): ValuationRequest {
   const cleanCompanyName = (companyName || 'Unknown Startup').trim() || 'Unknown Startup'
@@ -118,6 +121,7 @@ export function buildStartupValuationRequest({
   })()
 
   return {
+    ...(companyGraphContext ? { company_graph_context: companyGraphContext } : {}),
     company_name: cleanCompanyName,
     country_code: cleanCountry,
     ...(cleanCurrency ? { currency: cleanCurrency } : {}),

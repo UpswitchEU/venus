@@ -35,6 +35,7 @@ export const SESSION_CARD_FALLBACK_STRING_KEYS = [
 ] as const
 
 export const SESSION_BUSINESS_CARD_CLEAR_KEYS = [
+  'company_graph_context',
   ...SESSION_CARD_FALLBACK_STRING_KEYS,
   'companyName',
   'business_name',
@@ -229,6 +230,7 @@ export const OPTIONAL_SESSION_PREFILL_SCALAR_KEYS = OPTIONAL_SCALAR_KEYS
  * Structured fields from business-type / adaptive context (not scalars) - must autosave + fingerprint.
  */
 export const OPTIONAL_SESSION_STRUCT_SYNC_KEYS = [
+  'company_graph_context',
   '_internal_key_metrics',
   '_internal_typical_employee_range',
   '_internal_typical_revenue_range',

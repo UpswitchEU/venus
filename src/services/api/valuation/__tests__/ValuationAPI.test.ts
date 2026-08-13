@@ -2,7 +2,61 @@ import { describe, expect, it, vi } from 'vitest'
 import { NetworkError, ValidationError } from '../../../../types/errors'
 import { ValuationAPI } from '../ValuationAPI'
 
+type RequestExecutor = {
+  executeRequest: (config: unknown, options?: unknown) => Promise<unknown>
+}
+
+type ValuationErrorHandler = {
+  handleValuationError: (error: unknown, operation: string) => never
+}
+
+function spyOnExecuteRequest(api: ValuationAPI) {
+  return vi.spyOn(api as unknown as RequestExecutor, 'executeRequest')
+}
+
+function handleValuationError(api: ValuationAPI, error: unknown, operation: string): never {
+  return (api as unknown as ValuationErrorHandler).handleValuationError(error, operation)
+}
+
 describe('ValuationAPI validation handling', () => {
+  it('forwards a valid graph context unchanged to valuation/report generation', async () => {
+    const api = new ValuationAPI()
+    const executeRequest = spyOnExecuteRequest(api).mockResolvedValue({})
+    const companyGraphContext = {
+      company_node_id: '11111111-1111-4111-8111-111111111111',
+      graph_revision: `sha256:${'a'.repeat(64)}`,
+      maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+      ruleset_version: 'company-graph-maturity/v3',
+      audience: 'owner' as const,
+    }
+
+    await api.calculateManualValuation({ company_graph_context: companyGraphContext } as never)
+
+    const outbound = executeRequest.mock.calls[0]?.[0] as { data?: Record<string, unknown> }
+    expect(outbound.data?.company_graph_context).toBe(companyGraphContext)
+  })
+
+  it('rejects buyer/public or malformed graph contexts before dispatch', async () => {
+    const api = new ValuationAPI()
+    const executeRequest = spyOnExecuteRequest(api).mockResolvedValue({})
+
+    await expect(
+      api.calculateManualValuation({
+        company_graph_context: {
+          company_node_id: '11111111-1111-4111-8111-111111111111',
+          graph_revision: `sha256:${'a'.repeat(64)}`,
+          maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+          ruleset_version: 'company-graph-maturity/v3',
+          audience: 'buyer',
+        },
+      } as never)
+    ).rejects.toMatchObject({
+      name: 'ValidationError',
+      field: 'company_graph_context',
+    })
+    expect(executeRequest).not.toHaveBeenCalled()
+  })
+
   it('surfaces detailed 422 validation errors from Titan', () => {
     const api = new ValuationAPI()
 
@@ -26,7 +80,7 @@ describe('ValuationAPI validation handling', () => {
 
     let thrownError: unknown
     try {
-      ;(api as any).handleValuationError(axiosError, 'unified valuation')
+      handleValuationError(api, axiosError, 'unified valuation')
     } catch (error) {
       thrownError = error
     }
@@ -41,7 +95,7 @@ describe('ValuationAPI validation handling', () => {
   it('rethrows selected method persistence failures', async () => {
     const api = new ValuationAPI()
     const error = new Error('report not found')
-    vi.spyOn(api as any, 'executeRequest').mockRejectedValue(error)
+    spyOnExecuteRequest(api).mockRejectedValue(error)
 
     await expect(api.updateSelectedMethod('val_123', 'ebitda_multiple')).rejects.toThrow(
       'report not found'
@@ -50,7 +104,7 @@ describe('ValuationAPI validation handling', () => {
 
   it('hoists academic_validation_issues on calculate responses', async () => {
     const api = new ValuationAPI()
-    vi.spyOn(api as any, 'executeRequest').mockResolvedValue({
+    spyOnExecuteRequest(api).mockResolvedValue({
       valuation_id: 'val-1',
       equity_value_mid: 568_000,
       details: { academic_validation_issues: ['WACC below SME guidance'] },
@@ -87,7 +141,7 @@ describe('ValuationAPI validation handling', () => {
 
     let thrownError: unknown
     try {
-      ;(api as any).handleValuationError(axiosError, 'unified valuation')
+      handleValuationError(api, axiosError, 'unified valuation')
     } catch (error) {
       thrownError = error
     }
@@ -117,7 +171,7 @@ describe('ValuationAPI validation handling', () => {
 
     let thrownError: unknown
     try {
-      ;(api as any).handleValuationError(axiosError, 'unified valuation')
+      handleValuationError(api, axiosError, 'unified valuation')
     } catch (error) {
       thrownError = error
     }
@@ -140,7 +194,7 @@ describe('ValuationAPI validation handling', () => {
 
     let thrownError: unknown
     try {
-      ;(api as any).handleValuationError(axiosError, 'unified valuation')
+      handleValuationError(api, axiosError, 'unified valuation')
     } catch (error) {
       thrownError = error
     }
@@ -151,7 +205,7 @@ describe('ValuationAPI validation handling', () => {
 
   it('forwards preparer multiple edits on the method PATCH request', async () => {
     const api = new ValuationAPI()
-    const executeRequest = vi.spyOn(api as any, 'executeRequest').mockResolvedValue({
+    const executeRequest = spyOnExecuteRequest(api).mockResolvedValue({
       selected_method: 'upswitch_adaptive',
     })
 

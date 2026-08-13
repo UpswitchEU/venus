@@ -22,6 +22,7 @@ import {
 } from '../services/naceBusinessTypeService'
 import { useManualFormStore } from '../store/manual'
 import { useSessionStore } from '../store/useSessionStore'
+import { parseCompanyGraphContext } from '../types/companyGraphContext'
 import type { ValuationFormData } from '../types/valuation'
 import { normalizeBusinessTypeId } from '../utils/businessTypeIdAliases'
 import { generalLogger } from '../utils/logger'
@@ -76,6 +77,7 @@ type SessionPrefillMergedData = Record<string, unknown> & {
   taxLatencies?: unknown[]
   _taxLatencies?: unknown[]
   _normalizations?: unknown[]
+  company_graph_context?: unknown
 }
 
 function deleteIdentityPrefillFields(updates: Partial<ValuationFormData>): void {
@@ -183,7 +185,8 @@ export function useSessionDataPrefill() {
     // Bootstrap is the primary source - only use session data as fallback
     const bootstrapHasMeaningfulPrefill = !!(
       bootstrap &&
-      (bootstrap.hasPrefilledData ||
+      (bootstrap.prefillData.companyGraphContext ||
+        bootstrap.hasPrefilledData ||
         (bootstrap.prefillData.fieldsPopulated?.length ?? 0) > 0 ||
         bootstrap.prefillData.confidence >= 0.05 ||
         bootstrap.prefillData.companyInfo?.companyName?.trim() ||
@@ -294,7 +297,8 @@ export function useSessionDataPrefill() {
       mergedData.tax_latencies?.length ||
       mergedData.taxLatencies?.length ||
       mergedData._taxLatencies?.length ||
-      mergedData._normalizations?.length
+      mergedData._normalizations?.length ||
+      mergedData.company_graph_context
     )
 
     const formLive = useManualFormStore.getState().formData
@@ -312,6 +316,11 @@ export function useSessionDataPrefill() {
 
     const runPrefill = async () => {
       const updates: Partial<ValuationFormData> = {}
+
+      const companyGraphContext = parseCompanyGraphContext(mergedData.company_graph_context)
+      if (companyGraphContext) {
+        updates.company_graph_context = companyGraphContext
+      }
 
       // ✅ FIX: Always prefill critical fields if they're missing, even if form has other data
       // Basic company information

@@ -1,3 +1,4 @@
+import { parseCompanyGraphContext } from '../../types/companyGraphContext'
 import type { ValuationRequest } from '../../types/valuation'
 import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import {
@@ -451,6 +452,7 @@ function buildFieldMappings(): [string, ...string[]][] {
     ['_imported_saas_metrics'],
     ['_imported_saas_provenance'],
     ['_financial_data_source'],
+    ['company_graph_context'],
   ]
 
   const existingPrimary = new Set(fieldMappings.map(([primary]) => primary))
@@ -497,6 +499,11 @@ export function extractFormData(sessionData: SessionRecord): Partial<ValuationRe
   }
 
   const fd = formData as Record<string, unknown>
+  if (Object.hasOwn(fd, 'company_graph_context')) {
+    const companyGraphContext = parseCompanyGraphContext(fd.company_graph_context)
+    if (companyGraphContext) fd.company_graph_context = companyGraphContext
+    else delete fd.company_graph_context
+  }
   const businessTypeId = normalizeBusinessTypeId(fd.business_type_id)
   if (businessTypeId) {
     fd.business_type_id = businessTypeId

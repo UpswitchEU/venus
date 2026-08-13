@@ -1,3 +1,8 @@
+import {
+  type CompanyGraphContext,
+  isCompanyGraphContextForAudience,
+  parseCompanyGraphContext,
+} from '../../types/companyGraphContext'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import type {
   BootstrapContext,
@@ -37,10 +42,14 @@ type TitanValuationPackagePayload = Partial<ValuationPackage> & {
   htmlReport?: string | null
 }
 
+type TitanPrefillPayload = Partial<Omit<PrefillData, 'companyGraphContext'>> & {
+  company_graph_context?: unknown
+}
+
 export interface TitanBootstrapData {
   identity?: TitanIdentityPayload
   report?: TitanReportPayload
-  prefill?: Partial<PrefillData>
+  prefill?: TitanPrefillPayload
   ui?: Partial<UIHints>
   creditStatus?: CreditStatus
   valuationPackage?: TitanValuationPackagePayload
@@ -49,7 +58,7 @@ export interface TitanBootstrapData {
 export interface SuccessfulTitanBootstrapData extends TitanBootstrapData {
   identity: TitanIdentityPayload
   report: TitanReportPayload
-  prefill: Partial<PrefillData>
+  prefill: TitanPrefillPayload
   ui: Partial<UIHints>
 }
 
@@ -63,6 +72,52 @@ export interface TitanBootstrapResponsePayload {
 
 function toDate(value: DateInput | undefined): Date | undefined {
   return value ? new Date(value) : undefined
+}
+
+function expectedWorkspaceAudience(identity?: TitanIdentityPayload): 'owner' | 'advisor' | null {
+  if (!identity) return null
+  if (identity.type === 'accountant_for_client') return 'advisor'
+  if (identity.type === 'authenticated') return 'owner'
+  return null
+}
+
+function parseTitanCompanyGraphContext(
+  prefill: TitanPrefillPayload | undefined,
+  identity: TitanIdentityPayload | undefined
+): CompanyGraphContext | undefined {
+  if (!prefill) return undefined
+  const context = parseCompanyGraphContext(
+    (prefill as Record<string, unknown>).company_graph_context
+  )
+  if (!context) return undefined
+
+  const expectedAudience = expectedWorkspaceAudience(identity)
+  if (!expectedAudience || !isCompanyGraphContextForAudience(context, expectedAudience)) {
+    return undefined
+  }
+  return context
+}
+
+function sanitizePackageFormData(
+  value: Record<string, unknown> | undefined,
+  identity: TitanIdentityPayload | undefined
+): Record<string, unknown> | undefined {
+  if (
+    !value ||
+    (!Object.hasOwn(value, 'company_graph_context') && !Object.hasOwn(value, 'companyGraphContext'))
+  ) {
+    return value
+  }
+  const next = { ...value }
+  delete next.companyGraphContext
+  const context = parseCompanyGraphContext(next.company_graph_context)
+  const expectedAudience = expectedWorkspaceAudience(identity)
+  if (context && expectedAudience && isCompanyGraphContextForAudience(context, expectedAudience)) {
+    next.company_graph_context = context
+  } else {
+    delete next.company_graph_context
+  }
+  return next
 }
 
 export function buildCreditBlockedTitanState(
@@ -108,6 +163,7 @@ export function buildCreditBlockedTitanState(
           confidence: prefill.confidence || 0,
           fieldsPopulated: prefill.fieldsPopulated || [],
           fieldsRemaining: prefill.fieldsRemaining || [],
+          companyGraphContext: parseTitanCompanyGraphContext(prefill, identity),
         }
       : DEFAULT_PREFILL,
     ui: ui
@@ -174,6 +230,7 @@ export function buildSuccessfulTitanState(
       confidence: prefill.confidence ?? 0,
       fieldsPopulated: prefill.fieldsPopulated ?? [],
       fieldsRemaining: prefill.fieldsRemaining ?? [],
+      companyGraphContext: parseTitanCompanyGraphContext(prefill, identity),
     },
     ui: {
       showWelcomeBack: ui.showWelcomeBack ?? false,
@@ -193,7 +250,7 @@ export function buildSuccessfulTitanState(
           pricingRange: valuationPackage.pricingRange || null,
           versions: valuationPackage.versions || { current: 1, total: 1 },
           pdf: valuationPackage.pdf || { url: null, status: 'none' },
-          formData: valuationPackage.formData || undefined,
+          formData: sanitizePackageFormData(valuationPackage.formData, identity),
           buyerReadiness: valuationPackage.buyerReadiness || undefined,
         }
       : undefined,

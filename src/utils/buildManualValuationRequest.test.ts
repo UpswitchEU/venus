@@ -27,6 +27,14 @@ const baseFormData = {
   },
 } as Parameters<typeof buildManualValuationRequest>[0]
 
+const companyGraphContext = {
+  company_node_id: '11111111-1111-4111-8111-111111111111',
+  graph_revision: `sha256:${'a'.repeat(64)}`,
+  maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+  ruleset_version: 'company-graph-maturity/v3',
+  audience: 'owner' as const,
+}
+
 describe('buildManualValuationRequest', () => {
   beforeEach(() => {
     useManualResultsStore.setState({
@@ -46,6 +54,15 @@ describe('buildManualValuationRequest', () => {
     expect(req.selected_method ?? '').not.toBe('startup_valuation')
   })
 
+  it('propagates the same graph context through the SME request builder', () => {
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      company_graph_context: companyGraphContext,
+    })
+
+    expect(req.company_graph_context).toBe(companyGraphContext)
+  })
+
   it('routes to the venture builder when preSelectedMethod is startup_valuation', () => {
     useManualResultsStore.setState({
       preSelectedMethod: 'startup_valuation',
@@ -62,6 +79,20 @@ describe('buildManualValuationRequest', () => {
     const startup = req.startup_inputs as Record<string, unknown>
     expect(startup.stage).toBe('seed')
     expect(startup.sector).toBe('fintech')
+  })
+
+  it('propagates the same graph context through the venture request builder', () => {
+    useManualResultsStore.setState({
+      preSelectedMethod: 'startup_valuation',
+      selectedMethod: 'startup_valuation',
+    })
+
+    const req = buildManualValuationRequest({
+      ...baseFormData,
+      company_graph_context: companyGraphContext,
+    })
+
+    expect(req.company_graph_context).toBe(companyGraphContext)
   })
 
   it('falls back to selectedMethod when preSelectedMethod is null', () => {

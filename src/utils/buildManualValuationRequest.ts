@@ -16,6 +16,7 @@ import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { buildStartupValuationRequest } from './buildStartupValuationRequest'
 import { buildValuationRequest } from './buildValuationRequest'
 import { resolveVentureCountryIso2 } from './resolveVentureCountryIso2'
+import { validateOptionalValuationCompanyGraphContext } from './valuationCompanyGraphContext'
 
 export function buildManualValuationRequest(
   formData: ValuationFormData,
@@ -27,6 +28,9 @@ export function buildManualValuationRequest(
     useManualResultsStore.getState().selectedMethod
 
   if (effectiveMethod === 'startup_valuation') {
+    const companyGraphContext = validateOptionalValuationCompanyGraphContext(
+      formData.company_graph_context
+    )
     const resolvedCountry = resolveVentureCountryIso2(formData)
     const startupInputsBase = useStartupValuationStore.getState().toRequestPayload()
     const naceTrim = formData.nace_code?.trim() || formData.canonical_nace_code?.trim() || ''
@@ -50,6 +54,7 @@ export function buildManualValuationRequest(
       businessTypeWeights: formData.business_type_weights,
       businessType: formData.business_type,
       startupInputs,
+      companyGraphContext,
       locale,
     })
   }

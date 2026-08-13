@@ -26,6 +26,7 @@ import {
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
 import { stripReportBlobsFromSessionPatch } from '../../../utils/stripReportBlobsFromSessionPatch'
+import { validateOptionalValuationCompanyGraphContext } from '../../../utils/valuationCompanyGraphContext'
 import { type APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
 import type { CreateValuationSessionInput } from './SessionApiCreateHelpers'
@@ -52,6 +53,7 @@ import {
   type SessionRecord,
 } from './SessionApiNormalization'
 import {
+  asRecord,
   mapTitanPatchAndStripReportBlobs,
   normalizeSaveValuationResultResponse,
   normalizeUpdateSessionResponse,
@@ -229,6 +231,11 @@ export class SessionAPI extends HttpClient {
     session: CreateValuationSessionInput,
     options?: APIRequestConfig
   ): Promise<CreateValuationSessionResponse> {
+    const createRequest = buildCreateValuationSessionRequest(session)
+    validateOptionalValuationCompanyGraphContext(
+      createRequest.payload.session_data.company_graph_context
+    )
+
     try {
       // Log timing information for race condition detection
       const { useClientContext } = await import('../../../stores/clientContext')
@@ -243,7 +250,6 @@ export class SessionAPI extends HttpClient {
 
       // AUTH-FIRST: Guest session handling removed - authentication is required
       // Backend will extract userId from JWT token (req.user)
-      const createRequest = buildCreateValuationSessionRequest(session)
       SessionAPI.deletedSessionTombstones.clear(createRequest.sessionKey)
 
       // ✅ VERIFICATION: HttpClient interceptor automatically adds client context headers via getOwnerHeaders()
@@ -302,6 +308,8 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<UpdateValuationSessionResponse> {
     const patchBody = mapTitanPatchAndStripReportBlobs(updates.updates)
+    const sessionData = asRecord(patchBody.session_data)
+    validateOptionalValuationCompanyGraphContext(sessionData?.company_graph_context)
 
     try {
       // Backend endpoint: /api/v2/valuations/sessions/:reportId (PATCH, not PUT)
@@ -542,6 +550,7 @@ export class SessionAPI extends HttpClient {
     data: SaveValuationResultPayload,
     options?: APIRequestConfig
   ): Promise<SaveValuationResultResponse> {
+    validateOptionalValuationCompanyGraphContext(data.sessionData?.company_graph_context)
     const sessionDataPayload = stripReportBlobsFromSessionPatch(data.sessionData) as
       | SessionRecord
       | undefined

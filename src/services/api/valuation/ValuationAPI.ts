@@ -18,6 +18,7 @@ import {
 import type { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { apiLogger } from '../../../utils/logger'
 import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
+import { validateOptionalValuationCompanyGraphContext } from '../../../utils/valuationCompanyGraphContext'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
 
@@ -53,6 +54,7 @@ function toCalculateRequest(
   data: ValuationRequest,
   dataSource: ValuationDataSource
 ): ValuationCalculateRequest {
+  validateOptionalValuationCompanyGraphContext(data.company_graph_context)
   return {
     ...data,
     dataSource,
@@ -277,6 +279,7 @@ export class ValuationAPI extends HttpClient {
     data: ValuationRequest,
     options?: APIRequestConfig
   ): Promise<{ html: string; completeness_percent: number }> {
+    validateOptionalValuationCompanyGraphContext(data.company_graph_context)
     try {
       return await this.executeRequest<{ html: string; completeness_percent: number }>(
         {
@@ -352,6 +355,10 @@ export class ValuationAPI extends HttpClient {
    */
   private handleValuationError(error: unknown, operation: string): never {
     apiLogger.error(`Valuation ${operation} failed`, { error })
+
+    if (error instanceof ValidationError) {
+      throw error
+    }
 
     const { status, data: responseData, code } = getErrorResponse(error)
     const response = asRecord(responseData)

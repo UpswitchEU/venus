@@ -67,6 +67,9 @@ function stableBootstrapSyncSignature(state: SessionBootstrapState): string {
     String(ci.kboNumber ?? ''),
     String(ci.canonicalNaceCode ?? ''),
     String(ci.taxonomy ?? ''),
+    p.companyGraphContext
+      ? `${p.companyGraphContext.company_node_id}:${p.companyGraphContext.graph_revision}:${p.companyGraphContext.maturity_snapshot_id}:${p.companyGraphContext.ruleset_version}:${p.companyGraphContext.audience}`
+      : 'no-graph-context',
     sources,
     pkgSig,
   ].join('|')

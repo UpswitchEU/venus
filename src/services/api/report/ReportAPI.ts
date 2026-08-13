@@ -18,6 +18,7 @@ import { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { isSessionKey, isUuid } from '../../../utils/identifiers'
 import { apiLogger } from '../../../utils/logger'
 import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademicValidationIssues'
+import { validateOptionalValuationCompanyGraphContext } from '../../../utils/valuationCompanyGraphContext'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 
 type AxiosLikeError = {
@@ -159,6 +160,7 @@ export class ReportAPI extends HttpClient {
     data: Partial<ValuationRequest>,
     options?: APIRequestConfig
   ): Promise<ValuationResponse> {
+    validateOptionalValuationCompanyGraphContext(data.company_graph_context)
     try {
       const response = await this.executeRequest<ValuationResponse>(
         {

@@ -45,6 +45,61 @@ export interface BusinessCardService {
   transformToValuationRequest(businessCard: BusinessCardData): Partial<ValuationRequest>
 }
 
+const LEGACY_CARD_STRING_FIELDS = [
+  'company_name',
+  'industry',
+  'business_type_id',
+  'country_code',
+  'description',
+  'city',
+  'business_highlights',
+  'reason_for_selling',
+] as const
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+/**
+ * Legacy token cards are presentation/prefill data, not graph-authority
+ * artifacts. Keep an explicit allowlist so a syntactically valid forged
+ * `company_graph_context` can never hitchhike through this channel.
+ */
+function sanitizeLegacyBusinessCard(value: unknown): BusinessCardData {
+  const record = asRecord(value)
+  if (!record) return {}
+
+  const card: BusinessCardData = {}
+  for (const key of LEGACY_CARD_STRING_FIELDS) {
+    const field = record[key]
+    if (typeof field === 'string' && field.trim()) {
+      card[key] = field
+    }
+  }
+
+  for (const key of ['revenue', 'employee_count', 'founding_year'] as const) {
+    const field = record[key]
+    if (typeof field === 'number' && Number.isFinite(field)) {
+      card[key] = field
+    }
+  }
+
+  if (Array.isArray(record.business_type_mix)) {
+    card.business_type_mix = record.business_type_mix as BusinessTypeSegmentInput[]
+  }
+  if (Array.isArray(record.business_type_segments)) {
+    card.business_type_segments = record.business_type_segments as BusinessTypeSegmentInput[]
+  }
+  const weights = asRecord(record.business_type_weights)
+  if (weights) {
+    card.business_type_weights = weights as Record<string, number | string | null | undefined>
+  }
+
+  return card
+}
+
 class BusinessCardServiceImpl implements BusinessCardService {
   /**
    * Fetch business card data from backend using token
@@ -57,7 +112,7 @@ class BusinessCardServiceImpl implements BusinessCardService {
       })
 
       // Call backend endpoint: GET /api/business-cards?token=...
-      const url = `${getApiUrl()}/api/business-cards?token=${token}`
+      const url = `${getApiUrl()}/api/business-cards?token=${encodeURIComponent(token)}`
 
       const response = await fetch(url, {
         method: 'GET',
@@ -77,7 +132,7 @@ class BusinessCardServiceImpl implements BusinessCardService {
         throw new Error(`Failed to fetch business card: ${response.statusText}`)
       }
 
-      const businessCard = await response.json()
+      const businessCard = sanitizeLegacyBusinessCard(await response.json())
 
       businessCardLogger.info('Business card fetched successfully', {
         hasData: !!businessCard,

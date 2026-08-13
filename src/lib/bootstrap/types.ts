@@ -8,6 +8,7 @@
  */
 
 import type { BuyerReadinessPackage } from '../../types/buyerReadiness'
+import type { CompanyGraphContext } from '../../types/companyGraphContext'
 import type { CreditUpgradePath } from './credit-upgrade-path'
 
 // ============================================================================
@@ -317,6 +318,11 @@ export interface PrefillData {
   readOnlyKbo?: boolean
   /** STP: When true, all key fields are pre-filled — auto-advance past completed steps */
   autoAdvancePastPrefilledSteps?: boolean
+  /**
+   * Titan-issued, owner/advisor-only graph binding. Shadow-only until Titan
+   * re-authorizes it on valuation/report writes.
+   */
+  companyGraphContext?: CompanyGraphContext
 }
 
 // ============================================================================

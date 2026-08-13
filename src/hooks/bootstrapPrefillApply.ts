@@ -85,6 +85,10 @@ export function applyBootstrapPrefillToForm(
 
   const allData: BootstrapPrefillPatch = {}
 
+  if (prefillData.companyGraphContext) {
+    allData.company_graph_context = prefillData.companyGraphContext
+  }
+
   if (companyInfo) {
     if (companyInfo.companyName && companyInfo.companyName.trim() !== '') {
       allData.company_name = companyInfo.companyName

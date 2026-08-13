@@ -93,6 +93,7 @@ function applyCountryPrefillIfNewReport(
 }
 
 function hasMeaningfulPrefill(prefillData: PrefillDataParam): boolean {
+  if (prefillData.companyGraphContext) return true
   if ((prefillData.fieldsPopulated?.length ?? 0) > 0) return true
   if (prefillData.confidence >= 0.05) return true
   if (prefillData.companyInfo?.companyName?.trim()) return true

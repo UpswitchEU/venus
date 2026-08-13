@@ -64,6 +64,43 @@ describe('SessionAPI', () => {
       expect(result.session?.name).toBe('Updated Corp business valuation')
     })
 
+    it('preserves a valid graph context and rejects public context before patch dispatch', async () => {
+      const companyGraphContext = {
+        company_node_id: '11111111-1111-4111-8111-111111111111',
+        graph_revision: `sha256:${'a'.repeat(64)}`,
+        maturity_snapshot_id: '22222222-2222-4222-8222-222222222222',
+        ruleset_version: 'company-graph-maturity/v3',
+        audience: 'advisor' as const,
+      }
+      executeRequestSpy.mockResolvedValue({
+        session_key: 'val_graph_update',
+        session_data: { company_graph_context: companyGraphContext },
+      })
+
+      await api.updateValuationSession('val_graph_update', {
+        reportId: 'val_graph_update',
+        updates: { sessionData: { company_graph_context: companyGraphContext } },
+      })
+
+      const request = executeRequestSpy.mock.calls[0]?.[0] as {
+        data?: { session_data?: Record<string, unknown> }
+      }
+      expect(request.data?.session_data?.company_graph_context).toBe(companyGraphContext)
+
+      executeRequestSpy.mockClear()
+      await expect(
+        api.updateValuationSession('val_graph_update', {
+          reportId: 'val_graph_update',
+          updates: {
+            sessionData: {
+              company_graph_context: { ...companyGraphContext, audience: 'public' },
+            },
+          } as never,
+        })
+      ).rejects.toMatchObject({ field: 'company_graph_context' })
+      expect(executeRequestSpy).not.toHaveBeenCalled()
+    })
+
     it('retries transient Premature close failures once before failing the save', async () => {
       vi.useFakeTimers()
       try {

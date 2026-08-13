@@ -26,6 +26,7 @@ import {
 } from './normalizeBusinessTypeSegments'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import { hasAtMostTwoShareholdingDecimals } from './shareholding'
+import { validateOptionalValuationCompanyGraphContext } from './valuationCompanyGraphContext'
 import { buildValuationBusinessContext } from './valuationRequestBusinessContext'
 import { resolveValuationRequestIdentity } from './valuationRequestIdentity'
 import {
@@ -512,9 +513,13 @@ export function buildValuationRequest(
       formDataRecord: fd,
       businessContext,
     })
+  const companyGraphContext = validateOptionalValuationCompanyGraphContext(
+    formData.company_graph_context
+  )
 
   // Build ValuationRequest
   const request: ValuationRequest = {
+    ...(companyGraphContext ? { company_graph_context: companyGraphContext } : {}),
     company_name: companyName,
     country_code: countryCode,
     ...(currency ? { currency } : {}),
