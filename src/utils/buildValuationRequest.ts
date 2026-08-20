@@ -20,6 +20,7 @@ import { resolveCurrentYearFinancialBasis } from './currentYearFinancialBasis'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from './fiscalYear'
 import { generalLogger } from './logger'
+import { compileRecoveryInputsDraft } from './negativeEbitdaRecovery'
 import {
   businessTypeWeightsFromSegments,
   resolveBusinessTypeSegments,
@@ -516,6 +517,12 @@ export function buildValuationRequest(
   const companyGraphContext = validateOptionalValuationCompanyGraphContext(
     formData.company_graph_context
   )
+  const recoveryInputs =
+    process.env.NEXT_PUBLIC_NEGATIVE_EBITDA_RECOVERY_VALUATION_ENABLED === 'false'
+      ? undefined
+      : fd.recovery_inputs_draft
+        ? compileRecoveryInputsDraft(fd.recovery_inputs_draft).inputs
+        : fd.recovery_inputs
 
   // Build ValuationRequest
   const request: ValuationRequest = {
@@ -551,6 +558,7 @@ export function buildValuationRequest(
     current_year_data: currentYearData,
     historical_years_data: historicalYearsData,
     forecast_years_data: forecastYearsData,
+    ...(recoveryInputs ? { recovery_inputs: recoveryInputs } : {}),
     ...(fd.restricted_cash !== undefined && { restricted_cash: fd.restricted_cash }),
     ...(fd.lease_liabilities !== undefined && { lease_liabilities: fd.lease_liabilities }),
     ...(fd.debt_like_items !== undefined && { debt_like_items: fd.debt_like_items }),

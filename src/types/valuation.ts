@@ -4,6 +4,7 @@
 export * from './valuation/conversation'
 export * from './valuation/manual'
 export * from './valuation/modular'
+export * from './valuation/recovery'
 export * from './valuation/request'
 export * from './valuation/response'
 export * from './valuation/session'

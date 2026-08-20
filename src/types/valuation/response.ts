@@ -11,6 +11,7 @@ import type {
   ValidationWarning,
   ValuationMethodResult,
 } from './modular'
+import type { NegativeEbitdaResolution } from './recovery'
 import type { ApiNumeric, ValuationRequest, YearDataInput } from './request'
 
 /**
@@ -48,14 +49,18 @@ export interface ValuationResponse {
 
   // Final results - API returns as string for bank-grade precision
   /** Equity value (low estimate) - API returns as string for precision */
-  equity_value_low: ApiNumeric
+  equity_value_low: ApiNumeric | null
   /** Equity value (mid estimate) - API returns as string for precision */
-  equity_value_mid: ApiNumeric
+  equity_value_mid: ApiNumeric | null
   /** Equity value (high estimate) - API returns as string for precision */
-  equity_value_high: ApiNumeric
+  equity_value_high: ApiNumeric | null
   range_methodology?: 'multiple_dispersion' | 'confidence_spread' // Methodology used for range calculation
   /** Recommended asking price - API returns as string for precision */
-  recommended_asking_price: ApiNumeric
+  recommended_asking_price: ApiNumeric | null
+  /** Canonical completed recovery assessment; present for every negative-EBITDA calculation. */
+  negativeEbitdaResolution?: NegativeEbitdaResolution
+  /** Raw snake-case alias retained by Titan's compatibility adapter. */
+  negative_ebitda_resolution?: Record<string, unknown>
 
   // Confidence (multiple formats for compatibility) - API returns as string for precision
   /** Confidence score (0-1) - API returns as string for precision */

@@ -1,4 +1,5 @@
 import type { CompanyGraphContext } from '../companyGraphContext'
+import type { RecoveryInputs, RecoveryInputsDraft } from './recovery'
 
 // =============================================================================
 // DECIMAL PRECISION TYPES
@@ -304,6 +305,8 @@ export interface ValuationRequest {
   filing_year_confirmed?: boolean
   historical_years_data?: YearDataInput[]
   forecast_years_data?: YearDataInput[]
+  /** Versioned negative-EBITDA recovery schedules. Titan mints verification authority. */
+  recovery_inputs?: RecoveryInputs
   /** Canonical raw decision ledger; ValuationIQ alone decides which statuses are priced. */
   normalizations?: ValuationNormalizationDecisionInput[]
   official_financials?: OfficialFinancialsPayload
@@ -781,6 +784,8 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
 
   /** Manual-flow forecast years used as explicit DCF projection inputs. */
   forecast_years_data?: YearDataInput[]
+  /** Incomplete, UI-only recovery state; compiled into recovery_inputs only when valid. */
+  recovery_inputs_draft?: RecoveryInputsDraft
 
   // Adaptive Input Studio: method-specific bonus fields
   // DCF projections

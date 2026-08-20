@@ -170,6 +170,47 @@ export function trackValuationResult(
   })
 }
 
+export interface RecoveryAnalyticsContext {
+  businessType?: string
+  ebitdaBand?: 'below_-250k' | '-250k_to_-100k' | '-100k_to_0'
+  chosenMethod?: string
+  trajectory?: string
+  evidenceCompleteness?: 'incomplete' | 'complete'
+  conversionStage?: string
+  advisorReviewState?: 'not_requested' | 'requested' | 'completed'
+}
+
+function recoveryAnalyticsParams(context: RecoveryAnalyticsContext) {
+  return {
+    ...(context.businessType ? { business_type: context.businessType } : {}),
+    ...(context.ebitdaBand ? { ebitda_band: context.ebitdaBand } : {}),
+    ...(context.chosenMethod ? { chosen_method: context.chosenMethod } : {}),
+    ...(context.trajectory ? { trajectory: context.trajectory } : {}),
+    ...(context.evidenceCompleteness
+      ? { evidence_completeness: context.evidenceCompleteness }
+      : {}),
+    ...(context.conversionStage ? { conversion_stage: context.conversionStage } : {}),
+    ...(context.advisorReviewState ? { advisor_review_state: context.advisorReviewState } : {}),
+  }
+}
+
+/** Privacy-safe recovery funnel events. Monetary scenario values are deliberately excluded. */
+export function trackNegativeEbitdaDetected(context: RecoveryAnalyticsContext): void {
+  trackEvent('negative_ebitda_detected', recoveryAnalyticsParams(context))
+}
+
+export function trackRecoveryScenarioUpdated(context: RecoveryAnalyticsContext): void {
+  trackEvent('recovery_scenario_updated', recoveryAnalyticsParams(context))
+}
+
+export function trackRecoveryVerificationSubmitted(context: RecoveryAnalyticsContext): void {
+  trackEvent('recovery_verification_submitted', recoveryAnalyticsParams(context))
+}
+
+export function trackRecoveryResolutionViewed(context: RecoveryAnalyticsContext): void {
+  trackEvent('negative_ebitda_resolution_viewed', recoveryAnalyticsParams(context))
+}
+
 // ── Normalizations ───────────────────────────────────────────────────
 
 /** User opens the normalization modal/hub */

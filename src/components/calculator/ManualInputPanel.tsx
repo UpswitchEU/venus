@@ -58,6 +58,7 @@ import { ManualInputSubmitBar } from './ManualInputSubmitBar'
 import { CompanyIdentificationSection } from './sections/CompanyIdentificationSection'
 import { FinancialHistorySection } from './sections/FinancialHistorySection'
 import { ManualInputMethodSections } from './sections/ManualInputMethodSections'
+import { NegativeEbitdaRecoveryPanel } from './sections/NegativeEbitdaRecoveryPanel'
 import { OwnershipStructureSection } from './sections/OwnershipStructureSection'
 import {
   getSeedBaseFilingYear,
@@ -150,6 +151,8 @@ export function ManualInputPanel({
   integrationsEnabled = false,
   hasAdvisorProValuationAccess = false,
 }: ManualInputPanelProps) {
+  const recoveryValuationEnabled =
+    process.env.NEXT_PUBLIC_NEGATIVE_EBITDA_RECOVERY_VALUATION_ENABLED !== 'false'
   const { user } = useAuth()
   // Professional operators and Grow/Sell owners can use the Pro valuation
   // controls: segment-level multiple overrides and advisor expert defaults.
@@ -583,6 +586,27 @@ export function ManualInputPanel({
               updateYearlyFinancials={updateYearlyFinancials}
               waccSectorBand={waccSectorBand}
             />
+
+            {recoveryValuationEnabled &&
+              typeof latestHistoricalEbitda === 'number' &&
+              latestHistoricalEbitda < 0 && (
+                <NegativeEbitdaRecoveryPanel
+                  formData={formData}
+                  setFormData={setFormData}
+                  reportedEbitda={latestHistoricalEbitda}
+                  normalizedEbitda={
+                    normalizedData.years
+                      .filter((row) => !row.isForecast)
+                      .sort((left, right) => Number(left.year) - Number(right.year))
+                      .at(-1)?.normalizedEbitda
+                  }
+                  latestRevenue={latestHistoricalRevenue ?? 0}
+                  isProfessional={isProfessionalOperator}
+                  disabled={isCalculating}
+                  formatCurrency={formatCurrency}
+                  onViewAllNormalizations={onViewAllNormalizations}
+                />
+              )}
 
             <ManualInputMethodSections
               adaptiveHeaderSteps={adaptiveHeaderSteps}
