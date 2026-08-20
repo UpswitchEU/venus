@@ -71,6 +71,13 @@ describe('negative EBITDA recovery request compiler', () => {
   it('derives all supported driver models without caller FCFF totals', () => {
     expect(
       recoveryDriverRevenue({
+        model_type: 'customer_acv',
+        customers: 100,
+        annual_contract_value: 12_000,
+      })
+    ).toBe(1_200_000)
+    expect(
+      recoveryDriverRevenue({
         model_type: 'consultant_capacity',
         consultants: 10,
         annual_capacity_per_consultant: 1_600,
@@ -87,5 +94,54 @@ describe('negative EBITDA recovery request compiler', () => {
         new_arr: 200_000,
       })
     ).toBe(1_200_000)
+    expect(
+      recoveryDriverRevenue({
+        model_type: 'advisor_reviewed_custom',
+        model_name: 'Reviewed pipeline model',
+        derived_revenue: 1_200_000,
+        evidence_references: ['advisor-model-1'],
+      })
+    ).toBe(1_200_000)
+  })
+
+  it('blocks out-of-range model drivers before the request reaches Titan', () => {
+    const draft = createRecoveryInputsDraft({
+      startYear: 2027,
+      revenue: 1_000_000,
+      reportedEbitda: -100_000,
+      verificationIntent: 'owner_attestation',
+    })
+    draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
+    draft.verification_intent.accepted = true
+    draft.scenarios[1].forecast_years[0].operating_driver = {
+      model_type: 'arr_retention_expansion',
+      opening_arr: 1_000_000,
+      gross_retention_rate: 1.2,
+      expansion_arr: 0,
+      new_arr: 0,
+    }
+
+    expect(compileRecoveryInputsDraft(draft).issues).toContain('base_2027_driver_inputs_invalid')
+  })
+
+  it('does not let an owner submit an advisor-reviewed custom driver', () => {
+    const draft = createRecoveryInputsDraft({
+      startYear: 2027,
+      revenue: 1_000_000,
+      reportedEbitda: -100_000,
+      verificationIntent: 'owner_attestation',
+    })
+    draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
+    draft.verification_intent.accepted = true
+    draft.scenarios[0].forecast_years[0].operating_driver = {
+      model_type: 'advisor_reviewed_custom',
+      model_name: 'Reviewed pipeline model',
+      derived_revenue: draft.scenarios[0].forecast_years[0].revenue,
+      evidence_references: ['advisor-model-1'],
+    }
+
+    expect(compileRecoveryInputsDraft(draft).issues).toContain(
+      'advisor_review_required_for_custom_driver'
+    )
   })
 })

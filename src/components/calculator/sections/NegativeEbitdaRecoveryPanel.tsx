@@ -13,6 +13,7 @@ import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type {
   ManualValuationFormData,
   RecoveryInputsDraft,
+  RecoveryOperatingDriver,
   RecoveryScenarioKey,
 } from '@/types/valuation'
 import {
@@ -50,6 +51,25 @@ const COPY = {
     nwc: 'Δ werkkapitaal',
     units: 'Eenheden',
     price: 'Prijs per eenheid',
+    driverModel: 'Omzetdriver',
+    customerAcv: 'Klanten × contractwaarde',
+    consultantCapacity: 'Consultants × capaciteit × bezetting × tarief',
+    arrRetention: 'ARR-retentie en uitbreiding',
+    unitsPrice: 'Eenheden × prijs',
+    customDriver: 'Door adviseur beoordeeld model',
+    customers: 'Klanten',
+    acv: 'Jaarlijkse contractwaarde',
+    consultants: 'Consultants',
+    annualCapacity: 'Jaarcapaciteit per consultant',
+    utilization: 'Bezetting %',
+    rate: 'Tarief',
+    openingArr: 'Openings-ARR',
+    retention: 'Brutoretentie %',
+    expansionArr: 'Uitbreidings-ARR',
+    newArr: 'Nieuwe ARR',
+    modelName: 'Naam van het model',
+    derivedRevenue: 'Afgeleide omzet',
+    customEvidence: 'Bewijs voor het aangepaste model',
     reconciled: 'Omzetdriver sluit aan',
     unreconciled: 'Omzetdriver sluit niet aan',
     addYear: 'Voeg prognosejaar toe',
@@ -106,6 +126,25 @@ const COPY = {
     nwc: 'Δ working capital',
     units: 'Units',
     price: 'Price per unit',
+    driverModel: 'Revenue driver',
+    customerAcv: 'Customers × contract value',
+    consultantCapacity: 'Consultants × capacity × utilization × rate',
+    arrRetention: 'ARR retention and expansion',
+    unitsPrice: 'Units × price',
+    customDriver: 'Advisor-reviewed custom model',
+    customers: 'Customers',
+    acv: 'Annual contract value',
+    consultants: 'Consultants',
+    annualCapacity: 'Annual capacity per consultant',
+    utilization: 'Utilization %',
+    rate: 'Rate',
+    openingArr: 'Opening ARR',
+    retention: 'Gross retention %',
+    expansionArr: 'Expansion ARR',
+    newArr: 'New ARR',
+    modelName: 'Model name',
+    derivedRevenue: 'Derived revenue',
+    customEvidence: 'Custom-model evidence',
     reconciled: 'Revenue driver reconciles',
     unreconciled: 'Revenue driver does not reconcile',
     addYear: 'Add forecast year',
@@ -161,6 +200,25 @@ const COPY = {
     nwc: 'Δ fonds de roulement',
     units: 'Unités',
     price: 'Prix par unité',
+    driverModel: 'Moteur de chiffre d’affaires',
+    customerAcv: 'Clients × valeur contractuelle',
+    consultantCapacity: 'Consultants × capacité × utilisation × tarif',
+    arrRetention: 'Rétention et expansion ARR',
+    unitsPrice: 'Unités × prix',
+    customDriver: 'Modèle personnalisé revu par un conseiller',
+    customers: 'Clients',
+    acv: 'Valeur contractuelle annuelle',
+    consultants: 'Consultants',
+    annualCapacity: 'Capacité annuelle par consultant',
+    utilization: 'Utilisation %',
+    rate: 'Tarif',
+    openingArr: 'ARR initial',
+    retention: 'Rétention brute %',
+    expansionArr: 'ARR d’expansion',
+    newArr: 'Nouvel ARR',
+    modelName: 'Nom du modèle',
+    derivedRevenue: 'Chiffre d’affaires dérivé',
+    customEvidence: 'Preuve du modèle personnalisé',
     reconciled: 'Le moteur de chiffre d’affaires concorde',
     unreconciled: 'Le moteur de chiffre d’affaires ne concorde pas',
     addYear: 'Ajouter une année prévisionnelle',
@@ -205,6 +263,41 @@ function evidenceList(value: string): string[] {
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean)
+}
+
+function createOperatingDriver(
+  modelType: RecoveryOperatingDriver['model_type'],
+  revenue: number
+): RecoveryOperatingDriver {
+  switch (modelType) {
+    case 'customer_acv':
+      return { model_type: modelType, customers: 1, annual_contract_value: revenue }
+    case 'consultant_capacity':
+      return {
+        model_type: modelType,
+        consultants: 1,
+        annual_capacity_per_consultant: 1,
+        utilization: 1,
+        rate: revenue,
+      }
+    case 'arr_retention_expansion':
+      return {
+        model_type: modelType,
+        opening_arr: revenue,
+        gross_retention_rate: 1,
+        expansion_arr: 0,
+        new_arr: 0,
+      }
+    case 'advisor_reviewed_custom':
+      return {
+        model_type: modelType,
+        model_name: 'Advisor-reviewed operating model',
+        derived_revenue: revenue,
+        evidence_references: [],
+      }
+    case 'units_price':
+      return { model_type: modelType, units: 1, price_per_unit: revenue }
+  }
 }
 
 export function NegativeEbitdaRecoveryPanel({
@@ -465,14 +558,7 @@ export function NegativeEbitdaRecoveryPanel({
                   const derivedRevenue = recoveryDriverRevenue(row.operating_driver)
                   const reconciled =
                     Math.abs(derivedRevenue - row.revenue) <= Math.max(1, row.revenue * 0.005)
-                  const driver =
-                    row.operating_driver.model_type === 'units_price'
-                      ? row.operating_driver
-                      : {
-                          model_type: 'units_price' as const,
-                          units: 1,
-                          price_per_unit: row.revenue,
-                        }
+                  const driver = row.operating_driver
                   return (
                     <div key={row.year} className="rounded-xl border border-neutral-200 p-3">
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -542,32 +628,232 @@ export function NegativeEbitdaRecoveryPanel({
                             })
                           }
                         />
-                        <NumberField
-                          label={c.units}
-                          value={driver.units}
-                          onChange={(value) =>
-                            updateScenario(scenarioKey, (scenario) => {
-                              scenario.forecast_years[rowIndex].operating_driver = {
-                                model_type: 'units_price',
-                                units: value,
-                                price_per_unit: driver.price_per_unit,
+                        <label className="text-xs font-medium text-neutral-600 sm:col-span-2">
+                          {c.driverModel}
+                          <select
+                            className={`${inputClass} mt-1`}
+                            value={driver.model_type}
+                            onChange={(event) =>
+                              updateScenario(scenarioKey, (scenario) => {
+                                scenario.forecast_years[rowIndex].operating_driver =
+                                  createOperatingDriver(
+                                    event.target.value as RecoveryOperatingDriver['model_type'],
+                                    row.revenue
+                                  )
+                              })
+                            }
+                          >
+                            <option value="customer_acv">{c.customerAcv}</option>
+                            <option value="consultant_capacity">{c.consultantCapacity}</option>
+                            <option value="arr_retention_expansion">{c.arrRetention}</option>
+                            <option value="units_price">{c.unitsPrice}</option>
+                            {isProfessional && (
+                              <option value="advisor_reviewed_custom">{c.customDriver}</option>
+                            )}
+                          </select>
+                        </label>
+                        {driver.model_type === 'units_price' && (
+                          <>
+                            <NumberField
+                              label={c.units}
+                              value={driver.units}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    units: value,
+                                  }
+                                })
                               }
-                            })
-                          }
-                        />
-                        <NumberField
-                          label={c.price}
-                          value={driver.price_per_unit}
-                          onChange={(value) =>
-                            updateScenario(scenarioKey, (scenario) => {
-                              scenario.forecast_years[rowIndex].operating_driver = {
-                                model_type: 'units_price',
-                                units: driver.units,
-                                price_per_unit: value,
+                            />
+                            <NumberField
+                              label={c.price}
+                              value={driver.price_per_unit}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    price_per_unit: value,
+                                  }
+                                })
                               }
-                            })
-                          }
-                        />
+                            />
+                          </>
+                        )}
+                        {driver.model_type === 'customer_acv' && (
+                          <>
+                            <NumberField
+                              label={c.customers}
+                              value={driver.customers}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    customers: value,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.acv}
+                              value={driver.annual_contract_value}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    annual_contract_value: value,
+                                  }
+                                })
+                              }
+                            />
+                          </>
+                        )}
+                        {driver.model_type === 'consultant_capacity' && (
+                          <>
+                            <NumberField
+                              label={c.consultants}
+                              value={driver.consultants}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    consultants: value,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.annualCapacity}
+                              value={driver.annual_capacity_per_consultant}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    annual_capacity_per_consultant: value,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.utilization}
+                              value={driver.utilization * 100}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    utilization: value / 100,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.rate}
+                              value={driver.rate}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    rate: value,
+                                  }
+                                })
+                              }
+                            />
+                          </>
+                        )}
+                        {driver.model_type === 'arr_retention_expansion' && (
+                          <>
+                            <NumberField
+                              label={c.openingArr}
+                              value={driver.opening_arr}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    opening_arr: value,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.retention}
+                              value={driver.gross_retention_rate * 100}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    gross_retention_rate: value / 100,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.expansionArr}
+                              value={driver.expansion_arr}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    expansion_arr: value,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.newArr}
+                              value={driver.new_arr}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    new_arr: value,
+                                  }
+                                })
+                              }
+                            />
+                          </>
+                        )}
+                        {driver.model_type === 'advisor_reviewed_custom' && (
+                          <>
+                            <TextField
+                              label={c.modelName}
+                              value={driver.model_name}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    model_name: value,
+                                  }
+                                })
+                              }
+                            />
+                            <NumberField
+                              label={c.derivedRevenue}
+                              value={driver.derived_revenue}
+                              onChange={(value) =>
+                                updateScenario(scenarioKey, (scenario) => {
+                                  scenario.forecast_years[rowIndex].operating_driver = {
+                                    ...driver,
+                                    derived_revenue: value,
+                                  }
+                                })
+                              }
+                            />
+                            <div className="sm:col-span-2">
+                              <TextField
+                                label={c.customEvidence}
+                                value={driver.evidence_references.join(', ')}
+                                onChange={(value) =>
+                                  updateScenario(scenarioKey, (scenario) => {
+                                    scenario.forecast_years[rowIndex].operating_driver = {
+                                      ...driver,
+                                      evidence_references: evidenceList(value),
+                                    }
+                                  })
+                                }
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                       <p
                         className={`mt-2 text-xs font-medium ${

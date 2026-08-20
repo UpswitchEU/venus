@@ -38,6 +38,56 @@ export function recoveryDriverRevenue(driver: RecoveryOperatingDriver): number {
   }
 }
 
+function validOperatingDriver(driver: RecoveryOperatingDriver): boolean {
+  switch (driver.model_type) {
+    case 'customer_acv':
+      return (
+        finite(driver.customers) &&
+        driver.customers >= 0 &&
+        finite(driver.annual_contract_value) &&
+        driver.annual_contract_value >= 0
+      )
+    case 'consultant_capacity':
+      return (
+        finite(driver.consultants) &&
+        driver.consultants >= 0 &&
+        finite(driver.annual_capacity_per_consultant) &&
+        driver.annual_capacity_per_consultant >= 0 &&
+        finite(driver.utilization) &&
+        driver.utilization >= 0 &&
+        driver.utilization <= 1 &&
+        finite(driver.rate) &&
+        driver.rate >= 0
+      )
+    case 'arr_retention_expansion':
+      return (
+        finite(driver.opening_arr) &&
+        driver.opening_arr >= 0 &&
+        finite(driver.gross_retention_rate) &&
+        driver.gross_retention_rate >= 0 &&
+        driver.gross_retention_rate <= 1 &&
+        finite(driver.expansion_arr) &&
+        driver.expansion_arr >= 0 &&
+        finite(driver.new_arr) &&
+        driver.new_arr >= 0
+      )
+    case 'units_price':
+      return (
+        finite(driver.units) &&
+        driver.units >= 0 &&
+        finite(driver.price_per_unit) &&
+        driver.price_per_unit >= 0
+      )
+    case 'advisor_reviewed_custom':
+      return (
+        driver.model_name.trim().length >= 3 &&
+        finite(driver.derived_revenue) &&
+        driver.derived_revenue >= 0 &&
+        driver.evidence_references.length > 0
+      )
+  }
+}
+
 function makeYear(
   year: number,
   revenue: number,
@@ -151,6 +201,9 @@ export function compileRecoveryInputsDraft(
         issues.push(`${scenario.key}_${row.year}_tax_or_nwc_invalid`)
       }
       const derivedRevenue = recoveryDriverRevenue(row.operating_driver)
+      if (!validOperatingDriver(row.operating_driver)) {
+        issues.push(`${scenario.key}_${row.year}_driver_inputs_invalid`)
+      }
       const tolerance = Math.max(1, Math.abs(row.revenue) * 0.005)
       if (!finite(derivedRevenue) || Math.abs(derivedRevenue - row.revenue) > tolerance) {
         issues.push(`${scenario.key}_${row.year}_driver_not_reconciled`)
@@ -170,6 +223,14 @@ export function compileRecoveryInputsDraft(
     }
   }
   if (starts.size !== 1) issues.push('scenario_start_years_must_match')
+  const hasCustomDriver = draft.scenarios.some((scenario) =>
+    scenario.forecast_years.some(
+      (row) => row.operating_driver.model_type === 'advisor_reviewed_custom'
+    )
+  )
+  if (hasCustomDriver && draft.verification_intent.intent !== 'advisor_review') {
+    issues.push('advisor_review_required_for_custom_driver')
+  }
 
   const { wacc, terminal_growth_rate: terminalGrowth } = draft.governed_assumptions
   if (!finite(wacc) || wacc <= 0 || wacc >= 1) issues.push('wacc_invalid')
