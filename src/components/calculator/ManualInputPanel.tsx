@@ -601,7 +601,6 @@ export function ManualInputPanel({
                       .at(-1)?.normalizedEbitda
                   }
                   latestRevenue={latestHistoricalRevenue ?? 0}
-                  isProfessional={isProfessionalOperator}
                   disabled={isCalculating}
                   formatCurrency={formatCurrency}
                   onViewAllNormalizations={onViewAllNormalizations}

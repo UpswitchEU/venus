@@ -54,6 +54,10 @@ export interface ValuationResponse {
   equity_value_mid: ApiNumeric | null
   /** Equity value (high estimate) - API returns as string for precision */
   equity_value_high: ApiNumeric | null
+  /** Enterprise value before the cash/debt bridge. */
+  enterprise_value_low?: ApiNumeric | null
+  enterprise_value_mid?: ApiNumeric | null
+  enterprise_value_high?: ApiNumeric | null
   range_methodology?: 'multiple_dispersion' | 'confidence_spread' // Methodology used for range calculation
   /** Recommended asking price - API returns as string for precision */
   recommended_asking_price: ApiNumeric | null

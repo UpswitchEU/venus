@@ -5,6 +5,10 @@ import { useLocale } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import {
   trackNegativeEbitdaDetected,
+  trackNormalizationBridgeCompleted,
+  trackRecoveryDcfBlocked,
+  trackRecoveryDcfCompleted,
+  trackRecoveryDcfStarted,
   trackRecoveryResolutionViewed,
   trackRecoveryScenarioUpdated,
   trackRecoveryVerificationSubmitted,
@@ -56,7 +60,7 @@ const COPY = {
     consultantCapacity: 'Consultants × capaciteit × bezetting × tarief',
     arrRetention: 'ARR-retentie en uitbreiding',
     unitsPrice: 'Eenheden × prijs',
-    customDriver: 'Door adviseur beoordeeld model',
+    customDriver: 'Aangetoond aangepast model',
     customers: 'Klanten',
     acv: 'Jaarlijkse contractwaarde',
     consultants: 'Consultants',
@@ -93,10 +97,16 @@ const COPY = {
     result: 'Herstelbeoordeling',
     noRange: 'Nog geen verdedigbare waarderingsrange vastgesteld',
     currentEquity: 'Huidige aandelenwaarde',
+    enterpriseValue: 'Ondernemingswaarde',
+    primaryMethod: 'Primaire methode',
+    crossChecks: 'Kruiscontroles',
+    conflicts: 'Trajectsignalen',
+    qualifications: 'Waarderingskwalificaties',
     fundingGap: 'Financieringsbehoefte',
     breakEven: 'Break-evenjaar',
     terminalShare: 'Aandeel terminale waarde',
     blockers: 'Blokkerende punten',
+    evidenceNeeded: 'Aanvullend bewijs voor hogere betrouwbaarheid',
     actions: 'Volgende acties',
     scenarioOutcome: 'Scenario-uitkomst',
   },
@@ -131,7 +141,7 @@ const COPY = {
     consultantCapacity: 'Consultants × capacity × utilization × rate',
     arrRetention: 'ARR retention and expansion',
     unitsPrice: 'Units × price',
-    customDriver: 'Advisor-reviewed custom model',
+    customDriver: 'Evidence-backed custom model',
     customers: 'Customers',
     acv: 'Annual contract value',
     consultants: 'Consultants',
@@ -167,10 +177,16 @@ const COPY = {
     result: 'Recovery assessment',
     noRange: 'No defensible valuation range established yet',
     currentEquity: 'Current equity value',
+    enterpriseValue: 'Enterprise value',
+    primaryMethod: 'Primary method',
+    crossChecks: 'Cross-checks',
+    conflicts: 'Trajectory signals',
+    qualifications: 'Valuation qualifications',
     fundingGap: 'Funding requirement',
     breakEven: 'Break-even year',
     terminalShare: 'Terminal-value share',
     blockers: 'Blocking items',
+    evidenceNeeded: 'Additional evidence for higher confidence',
     actions: 'Next actions',
     scenarioOutcome: 'Scenario outcome',
   },
@@ -205,7 +221,7 @@ const COPY = {
     consultantCapacity: 'Consultants × capacité × utilisation × tarif',
     arrRetention: 'Rétention et expansion ARR',
     unitsPrice: 'Unités × prix',
-    customDriver: 'Modèle personnalisé revu par un conseiller',
+    customDriver: 'Modèle personnalisé étayé',
     customers: 'Clients',
     acv: 'Valeur contractuelle annuelle',
     consultants: 'Consultants',
@@ -240,10 +256,16 @@ const COPY = {
     result: 'Évaluation du redressement',
     noRange: 'Aucune fourchette de valorisation défendable établie à ce stade',
     currentEquity: 'Valeur actuelle des capitaux propres',
+    enterpriseValue: "Valeur d'entreprise",
+    primaryMethod: 'Méthode principale',
+    crossChecks: 'Contrôles croisés',
+    conflicts: 'Signaux de trajectoire',
+    qualifications: 'Réserves de valorisation',
     fundingGap: 'Besoin de financement',
     breakEven: 'Année du seuil de rentabilité',
     terminalShare: 'Part de la valeur terminale',
     blockers: 'Points bloquants',
+    evidenceNeeded: 'Preuves complémentaires pour une fiabilité accrue',
     actions: 'Actions suivantes',
     scenarioOutcome: 'Résultat par scénario',
   },
@@ -288,10 +310,17 @@ function createOperatingDriver(
         expansion_arr: 0,
         new_arr: 0,
       }
+    case 'attested_custom':
+      return {
+        model_type: modelType,
+        model_name: 'Owner-attested operating model',
+        derived_revenue: revenue,
+        evidence_references: [],
+      }
     case 'advisor_reviewed_custom':
       return {
         model_type: modelType,
-        model_name: 'Advisor-reviewed operating model',
+        model_name: 'Legacy advisor-reviewed operating model',
         derived_revenue: revenue,
         evidence_references: [],
       }
@@ -306,7 +335,6 @@ export function NegativeEbitdaRecoveryPanel({
   reportedEbitda,
   normalizedEbitda,
   latestRevenue,
-  isProfessional,
   disabled,
   formatCurrency,
   onViewAllNormalizations,
@@ -316,7 +344,6 @@ export function NegativeEbitdaRecoveryPanel({
   reportedEbitda: number
   normalizedEbitda?: number
   latestRevenue: number
-  isProfessional: boolean
   disabled: boolean
   formatCurrency: (value: number) => string
   onViewAllNormalizations?: () => void
@@ -340,19 +367,9 @@ export function NegativeEbitdaRecoveryPanel({
       businessType: formData.business_type_id ?? formData.businessType,
       ebitdaBand: ebitdaBand(reportedEbitda),
       evidenceCompleteness: compilation.inputs ? ('complete' as const) : ('incomplete' as const),
-      advisorReviewState: isProfessional
-        ? draft?.verification_intent.accepted
-          ? ('completed' as const)
-          : ('requested' as const)
-        : ('not_requested' as const),
+      advisorReviewState: 'not_requested' as const,
     }),
-    [
-      compilation.inputs,
-      draft?.verification_intent.accepted,
-      formData,
-      isProfessional,
-      reportedEbitda,
-    ]
+    [compilation.inputs, formData, reportedEbitda]
   )
 
   useEffect(() => {
@@ -370,6 +387,21 @@ export function NegativeEbitdaRecoveryPanel({
       trajectory: resolution.operatingTrajectory.direction,
       conversionStage: 'result',
     })
+    if (resolution.primaryMethod === 'recovery_dcf') {
+      trackRecoveryDcfCompleted({
+        ...analyticsContext,
+        chosenMethod: resolution.primaryMethod,
+        trajectory: resolution.operatingTrajectory.direction,
+        conversionStage: 'result',
+      })
+    } else if (resolution.candidateMethodAudit.dcf?.accepted === false) {
+      trackRecoveryDcfBlocked({
+        ...analyticsContext,
+        chosenMethod: resolution.primaryMethod ?? 'none',
+        trajectory: resolution.operatingTrajectory.direction,
+        conversionStage: 'result',
+      })
+    }
   }, [analyticsContext, resolution])
 
   const setDraft = (next: RecoveryInputsDraft) => {
@@ -408,12 +440,17 @@ export function NegativeEbitdaRecoveryPanel({
       ...formData.yearlyFinancials.map((row) => Number(row.year)).filter(Number.isFinite),
       new Date().getFullYear() - 1
     )
+    const latestActual = [...formData.yearlyFinancials]
+      .filter((row) => !row.isForecast)
+      .sort((left, right) => Number(left.year) - Number(right.year))
+      .at(-1)
     setDraft(
       createRecoveryInputsDraft({
         startYear: latestYear + 1,
         revenue: latestRevenue,
         reportedEbitda,
-        verificationIntent: isProfessional ? 'advisor_review' : 'owner_attestation',
+        verificationIntent: 'owner_attestation',
+        openingCash: typeof latestActual?.cash === 'number' ? latestActual.cash : 0,
         wacc: typeof formData.dcf_wacc_pct === 'number' ? formData.dcf_wacc_pct / 100 : undefined,
         terminalGrowthRate:
           typeof formData.dcf_terminal_growth_pct === 'number'
@@ -421,6 +458,11 @@ export function NegativeEbitdaRecoveryPanel({
             : undefined,
       })
     )
+    trackNormalizationBridgeCompleted({
+      ...analyticsContext,
+      conversionStage: 'normalization_complete',
+    })
+    trackRecoveryDcfStarted({ ...analyticsContext, conversionStage: 'scenarios' })
   }
 
   return (
@@ -647,9 +689,7 @@ export function NegativeEbitdaRecoveryPanel({
                             <option value="consultant_capacity">{c.consultantCapacity}</option>
                             <option value="arr_retention_expansion">{c.arrRetention}</option>
                             <option value="units_price">{c.unitsPrice}</option>
-                            {isProfessional && (
-                              <option value="advisor_reviewed_custom">{c.customDriver}</option>
-                            )}
+                            <option value="attested_custom">{c.customDriver}</option>
                           </select>
                         </label>
                         {driver.model_type === 'units_price' && (
@@ -812,7 +852,8 @@ export function NegativeEbitdaRecoveryPanel({
                             />
                           </>
                         )}
-                        {driver.model_type === 'advisor_reviewed_custom' && (
+                        {(driver.model_type === 'attested_custom' ||
+                          driver.model_type === 'advisor_reviewed_custom') && (
                           <>
                             <TextField
                               label={c.modelName}
@@ -1068,7 +1109,7 @@ export function NegativeEbitdaRecoveryPanel({
                       setDraft({
                         ...draft,
                         verification_intent: {
-                          intent: isProfessional ? 'advisor_review' : 'owner_attestation',
+                          intent: 'owner_attestation',
                           accepted,
                         },
                       })
@@ -1078,20 +1119,20 @@ export function NegativeEbitdaRecoveryPanel({
                           evidenceCompleteness: compileRecoveryInputsDraft({
                             ...draft,
                             verification_intent: {
-                              intent: isProfessional ? 'advisor_review' : 'owner_attestation',
+                              intent: 'owner_attestation',
                               accepted: true,
                             },
                           }).inputs
                             ? 'complete'
                             : 'incomplete',
                           conversionStage: 'verification',
-                          advisorReviewState: isProfessional ? 'completed' : 'not_requested',
+                          advisorReviewState: 'not_requested',
                         })
                       }
                     }}
                     className="mt-1 h-4 w-4 rounded border-neutral-300 accent-[#C95F3B]"
                   />
-                  <span>{isProfessional ? c.attestAdvisor : c.attestOwner}</span>
+                  <span>{c.attestOwner}</span>
                 </label>
               </div>
               <div
@@ -1123,6 +1164,36 @@ export function NegativeEbitdaRecoveryPanel({
               {resolution.confidence} confidence
             </span>
           </div>
+          {resolution.primaryMethod && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <DarkMetric
+                label={c.primaryMethod}
+                value={resolution.primaryMethod.replaceAll('_', ' ')}
+              />
+              <DarkMetric
+                label={c.enterpriseValue}
+                value={formatRange(
+                  resolution.headlineEnterpriseValueLow,
+                  resolution.headlineEnterpriseValueHigh,
+                  formatCurrency
+                )}
+              />
+              <DarkMetric
+                label={c.currentEquity}
+                value={formatRange(
+                  resolution.headlineEquityValueLow,
+                  resolution.headlineEquityValueHigh,
+                  formatCurrency
+                )}
+              />
+            </div>
+          )}
+          {resolution.crossCheckMethods.length > 0 && (
+            <p className="mt-3 text-sm text-neutral-300">
+              <span className="font-medium text-white">{c.crossChecks}:</span>{' '}
+              {resolution.crossCheckMethods.join(', ').replaceAll('_', ' ')}
+            </p>
+          )}
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <DarkMetric label={c.breakEven} value={resolution.breakEvenYear?.toString() ?? '—'} />
             <DarkMetric
@@ -1149,6 +1220,7 @@ export function NegativeEbitdaRecoveryPanel({
                     <th className="px-3 py-2">{c.probability}</th>
                     <th className="px-3 py-2">{c.breakEven}</th>
                     <th className="px-3 py-2">{c.fundingGap}</th>
+                    <th className="px-3 py-2">{c.enterpriseValue}</th>
                     <th className="px-3 py-2">{c.currentEquity}</th>
                   </tr>
                 </thead>
@@ -1160,6 +1232,11 @@ export function NegativeEbitdaRecoveryPanel({
                       <td className="px-3 py-2">{scenario.breakEvenYear ?? '—'}</td>
                       <td className="px-3 py-2">{formatCurrency(Number(scenario.fundingGap))}</td>
                       <td className="px-3 py-2">
+                        {scenario.enterpriseValueMid == null
+                          ? '—'
+                          : formatCurrency(Number(scenario.enterpriseValueMid))}
+                      </td>
+                      <td className="px-3 py-2">
                         {scenario.equityValueMid == null
                           ? '—'
                           : formatCurrency(Number(scenario.equityValueMid))}
@@ -1170,8 +1247,17 @@ export function NegativeEbitdaRecoveryPanel({
               </table>
             </div>
           )}
+          {resolution.operatingTrajectory.conflicts.length > 0 && (
+            <CodeList title={c.conflicts} values={resolution.operatingTrajectory.conflicts} />
+          )}
+          {typeof resolution.equityBridge?.qualification === 'string' && (
+            <CodeList title={c.qualifications} values={[resolution.equityBridge.qualification]} />
+          )}
           {resolution.blockers.length > 0 && (
             <CodeList title={c.blockers} values={resolution.blockers} />
+          )}
+          {resolution.requiredEvidence.length > 0 && (
+            <CodeList title={c.evidenceNeeded} values={resolution.requiredEvidence} />
           )}
           {resolution.valueBuildingActions.length > 0 && (
             <CodeList title={c.actions} values={resolution.valueBuildingActions} />
@@ -1180,6 +1266,15 @@ export function NegativeEbitdaRecoveryPanel({
       )}
     </section>
   )
+}
+
+function formatRange(
+  low: string | number | null | undefined,
+  high: string | number | null | undefined,
+  formatCurrency: (value: number) => string
+): string {
+  if (low == null || high == null) return '—'
+  return `${formatCurrency(Number(low))} – ${formatCurrency(Number(high))}`
 }
 
 function NumberField({

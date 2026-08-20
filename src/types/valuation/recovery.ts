@@ -28,6 +28,12 @@ export type RecoveryOperatingDriver =
       price_per_unit: number
     }
   | {
+      model_type: 'attested_custom'
+      model_name: string
+      derived_revenue: number
+      evidence_references: string[]
+    }
+  | {
       model_type: 'advisor_reviewed_custom'
       model_name: string
       derived_revenue: number
@@ -116,6 +122,7 @@ export interface RecoveryScenarioResult {
   fundingGap: ApiNumeric
   terminalValueShare: ApiNumeric | null
   blockers: string[]
+  warnings: string[]
   derivedSchedule: Array<Record<string, unknown>>
 }
 
@@ -142,7 +149,17 @@ export interface NegativeEbitdaResolution {
   breakEvenYear: number | null
   fundingGap: ApiNumeric | null
   terminalValueShare: ApiNumeric | null
+  headlineEquityValueLow: ApiNumeric | null
+  headlineEquityValueMid: ApiNumeric | null
+  headlineEquityValueHigh: ApiNumeric | null
+  headlineEnterpriseValueLow: ApiNumeric | null
+  headlineEnterpriseValueMid: ApiNumeric | null
+  headlineEnterpriseValueHigh: ApiNumeric | null
   confidence: 'low' | 'medium' | 'high'
+  causeCodes: string[]
+  normalizationBridge: Record<string, unknown>
+  breakEvenBridge: Record<string, unknown> | null
+  equityBridge: Record<string, unknown> | null
   blockers: string[]
   requiredEvidence: string[]
   valueBuildingActions: string[]

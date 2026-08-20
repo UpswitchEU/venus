@@ -33,6 +33,7 @@ export function recoveryDriverRevenue(driver: RecoveryOperatingDriver): number {
       )
     case 'units_price':
       return driver.units * driver.price_per_unit
+    case 'attested_custom':
     case 'advisor_reviewed_custom':
       return driver.derived_revenue
   }
@@ -78,6 +79,7 @@ function validOperatingDriver(driver: RecoveryOperatingDriver): boolean {
         finite(driver.price_per_unit) &&
         driver.price_per_unit >= 0
       )
+    case 'attested_custom':
     case 'advisor_reviewed_custom':
       return (
         driver.model_name.trim().length >= 3 &&
@@ -88,15 +90,12 @@ function validOperatingDriver(driver: RecoveryOperatingDriver): boolean {
   }
 }
 
-function makeYear(
-  year: number,
-  revenue: number,
-  reportedEbitda: number
-): RecoveryForecastYearInput {
+function makeYear(year: number, revenue: number, ebitdaMargin: number): RecoveryForecastYearInput {
+  const forecastEbitda = Math.max(0, revenue * ebitdaMargin)
   return {
     year,
     revenue,
-    operating_expenses_excluding_da: Math.max(0, revenue - reportedEbitda),
+    operating_expenses_excluding_da: Math.max(0, revenue - forecastEbitda),
     depreciation_and_amortization: 0,
     tax_rate: 0.25,
     nol_opening: 0,
@@ -112,6 +111,7 @@ export function createRecoveryInputsDraft(options: {
   revenue: number
   reportedEbitda: number
   verificationIntent: 'owner_attestation' | 'advisor_review'
+  openingCash?: number
   wacc?: number
   terminalGrowthRate?: number
 }): RecoveryInputsDraft {
@@ -125,7 +125,11 @@ export function createRecoveryInputsDraft(options: {
         makeYear(
           options.startYear + yearIndex,
           Math.max(0, options.revenue * revenueFactor ** (yearIndex + 1)),
-          options.reportedEbitda
+          key === 'downside'
+            ? [0.01, 0.04, 0.07][yearIndex]
+            : key === 'upside'
+              ? [0.04, 0.08, 0.12][yearIndex]
+              : [0.02, 0.06, 0.1][yearIndex]
         )
       ),
       override_evidence_references: [],
@@ -141,11 +145,15 @@ export function createRecoveryInputsDraft(options: {
     enabled: true,
     schema_version: 'recovery_inputs.v1',
     scenarios,
-    funding_plan: { opening_cash: 0, minimum_cash: 0, commitments: [] },
+    funding_plan: {
+      opening_cash: Math.max(0, options.openingCash ?? 0),
+      minimum_cash: 0,
+      commitments: [],
+    },
     governed_assumptions: {
       wacc: options.wacc ?? 0.12,
       terminal_growth_rate: options.terminalGrowthRate ?? 0.02,
-      evidence_references: [],
+      evidence_references: ['upswitch:negative-ebitda-recovery-policy:v1'],
     },
     verification_intent: { intent: options.verificationIntent, accepted: false },
   }
@@ -209,7 +217,8 @@ export function compileRecoveryInputsDraft(
         issues.push(`${scenario.key}_${row.year}_driver_not_reconciled`)
       }
       if (
-        row.operating_driver.model_type === 'advisor_reviewed_custom' &&
+        (row.operating_driver.model_type === 'attested_custom' ||
+          row.operating_driver.model_type === 'advisor_reviewed_custom') &&
         row.operating_driver.evidence_references.length === 0
       ) {
         issues.push(`${scenario.key}_${row.year}_custom_driver_evidence_required`)
@@ -223,15 +232,6 @@ export function compileRecoveryInputsDraft(
     }
   }
   if (starts.size !== 1) issues.push('scenario_start_years_must_match')
-  const hasCustomDriver = draft.scenarios.some((scenario) =>
-    scenario.forecast_years.some(
-      (row) => row.operating_driver.model_type === 'advisor_reviewed_custom'
-    )
-  )
-  if (hasCustomDriver && draft.verification_intent.intent !== 'advisor_review') {
-    issues.push('advisor_review_required_for_custom_driver')
-  }
-
   const { wacc, terminal_growth_rate: terminalGrowth } = draft.governed_assumptions
   if (!finite(wacc) || wacc <= 0 || wacc >= 1) issues.push('wacc_invalid')
   if (!finite(terminalGrowth) || terminalGrowth < -0.1 || terminalGrowth >= 0.15) {

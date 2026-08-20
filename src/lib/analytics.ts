@@ -196,11 +196,27 @@ function recoveryAnalyticsParams(context: RecoveryAnalyticsContext) {
 
 /** Privacy-safe recovery funnel events. Monetary scenario values are deliberately excluded. */
 export function trackNegativeEbitdaDetected(context: RecoveryAnalyticsContext): void {
-  trackEvent('negative_ebitda_detected', recoveryAnalyticsParams(context))
+  trackEvent('negative_ebitda_case_detected', recoveryAnalyticsParams(context))
 }
 
 export function trackRecoveryScenarioUpdated(context: RecoveryAnalyticsContext): void {
   trackEvent('recovery_scenario_updated', recoveryAnalyticsParams(context))
+}
+
+export function trackRecoveryDcfStarted(context: RecoveryAnalyticsContext): void {
+  trackEvent('recovery_dcf_started', recoveryAnalyticsParams(context))
+}
+
+export function trackNormalizationBridgeCompleted(context: RecoveryAnalyticsContext): void {
+  trackEvent('normalization_bridge_completed', recoveryAnalyticsParams(context))
+}
+
+export function trackRecoveryDcfCompleted(context: RecoveryAnalyticsContext): void {
+  trackEvent('recovery_dcf_completed', recoveryAnalyticsParams(context))
+}
+
+export function trackRecoveryDcfBlocked(context: RecoveryAnalyticsContext): void {
+  trackEvent('recovery_dcf_blocked', recoveryAnalyticsParams(context))
 }
 
 export function trackRecoveryVerificationSubmitted(context: RecoveryAnalyticsContext): void {
@@ -208,7 +224,7 @@ export function trackRecoveryVerificationSubmitted(context: RecoveryAnalyticsCon
 }
 
 export function trackRecoveryResolutionViewed(context: RecoveryAnalyticsContext): void {
-  trackEvent('negative_ebitda_resolution_viewed', recoveryAnalyticsParams(context))
+  trackEvent('negative_ebitda_method_resolved', recoveryAnalyticsParams(context))
 }
 
 // ── Normalizations ───────────────────────────────────────────────────

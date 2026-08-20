@@ -17,9 +17,7 @@ describe('negative EBITDA recovery request compiler', () => {
     const result = compileRecoveryInputsDraft(draft)
 
     expect(result.inputs).toBeNull()
-    expect(result.issues).toEqual(
-      expect.arrayContaining(['governed_assumption_evidence_required', 'verification_not_accepted'])
-    )
+    expect(result.issues).toEqual(expect.arrayContaining(['verification_not_accepted']))
   })
 
   it('emits exactly three reconciled scenarios after evidence and attestation', () => {
@@ -96,10 +94,10 @@ describe('negative EBITDA recovery request compiler', () => {
     ).toBe(1_200_000)
     expect(
       recoveryDriverRevenue({
-        model_type: 'advisor_reviewed_custom',
-        model_name: 'Reviewed pipeline model',
+        model_type: 'attested_custom',
+        model_name: 'Owner-attested pipeline model',
         derived_revenue: 1_200_000,
-        evidence_references: ['advisor-model-1'],
+        evidence_references: ['owner-model-1'],
       })
     ).toBe(1_200_000)
   })
@@ -124,7 +122,7 @@ describe('negative EBITDA recovery request compiler', () => {
     expect(compileRecoveryInputsDraft(draft).issues).toContain('base_2027_driver_inputs_invalid')
   })
 
-  it('does not let an owner submit an advisor-reviewed custom driver', () => {
+  it('lets an owner submit an evidence-backed custom driver', () => {
     const draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,
@@ -134,14 +132,12 @@ describe('negative EBITDA recovery request compiler', () => {
     draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
     draft.verification_intent.accepted = true
     draft.scenarios[0].forecast_years[0].operating_driver = {
-      model_type: 'advisor_reviewed_custom',
-      model_name: 'Reviewed pipeline model',
+      model_type: 'attested_custom',
+      model_name: 'Owner-attested pipeline model',
       derived_revenue: draft.scenarios[0].forecast_years[0].revenue,
-      evidence_references: ['advisor-model-1'],
+      evidence_references: ['owner-model-1'],
     }
 
-    expect(compileRecoveryInputsDraft(draft).issues).toContain(
-      'advisor_review_required_for_custom_driver'
-    )
+    expect(compileRecoveryInputsDraft(draft).issues).toEqual([])
   })
 })
