@@ -87,6 +87,13 @@ export function buildCurrentYearData(args: {
   revenue?: number | null
   ebitda?: number | null
   currentYearData?: Partial<YearDataInput> | null
+  /**
+   * The freshly-mapped source row for this year, when the caller has one. Its
+   * balance-sheet cells take precedence over the session copy: an imported year
+   * carries the whole sheet, and reading only from `currentYearData` meant a
+   * fresh import could never introduce cells the session did not already hold.
+   */
+  sourceRow?: Partial<YearDataInput> | null
 }): YearDataInput {
   const current = args.currentYearData ?? {}
 
@@ -95,6 +102,7 @@ export function buildCurrentYearData(args: {
     revenue: parseFlexibleNumber(args.revenue) ?? parseFlexibleNumber(current.revenue) ?? 0,
     ebitda: parseFlexibleNumber(args.ebitda) ?? parseFlexibleNumber(current.ebitda) ?? 0,
     ...pickDefinedYearDataFields(current),
+    ...pickDefinedYearDataFields(args.sourceRow),
     ...(typeof current.ebitda_normalized === 'boolean'
       ? { ebitda_normalized: current.ebitda_normalized }
       : {}),
@@ -115,6 +123,8 @@ export function mergeYearDataRows(
     free_cash_flow?: unknown
     isForecast?: boolean
     is_forecast?: boolean
+    // Any other `OPTIONAL_YEAR_DATA_FIELDS` cell a caller carries is preserved.
+    [field: string]: unknown
   }>,
   existingRows?: Array<Partial<YearDataInput>> | null
 ): YearDataInput[] {
@@ -149,7 +159,15 @@ export function mergeYearDataRows(
         year,
         revenue: revenue ?? 0,
         ebitda: ebitda ?? 0,
+        // Balance-sheet and P&L detail used to be readable ONLY from `existing`,
+        // i.e. from whatever the session already held. An incoming row that
+        // carried a full imported balance sheet had every cell but revenue and
+        // EBITDA silently dropped — and because the thin result was written back
+        // to the session, the next round-trip had nothing to restore from either.
+        // That is how a 100%-mapped six-year Silverfin import reached the engine
+        // as `{year, revenue, ebitda}`. Incoming wins, existing fills the gaps.
         ...pickDefinedYearDataFields(existing),
+        ...pickDefinedYearDataFields(row as Partial<YearDataInput>),
         ...(typeof existing?.ebitda_normalized === 'boolean'
           ? { ebitda_normalized: existing.ebitda_normalized }
           : {}),

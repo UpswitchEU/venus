@@ -1,4 +1,8 @@
-import type { ManualValuationFormData, ValuationFormData as VenusFormData } from '@/types/valuation'
+import type {
+  ManualValuationFormData,
+  ValuationFormData as VenusFormData,
+  YearDataInput,
+} from '@/types/valuation'
 import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { coerceIso2OrNull } from '@/utils/coerceIso2Country'
 import {
@@ -126,6 +130,10 @@ export function mapClarityFormToVenusStore(
           revenue: current.revenue,
           ebitda: current.ebitda,
           currentYearData: existingCurrentForMappedYear,
+          // `year` is a string on the panel row and a number on YearDataInput;
+          // `pickDefinedYearDataFields` never reads `year`, so the shapes only
+          // need to agree on the numeric cells it does read.
+          sourceRow: current as unknown as Partial<YearDataInput>,
         })
       : existingCurrentYearData
         ? buildCurrentYearData({
@@ -142,6 +150,11 @@ export function mapClarityFormToVenusStore(
       historical.length > 0
         ? mergeYearDataRows(
             historical.map((h) => ({
+              // Spread first: an imported year row carries the whole balance sheet
+              // (cash, debt, equity, total assets, operating revenue …) and
+              // narrowing it to three keys here is what left the engine unable to
+              // bridge EV to equity or compute a single leverage ratio.
+              ...h,
               year: Number.parseInt(String(h.year), 10),
               revenue: h.revenue,
               ebitda: h.ebitda,
