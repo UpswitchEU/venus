@@ -245,6 +245,52 @@ export class EbitdaNormalizationService {
    * Delete normalization (revert to reported EBITDA)
    * Serialized per session with POST save.
    */
+  /**
+   * Tell Titan the advisor rejected a proposed (imported-ledger) normalization.
+   *
+   * `saveNormalization` only carries ACCEPTED items, so without this call a
+   * rejection lived nowhere and the same proposal came back on the next load.
+   * Fire-and-forget at the call site: a failed memory write must never undo
+   * the local reject or block the recalculation.
+   */
+  async rememberRejection(
+    sessionId: string,
+    ledgerCode: string,
+    ledgerName?: string | null
+  ): Promise<void> {
+    const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
+    const response = await fetch(
+      `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/rejections`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: getNormalizationHeaders(),
+        body: JSON.stringify({ ledger_code: ledgerCode, ledger_name: ledgerName ?? null }),
+      }
+    )
+    if (!response.ok) {
+      throw new NormalizationAPIError(
+        response.status,
+        `Failed to remember normalization rejection (${response.status})`
+        )
+    }
+  }
+
+  /** The advisor accepted something previously rejected — let it be proposed again. */
+  async forgetRejection(sessionId: string, ledgerCode: string): Promise<void> {
+    const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
+    const response = await fetch(
+      `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/rejections/${encodeURIComponent(ledgerCode)}`,
+      { method: 'DELETE', credentials: 'include', headers: getNormalizationHeaders() }
+    )
+    if (!response.ok) {
+      throw new NormalizationAPIError(
+        response.status,
+        `Failed to forget normalization rejection (${response.status})`
+        )
+    }
+  }
+
   async deleteNormalization(sessionId: string, year: number): Promise<void> {
     const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
     requireNormalizationYear(year)

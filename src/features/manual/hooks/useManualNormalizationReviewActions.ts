@@ -2,11 +2,42 @@ import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import { toast } from 'sonner'
 import { trackAINormalizationAccept } from '@/lib/analytics'
 import type { NormalizationItem, SuggestedNormalisation } from '../../../components/calculator'
+import { normalizationService } from '../../../services/ebitdaNormalizationService'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { generalLogger } from '../../../utils/logger'
 import { persistOrDeleteNormalizationsForYears } from '../../../utils/normalizationPersist'
 import { updateSuggestedNormalisationStatus } from '../utils/manualAiNormalizationSuggestions'
 import { getManualNormalizationYearsToPersist } from '../utils/manualNormalizationPersistence'
+
+/**
+ * Durable rejection memory for IMPORTED proposals.
+ *
+ * Suggested normalizations for a connected client are recomputed from the
+ * ledger analysis on every load, and `persistNormalizationChange` only sends
+ * accepted items to Titan — so until this existed a reject lived nowhere and the
+ * same proposal came back next time. Fire-and-forget: a failed memory write
+ * must never undo the local decision or block the recalculation.
+ */
+function rememberImportedRejection(
+  id: string,
+  sessionId: string | null | undefined,
+  action: 'remember' | 'forget'
+): void {
+  if (!sessionId) return
+  const item = useNormalizationStore.getState().items.find((n) => n.id === id)
+  if (!item || item.source !== 'auto' || !item.ledgerCode) return
+  const call =
+    action === 'remember'
+      ? normalizationService.rememberRejection(sessionId, item.ledgerCode, item.ledgerName)
+      : normalizationService.forgetRejection(sessionId, item.ledgerCode)
+  void call.catch((error) => {
+    generalLogger.warn(`[ManualValuationWorkspace] Could not ${action} normalization rejection`, {
+      id,
+      ledgerCode: item.ledgerCode,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  })
+}
 
 interface ManualNormalizationActions {
   acceptItem: (id: string) => void
@@ -92,6 +123,7 @@ export function useManualNormalizationReviewActions({
       trackAINormalizationAccept()
       normalizationActions.acceptItem(id)
       setSuggestedNormalisations((prev) => updateSuggestedNormalisationStatus(prev, id, 'accepted'))
+      rememberImportedRejection(id, resolvedReportId || reportId, 'forget')
       if (!(await persistNormalizationChange(id, 'accept'))) return
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
@@ -99,6 +131,8 @@ export function useManualNormalizationReviewActions({
       normalizationActions,
       persistNormalizationChange,
       recalculateWithNormalizations,
+      reportId,
+      resolvedReportId,
       setSuggestedNormalisations,
     ]
   )
@@ -107,6 +141,7 @@ export function useManualNormalizationReviewActions({
     async (id: string) => {
       normalizationActions.rejectItem(id)
       setSuggestedNormalisations((prev) => updateSuggestedNormalisationStatus(prev, id, 'rejected'))
+      rememberImportedRejection(id, resolvedReportId || reportId, 'remember')
       if (!(await persistNormalizationChange(id, 'reject'))) return
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
@@ -114,6 +149,8 @@ export function useManualNormalizationReviewActions({
       normalizationActions,
       persistNormalizationChange,
       recalculateWithNormalizations,
+      reportId,
+      resolvedReportId,
       setSuggestedNormalisations,
     ]
   )
