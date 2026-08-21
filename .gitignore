@@ -88,3 +88,4 @@ cookies.txt
 *service-account*.json
 secrets/
 credentials/
+.env*
