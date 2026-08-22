@@ -38,6 +38,8 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
 ): YearlyFinancials[] {
   const byYear = new Map<number, YearlyFinancials>()
   const upsert = (yearRaw: unknown, revenue: unknown, ebitda: unknown) => {
+    // `revenue` arrives via `turnoverOf` so the panel shows the figure the
+    // engine values on — see the helper below.
     const y =
       typeof yearRaw === 'number' && Number.isFinite(yearRaw)
         ? yearRaw
@@ -51,13 +53,44 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
       ebitda: parsedEbitda ?? 0,
     })
   }
-  if (current?.year != null) upsert(current.year, current.revenue, current.ebitda)
+  if (current?.year != null) upsert(current.year, turnoverOf(current), current.ebitda)
   if (Array.isArray(historical)) {
     for (const row of historical) {
-      if (row?.year != null) upsert(row.year, row.revenue, row.ebitda)
+      if (row?.year != null) upsert(row.year, turnoverOf(row), row.ebitda)
     }
   }
   return [...byYear.values()].sort((a, b) => Number(b.year) - Number(a.year))
+}
+
+/**
+ * The revenue figure the panel should show for an imported year: turnover.
+ *
+ * Hermes delivers two figures — `revenue` is the gross sum of every 7x account
+ * (incl. 75x financial and 76x/77x extraordinary income), `operating_revenue`
+ * is turnover ("omzet"). The engine now values on turnover; a panel that kept
+ * showing the gross figure would tell the advisor EUR 19.8M while the report
+ * said EUR 1.3M for the same year (a property holding with an EUR 18.3M
+ * extraordinary gain).
+ *
+ * The swap is only made when Hermes's identity holds
+ * (`revenue − financial_income − extraordinary_income = operating_revenue`),
+ * which marks an untouched import; a row whose revenue no longer matches has
+ * been edited and keeps its number.
+ */
+export function turnoverOf(row: unknown): unknown {
+  if (!row || typeof row !== 'object') return undefined
+  const r = row as Record<string, unknown>
+  const operating = parseFlexibleNumber(r.operating_revenue)
+  if (operating === undefined || !Number.isFinite(operating) || operating < 0) return r.revenue
+  const gross = parseFlexibleNumber(r.revenue)
+  if (gross !== undefined && Number.isFinite(gross)) {
+    const financialIncome = parseFlexibleNumber(r.financial_income) ?? 0
+    const extraordinaryIncome = parseFlexibleNumber(r.extraordinary_income) ?? 0
+    const impliedTurnover = gross - financialIncome - extraordinaryIncome
+    const tolerance = Math.max(1, Math.abs(operating) * 0.01)
+    if (Math.abs(impliedTurnover - operating) > tolerance) return r.revenue
+  }
+  return operating
 }
 
 /**
