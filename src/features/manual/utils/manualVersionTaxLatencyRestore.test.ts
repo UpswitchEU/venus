@@ -34,6 +34,7 @@ describe('manualVersionTaxLatencyRestore', () => {
         description: 'Hidden reserve on building',
         suggestedQuestion: 'Confirm market value',
         rationale: undefined,
+        fiscal_year: 2025,
         temporaryDifference: 100_000,
         taxRate: 25,
         year: 2025,

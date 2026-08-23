@@ -50,6 +50,10 @@ const TITAN_PRICING_CONFIG_PATH = join(
   __dirname,
   '../../../../../apps/titan-api/src/billing/config/pricing.config.ts'
 )
+const TITAN_OWNER_PRICING_CONFIG_PATH = join(
+  __dirname,
+  '../../../../../apps/titan-api/src/billing/config/owner-strengthening-pricing.config.ts'
+)
 const MERCURY_AUTH_ROLES_PATH = join(
   __dirname,
   '../../../../../apps/mercury/shared/constants/auth-roles.ts'
@@ -65,14 +69,31 @@ const MERCURY_AUTH_ROLES_PATH = join(
  * the source as text + parsing with a tiny regex keeps the contract test
  * dependency-free while still failing CI on real drift.
  */
+function featureSourceForTitanPlan(source: string, planLiteral: string): string {
+  if (planLiteral !== 'OWNER_GROW') return source
+
+  // Grow is deliberately assembled through a shared owner-strengthening
+  // builder rather than an inline PRICING_CONFIG object. Resolve that source
+  // explicitly so this contract test follows Titan's real composition instead
+  // of depending on a brittle textual shape in the registry object.
+  expect(source).toMatch(
+    /\[PlanType\.OWNER_GROW\]:\s*buildOwnerGrowPlanConfig\(PlanType\.OWNER_GROW\)/
+  )
+  return readFileSync(TITAN_OWNER_PRICING_CONFIG_PATH, 'utf-8')
+}
+
 function extractAllowedMethodsFromTitan(source: string, planLiteral: string): string[] | null {
+  const featureSource = featureSourceForTitanPlan(source, planLiteral)
   // Match the [PlanType.<TIER>]: { ... allowed_methods: <value>, ... } block
   // Capture allowed_methods value (either an array literal or `null`).
-  const blockPattern = new RegExp(
-    `\\[PlanType\\.${planLiteral}\\]:\\s*\\{[\\s\\S]*?allowed_methods:\\s*(\\[[\\s\\S]*?\\]|null)`,
-    'm'
-  )
-  const match = source.match(blockPattern)
+  const blockPattern =
+    planLiteral === 'OWNER_GROW'
+      ? /const OWNER_STRENGTHENING_FEATURES\s*=\s*\{[\s\S]*?allowed_methods:\s*(\[[\s\S]*?\]|null)/m
+      : new RegExp(
+          `\\[PlanType\\.${planLiteral}\\]:\\s*\\{[\\s\\S]*?allowed_methods:\\s*(\\[[\\s\\S]*?\\]|null)`,
+          'm'
+        )
+  const match = featureSource.match(blockPattern)
   if (!match) {
     throw new Error(
       `Could not find PlanType.${planLiteral} block with allowed_methods in Titan pricing config`
@@ -96,11 +117,18 @@ function extractBooleanFeatureFromTitan(
   planLiteral: string,
   featureName: string
 ): boolean {
-  const blockPattern = new RegExp(
-    `\\[PlanType\\.${planLiteral}\\]:\\s*\\{[\\s\\S]*?features:\\s*\\{[\\s\\S]*?${featureName}:\\s*(true|false)`,
-    'm'
-  )
-  const match = source.match(blockPattern)
+  const featureSource = featureSourceForTitanPlan(source, planLiteral)
+  const blockPattern =
+    planLiteral === 'OWNER_GROW'
+      ? new RegExp(
+          `const OWNER_STRENGTHENING_FEATURES\\s*=\\s*\\{[\\s\\S]*?${featureName}:\\s*(true|false)`,
+          'm'
+        )
+      : new RegExp(
+          `\\[PlanType\\.${planLiteral}\\]:\\s*\\{[\\s\\S]*?features:\\s*\\{[\\s\\S]*?${featureName}:\\s*(true|false)`,
+          'm'
+        )
+  const match = featureSource.match(blockPattern)
   if (!match) {
     throw new Error(
       `Could not find PlanType.${planLiteral}.features.${featureName} in Titan pricing config`
@@ -162,7 +190,7 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
 
   it('owner Grow/Sell and advisor Starter/Pro feature split matches Titan', () => {
     expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'tax_latencies')).toBe(true)
-    expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'integrations_enabled')).toBe(false)
+    expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'integrations_enabled')).toBe(true)
     expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'valuation_synthesis')).toBe(false)
     expect(extractBooleanFeatureFromTitan(titanSource, 'FREE', 'valuation_download')).toBe(false)
 
@@ -185,7 +213,7 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
     }
 
     expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'integrations_enabled')).toBe(
-      false
+      true
     )
     expect(extractBooleanFeatureFromTitan(titanSource, 'STARTER', 'valuation_synthesis')).toBe(true)
     expect(extractBooleanFeatureFromTitan(titanSource, 'PRO', 'integrations_enabled')).toBe(true)

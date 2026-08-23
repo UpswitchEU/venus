@@ -24,6 +24,7 @@ vi.mock('@/hooks/useSectorMismatchWarning', () => ({
 }))
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
     if (key === 'forms.warnings.sectorMismatch') {
       return `KBO/NACE activity suggests «${values?.naceType}», but you selected «${values?.selected}».`
