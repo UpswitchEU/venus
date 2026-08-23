@@ -42,6 +42,36 @@ export class NormalizationAPIError extends Error {
   }
 }
 
+export interface NormalizationDecisionProposal {
+  ledgerCode: string
+  ledgerName?: string | null
+  fiscalYear: number
+  amount?: number | null
+  sourceRef?: string | null
+}
+
+export interface NormalizationDecisionReceiptV1 {
+  schema_version: 'normalization_decision.v1'
+  id: string
+  proposal_fingerprint: string
+  scope: 'client' | 'firm'
+  decision: 'accept' | 'edit' | 'reject'
+  idempotency_key: string
+  created_at: string
+  revoked_at: string | null
+}
+
+export interface NormalizationDecisionRevocationReceipt {
+  revoked: boolean
+  decision_id: string | null
+  revoked_at: string | null
+}
+
+function normalizationIdempotencyKey(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
+  return `norm-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 /** Matches Titan VenusNormalizationController.validateSessionId (+ shared `isValidSessionId`). */
 function requireNormalizationSessionSegment(id: unknown, label: string): string {
   const trimmed = typeof id === 'string' ? id.trim() : ''
@@ -250,45 +280,65 @@ export class EbitdaNormalizationService {
    *
    * `saveNormalization` only carries ACCEPTED items, so without this call a
    * rejection lived nowhere and the same proposal came back on the next load.
-   * Fire-and-forget at the call site: a failed memory write must never undo
-   * the local reject or block the recalculation.
+   * The response is the durable server acknowledgement. Callers must await it
+   * before showing a saved/rejected state.
    */
   async rememberRejection(
     sessionId: string,
-    ledgerCode: string,
-    ledgerName?: string | null
-  ): Promise<void> {
+    proposal: NormalizationDecisionProposal,
+    options: {
+      scope?: 'client' | 'firm'
+      applyToAllFirmClients?: boolean
+      idempotencyKey?: string
+    } = {}
+  ): Promise<NormalizationDecisionReceiptV1> {
     const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
+    requireNormalizationYear(proposal.fiscalYear)
     const response = await fetch(
       `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/rejections`,
       {
         method: 'POST',
         credentials: 'include',
         headers: getNormalizationHeaders(),
-        body: JSON.stringify({ ledger_code: ledgerCode, ledger_name: ledgerName ?? null }),
+        body: JSON.stringify({
+          ledger_code: proposal.ledgerCode,
+          ledger_name: proposal.ledgerName ?? null,
+          fiscal_year: proposal.fiscalYear,
+          amount: proposal.amount ?? null,
+          source_ref: proposal.sourceRef ?? null,
+          scope: options.scope ?? 'client',
+          apply_to_all_firm_clients: options.applyToAllFirmClients === true,
+          idempotency_key: options.idempotencyKey ?? normalizationIdempotencyKey(),
+        }),
       }
     )
-    if (!response.ok) {
-      throw new NormalizationAPIError(
-        response.status,
-        `Failed to remember normalization rejection (${response.status})`
-        )
-    }
+    return handleResponse<NormalizationDecisionReceiptV1>(response)
   }
 
   /** The advisor accepted something previously rejected — let it be proposed again. */
-  async forgetRejection(sessionId: string, ledgerCode: string): Promise<void> {
+  async forgetRejection(
+    sessionId: string,
+    proposal: NormalizationDecisionProposal,
+    scope: 'client' | 'firm' = 'client'
+  ): Promise<NormalizationDecisionRevocationReceipt> {
     const sid = requireNormalizationSessionSegment(sessionId, 'session_id')
+    requireNormalizationYear(proposal.fiscalYear)
     const response = await fetch(
-      `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/rejections/${encodeURIComponent(ledgerCode)}`,
-      { method: 'DELETE', credentials: 'include', headers: getNormalizationHeaders() }
+      `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/rejections/${encodeURIComponent(proposal.ledgerCode)}`,
+      {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: getNormalizationHeaders(),
+        body: JSON.stringify({
+          ledger_name: proposal.ledgerName ?? null,
+          fiscal_year: proposal.fiscalYear,
+          amount: proposal.amount ?? null,
+          source_ref: proposal.sourceRef ?? null,
+          scope,
+        }),
+      }
     )
-    if (!response.ok) {
-      throw new NormalizationAPIError(
-        response.status,
-        `Failed to forget normalization rejection (${response.status})`
-        )
-    }
+    return handleResponse<NormalizationDecisionRevocationReceipt>(response)
   }
 
   async deleteNormalization(sessionId: string, year: number): Promise<void> {

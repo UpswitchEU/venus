@@ -14,6 +14,9 @@
  * - GET  /api/normalization/:sessionId/:year
  * - GET  /api/normalization/:sessionId
  * - DELETE /api/normalization/:sessionId/:year
+ * - POST /api/normalization/:sessionId/rejections
+ * - GET /api/normalization/:sessionId/rejections
+ * - DELETE /api/normalization/:sessionId/rejections/:ledgerCode
  *
  * @module api/normalization
  */
@@ -144,8 +147,9 @@ async function proxyToTitan(
       signal: controller.signal,
     }
 
-    // Include body for POST/PUT/PATCH
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+    // DELETE decision revocations carry the exact proposal fingerprint inputs.
+    // Forward mutation bodies for every method that may legally contain one.
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       const body = await request.json().catch(() => ({}))
       fetchOptions.body = JSON.stringify(body)
     }
