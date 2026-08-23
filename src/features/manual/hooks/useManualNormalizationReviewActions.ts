@@ -161,12 +161,15 @@ export function useManualNormalizationReviewActions({
       }
       normalizationActions.rejectItem(id)
       setSuggestedNormalisations((prev) => updateSuggestedNormalisationStatus(prev, id, 'rejected'))
-      if (!(await persistNormalizationChange(id, 'reject'))) return
+      // The acknowledged decision endpoint is the complete persistence action
+      // for a rejection. Re-saving the accepted-items list here creates a
+      // split-brain failure mode: the decision can be durable while a later,
+      // unrelated save fails and rolls the UI back to "pending". Accepted
+      // items did not change, so there is nothing else to persist.
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
     [
       normalizationActions,
-      persistNormalizationChange,
       recalculateWithNormalizations,
       reportId,
       resolvedReportId,
