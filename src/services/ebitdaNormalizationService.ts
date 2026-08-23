@@ -89,8 +89,8 @@ function requireNormalizationYear(year: unknown): number {
   if (year == null || typeof year !== 'number' || !Number.isInteger(year)) {
     throw new NormalizationAPIError(400, 'year must be an integer')
   }
-  if (year < 1990 || year > 2100) {
-    throw new NormalizationAPIError(400, 'year must be between 1990 and 2100')
+  if (year < 2000 || year > 2100) {
+    throw new NormalizationAPIError(400, 'year must be between 2000 and 2100')
   }
   return year
 }

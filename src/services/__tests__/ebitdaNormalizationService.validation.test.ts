@@ -44,7 +44,9 @@ describe('EbitdaNormalizationService client-side validation', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const svc = new EbitdaNormalizationService()
-    await expect(svc.getNormalization('val_sess_ab12', 1888)).rejects.toThrow(NormalizationAPIError)
+    await expect(svc.getNormalization('val_sess_ab12', 1999)).rejects.toThrow(
+      'year must be between 2000 and 2100'
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
