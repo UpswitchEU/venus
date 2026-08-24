@@ -190,10 +190,13 @@ export function CalculatorNav({
           >
             <button
               type="button"
+              aria-label={
+                isAccountantMode ? t('clientContext.exitClientView') : t('common.actions.back')
+              }
               onClick={handleBack}
               className="p-2 -ml-1 md:-ml-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft aria-hidden className="w-4 h-4" />
             </button>
           </Tooltip>
 
@@ -438,6 +441,8 @@ export function CalculatorNav({
             <Tooltip content={t('assistant.title')}>
               <button
                 type="button"
+                aria-label={t('assistant.title')}
+                aria-pressed={isAssistantOpen}
                 onClick={onOpenAssistant}
                 className={cn(
                   'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors',
@@ -446,7 +451,7 @@ export function CalculatorNav({
                     : 'text-foreground/50 hover:text-foreground'
                 )}
               >
-                <MessageCircle className="w-4 h-4" />
+                <MessageCircle aria-hidden className="w-4 h-4" />
                 {openTasksCount > 0 && (
                   <span
                     className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full bg-secondary text-secondary-foreground shadow-sm"

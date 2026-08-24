@@ -50,7 +50,7 @@ export function ManualInputSubmitBar({
         {ctaLabel}
       </AuroraButton>
       {!canSubmit && (
-        <p className="text-center text-xs text-foreground/40 mt-2">
+        <p className="text-center text-xs text-foreground/60 mt-2">
           {!canSave
             ? canSaveReason
             : !hasCompanyInfo

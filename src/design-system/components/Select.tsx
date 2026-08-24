@@ -266,9 +266,11 @@ export const AuroraSelect = React.forwardRef<HTMLDivElement, AuroraSelectProps>(
           onKeyDown={handleKeyDown}
           tabIndex={disabled ? -1 : 0}
           role="combobox"
+          aria-label={label || placeholder}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           aria-disabled={disabled}
+          aria-required={required}
         >
           {/* Trigger */}
           <div

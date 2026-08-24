@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ManualLayoutBody } from './ManualLayoutBody'
 
@@ -17,7 +17,9 @@ vi.mock('../../../design-system/components/Resizable', () => ({
 }))
 
 const baseProps = {
+  inputLabel: 'Input',
   isMobile: false,
+  outputLabel: 'Output',
   reportId: 'report-1',
   manualInputProps: {} as never,
   workspaceProps: {} as never,
@@ -31,9 +33,17 @@ describe('ManualLayoutBody', () => {
     expect(screen.getByTestId('resize-handle')).toBeInTheDocument()
   })
 
-  it('renders mobile scroll container without report workspace column', () => {
+  it('lets mobile users switch between input and output without losing either panel', () => {
     render(<ManualLayoutBody {...baseProps} isMobile />)
+
     expect(screen.getByTestId('input-panel')).toBeInTheDocument()
-    expect(screen.queryByTestId('report-workspace')).not.toBeInTheDocument()
+    expect(screen.getByTestId('report-workspace')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Input' })).toHaveAttribute('aria-selected', 'true')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Output' }))
+
+    expect(screen.getByRole('tab', { name: 'Output' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('input-panel').parentElement).toHaveClass('hidden')
+    expect(screen.getByTestId('report-workspace').parentElement).not.toHaveClass('hidden')
   })
 })

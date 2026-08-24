@@ -6,7 +6,6 @@
  * @module features/manual/components/MobilePanelSwitcher
  */
 
-import { useTranslations } from 'next-intl'
 import React from 'react'
 
 /**
@@ -15,8 +14,12 @@ import React from 'react'
 interface MobilePanelSwitcherProps {
   /** Currently active panel */
   activePanel: 'form' | 'preview'
+  /** Human readable label for the input panel */
+  inputLabel: string
   /** Callback when panel changes */
   onPanelChange: (panel: 'form' | 'preview') => void
+  /** Human readable label for the output panel */
+  outputLabel: string
 }
 
 /**
@@ -27,29 +30,38 @@ interface MobilePanelSwitcherProps {
  * PERFORMANCE: Memoized to prevent unnecessary re-renders
  */
 export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.memo(
-  ({ activePanel, onPanelChange }) => {
-    const t = useTranslations('navigation.tabs')
+  ({ activePanel, inputLabel, onPanelChange, outputLabel }) => {
     return (
-      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 transform -translate-x-1/2 flex gap-2 bg-muted p-1 rounded-full shadow-lg z-50">
+      <div
+        aria-label={`${inputLabel} and ${outputLabel}`}
+        className="m-3 grid grid-cols-2 rounded-lg border border-foreground/[0.08] bg-foreground/[0.03] p-1"
+        role="tablist"
+      >
         <button
+          aria-selected={activePanel === 'form'}
+          type="button"
+          role="tab"
           onClick={() => onPanelChange('form')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+          className={`min-h-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activePanel === 'form'
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          {t('form')}
+          {inputLabel}
         </button>
         <button
+          aria-selected={activePanel === 'preview'}
+          type="button"
+          role="tab"
           onClick={() => onPanelChange('preview')}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+          className={`min-h-10 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activePanel === 'preview'
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          {t('preview')}
+          {outputLabel}
         </button>
       </div>
     )

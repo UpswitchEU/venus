@@ -1,4 +1,7 @@
+'use client'
+
 import type { ComponentProps } from 'react'
+import { useState } from 'react'
 import { StartupAwareInputPanel } from '../../../components/calculator/sections/startup/StartupAwareInputPanel'
 import {
   ResizableHandle,
@@ -6,6 +9,7 @@ import {
   ResizablePanelGroup,
 } from '../../../design-system/components/Resizable'
 import { ManualReportWorkspace } from './ManualReportWorkspace'
+import { MobilePanelSwitcher } from './MobilePanelSwitcher'
 
 export interface ManualLayoutBodyProps {
   inputLabel: string
@@ -24,11 +28,25 @@ export function ManualLayoutBody({
   reportId,
   workspaceProps,
 }: ManualLayoutBodyProps) {
+  const [mobilePanel, setMobilePanel] = useState<'form' | 'preview'>('form')
+
   if (isMobile) {
     return (
       <div className="flex-1 overflow-hidden pb-[env(safe-area-inset-bottom)] min-h-0 flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto" data-manual-layout-scroll>
+        <MobilePanelSwitcher
+          activePanel={mobilePanel}
+          inputLabel={inputLabel}
+          onPanelChange={setMobilePanel}
+          outputLabel={outputLabel}
+        />
+        <div
+          className={mobilePanel === 'form' ? 'flex-1 min-h-0 overflow-y-auto' : 'hidden'}
+          data-manual-layout-scroll
+        >
           <StartupAwareInputPanel key={reportId} {...manualInputProps} />
+        </div>
+        <div className={mobilePanel === 'preview' ? 'flex-1 min-h-0' : 'hidden'}>
+          <ManualReportWorkspace {...workspaceProps} />
         </div>
       </div>
     )
