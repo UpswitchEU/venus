@@ -115,4 +115,36 @@ describe('manualLiveYearlyFinancials', () => {
       }),
     ])
   })
+
+  it('preserves audited source metadata when hydrating live rows', () => {
+    expect(
+      buildManualLiveYearlyFinancials({
+        formData: {
+          historical_years_data: [
+            {
+              year: 2024,
+              revenue: 950_000,
+              ebitda: 910_000,
+              source_provider: 'silverfin',
+              source_kind: 'live_accounting',
+              source_synced_at: '2026-08-24T18:00:00.000Z',
+              source_digest: 'b'.repeat(64),
+              quality_state: 'attested_review',
+              attestation_id: 'attestation-1',
+            },
+          ],
+        },
+      })
+    ).toEqual([
+      expect.objectContaining({
+        year: '2024',
+        source_provider: 'silverfin',
+        source_kind: 'live_accounting',
+        source_synced_at: '2026-08-24T18:00:00.000Z',
+        source_digest: 'b'.repeat(64),
+        quality_state: 'attested_review',
+        attestation_id: 'attestation-1',
+      }),
+    ])
+  })
 })

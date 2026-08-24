@@ -48,6 +48,13 @@ export interface YearDataInput {
   /** Operating top line after excluding financial and extraordinary income. */
   operating_revenue?: number
   ebitda: number
+  source_provider?: string
+  source_kind?: string
+  source_synced_at?: string | null
+  quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review'
+  source_digest?: string
+  attestation_id?: string
+  eligibility_reason?: string
   /** Source-reported EBITDA before any accepted normalization decision. */
   reported_ebitda?: number
   /** EBITDA after accepted/verified normalizations; never a proposed scenario. */

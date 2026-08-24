@@ -31,7 +31,7 @@ function trustedSilverfinAuthorizationUrl(value: string): string {
 
 export function AccountingReconnectRecovery({ context }: { context: Record<string, unknown> }) {
   const locale = useLocale()
-  const provider = context.provider === 'exact' ? 'exact' : 'silverfin'
+  const provider = typeof context.provider === 'string' ? context.provider : 'silverfin'
   const [firmId, setFirmId] = useState(typeof context.firm_id === 'string' ? context.firm_id : '')
   const [minimized, setMinimized] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -79,7 +79,10 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
 
   const beginReconnect = async () => {
     if (provider !== 'silverfin') {
-      setError('Reconnect Exact from your Upswitch integrations settings, then return here.')
+      const providerName = provider === 'exact' ? 'Exact' : provider === 'xero' ? 'Xero' : provider
+      setError(
+        `Reconnect ${providerName} from your Upswitch integrations settings, then return here.`
+      )
       return
     }
     const resolvedFirmId = parseFirmId(firmId)

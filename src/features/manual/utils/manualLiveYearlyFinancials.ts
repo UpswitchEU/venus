@@ -16,6 +16,13 @@ export interface ManualLiveYearlyFinancial {
   inventory?: number
   short_term_debt?: number
   nwc_change?: number
+  source_provider?: string
+  source_kind?: string
+  source_synced_at?: string | null
+  quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review'
+  source_digest?: string
+  attestation_id?: string
+  eligibility_reason?: string
   isForecast?: boolean
 }
 
@@ -38,6 +45,7 @@ function isValidYear(value: unknown): boolean {
 }
 
 function toLiveYear(row: Record<string, unknown>, isForecast = false): ManualLiveYearlyFinancial {
+  const stringValue = (key: string) => (typeof row[key] === 'string' ? row[key] : undefined)
   return {
     year: String(row.year),
     revenue: coalesceFiniteNumber(row.revenue),
@@ -54,6 +62,13 @@ function toLiveYear(row: Record<string, unknown>, isForecast = false): ManualLiv
     inventory: readFiniteOptional(row.inventory),
     short_term_debt: readFiniteOptional(row.short_term_debt),
     nwc_change: readFiniteOptional(row.nwc_change),
+    source_provider: stringValue('source_provider'),
+    source_kind: stringValue('source_kind'),
+    source_synced_at: stringValue('source_synced_at'),
+    quality_state: stringValue('quality_state') as ManualLiveYearlyFinancial['quality_state'],
+    source_digest: stringValue('source_digest'),
+    attestation_id: stringValue('attestation_id'),
+    eligibility_reason: stringValue('eligibility_reason'),
     ...(isForecast ? { isForecast: true } : {}),
   }
 }

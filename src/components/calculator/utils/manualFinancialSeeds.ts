@@ -162,6 +162,15 @@ const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
     'nwc_change',
     'free_cash_flow',
   ] as const
+  const sourceMetadataKeys = [
+    'source_provider',
+    'source_kind',
+    'source_synced_at',
+    'quality_state',
+    'source_digest',
+    'attestation_id',
+    'eligibility_reason',
+  ] as const
   const upsert = (rawYear: unknown, src: Record<string, unknown>) => {
     if (rawYear == null) return
     const yearNum = Number(rawYear)
@@ -182,6 +191,10 @@ const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
       if (parsed !== undefined) {
         baseRow[key] = parsed
       }
+    }
+    for (const key of sourceMetadataKeys) {
+      const value = src[key]
+      if (typeof value === 'string' || value === null) baseRow[key] = value
     }
     const nextRow = baseRow as unknown as YearlyFinancials
     if (existing) {

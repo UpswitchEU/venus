@@ -82,6 +82,28 @@ export function pickDefinedYearDataFields(
   return result
 }
 
+function pickYearSourceMetadata(
+  source: Partial<YearDataInput> | null | undefined
+): Partial<YearDataInput> {
+  if (!source) return {}
+  const result: Partial<YearDataInput> = {}
+  for (const field of [
+    'source_provider',
+    'source_kind',
+    'source_synced_at',
+    'quality_state',
+    'source_digest',
+    'attestation_id',
+    'eligibility_reason',
+  ] as const) {
+    const value = source[field]
+    if (typeof value === 'string' || value === null) {
+      ;(result as Record<string, unknown>)[field] = value
+    }
+  }
+  return result
+}
+
 export function buildCurrentYearData(args: {
   year: number
   revenue?: number | null
@@ -103,6 +125,8 @@ export function buildCurrentYearData(args: {
     ebitda: parseFlexibleNumber(args.ebitda) ?? parseFlexibleNumber(current.ebitda) ?? 0,
     ...pickDefinedYearDataFields(current),
     ...pickDefinedYearDataFields(args.sourceRow),
+    ...pickYearSourceMetadata(current),
+    ...pickYearSourceMetadata(args.sourceRow),
     ...(typeof current.ebitda_normalized === 'boolean'
       ? { ebitda_normalized: current.ebitda_normalized }
       : {}),
@@ -168,6 +192,8 @@ export function mergeYearDataRows(
         // as `{year, revenue, ebitda}`. Incoming wins, existing fills the gaps.
         ...pickDefinedYearDataFields(existing),
         ...pickDefinedYearDataFields(row as Partial<YearDataInput>),
+        ...pickYearSourceMetadata(existing),
+        ...pickYearSourceMetadata(row as Partial<YearDataInput>),
         ...(typeof existing?.ebitda_normalized === 'boolean'
           ? { ebitda_normalized: existing.ebitda_normalized }
           : {}),

@@ -1,8 +1,11 @@
 'use client'
 
 import { AlertCircle, X } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { useSearchParams } from 'next/navigation'
+import { useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { accountingAPI, parseAccountingApiError } from '@/services/api/accounting'
 import type { YearlyFinancials } from '../../../types/valuation'
 import { getFilingYearHistoricalOffset } from '../../../utils/fiscalYear'
 import { canRemoveHistoricalYear } from '../../../utils/forecastYears'
@@ -25,6 +28,11 @@ interface HistoricalYearCardProps {
   onRemoveForecastYear: (year: string) => void
   onRemoveHistoricalYear: (year: string) => void
   onViewAllNormalizations?: () => void
+  onHighMarginAttested?: (result: {
+    year: number
+    attestationId: string
+    sourceDigest: string
+  }) => void
   partialYears: string[]
   updateYearlyFinancials: UpdateManualYearlyFinancials
   yearData: YearlyFinancials
@@ -40,12 +48,18 @@ export function HistoricalYearCard({
   onRemoveForecastYear,
   onRemoveHistoricalYear,
   onViewAllNormalizations,
+  onHighMarginAttested,
   partialYears,
   updateYearlyFinancials,
   yearData,
 }: HistoricalYearCardProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
+  const locale = useLocale()
+  const searchParams = useSearchParams()
+  const [attestationRationale, setAttestationRationale] = useState('')
+  const [attestationError, setAttestationError] = useState<string | null>(null)
+  const [attesting, setAttesting] = useState(false)
   const normCount = Number(normalizedYear?.normalizationCount ?? 0)
   const histOffset = getFilingYearHistoricalOffset(yearData.year, baseFilingYearForLabels)
   const isPartial = partialYears.includes(yearData.year)
@@ -60,6 +74,55 @@ export function HistoricalYearCard({
     ? hasExplicitFinancialValue(yearData.ebitda) &&
       (normalizedYear.totalAdjustment !== 0 || (normalizedYear.fictiveRentDeduction ?? 0) > 0)
     : false
+  const requiresHighMarginReview =
+    !yearData.isForecast &&
+    yearData.source_provider === 'silverfin' &&
+    yearData.eligibility_reason === 'extreme_margin_unattested' &&
+    typeof yearData.source_digest === 'string'
+  const reviewCopy =
+    locale === 'nl'
+      ? {
+          title: 'Ongebruikelijk hoge marge — controle vereist',
+          body: 'Controleer omzet, kosten en het Silverfin-dossier. Bevestig alleen als deze volledige jaarrekening werkelijk een EBITDA-marge van 90% of meer heeft.',
+          placeholder: 'Leg uit waarom deze marge correct is (min. 12 tekens)',
+          confirm: 'Gecontroleerd bevestigen',
+          missingClient: 'Clientcontext ontbreekt. Open dit rapport opnieuw vanuit Mercury.',
+        }
+      : {
+          title: 'Unusually high margin — review required',
+          body: 'Review revenue, expenses, and the Silverfin dossier. Confirm only when this complete fiscal year genuinely has an EBITDA margin of 90% or more.',
+          placeholder: 'Explain why this margin is correct (minimum 12 characters)',
+          confirm: 'Confirm reviewed figures',
+          missingClient: 'Client context is missing. Reopen this report from Mercury.',
+        }
+
+  const attestHighMargin = async () => {
+    const clientId = searchParams.get('clientId') ?? searchParams.get('client_id')
+    if (!clientId) {
+      setAttestationError(reviewCopy.missingClient)
+      return
+    }
+    if (!yearData.source_digest || attestationRationale.trim().length < 12) return
+    setAttesting(true)
+    setAttestationError(null)
+    try {
+      const result = await accountingAPI.attestSilverfinExtremeMargin({
+        clientId,
+        year: Number(yearData.year),
+        sourceDigest: yearData.source_digest,
+        rationale: attestationRationale.trim(),
+      })
+      onHighMarginAttested?.({
+        year: result.year,
+        attestationId: result.attestation_id,
+        sourceDigest: result.source_digest,
+      })
+    } catch (error) {
+      setAttestationError(parseAccountingApiError(error))
+    } finally {
+      setAttesting(false)
+    }
+  }
 
   return (
     <div
@@ -208,6 +271,32 @@ export function HistoricalYearCard({
           updateYearlyFinancials(yearData.year, !!yearData.isForecast, field, value)
         }
       />
+
+      {requiresHighMarginReview ? (
+        <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+            {reviewCopy.title}
+          </p>
+          <p className="mt-1 text-[11px] leading-5 text-foreground/65">{reviewCopy.body}</p>
+          <textarea
+            className="mt-2 min-h-20 w-full rounded-md border bg-background px-2.5 py-2 text-xs"
+            value={attestationRationale}
+            onChange={(event) => setAttestationRationale(event.target.value)}
+            placeholder={reviewCopy.placeholder}
+          />
+          {attestationError ? (
+            <p className="mt-1 text-[11px] text-destructive">{attestationError}</p>
+          ) : null}
+          <button
+            type="button"
+            className="mt-2 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            disabled={attesting || attestationRationale.trim().length < 12}
+            onClick={() => void attestHighMargin()}
+          >
+            {attesting ? '…' : reviewCopy.confirm}
+          </button>
+        </div>
+      ) : null}
 
       {hasNormalizedAdjustment && normalizedYear && (
         <div className="mt-2 flex items-center justify-between text-xs gap-2">

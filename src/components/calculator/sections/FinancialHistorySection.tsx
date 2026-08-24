@@ -196,6 +196,22 @@ export function FinancialHistorySection({
               }
               onRemoveHistoricalYear={requestRemoveHistoricalYear}
               onViewAllNormalizations={onViewAllNormalizations}
+              onHighMarginAttested={({ year, attestationId, sourceDigest }) =>
+                setFormData((previous) => ({
+                  ...previous,
+                  yearlyFinancials: previous.yearlyFinancials.map((row) =>
+                    Number(row.year) === year && !row.isForecast
+                      ? {
+                          ...row,
+                          source_digest: sourceDigest,
+                          attestation_id: attestationId,
+                          quality_state: 'attested_review',
+                          eligibility_reason: undefined,
+                        }
+                      : row
+                  ),
+                }))
+              }
               partialYears={partialYears}
               updateYearlyFinancials={updateYearlyFinancials}
               yearData={yearData}

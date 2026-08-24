@@ -68,6 +68,35 @@ describe('yearData helpers', () => {
     ])
   })
 
+  it('keeps source and review metadata attached to the same fiscal-year row', () => {
+    const result = mergeYearDataRows(
+      [{ year: 2024, revenue: 950_000, ebitda: 910_000 }],
+      [
+        {
+          year: 2024,
+          revenue: 950_000,
+          ebitda: 910_000,
+          source_provider: 'silverfin',
+          source_kind: 'live_accounting',
+          source_synced_at: '2026-08-24T18:00:00.000Z',
+          source_digest: 'a'.repeat(64),
+          quality_state: 'needs_review',
+          eligibility_reason: 'extreme_margin_unattested',
+        },
+      ]
+    )
+
+    expect(result[0]).toMatchObject({
+      year: 2024,
+      source_provider: 'silverfin',
+      source_kind: 'live_accounting',
+      source_synced_at: '2026-08-24T18:00:00.000Z',
+      source_digest: 'a'.repeat(64),
+      quality_state: 'needs_review',
+      eligibility_reason: 'extreme_margin_unattested',
+    })
+  })
+
   it('lets explicit forecast row capex and nwc override imported defaults', () => {
     const result = mergeYearDataRows(
       [

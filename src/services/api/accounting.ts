@@ -311,6 +311,30 @@ class AccountingAPI extends HttpClient {
     return { success: true, message: data.message }
   }
 
+  async attestSilverfinExtremeMargin(input: {
+    clientId: string
+    year: number
+    sourceDigest: string
+    rationale: string
+  }): Promise<{
+    attestation_id: string
+    provider: 'silverfin'
+    year: number
+    source_digest: string
+    attested_at: string
+  }> {
+    const response = await this.client.post(
+      `/integrations/accounting/clients/${encodeURIComponent(input.clientId)}/extreme-margin-attestations`,
+      {
+        provider: 'silverfin',
+        year: input.year,
+        source_digest: input.sourceDigest,
+        rationale: input.rationale,
+      }
+    )
+    return response.data
+  }
+
   /**
    * One fiscal year from Titan for Yuki or Exact **after** Mercury sync (stored financials).
    * This is `GET /{provider}/financial-data`, not multi-year batch. Silverfin multi-year
