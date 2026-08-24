@@ -55,7 +55,7 @@ export function NormalizedEbitdaSummary({
   return (
     <motion.div
       className={cn(
-        'relative rounded-xl overflow-hidden transition-all duration-300',
+        '@container relative max-w-full overflow-hidden rounded-xl transition-shadow duration-300 motion-reduce:transition-none',
         hasAdjustments ? 'shadow-sm' : ''
       )}
       initial={{ opacity: 0, y: 8 }}
@@ -63,37 +63,35 @@ export function NormalizedEbitdaSummary({
       transition={{ delay: 0.1 }}
     >
       <div
-        className="absolute inset-0 rounded-xl opacity-40"
+        className="absolute inset-0 rounded-xl opacity-40 [will-change:background-position] animate-[aurora-shift_12s_ease-in-out_infinite] motion-reduce:!animate-none"
         style={{
           background:
             'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(175 60% 50%) 25%, hsl(264 80% 60%) 50%, hsl(var(--primary)) 75%, hsl(175 60% 50%) 100%)',
           backgroundSize: '300% 300%',
-          animation: 'aurora-shift 12s ease-in-out infinite',
-          padding: '1px',
         }}
       />
 
-      <div className="relative m-[1px] rounded-[11px] bg-background p-4">
+      <div className="relative m-[1px] max-w-full rounded-[11px] bg-background p-4">
         <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.02] via-transparent to-violet-500/[0.02] pointer-events-none" />
 
-        <div className="relative">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
+        <div className="relative max-w-full min-w-0">
+          <div className="flex max-w-full min-w-0 flex-col gap-3 @[36rem]:flex-row @[36rem]:items-center @[36rem]:justify-between">
+            <div className="max-w-full min-w-0">
               <p className="text-xs font-medium text-foreground/60 mb-1">
                 {mi('fields.normalizedEbitda')}
               </p>
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">
+              <div className="flex max-w-full flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="shrink-0 whitespace-nowrap text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">
                   {formatCurrency(normalizedData.averageNormalizedEbitda)}
                 </span>
-                <span className="text-xs text-foreground/50">
+                <span className="shrink-0 whitespace-nowrap text-xs text-foreground/50">
                   ({normalizedData.totalYearsWithData}{' '}
                   {normalizedData.totalYearsWithData === 1 ? mi('year') : mi('years')})
                 </span>
                 {hasManualAdjustment && (
                   <span
                     className={cn(
-                      'text-sm font-medium',
+                      'basis-full text-sm font-medium @[22rem]:basis-auto',
                       safeAverageAdjustment > 0
                         ? 'text-success'
                         : safeAverageAdjustment < 0
@@ -114,12 +112,12 @@ export function NormalizedEbitdaSummary({
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 sm:shrink-0">
+            <div className="flex max-w-full min-w-0 flex-col items-stretch gap-2 @[36rem]:shrink-0 @[36rem]:flex-row @[36rem]:items-center">
               {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
                 <button
                   type="button"
                   onClick={() => onViewAllNormalizations?.()}
-                  className="text-xs font-medium text-foreground/60 hover:text-foreground transition-colors underline underline-offset-2 decoration-foreground/20 hover:decoration-foreground/40 whitespace-nowrap"
+                  className="min-w-0 self-start text-left text-xs font-medium leading-snug text-foreground/60 underline decoration-foreground/20 underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground/40 @[36rem]:whitespace-nowrap"
                 >
                   {acceptedNormCount > 0 && taxLatencyCount > 0
                     ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })} / ${tTax('summary', { count: taxLatencyCount })}`
@@ -129,10 +127,10 @@ export function NormalizedEbitdaSummary({
                 </button>
               )}
               <button
-                type="button"
-                onClick={() => onViewAllNormalizations?.()}
-                className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
+                  type="button"
+                  onClick={() => onViewAllNormalizations?.()}
+                  className={cn(
+                  'w-full shrink-0 rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors @[36rem]:w-auto',
                   hasAdjustments
                     ? 'bg-background border border-foreground/10 text-foreground hover:bg-foreground/[0.02]'
                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
