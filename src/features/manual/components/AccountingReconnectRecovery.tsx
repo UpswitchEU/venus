@@ -1,7 +1,7 @@
 'use client'
 
 import { useLocale } from 'next-intl'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { accountingAPI } from '@/services/api/accounting'
 import {
   encodeSilverfinOAuthState,
@@ -43,11 +43,19 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
   const locale = useLocale()
   const provider = typeof context.provider === 'string' ? context.provider.trim().toLowerCase() : ''
   const clientId = typeof context.client_id === 'string' ? context.client_id.trim() : ''
+  const phase =
+    typeof context.recovery_phase === 'string' ? context.recovery_phase : 'reconnect_required'
+  const recoveryInProgress = ['oauth_pending', 'handoff_pending', 'resyncing'].includes(phase)
   const providerName = accountingReconnectProviderName(provider)
   const [firmId, setFirmId] = useState(typeof context.firm_id === 'string' ? context.firm_id : '')
   const [minimized, setMinimized] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(
+    typeof context.failure === 'string' ? context.failure : null
+  )
+  useEffect(() => {
+    setError(typeof context.failure === 'string' ? context.failure : null)
+  }, [context.failure])
   const lastSync = useMemo(() => {
     if (typeof context.last_successful_sync_at !== 'string') return null
     const date = new Date(context.last_successful_sync_at)
@@ -62,45 +70,67 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
           body: 'De opgeslagen cijfers blijven zichtbaar, maar de berekening is gepauzeerd. Verbind opnieuw en synchroniseer het gekoppelde dossier om verder te gaan.',
           unavailable:
             '2025 wordt alleen geladen als die dossierperiode werkelijk in Silverfin bestaat. Anders blijft het laatste volledige jaar geselecteerd.',
-          unavailableGeneric:
-            `Een nieuw boekjaar wordt alleen geladen als het gekoppelde dossier in ${providerName} volledige omzet- en EBITDA-cijfers bevat. Anders blijft het laatste volledige jaar geselecteerd.`,
+          unavailableGeneric: `Een nieuw boekjaar wordt alleen geladen als het gekoppelde dossier in ${providerName} volledige omzet- en EBITDA-cijfers bevat. Anders blijft het laatste volledige jaar geselecteerd.`,
           handoff: `We openen ${providerName} veilig in Upswitch. Na het verbinden keert u automatisch terug naar dit rapport; synchronisatie en berekening gaan hier verder.`,
           firm: 'Silverfin kantoor-ID of webadres',
           close: 'Later',
           reconnect: 'Opnieuw verbinden',
           lastSync: 'Laatste geslaagde synchronisatie',
+          refreshingTitle: `${providerName} wordt bijgewerkt`,
+          refreshingBody:
+            'De verbinding is hersteld. We synchroniseren het gekoppelde dossier, controleren de volledige boekjaren en hervatten de berekening automatisch.',
+          refreshing: 'Dossier bijwerken…',
+          incomplete:
+            'De herstelactie is onvolledig. Start de berekening opnieuw om veilig te herbeginnen.',
+          expired:
+            'De herstelactie is verlopen. Start de berekening opnieuw om veilig te herbeginnen.',
+          failed: `Verbinden met ${providerName} is mislukt`,
         }
       : locale === 'fr'
         ? {
             title: 'Reconnecter la comptabilité',
             body: 'Les chiffres enregistrés restent visibles, mais le calcul est suspendu. Reconnectez et synchronisez le dossier lié pour continuer.',
-          unavailable:
-            '2025 ne sera chargé que si cette période existe réellement dans Silverfin. Sinon, la dernière année complète reste sélectionnée.',
-          unavailableGeneric:
-            `Un nouvel exercice n’est chargé que si le dossier lié dans ${providerName} contient un chiffre d’affaires et un EBITDA complets. Sinon, la dernière année complète reste sélectionnée.`,
-          handoff: `Nous ouvrons ${providerName} de manière sécurisée dans Upswitch. Après la reconnexion, vous revenez automatiquement à ce rapport ; la synchronisation et le calcul reprennent ici.`,
+            unavailable:
+              '2025 ne sera chargé que si cette période existe réellement dans Silverfin. Sinon, la dernière année complète reste sélectionnée.',
+            unavailableGeneric: `Un nouvel exercice n’est chargé que si le dossier lié dans ${providerName} contient un chiffre d’affaires et un EBITDA complets. Sinon, la dernière année complète reste sélectionnée.`,
+            handoff: `Nous ouvrons ${providerName} de manière sécurisée dans Upswitch. Après la reconnexion, vous revenez automatiquement à ce rapport ; la synchronisation et le calcul reprennent ici.`,
             firm: 'Identifiant ou adresse Web Silverfin',
             close: 'Plus tard',
             reconnect: 'Reconnecter',
             lastSync: 'Dernière synchronisation réussie',
+            refreshingTitle: `Mise à jour de ${providerName}`,
+            refreshingBody:
+              'La connexion est rétablie. Nous synchronisons le dossier lié, vérifions les exercices complets et reprenons automatiquement le calcul.',
+            refreshing: 'Mise à jour du dossier…',
+            incomplete:
+              'La récupération est incomplète. Relancez le calcul pour recommencer en toute sécurité.',
+            expired:
+              'La récupération a expiré. Relancez le calcul pour recommencer en toute sécurité.',
+            failed: `La connexion à ${providerName} a échoué`,
           }
         : {
             title: 'Reconnect accounting',
             body: 'Saved figures remain visible, but calculation is paused. Reconnect and synchronize the linked dossier to continue.',
-          unavailable:
-            '2025 loads only when that dossier period actually exists in Silverfin. Otherwise the latest complete year stays selected.',
-          unavailableGeneric:
-            `A newer year loads only when the linked ${providerName} dossier contains a complete revenue and EBITDA pair. Otherwise the latest complete year stays selected.`,
-          handoff: `We’ll open ${providerName} securely in Upswitch. After reconnecting, you return to this report automatically; sync and calculation continue here.`,
+            unavailable:
+              '2025 loads only when that dossier period actually exists in Silverfin. Otherwise the latest complete year stays selected.',
+            unavailableGeneric: `A newer year loads only when the linked ${providerName} dossier contains a complete revenue and EBITDA pair. Otherwise the latest complete year stays selected.`,
+            handoff: `We’ll open ${providerName} securely in Upswitch. After reconnecting, you return to this report automatically; sync and calculation continue here.`,
             firm: 'Silverfin firm ID or web address',
             close: 'Later',
             reconnect: 'Reconnect',
             lastSync: 'Last successful sync',
+            refreshingTitle: `Refreshing ${providerName}`,
+            refreshingBody:
+              'The connection is restored. We are syncing the linked dossier, checking complete fiscal years, and will resume calculation automatically.',
+            refreshing: 'Refreshing dossier…',
+            incomplete: 'The recovery is incomplete. Calculate again to restart safely.',
+            expired: 'The recovery expired. Calculate again to restart safely.',
+            failed: `${providerName} connection failed`,
           }
 
   const beginReconnect = async () => {
     if (!clientId || !provider) {
-      setError('The saved reconnect request is incomplete. Calculate again to restart safely.')
+      setError(copy.incomplete)
       return
     }
     setConnecting(true)
@@ -115,7 +145,7 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
             nonce,
           })
         ) {
-          throw new Error('The saved reconnect request expired. Calculate again to restart safely.')
+          throw new Error(copy.expired)
         }
         const handoffUrl = buildMercuryAccountingReconnectUrl({
           currentUrl: window.location.href,
@@ -148,7 +178,7 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
           nonce,
         })
       ) {
-        throw new Error('The saved reconnect request expired. Calculate again to restart safely.')
+        throw new Error(copy.expired)
       }
       window.location.assign(trustedSilverfinAuthorizationUrl(authorization_url))
     } catch (cause) {
@@ -156,10 +186,10 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       markAccountingReconnectFailed(sessionStorage, {
         provider,
         clientId,
-        failure: cause instanceof Error ? cause.message : `${providerName} connection failed`,
+        failure: cause instanceof Error ? cause.message : copy.failed,
       })
       setConnecting(false)
-      setError(cause instanceof Error ? cause.message : `${providerName} connection failed`)
+      setError(cause instanceof Error ? cause.message : copy.failed)
     }
   }
 
@@ -192,12 +222,16 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       aria-modal="true"
     >
       <div className="w-full max-w-lg rounded-2xl bg-background p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold">{copy.title}</h2>
-        <p className="mt-3 text-sm leading-6 opacity-75">{copy.body}</p>
+        <h2 className="text-xl font-semibold">
+          {recoveryInProgress ? copy.refreshingTitle : copy.title}
+        </h2>
+        <p className="mt-3 text-sm leading-6 opacity-75">
+          {recoveryInProgress ? copy.refreshingBody : copy.body}
+        </p>
         <p className="mt-2 text-xs leading-5 opacity-65">
           {provider === 'silverfin' ? copy.unavailable : copy.unavailableGeneric}
         </p>
-        {provider !== 'silverfin' ? (
+        {provider !== 'silverfin' && !recoveryInProgress ? (
           <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-xs leading-5 opacity-80">
             {copy.handoff}
           </p>
@@ -207,7 +241,7 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
             {copy.lastSync}: {lastSync}
           </p>
         ) : null}
-        {provider === 'silverfin' ? (
+        {provider === 'silverfin' && !recoveryInProgress ? (
           <label className="mt-5 block text-sm font-medium">
             {copy.firm}
             <input
@@ -232,10 +266,10 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
           <button
             className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
             type="button"
-            disabled={connecting}
+            disabled={connecting || recoveryInProgress}
             onClick={() => void beginReconnect()}
           >
-            {connecting ? '…' : copy.reconnect}
+            {connecting || recoveryInProgress ? copy.refreshing : copy.reconnect}
           </button>
         </div>
       </div>

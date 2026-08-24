@@ -32,9 +32,12 @@ const PROVIDER_NAMES: Record<string, string> = {
 
 export function accountingReconnectProviderName(provider: string): string {
   const normalized = provider.trim().toLowerCase()
-  return PROVIDER_NAMES[normalized] ?? normalized.replace(/(^|[-_])([a-z])/g, (_, p, c) => {
-    return `${p ? ' ' : ''}${String(c).toUpperCase()}`
-  })
+  return (
+    PROVIDER_NAMES[normalized] ??
+    normalized.replace(/(^|[-_])([a-z])/g, (_, p, c) => {
+      return `${p ? ' ' : ''}${String(c).toUpperCase()}`
+    })
+  )
 }
 
 export function generateAccountingReconnectHandoffNonce(): string {

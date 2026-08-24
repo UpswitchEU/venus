@@ -2,6 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 import {
+  ACCOUNTING_RECONNECT_STATUS_EVENT,
   applyValuationSnapshotToReconnectDraft,
   beginAccountingReconnectHandoffResync,
   beginAccountingReconnectResync,
@@ -29,6 +30,16 @@ import {
 
 type LiveBatchImportProvider = 'bizzcontrol' | 'octopus'
 type ImportHistoryRange = '3' | '5'
+
+function publishAccountingReconnectStatus(input: {
+  phase: 'resyncing' | 'failed'
+  provider: string
+  clientId: string
+  failure?: string
+}) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(ACCOUNTING_RECONNECT_STATUS_EVENT, { detail: input }))
+}
 
 export interface ManualAccountingImportMessages {
   importUnavailable: string
@@ -527,14 +538,31 @@ export function useManualAccountingImportController({
           })
         : null
     if (!stateCheck.ok || firmMismatch || !claimedIntent) {
+      const failure = 'Silverfin sign-in could not be verified. Start the reconnect flow again.'
+      if (reconnectClientId) {
+        markAccountingReconnectFailed(window.sessionStorage, {
+          provider: 'silverfin',
+          clientId: reconnectClientId,
+          failure,
+        })
+        publishAccountingReconnectStatus({
+          phase: 'failed',
+          provider: 'silverfin',
+          clientId: reconnectClientId,
+          failure,
+        })
+      }
       window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
       window.sessionStorage.removeItem(oauthLockKey)
       stripSilverfinCallback()
-      import('sonner').then(({ toast }) =>
-        toast.error('Silverfin sign-in could not be verified. Start the reconnect flow again.')
-      )
+      import('sonner').then(({ toast }) => toast.error(failure))
       return
     }
+    publishAccountingReconnectStatus({
+      phase: 'resyncing',
+      provider: 'silverfin',
+      clientId: reconnectClientId,
+    })
 
     const redirectUrl = new URL(window.location.href)
     redirectUrl.searchParams.delete('code')
@@ -577,6 +605,12 @@ export function useManualAccountingImportController({
           clientId: reconnectClientId,
           failure: message,
         })
+        publishAccountingReconnectStatus({
+          phase: 'failed',
+          provider: 'silverfin',
+          clientId: reconnectClientId,
+          failure: message,
+        })
         import('sonner').then(({ toast }) => toast.error(message))
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
         window.sessionStorage.removeItem(oauthLockKey)
@@ -608,13 +642,28 @@ export function useManualAccountingImportController({
       nonce,
     })
     if (!claimedIntent) {
+      const failure = 'This accounting reconnect return expired. Start the reconnect flow again.'
+      markAccountingReconnectFailed(window.sessionStorage, {
+        provider,
+        clientId: reconnectClientId,
+        failure,
+      })
+      publishAccountingReconnectStatus({
+        phase: 'failed',
+        provider,
+        clientId: reconnectClientId,
+        failure,
+      })
       stripHandoffCallback()
-      import('sonner').then(({ toast }) =>
-        toast.error('This accounting reconnect return expired. Start the reconnect flow again.')
-      )
+      import('sonner').then(({ toast }) => toast.error(failure))
       return
     }
     window.sessionStorage.setItem(lockKey, '1')
+    publishAccountingReconnectStatus({
+      phase: 'resyncing',
+      provider,
+      clientId: reconnectClientId,
+    })
 
     void (async () => {
       try {
@@ -646,6 +695,12 @@ export function useManualAccountingImportController({
       } catch (error) {
         const message = parseAccountingApiError(error) || 'Accounting synchronization failed'
         markAccountingReconnectFailed(window.sessionStorage, {
+          provider,
+          clientId: reconnectClientId,
+          failure: message,
+        })
+        publishAccountingReconnectStatus({
+          phase: 'failed',
           provider,
           clientId: reconnectClientId,
           failure: message,

@@ -10,6 +10,7 @@ import {
   markAccountingReconnectFailed,
   markAccountingReconnectReady,
   persistAccountingReconnectIntent,
+  readAccountingReconnectIntentSummary,
   reconnectDraftReviewYear,
 } from './accountingReconnectResume'
 
@@ -35,6 +36,30 @@ function draft(): ManualValuationFormData {
 
 describe('accounting reconnect recovery transaction', () => {
   beforeEach(() => sessionStorage.clear())
+
+  it('restores only safe reconnect UI metadata after navigation', () => {
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: draft(),
+      firmId: 'firm-1',
+      reasonCode: 'oauth_refresh_invalid',
+      lastSuccessfulSyncAt: '2026-08-20T12:00:00.000Z',
+    })
+
+    const summary = readAccountingReconnectIntentSummary(sessionStorage)
+    expect(summary).toMatchObject({
+      phase: 'reconnect_required',
+      provider: 'horus',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      firmId: 'firm-1',
+      reasonCode: 'oauth_refresh_invalid',
+    })
+    expect(summary).not.toHaveProperty('formData')
+    expect(summary).not.toHaveProperty('oauthNonce')
+  })
 
   it('binds provider, client and nonce and consumes a ready intent exactly once', () => {
     const storage = sessionStorage

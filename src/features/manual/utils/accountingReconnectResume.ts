@@ -3,11 +3,12 @@ import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuatio
 import { isYearRowForecast } from '@/utils/yearData'
 
 export const ACCOUNTING_RECONNECT_RESUME_KEY = 'venus_accounting_reconnect_resume'
+export const ACCOUNTING_RECONNECT_STATUS_EVENT = 'upswitch:accounting-reconnect-status'
 
 const INTENT_VERSION = 1 as const
 const DEFAULT_TTL_MS = 10 * 60 * 1000
 
-type RecoveryPhase =
+export type RecoveryPhase =
   | 'reconnect_required'
   | 'oauth_pending'
   | 'handoff_pending'
@@ -25,6 +26,9 @@ export interface AccountingReconnectIntent {
   formData: ManualValuationFormData
   oauthNonce?: string
   failure?: string
+  firmId?: string
+  reasonCode?: string
+  lastSuccessfulSyncAt?: string
   unavailableYears?: Array<{ year: number; reason: string }>
   anchorYear?: number | null
 }
@@ -60,9 +64,7 @@ function parseIntent(raw: string | null, now: number): AccountingReconnectIntent
         'resyncing',
         'ready',
         'failed',
-      ].includes(
-        String(value.phase)
-      )
+      ].includes(String(value.phase))
     ) {
       return null
     }
@@ -98,6 +100,9 @@ export function persistAccountingReconnectIntent(
     formData: ManualValuationFormData
     now?: number
     ttlMs?: number
+    firmId?: string
+    reasonCode?: string
+    lastSuccessfulSyncAt?: string
   }
 ): AccountingReconnectIntent | null {
   const provider = clean(input.provider)
@@ -113,9 +118,56 @@ export function persistAccountingReconnectIntent(
     reportId,
     expiresAt: now + (input.ttlMs ?? DEFAULT_TTL_MS),
     formData: input.formData,
+    firmId: input.firmId?.trim() || undefined,
+    reasonCode: input.reasonCode?.trim() || undefined,
+    lastSuccessfulSyncAt: input.lastSuccessfulSyncAt?.trim() || undefined,
   }
   writeIntent(storage, intent)
   return intent
+}
+
+export type AccountingReconnectIntentSummary = Pick<
+  AccountingReconnectIntent,
+  | 'phase'
+  | 'provider'
+  | 'clientId'
+  | 'reportId'
+  | 'expiresAt'
+  | 'failure'
+  | 'firmId'
+  | 'reasonCode'
+  | 'lastSuccessfulSyncAt'
+>
+
+/** Safe UI projection: never exposes the stored valuation draft or OAuth nonce. */
+export function readAccountingReconnectIntentSummary(
+  storage: Storage,
+  now = Date.now()
+): AccountingReconnectIntentSummary | null {
+  const intent = readIntent(storage, now)
+  if (!intent) return null
+  const {
+    phase,
+    provider,
+    clientId,
+    reportId,
+    expiresAt,
+    failure,
+    firmId,
+    reasonCode,
+    lastSuccessfulSyncAt,
+  } = intent
+  return {
+    phase,
+    provider,
+    clientId,
+    reportId,
+    expiresAt,
+    failure,
+    firmId,
+    reasonCode,
+    lastSuccessfulSyncAt,
+  }
 }
 
 export function bindAccountingReconnectOAuth(

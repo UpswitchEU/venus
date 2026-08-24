@@ -319,6 +319,13 @@ export function useManualSubmitController({
             clientId,
             reportId: resolvedReportId || reportId,
             formData: data,
+            firmId: typeof error.context.firm_id === 'string' ? error.context.firm_id : undefined,
+            reasonCode:
+              typeof error.context.reason_code === 'string' ? error.context.reason_code : undefined,
+            lastSuccessfulSyncAt:
+              typeof error.context.last_successful_sync_at === 'string'
+                ? error.context.last_successful_sync_at
+                : undefined,
           })
         }
         handleManualSubmitError({
