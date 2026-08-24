@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { Dispatch, SetStateAction } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  beginAccountingReconnectHandoffResync,
   bindAccountingReconnectHandoff,
   bindAccountingReconnectOAuth,
   consumeReadyAccountingReconnect,
@@ -329,6 +330,74 @@ describe('useManualAccountingImportController', () => {
         reportId: 'report-1',
       })
     ).toMatchObject({ phase: 'ready', provider: 'horus', anchorYear: 2024 })
+  })
+
+  it('reclaims an interrupted post-connector resync after a page refresh', async () => {
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'winbooks',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: {
+        companyName: 'Refresh Safe BV',
+        businessType: 'services',
+        industry: 'services',
+        country: 'BE',
+        yearFounded: '2012',
+        businessStructure: 'company',
+        ownerManagers: 1,
+        fteEmployees: 4,
+        yearlyFinancials: [],
+      },
+    })
+    bindAccountingReconnectHandoff(sessionStorage, {
+      provider: 'winbooks',
+      clientId: 'client-1',
+      nonce: 'handoff-refresh',
+    })
+    expect(
+      beginAccountingReconnectHandoffResync(sessionStorage, {
+        provider: 'winbooks',
+        clientId: 'client-1',
+        nonce: 'handoff-refresh',
+      })
+    ).not.toBeNull()
+    sessionStorage.setItem('accounting_handoff_winbooks_handoff-refresh', 'previous-page')
+    window.history.replaceState(
+      {},
+      '',
+      '/?clientId=client-1&accounting_resume=handoff-refresh&just_connected=winbooks'
+    )
+
+    vi.spyOn(accountingAPI, 'resyncClient').mockResolvedValue({ success: true })
+    vi.spyOn(accountingAPI, 'getClientValuationFinancials').mockResolvedValue({
+      provider: 'winbooks',
+      anchor_year: 2024,
+      last_successful_sync_at: '2026-08-24T18:00:00.000Z',
+      years: [
+        {
+          fiscal_year: 2024,
+          revenue: 400_000,
+          ebitda: 80_000,
+          source_provider: 'winbooks',
+          source_kind: 'live_accounting',
+          quality_state: 'ready',
+        },
+      ],
+      unavailable_years: [],
+    })
+    vi.spyOn(accountingAPI, 'getAllIntegrationStatus').mockResolvedValue([])
+
+    renderController(true)
+    await act(async () => {
+      await vi.waitFor(() => expect(accountingAPI.resyncClient).toHaveBeenCalledTimes(1))
+    })
+
+    expect(
+      consumeReadyAccountingReconnect(sessionStorage, {
+        clientId: 'client-1',
+        reportId: 'report-1',
+      })
+    ).toMatchObject({ phase: 'ready', provider: 'winbooks' })
   })
 
   it('imports only complete operating pairs and preserves their source metadata', async () => {

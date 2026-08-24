@@ -1,7 +1,7 @@
 'use client'
 
 import { useLocale } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { accountingAPI } from '@/services/api/accounting'
 import {
   encodeSilverfinOAuthState,
@@ -41,6 +41,8 @@ function trustedSilverfinAuthorizationUrl(value: string): string {
 
 export function AccountingReconnectRecovery({ context }: { context: Record<string, unknown> }) {
   const locale = useLocale()
+  const titleId = useId()
+  const descriptionId = useId()
   const provider = typeof context.provider === 'string' ? context.provider.trim().toLowerCase() : ''
   const clientId = typeof context.client_id === 'string' ? context.client_id.trim() : ''
   const phase =
@@ -220,12 +222,14 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4"
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
     >
       <div className="w-full max-w-lg rounded-2xl bg-background p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold">
+        <h2 className="text-xl font-semibold" id={titleId}>
           {recoveryInProgress ? copy.refreshingTitle : copy.title}
         </h2>
-        <p className="mt-3 text-sm leading-6 opacity-75">
+        <p className="mt-3 text-sm leading-6 opacity-75" id={descriptionId}>
           {recoveryInProgress ? copy.refreshingBody : copy.body}
         </p>
         <p className="mt-2 text-xs leading-5 opacity-65">
@@ -252,7 +256,11 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
             />
           </label>
         ) : null}
-        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p className="mt-3 text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="mt-6 flex justify-end gap-3">
           <button
             className="rounded-lg border px-4 py-2"
@@ -268,6 +276,7 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
             type="button"
             disabled={connecting || recoveryInProgress}
             onClick={() => void beginReconnect()}
+            aria-live="polite"
           >
             {connecting || recoveryInProgress ? copy.refreshing : copy.reconnect}
           </button>

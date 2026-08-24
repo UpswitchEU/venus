@@ -8,6 +8,7 @@ import {
   beginAccountingReconnectResync,
   markAccountingReconnectFailed,
   markAccountingReconnectReady,
+  resumeInterruptedAccountingReconnectResync,
 } from '@/features/manual/utils/accountingReconnectResume'
 import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import {
@@ -30,6 +31,21 @@ import {
 
 type LiveBatchImportProvider = 'bizzcontrol' | 'octopus'
 type ImportHistoryRange = '3' | '5'
+
+const ACCOUNTING_RECONNECT_PAGE_OWNER =
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `page-${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+function claimAccountingReconnectRunLock(storage: Storage, key: string): boolean {
+  if (storage.getItem(key) === ACCOUNTING_RECONNECT_PAGE_OWNER) return false
+  storage.setItem(key, ACCOUNTING_RECONNECT_PAGE_OWNER)
+  return true
+}
+
+function releaseAccountingReconnectRunLock(storage: Storage, key: string): void {
+  if (storage.getItem(key) === ACCOUNTING_RECONNECT_PAGE_OWNER) storage.removeItem(key)
+}
 
 function publishAccountingReconnectStatus(input: {
   phase: 'resyncing' | 'failed'
@@ -519,10 +535,7 @@ export function useManualAccountingImportController({
     }
 
     const oauthLockKey = `silverfin_oauth_${code}`
-    if (window.sessionStorage.getItem(oauthLockKey)) {
-      return
-    }
-    window.sessionStorage.setItem(oauthLockKey, '1')
+    if (!claimAccountingReconnectRunLock(window.sessionStorage, oauthLockKey)) return
 
     const stateCheck = consumeSilverfinOAuthState(statePayload?.nonce ?? null)
     const firmMismatch = Boolean(
@@ -530,14 +543,20 @@ export function useManualAccountingImportController({
     )
     const reconnectClientId = params.get('clientId')?.trim() || ''
     const claimedIntent =
-      stateCheck.ok && !firmMismatch && statePayload?.nonce && reconnectClientId
-        ? beginAccountingReconnectResync(window.sessionStorage, {
-            provider: 'silverfin',
-            clientId: reconnectClientId,
-            nonce: statePayload.nonce,
-          })
+      !firmMismatch && statePayload?.nonce && reconnectClientId
+        ? stateCheck.ok
+          ? beginAccountingReconnectResync(window.sessionStorage, {
+              provider: 'silverfin',
+              clientId: reconnectClientId,
+              nonce: statePayload.nonce,
+            })
+          : resumeInterruptedAccountingReconnectResync(window.sessionStorage, {
+              provider: 'silverfin',
+              clientId: reconnectClientId,
+              nonce: statePayload.nonce,
+            })
         : null
-    if (!stateCheck.ok || firmMismatch || !claimedIntent) {
+    if (firmMismatch || !claimedIntent) {
       const failure = 'Silverfin sign-in could not be verified. Start the reconnect flow again.'
       if (reconnectClientId) {
         markAccountingReconnectFailed(window.sessionStorage, {
@@ -553,7 +572,7 @@ export function useManualAccountingImportController({
         })
       }
       window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
-      window.sessionStorage.removeItem(oauthLockKey)
+      releaseAccountingReconnectRunLock(window.sessionStorage, oauthLockKey)
       stripSilverfinCallback()
       import('sonner').then(({ toast }) => toast.error(failure))
       return
@@ -590,9 +609,9 @@ export function useManualAccountingImportController({
         ) {
           throw new Error('The reconnect request expired before synchronization completed.')
         }
-        await loadAccountingIntegrationStatus()
+        void loadAccountingIntegrationStatus()
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
-        window.sessionStorage.removeItem(oauthLockKey)
+        releaseAccountingReconnectRunLock(window.sessionStorage, oauthLockKey)
         stripSilverfinCallback()
         const resumeUrl = new URL(window.location.href)
         resumeUrl.searchParams.set('resume_calculation', '1')
@@ -613,7 +632,7 @@ export function useManualAccountingImportController({
         })
         import('sonner').then(({ toast }) => toast.error(message))
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
-        window.sessionStorage.removeItem(oauthLockKey)
+        releaseAccountingReconnectRunLock(window.sessionStorage, oauthLockKey)
         stripSilverfinCallback()
       }
     })()
@@ -635,12 +654,18 @@ export function useManualAccountingImportController({
     }
 
     const lockKey = `accounting_handoff_${provider}_${nonce}`
-    if (window.sessionStorage.getItem(lockKey)) return
-    const claimedIntent = beginAccountingReconnectHandoffResync(window.sessionStorage, {
-      provider,
-      clientId: reconnectClientId,
-      nonce,
-    })
+    if (!claimAccountingReconnectRunLock(window.sessionStorage, lockKey)) return
+    const claimedIntent =
+      beginAccountingReconnectHandoffResync(window.sessionStorage, {
+        provider,
+        clientId: reconnectClientId,
+        nonce,
+      }) ??
+      resumeInterruptedAccountingReconnectResync(window.sessionStorage, {
+        provider,
+        clientId: reconnectClientId,
+        nonce,
+      })
     if (!claimedIntent) {
       const failure = 'This accounting reconnect return expired. Start the reconnect flow again.'
       markAccountingReconnectFailed(window.sessionStorage, {
@@ -654,11 +679,11 @@ export function useManualAccountingImportController({
         clientId: reconnectClientId,
         failure,
       })
+      releaseAccountingReconnectRunLock(window.sessionStorage, lockKey)
       stripHandoffCallback()
       import('sonner').then(({ toast }) => toast.error(failure))
       return
     }
-    window.sessionStorage.setItem(lockKey, '1')
     publishAccountingReconnectStatus({
       phase: 'resyncing',
       provider,
@@ -685,8 +710,8 @@ export function useManualAccountingImportController({
         ) {
           throw new Error('The reconnect request expired before synchronization completed.')
         }
-        await loadAccountingIntegrationStatus()
-        window.sessionStorage.removeItem(lockKey)
+        void loadAccountingIntegrationStatus()
+        releaseAccountingReconnectRunLock(window.sessionStorage, lockKey)
         stripHandoffCallback()
         const resumeUrl = new URL(window.location.href)
         resumeUrl.searchParams.set('resume_calculation', '1')
@@ -705,7 +730,7 @@ export function useManualAccountingImportController({
           clientId: reconnectClientId,
           failure: message,
         })
-        window.sessionStorage.removeItem(lockKey)
+        releaseAccountingReconnectRunLock(window.sessionStorage, lockKey)
         stripHandoffCallback()
         import('sonner').then(({ toast }) => toast.error(message))
       }

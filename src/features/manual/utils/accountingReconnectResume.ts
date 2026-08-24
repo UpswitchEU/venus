@@ -6,7 +6,8 @@ export const ACCOUNTING_RECONNECT_RESUME_KEY = 'venus_accounting_reconnect_resum
 export const ACCOUNTING_RECONNECT_STATUS_EVENT = 'upswitch:accounting-reconnect-status'
 
 const INTENT_VERSION = 1 as const
-const DEFAULT_TTL_MS = 10 * 60 * 1000
+const DEFAULT_TTL_MS = 30 * 60 * 1000
+const RESYNC_TTL_MS = 10 * 60 * 1000
 
 export type RecoveryPhase =
   | 'reconnect_required'
@@ -189,6 +190,8 @@ export function bindAccountingReconnectOAuth(
     ...intent,
     phase: 'oauth_pending',
     oauthNonce: nonce,
+    expiresAt: now + DEFAULT_TTL_MS,
+    failure: undefined,
   })
   return true
 }
@@ -217,6 +220,7 @@ export function bindAccountingReconnectHandoff(
     ...intent,
     phase: 'handoff_pending',
     oauthNonce: nonce,
+    expiresAt: now + DEFAULT_TTL_MS,
     failure: undefined,
   })
   return true
@@ -241,7 +245,11 @@ export function beginAccountingReconnectResync(
   ) {
     return null
   }
-  const claimed: AccountingReconnectIntent = { ...intent, phase: 'resyncing' }
+  const claimed: AccountingReconnectIntent = {
+    ...intent,
+    phase: 'resyncing',
+    expiresAt: now + RESYNC_TTL_MS,
+  }
   writeIntent(storage, claimed)
   return claimed
 }
@@ -262,9 +270,38 @@ export function beginAccountingReconnectHandoffResync(
   ) {
     return null
   }
-  const claimed: AccountingReconnectIntent = { ...intent, phase: 'resyncing' }
+  const claimed: AccountingReconnectIntent = {
+    ...intent,
+    phase: 'resyncing',
+    expiresAt: now + RESYNC_TTL_MS,
+  }
   writeIntent(storage, claimed)
   return claimed
+}
+
+/**
+ * Reclaim a resync whose page was unloaded after the transaction was claimed.
+ * Callers must first own the page-scoped run lock; same-page duplicates must
+ * not use this path.
+ */
+export function resumeInterruptedAccountingReconnectResync(
+  storage: Storage,
+  input: IntentIdentity & { nonce: string; now?: number }
+): AccountingReconnectIntent | null {
+  const now = input.now ?? Date.now()
+  const intent = readIntent(storage, now)
+  if (
+    !intent ||
+    !sameIdentity(intent, input) ||
+    intent.phase !== 'resyncing' ||
+    !intent.oauthNonce ||
+    intent.oauthNonce !== input.nonce.trim()
+  ) {
+    return null
+  }
+  const reclaimed = { ...intent, expiresAt: now + RESYNC_TTL_MS }
+  writeIntent(storage, reclaimed)
+  return reclaimed
 }
 
 export function markAccountingReconnectReady(

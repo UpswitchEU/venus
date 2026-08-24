@@ -12,6 +12,7 @@ import {
   persistAccountingReconnectIntent,
   readAccountingReconnectIntentSummary,
   reconnectDraftReviewYear,
+  resumeInterruptedAccountingReconnectResync,
 } from './accountingReconnectResume'
 
 function draft(): ManualValuationFormData {
@@ -59,6 +60,45 @@ describe('accounting reconnect recovery transaction', () => {
     })
     expect(summary).not.toHaveProperty('formData')
     expect(summary).not.toHaveProperty('oauthNonce')
+  })
+
+  it('renews a user-started handoff and gives a claimed resync a bounded completion window', () => {
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: draft(),
+      now: 1_000,
+      ttlMs: 2_000,
+    })
+    expect(
+      bindAccountingReconnectHandoff(sessionStorage, {
+        provider: 'horus',
+        clientId: 'client-1',
+        nonce: 'nonce-1',
+        now: 2_500,
+      })
+    ).toBe(true)
+    const pending = JSON.parse(
+      sessionStorage.getItem('venus_accounting_reconnect_resume') || '{}'
+    ) as { expiresAt?: number }
+    expect(pending.expiresAt).toBeGreaterThan(2_500 + 20 * 60 * 1_000)
+
+    const claimed = beginAccountingReconnectHandoffResync(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      nonce: 'nonce-1',
+      now: 3_000,
+    })
+    expect(claimed?.expiresAt).toBe(3_000 + 10 * 60 * 1_000)
+    expect(
+      resumeInterruptedAccountingReconnectResync(sessionStorage, {
+        provider: 'horus',
+        clientId: 'client-1',
+        nonce: 'nonce-1',
+        now: 4_000,
+      })
+    ).toMatchObject({ phase: 'resyncing', expiresAt: 4_000 + 10 * 60 * 1_000 })
   })
 
   it('binds provider, client and nonce and consumes a ready intent exactly once', () => {
