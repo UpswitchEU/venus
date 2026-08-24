@@ -23,6 +23,7 @@ import type { CollectedData } from '../components/manualLayoutDataTypes'
 import {
   consumeReadyAccountingReconnect,
   persistAccountingReconnectIntent,
+  reconnectDraftReviewYear,
 } from '../utils/accountingReconnectResume'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
@@ -82,6 +83,7 @@ export interface UseManualSubmitControllerParams {
   versionSyncTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
   warnIfSubmitSynthesisSkipped: (result: ValuationResponse) => void
   onAccountingReconnectRequired?: (context: Record<string, unknown>) => void
+  onAccountingReconnectRecovered?: () => void
   isAccountingReconnectRequired?: boolean
   restorationComplete: boolean
 }
@@ -129,11 +131,13 @@ export function useManualSubmitController({
   versionSyncTimeoutRef,
   warnIfSubmitSynthesisSkipped,
   onAccountingReconnectRequired,
+  onAccountingReconnectRecovered,
   isAccountingReconnectRequired = false,
   restorationComplete,
 }: UseManualSubmitControllerParams): UseManualSubmitControllerResult {
   const lastSubmittedDataRef = useRef<ValuationFormData | null>(null)
   const postValuationListingHandoffPendingRef = useRef(false)
+  const reconnectResumeBypassRef = useRef(false)
   const [pendingPostValuationAgentPrompt, setPendingPostValuationAgentPrompt] = useState<
     string | null
   >(null)
@@ -180,7 +184,7 @@ export function useManualSubmitController({
 
   const handleManualSubmit = useCallback(
     async (data: ValuationFormData) => {
-      if (isAccountingReconnectRequired) {
+      if (isAccountingReconnectRequired && !reconnectResumeBypassRef.current) {
         toast.warning('Reconnect accounting before calculating again.')
         return
       }
@@ -370,6 +374,8 @@ export function useManualSubmitController({
         reportId: resolvedReportId || reportId,
       })
       if (!ready) return
+      reconnectResumeBypassRef.current = true
+      onAccountingReconnectRecovered?.()
 
       const newestUnavailable = ready.unavailableYears?.reduce<number | null>(
         (max, row) => (max === null || row.year > max ? row.year : max),
@@ -388,7 +394,22 @@ export function useManualSubmitController({
               : `${newestUnavailable} is not available in ${ready.provider}. The latest complete year ${ready.anchorYear} is used.`
         toast.info(description)
       }
-      void handleManualSubmit(ready.formData)
+
+      const reviewYear = reconnectDraftReviewYear(ready.formData)
+      if (reviewYear !== null) {
+        const description =
+          currentLocale === 'nl'
+            ? `${reviewYear} heeft een ongebruikelijk hoge EBITDA-marge. Controleer de gemarkeerde rij en bevestig de cijfers; daarna kunt u de berekening voortzetten.`
+            : currentLocale === 'fr'
+              ? `${reviewYear} présente une marge d’EBITDA inhabituellement élevée. Vérifiez la ligne signalée et confirmez les chiffres avant de poursuivre le calcul.`
+              : `${reviewYear} has an unusually high EBITDA margin. Review the highlighted row and confirm the figures before continuing the calculation.`
+        toast.warning(description)
+        reconnectResumeBypassRef.current = false
+        return
+      }
+      void handleManualSubmit(ready.formData).finally(() => {
+        reconnectResumeBypassRef.current = false
+      })
     }
 
     resume()
@@ -398,6 +419,7 @@ export function useManualSubmitController({
     accountantCustomerId,
     currentLocale,
     handleManualSubmit,
+    onAccountingReconnectRecovered,
     reportId,
     resolvedReportId,
     restorationComplete,

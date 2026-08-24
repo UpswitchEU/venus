@@ -2,11 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { ManualValuationFormData } from '@/types/valuation'
 import {
   applyValuationSnapshotToReconnectDraft,
+  beginAccountingReconnectHandoffResync,
   beginAccountingReconnectResync,
+  bindAccountingReconnectHandoff,
   bindAccountingReconnectOAuth,
   consumeReadyAccountingReconnect,
+  markAccountingReconnectFailed,
   markAccountingReconnectReady,
   persistAccountingReconnectIntent,
+  reconnectDraftReviewYear,
 } from './accountingReconnectResume'
 
 function draft(): ManualValuationFormData {
@@ -110,6 +114,56 @@ describe('accounting reconnect recovery transaction', () => {
       })
     ).toBe(false)
   })
+
+  it('claims a provider-bound Mercury handoff once and allows a retry after failure', () => {
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: draft(),
+    })
+    expect(
+      bindAccountingReconnectHandoff(sessionStorage, {
+        provider: 'horus',
+        clientId: 'client-1',
+        nonce: 'handoff-1',
+      })
+    ).toBe(true)
+    expect(
+      beginAccountingReconnectHandoffResync(sessionStorage, {
+        provider: 'xero',
+        clientId: 'client-1',
+        nonce: 'handoff-1',
+      })
+    ).toBeNull()
+    expect(
+      beginAccountingReconnectHandoffResync(sessionStorage, {
+        provider: 'horus',
+        clientId: 'client-1',
+        nonce: 'handoff-1',
+      })
+    ).toMatchObject({ phase: 'resyncing', provider: 'horus' })
+    expect(
+      beginAccountingReconnectHandoffResync(sessionStorage, {
+        provider: 'horus',
+        clientId: 'client-1',
+        nonce: 'handoff-1',
+      })
+    ).toBeNull()
+
+    markAccountingReconnectFailed(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      failure: 'Temporary provider outage',
+    })
+    expect(
+      bindAccountingReconnectHandoff(sessionStorage, {
+        provider: 'horus',
+        clientId: 'client-1',
+        nonce: 'handoff-2',
+      })
+    ).toBe(true)
+  })
 })
 
 describe('applyValuationSnapshotToReconnectDraft', () => {
@@ -176,5 +230,35 @@ describe('applyValuationSnapshotToReconnectDraft', () => {
       })
     )
     expect(result.filingYearConfirmed).toBe(false)
+  })
+
+  it('finds the newest unreviewed extreme-margin year before automatic resume', () => {
+    expect(
+      reconnectDraftReviewYear({
+        ...draft(),
+        yearlyFinancials: [
+          {
+            year: '2024',
+            revenue: 500_000,
+            ebitda: 490_000,
+            eligibility_reason: 'extreme_margin_unattested',
+          },
+          {
+            year: '2025',
+            revenue: 600_000,
+            ebitda: 590_000,
+            eligibility_reason: 'extreme_margin_unattested',
+          },
+          {
+            year: '2026',
+            revenue: 700_000,
+            ebitda: 200_000,
+            isForecast: true,
+            eligibility_reason: 'extreme_margin_unattested',
+          },
+        ],
+      })
+    ).toBe(2025)
+    expect(reconnectDraftReviewYear(draft())).toBeNull()
   })
 })

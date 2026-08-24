@@ -86,13 +86,21 @@ export function HistoricalYearCard({
           confirm: 'Gecontroleerd bevestigen',
           missingClient: 'Clientcontext ontbreekt. Open dit rapport opnieuw vanuit Mercury.',
         }
-      : {
-          title: 'Unusually high margin — review required',
-          body: 'Review revenue, expenses, and the Silverfin dossier. Confirm only when this complete fiscal year genuinely has an EBITDA margin of 90% or more.',
-          placeholder: 'Explain why this margin is correct (minimum 12 characters)',
-          confirm: 'Confirm reviewed figures',
-          missingClient: 'Client context is missing. Reopen this report from Mercury.',
-        }
+      : locale === 'fr'
+        ? {
+            title: 'Marge inhabituellement élevée — vérification requise',
+            body: 'Vérifiez le chiffre d’affaires, les charges et le dossier Silverfin. Confirmez uniquement si cet exercice complet présente réellement une marge d’EBITDA d’au moins 90 %.',
+            placeholder: 'Expliquez pourquoi cette marge est correcte (12 caractères minimum)',
+            confirm: 'Confirmer les chiffres vérifiés',
+            missingClient: 'Le contexte client manque. Rouvrez ce rapport depuis Mercury.',
+          }
+        : {
+            title: 'Unusually high margin — review required',
+            body: 'Review revenue, expenses, and the Silverfin dossier. Confirm only when this complete fiscal year genuinely has an EBITDA margin of 90% or more.',
+            placeholder: 'Explain why this margin is correct (minimum 12 characters)',
+            confirm: 'Confirm reviewed figures',
+            missingClient: 'Client context is missing. Reopen this report from Mercury.',
+          }
 
   const attestHighMargin = async () => {
     const searchParams =
@@ -207,7 +215,7 @@ export function HistoricalYearCard({
               label={mi('fields.revenue')}
               value={yearData.revenue}
               onChange={(value) =>
-                updateYearlyFinancials(yearData.year, !!yearData.isForecast, 'revenue', value ?? 0)
+                updateYearlyFinancials(yearData.year, !!yearData.isForecast, 'revenue', value)
               }
               size="sm"
               placeholder="1.500.000"
@@ -230,7 +238,7 @@ export function HistoricalYearCard({
               label={mi('fields.ebitda')}
               value={yearData.ebitda}
               onChange={(value) =>
-                updateYearlyFinancials(yearData.year, !!yearData.isForecast, 'ebitda', value ?? 0)
+                updateYearlyFinancials(yearData.year, !!yearData.isForecast, 'ebitda', value)
               }
               size="sm"
               placeholder="250.000"

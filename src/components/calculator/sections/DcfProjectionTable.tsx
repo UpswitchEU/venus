@@ -26,7 +26,7 @@ interface DcfProjectionTableProps {
   onChange: (
     year: string,
     field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change',
-    value: number
+    value: number | undefined
   ) => void
   disabled?: boolean
 }
@@ -165,7 +165,7 @@ export function DcfProjectionTable({
       field: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change',
       value: number | undefined
     ) => {
-      onChange(year, field, value ?? 0)
+      onChange(year, field, value)
     },
     [onChange]
   )

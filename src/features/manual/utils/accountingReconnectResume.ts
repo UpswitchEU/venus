@@ -7,7 +7,13 @@ export const ACCOUNTING_RECONNECT_RESUME_KEY = 'venus_accounting_reconnect_resum
 const INTENT_VERSION = 1 as const
 const DEFAULT_TTL_MS = 10 * 60 * 1000
 
-type RecoveryPhase = 'reconnect_required' | 'oauth_pending' | 'resyncing' | 'ready' | 'failed'
+type RecoveryPhase =
+  | 'reconnect_required'
+  | 'oauth_pending'
+  | 'handoff_pending'
+  | 'resyncing'
+  | 'ready'
+  | 'failed'
 
 export interface AccountingReconnectIntent {
   version: typeof INTENT_VERSION
@@ -47,7 +53,14 @@ function parseIntent(raw: string | null, now: number): AccountingReconnectIntent
       value.expiresAt < now ||
       !value.formData ||
       typeof value.formData !== 'object' ||
-      !['reconnect_required', 'oauth_pending', 'resyncing', 'ready', 'failed'].includes(
+      ![
+        'reconnect_required',
+        'oauth_pending',
+        'handoff_pending',
+        'resyncing',
+        'ready',
+        'failed',
+      ].includes(
         String(value.phase)
       )
     ) {
@@ -112,13 +125,47 @@ export function bindAccountingReconnectOAuth(
   const now = input.now ?? Date.now()
   const intent = readIntent(storage, now)
   const nonce = input.nonce.trim()
-  if (!intent || !sameIdentity(intent, input) || !nonce || intent.phase !== 'reconnect_required') {
+  if (
+    !intent ||
+    !sameIdentity(intent, input) ||
+    !nonce ||
+    (intent.phase !== 'reconnect_required' && intent.phase !== 'failed')
+  ) {
     return false
   }
   writeIntent(storage, {
     ...intent,
     phase: 'oauth_pending',
     oauthNonce: nonce,
+  })
+  return true
+}
+
+/**
+ * Bind a same-tab Mercury settings handoff to this recovery transaction.
+ * Venus sessionStorage remains scoped to the existing top-level browsing
+ * context while Mercury handles OAuth, credentials, or an assisted upload.
+ */
+export function bindAccountingReconnectHandoff(
+  storage: Storage,
+  input: IntentIdentity & { nonce: string; now?: number }
+): boolean {
+  const now = input.now ?? Date.now()
+  const intent = readIntent(storage, now)
+  const nonce = input.nonce.trim()
+  if (
+    !intent ||
+    !sameIdentity(intent, input) ||
+    !nonce ||
+    (intent.phase !== 'reconnect_required' && intent.phase !== 'failed')
+  ) {
+    return false
+  }
+  writeIntent(storage, {
+    ...intent,
+    phase: 'handoff_pending',
+    oauthNonce: nonce,
+    failure: undefined,
   })
   return true
 }
@@ -137,6 +184,27 @@ export function beginAccountingReconnectResync(
     !intent ||
     !sameIdentity(intent, input) ||
     intent.phase !== 'oauth_pending' ||
+    !intent.oauthNonce ||
+    intent.oauthNonce !== input.nonce.trim()
+  ) {
+    return null
+  }
+  const claimed: AccountingReconnectIntent = { ...intent, phase: 'resyncing' }
+  writeIntent(storage, claimed)
+  return claimed
+}
+
+/** Claim a trusted Mercury return exactly once before forcing client resync. */
+export function beginAccountingReconnectHandoffResync(
+  storage: Storage,
+  input: IntentIdentity & { nonce: string; now?: number }
+): AccountingReconnectIntent | null {
+  const now = input.now ?? Date.now()
+  const intent = readIntent(storage, now)
+  if (
+    !intent ||
+    !sameIdentity(intent, input) ||
+    intent.phase !== 'handoff_pending' ||
     !intent.oauthNonce ||
     intent.oauthNonce !== input.nonce.trim()
   ) {
@@ -278,4 +346,20 @@ export function applyValuationSnapshotToReconnectDraft(
     filingYearConfirmed: snapshot.anchor_year !== null,
     filing_year_confirmed: snapshot.anchor_year !== null,
   }
+}
+
+/**
+ * Return the newest actual year that still needs an audited margin review.
+ * Reconnect may refresh authorization successfully without making every row
+ * calculation-ready; in that case the UI must pause before dispatch, not burn
+ * a retry on a validation error the accountant can already resolve in-place.
+ */
+export function reconnectDraftReviewYear(formData: ManualValuationFormData): number | null {
+  const years = formData.yearlyFinancials
+    .filter(
+      (row) => !isYearRowForecast(row) && row.eligibility_reason === 'extreme_margin_unattested'
+    )
+    .map((row) => Number(row.year))
+    .filter(Number.isInteger)
+  return years.length > 0 ? Math.max(...years) : null
 }

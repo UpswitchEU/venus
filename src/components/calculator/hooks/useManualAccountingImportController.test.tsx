@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import type { Dispatch, SetStateAction } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  bindAccountingReconnectHandoff,
   bindAccountingReconnectOAuth,
   consumeReadyAccountingReconnect,
   persistAccountingReconnectIntent,
@@ -214,6 +215,7 @@ describe('useManualAccountingImportController', () => {
           quality_state: 'ready',
         },
       ],
+      forecast_years_data: [{ year: 2026, revenue: 900_000 }],
       unavailable_years: [{ year: 2025, reason: 'incomplete_operating_pair' }],
     })
     vi.spyOn(accountingAPI, 'getAllIntegrationStatus').mockResolvedValue([])
@@ -252,6 +254,81 @@ describe('useManualAccountingImportController', () => {
         reportId: 'report-1',
       })
     ).toBeNull()
+  })
+
+  it('returns from any Mercury connector, resyncs the linked dossier, and resumes once', async () => {
+    const staleDraft: ManualValuationFormData = {
+      companyName: 'Cross Provider BV',
+      businessType: 'services',
+      industry: 'services',
+      country: 'BE',
+      yearFounded: '2012',
+      businessStructure: 'company',
+      ownerManagers: 1,
+      fteEmployees: 4,
+      yearlyFinancials: [{ year: '2024', revenue: 400_000, ebitda: 390_000 }],
+    }
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: staleDraft,
+    })
+    bindAccountingReconnectHandoff(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      nonce: 'handoff-1',
+    })
+    window.history.replaceState(
+      {},
+      '',
+      '/?clientId=client-1&accounting_resume=handoff-1&just_connected=horus'
+    )
+
+    vi.spyOn(accountingAPI, 'resyncClient').mockResolvedValue({ success: true })
+    vi.spyOn(accountingAPI, 'getClientValuationFinancials').mockResolvedValue({
+      provider: 'horus',
+      anchor_year: 2024,
+      last_successful_sync_at: '2026-08-24T18:00:00.000Z',
+      years: [
+        {
+          fiscal_year: 2024,
+          revenue: 400_000,
+          ebitda: 80_000,
+          source_provider: 'horus',
+          source_kind: 'live_accounting',
+          quality_state: 'ready',
+        },
+      ],
+      unavailable_years: [],
+    })
+    vi.spyOn(accountingAPI, 'getAllIntegrationStatus').mockResolvedValue([])
+    const setFormData = vi.fn() as Dispatch<SetStateAction<ManualValuationFormData>>
+
+    renderHook(() =>
+      useManualAccountingImportController({
+        currentFilingYear: 2026,
+        integrationsEnabled: true,
+        messages,
+        setFormData,
+      })
+    )
+
+    await act(async () => {
+      await vi.waitFor(() => expect(accountingAPI.getClientValuationFinancials).toHaveBeenCalled())
+    })
+
+    expect(accountingAPI.resyncClient).toHaveBeenCalledTimes(1)
+    expect(accountingAPI.resyncClient).toHaveBeenCalledWith('client-1', { force: true })
+    expect(new URLSearchParams(window.location.search).get('just_connected')).toBeNull()
+    expect(new URLSearchParams(window.location.search).get('accounting_resume')).toBeNull()
+    expect(new URLSearchParams(window.location.search).get('resume_calculation')).toBe('1')
+    expect(
+      consumeReadyAccountingReconnect(sessionStorage, {
+        clientId: 'client-1',
+        reportId: 'report-1',
+      })
+    ).toMatchObject({ phase: 'ready', provider: 'horus', anchorYear: 2024 })
   })
 
   it('imports only complete operating pairs and preserves their source metadata', async () => {
@@ -315,6 +392,7 @@ describe('useManualAccountingImportController', () => {
       ownerManagers: 1,
       fteEmployees: 5,
       yearlyFinancials: [{ year: '2023', revenue: 600_000, ebitda: 100_000 }],
+      forecast_years_data: [{ year: 2026, revenue: 850_000, ebitda: 170_000, is_forecast: true }],
     }
     const updated = (updater as (previous: ManualValuationFormData) => ManualValuationFormData)(
       initial
@@ -334,5 +412,6 @@ describe('useManualAccountingImportController', () => {
     expect(updated.yearlyFinancials).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ year: '2025' })])
     )
+    expect(updated.forecast_years_data).toEqual(initial.forecast_years_data)
   })
 })

@@ -8,7 +8,16 @@ import {
   generateSilverfinOAuthNonce,
   persistSilverfinOAuthState,
 } from '@/utils/silverfin-oauth-state'
-import { bindAccountingReconnectOAuth } from '../utils/accountingReconnectResume'
+import {
+  accountingReconnectProviderName,
+  buildMercuryAccountingReconnectUrl,
+  generateAccountingReconnectHandoffNonce,
+} from '../utils/accountingReconnectHandoff'
+import {
+  bindAccountingReconnectHandoff,
+  bindAccountingReconnectOAuth,
+  markAccountingReconnectFailed,
+} from '../utils/accountingReconnectResume'
 
 function parseFirmId(value: string): string | null {
   const trimmed = value.trim()
@@ -34,6 +43,7 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
   const locale = useLocale()
   const provider = typeof context.provider === 'string' ? context.provider.trim().toLowerCase() : ''
   const clientId = typeof context.client_id === 'string' ? context.client_id.trim() : ''
+  const providerName = accountingReconnectProviderName(provider)
   const [firmId, setFirmId] = useState(typeof context.firm_id === 'string' ? context.firm_id : '')
   const [minimized, setMinimized] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -52,6 +62,9 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
           body: 'De opgeslagen cijfers blijven zichtbaar, maar de berekening is gepauzeerd. Verbind opnieuw en synchroniseer het gekoppelde dossier om verder te gaan.',
           unavailable:
             '2025 wordt alleen geladen als die dossierperiode werkelijk in Silverfin bestaat. Anders blijft het laatste volledige jaar geselecteerd.',
+          unavailableGeneric:
+            `Een nieuw boekjaar wordt alleen geladen als het gekoppelde dossier in ${providerName} volledige omzet- en EBITDA-cijfers bevat. Anders blijft het laatste volledige jaar geselecteerd.`,
+          handoff: `We openen ${providerName} veilig in Upswitch. Na het verbinden keert u automatisch terug naar dit rapport; synchronisatie en berekening gaan hier verder.`,
           firm: 'Silverfin kantoor-ID of webadres',
           close: 'Later',
           reconnect: 'Opnieuw verbinden',
@@ -61,8 +74,11 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
         ? {
             title: 'Reconnecter la comptabilité',
             body: 'Les chiffres enregistrés restent visibles, mais le calcul est suspendu. Reconnectez et synchronisez le dossier lié pour continuer.',
-            unavailable:
-              '2025 ne sera chargé que si cette période existe réellement dans Silverfin. Sinon, la dernière année complète reste sélectionnée.',
+          unavailable:
+            '2025 ne sera chargé que si cette période existe réellement dans Silverfin. Sinon, la dernière année complète reste sélectionnée.',
+          unavailableGeneric:
+            `Un nouvel exercice n’est chargé que si le dossier lié dans ${providerName} contient un chiffre d’affaires et un EBITDA complets. Sinon, la dernière année complète reste sélectionnée.`,
+          handoff: `Nous ouvrons ${providerName} de manière sécurisée dans Upswitch. Après la reconnexion, vous revenez automatiquement à ce rapport ; la synchronisation et le calcul reprennent ici.`,
             firm: 'Identifiant ou adresse Web Silverfin',
             close: 'Plus tard',
             reconnect: 'Reconnecter',
@@ -71,8 +87,11 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
         : {
             title: 'Reconnect accounting',
             body: 'Saved figures remain visible, but calculation is paused. Reconnect and synchronize the linked dossier to continue.',
-            unavailable:
-              '2025 loads only when that dossier period actually exists in Silverfin. Otherwise the latest complete year stays selected.',
+          unavailable:
+            '2025 loads only when that dossier period actually exists in Silverfin. Otherwise the latest complete year stays selected.',
+          unavailableGeneric:
+            `A newer year loads only when the linked ${providerName} dossier contains a complete revenue and EBITDA pair. Otherwise the latest complete year stays selected.`,
+          handoff: `We’ll open ${providerName} securely in Upswitch. After reconnecting, you return to this report automatically; sync and calculation continue here.`,
             firm: 'Silverfin firm ID or web address',
             close: 'Later',
             reconnect: 'Reconnect',
@@ -80,21 +99,37 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
           }
 
   const beginReconnect = async () => {
-    if (provider !== 'silverfin') {
-      const providerName = provider === 'exact' ? 'Exact' : provider === 'xero' ? 'Xero' : provider
-      setError(
-        `Reconnect ${providerName} from your Upswitch integrations settings, then return here.`
-      )
-      return
-    }
-    const resolvedFirmId = parseFirmId(firmId)
-    if (!resolvedFirmId || !clientId) {
-      setError(copy.firm)
+    if (!clientId || !provider) {
+      setError('The saved reconnect request is incomplete. Calculate again to restart safely.')
       return
     }
     setConnecting(true)
     setError(null)
     try {
+      if (provider !== 'silverfin') {
+        const nonce = generateAccountingReconnectHandoffNonce()
+        if (
+          !bindAccountingReconnectHandoff(sessionStorage, {
+            provider,
+            clientId,
+            nonce,
+          })
+        ) {
+          throw new Error('The saved reconnect request expired. Calculate again to restart safely.')
+        }
+        const handoffUrl = buildMercuryAccountingReconnectUrl({
+          currentUrl: window.location.href,
+          locale,
+          provider,
+          clientId,
+          nonce,
+        })
+        window.location.assign(handoffUrl)
+        return
+      }
+
+      const resolvedFirmId = parseFirmId(firmId)
+      if (!resolvedFirmId) throw new Error(copy.firm)
       const redirectUrl = new URL(window.location.href)
       for (const key of ['code', 'state', 'firm_id']) redirectUrl.searchParams.delete(key)
       redirectUrl.searchParams.set('silverfin_connect', '1')
@@ -118,8 +153,13 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       window.location.assign(trustedSilverfinAuthorizationUrl(authorization_url))
     } catch (cause) {
       sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
+      markAccountingReconnectFailed(sessionStorage, {
+        provider,
+        clientId,
+        failure: cause instanceof Error ? cause.message : `${providerName} connection failed`,
+      })
       setConnecting(false)
-      setError(cause instanceof Error ? cause.message : 'Silverfin connection failed')
+      setError(cause instanceof Error ? cause.message : `${providerName} connection failed`)
     }
   }
 
@@ -154,7 +194,14 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       <div className="w-full max-w-lg rounded-2xl bg-background p-6 shadow-2xl">
         <h2 className="text-xl font-semibold">{copy.title}</h2>
         <p className="mt-3 text-sm leading-6 opacity-75">{copy.body}</p>
-        <p className="mt-2 text-xs leading-5 opacity-65">{copy.unavailable}</p>
+        <p className="mt-2 text-xs leading-5 opacity-65">
+          {provider === 'silverfin' ? copy.unavailable : copy.unavailableGeneric}
+        </p>
+        {provider !== 'silverfin' ? (
+          <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-xs leading-5 opacity-80">
+            {copy.handoff}
+          </p>
+        ) : null}
         {lastSync ? (
           <p className="mt-3 text-xs opacity-70">
             {copy.lastSync}: {lastSync}

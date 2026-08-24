@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
 import {
   applyValuationSnapshotToReconnectDraft,
+  beginAccountingReconnectHandoffResync,
   beginAccountingReconnectResync,
   markAccountingReconnectFailed,
   markAccountingReconnectReady,
@@ -353,7 +354,7 @@ export function useManualAccountingImportController({
         const forecastFromBatch = batch.forecast_years_data
         let nextForecast: YearDataInput[] | undefined
         if (forecastFromBatch && forecastFromBatch.length > 0) {
-          nextForecast = forecastFromBatch
+          const completeForecast = forecastFromBatch
             .filter(
               (row) =>
                 row.revenue != null &&
@@ -368,6 +369,7 @@ export function useManualAccountingImportController({
               capex: row.capex,
               is_forecast: row.is_forecast ?? true,
             }))
+          if (completeForecast.length > 0) nextForecast = completeForecast
         }
 
         const prevBusinessContext =
@@ -579,6 +581,78 @@ export function useManualAccountingImportController({
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
         window.sessionStorage.removeItem(oauthLockKey)
         stripSilverfinCallback()
+      }
+    })()
+  }, [loadAccountingIntegrationStatus, setFormData])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const provider = params.get('just_connected')?.trim().toLowerCase() || ''
+    const nonce = params.get('accounting_resume')?.trim() || ''
+    const reconnectClientId = params.get('clientId')?.trim() || ''
+    if (!provider || !nonce || !reconnectClientId) return
+
+    const stripHandoffCallback = () => {
+      const cleanedUrl = new URL(window.location.href)
+      cleanedUrl.searchParams.delete('just_connected')
+      cleanedUrl.searchParams.delete('accounting_resume')
+      window.history.replaceState({}, '', cleanedUrl.toString())
+    }
+
+    const lockKey = `accounting_handoff_${provider}_${nonce}`
+    if (window.sessionStorage.getItem(lockKey)) return
+    const claimedIntent = beginAccountingReconnectHandoffResync(window.sessionStorage, {
+      provider,
+      clientId: reconnectClientId,
+      nonce,
+    })
+    if (!claimedIntent) {
+      stripHandoffCallback()
+      import('sonner').then(({ toast }) =>
+        toast.error('This accounting reconnect return expired. Start the reconnect flow again.')
+      )
+      return
+    }
+    window.sessionStorage.setItem(lockKey, '1')
+
+    void (async () => {
+      try {
+        await accountingAPI.resyncClient(reconnectClientId, { force: true })
+        const snapshot = await accountingAPI.getClientValuationFinancials(reconnectClientId)
+        const correctedFormData = applyValuationSnapshotToReconnectDraft(
+          claimedIntent.formData,
+          snapshot
+        )
+        setFormData(correctedFormData)
+        if (
+          !markAccountingReconnectReady(window.sessionStorage, {
+            provider,
+            clientId: reconnectClientId,
+            formData: correctedFormData,
+            anchorYear: snapshot.anchor_year,
+            unavailableYears: snapshot.unavailable_years,
+          })
+        ) {
+          throw new Error('The reconnect request expired before synchronization completed.')
+        }
+        await loadAccountingIntegrationStatus()
+        window.sessionStorage.removeItem(lockKey)
+        stripHandoffCallback()
+        const resumeUrl = new URL(window.location.href)
+        resumeUrl.searchParams.set('resume_calculation', '1')
+        window.history.replaceState({}, '', resumeUrl.toString())
+        window.dispatchEvent(new Event('upswitch:accounting-reconnect-ready'))
+      } catch (error) {
+        const message = parseAccountingApiError(error) || 'Accounting synchronization failed'
+        markAccountingReconnectFailed(window.sessionStorage, {
+          provider,
+          clientId: reconnectClientId,
+          failure: message,
+        })
+        window.sessionStorage.removeItem(lockKey)
+        stripHandoffCallback()
+        import('sonner').then(({ toast }) => toast.error(message))
       }
     })()
   }, [loadAccountingIntegrationStatus, setFormData])

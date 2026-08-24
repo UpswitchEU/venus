@@ -463,6 +463,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     versionSyncTimeoutRef,
     warnIfSubmitSynthesisSkipped,
     onAccountingReconnectRequired: setAccountingReconnectContext,
+    onAccountingReconnectRecovered: () => setAccountingReconnectContext(null),
     isAccountingReconnectRequired: accountingReconnectContext !== null,
     restorationComplete,
   })
