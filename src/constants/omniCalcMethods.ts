@@ -1,7 +1,7 @@
 import {
   DISTINCT_VALUATION_METHOD_COUNT as GENERATED_DISTINCT_VALUATION_METHOD_COUNT,
   VALUATION_PRIMARY_OMNI_METHOD_ORDER,
-} from '@upswitch/types/valuation-methods'
+} from '@upswitch/types'
 
 /**
  * Method keys shown in the primary list (before "Show all methods") in OmniCalc UI.

@@ -1,7 +1,7 @@
 import {
   DISTINCT_VALUATION_METHOD_COUNT as CONTRACT_DISTINCT_VALUATION_METHOD_COUNT,
   VALUATION_PRIMARY_OMNI_METHOD_ORDER,
-} from '@upswitch/types/valuation-methods'
+} from '@upswitch/types'
 import { describe, expect, it } from 'vitest'
 import {
   PRE_SELECTABLE_METHOD_SET,

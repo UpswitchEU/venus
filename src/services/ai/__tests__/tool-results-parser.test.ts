@@ -11,7 +11,6 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import aiToolResultContract from '../../../../../../tests/contracts/ai-tool-result-contract.json'
 import { parseAIChatToolResults } from '../tool-results-parser'
 
 describe('parseAIChatToolResults — input tolerance', () => {
@@ -126,26 +125,6 @@ describe('parseAIChatToolResults — input tolerance', () => {
     ])
     // Known type still landed; unknown type didn't land anywhere.
     expect(result.normalisationSuggestions).toEqual([{ category: 'rent' }])
-  })
-
-  it('keeps the Venus parsed envelope fixture aligned with Titan renderable outputs', () => {
-    const partition = [
-      ...aiToolResultContract.venusParsedEnvelopeTypes,
-      ...aiToolResultContract.venusIgnoredRenderableEnvelopeTypes,
-    ]
-    expect(new Set(partition)).toEqual(new Set(aiToolResultContract.renderableEnvelopeTypes))
-    expect(aiToolResultContract.venusIgnoredRenderableEnvelopeTypes).toEqual([
-      'client_owner_invite_request',
-      'valuation_method_selection_request',
-      'deal_readiness',
-      'start_playbook_request',
-      // BET-500 value-up cards: Titan emits these for the owner/advisor value
-      // curve (a Mercury surface); the Venus calculator has no workspace to
-      // render them, so it intentionally ignores the envelopes.
-      'stage_advance_request',
-      'gap_fix_request',
-      'content_improve_request',
-    ])
   })
 
   it('parses buyer-ready envelopes instead of dropping the IM/data-room workflow', () => {

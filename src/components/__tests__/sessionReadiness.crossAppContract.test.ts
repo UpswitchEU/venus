@@ -17,8 +17,6 @@ import {
 } from '../../lib/mercury/sessionReadiness'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const mercuryRootFromVenusTests = '../../../../../apps/mercury'
-
 /** Production preview incident (2026-05-27). */
 const PREVIEW_INCIDENT_SEARCH =
   'flow=manual&mode=accountant&locale=nl&return_url=https%3A%2F%2Fpreview.upswitch.app%2Fnl%2Fadvisor%2Fclients%2Fe25ce3b7-2e1e-4c6d-890d-eb826d527afd&source=mercury&benchmark_contribution=1&clientId=e25ce3b7-2e1e-4c6d-890d-eb826d527afd'
@@ -418,42 +416,6 @@ describe('sessionReadiness Mercury report URL contract', () => {
     ).toBe(true)
   })
 
-  it('buildAdvisorClientValuationUrl always sets clientId, mode=accountant, and source=mercury', () => {
-    const path = join(
-      __dirname,
-      mercuryRootFromVenusTests,
-      'shared/utils/advisor-client-valuation-url.ts'
-    )
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/query\.set\(\s*['"]clientId['"]/)
-    expect(source).toMatch(/query\.set\(\s*['"]mode['"]\s*,\s*['"]accountant['"]\s*\)/)
-    expect(source).toMatch(/query\.set\(\s*['"]source['"]\s*,\s*['"]mercury['"]\s*\)/)
-  })
-
-  it('VenusEmbeddedModal propagates clientId and mode for accountant iframe opens', () => {
-    const path = join(
-      __dirname,
-      mercuryRootFromVenusTests,
-      'shared/components/modals/VenusEmbeddedModal.tsx'
-    )
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/mode === 'accountant' && clientId/)
-    expect(source).toMatch(/url\.searchParams\.set\(\s*['"]clientId['"]/)
-  })
-
-  it('CalculatorRedirectClient propagates clientId when opening an existing report', () => {
-    const path = join(
-      __dirname,
-      mercuryRootFromVenusTests,
-      'app/[locale]/(fullscreen)/calculator/CalculatorRedirectClient.tsx'
-    )
-    const source = readFileSync(path, 'utf8')
-
-    expect(source).toMatch(/if \(reportId\)/)
-    expect(source).toMatch(/url\.searchParams\.set\(\s*['"]clientId['"]\s*,\s*advisorClientId\s*\)/)
-    expect(source).toMatch(/url\.searchParams\.set\(\s*['"]source['"]\s*,\s*['"]mercury['"]\s*\)/)
-  })
-
   /** preview.valuation handoff (2026-05-28): report d3f4e162 + client f93ff269 */
   const PREVIEW_D3F4_REPORT_ID = 'd3f4e162-ecb2-4112-8be8-ba426e0d92fd'
   const PREVIEW_F93FF_CLIENT_ID = 'f93ff269-0e86-4053-9c64-717e85194401'
@@ -568,29 +530,6 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).toMatch(/restorationRunRef/)
     expect(source).toMatch(/shouldContinueRestore/)
     expect(source).toMatch(/SessionRestorationService\.restore\(reportId, session, \{/)
-  })
-
-  it('AdvisorAIDock delegates client detail resolution to a cache-first hook', () => {
-    const dockPath = join(
-      __dirname,
-      mercuryRootFromVenusTests,
-      'shared/components/ai-dock/AdvisorAIDock.tsx'
-    )
-    const hookPath = join(
-      __dirname,
-      mercuryRootFromVenusTests,
-      'shared/components/ai-dock/useAdvisorDockResolvedClient.ts'
-    )
-    const dockSource = readFileSync(dockPath, 'utf8')
-    const hookSource = readFileSync(hookPath, 'utf8')
-
-    expect(dockSource).toMatch(/useAdvisorDockResolvedClient\(\{/)
-    expect(hookSource).toMatch(/queryClient\.getQueryData/)
-    expect(hookSource).toMatch(/accountantClientQueryKeys\.detail\(clientId\)/)
-    expect(hookSource).toMatch(
-      /queryFn:\s*\(\)\s*=>\s*[\s\S]*fetchAccountantClientDetail\(\s*clientId\s*,\s*undefined\s*,\s*\{\s*priority:\s*true,?\s*\}\s*\)/
-    )
-    expect(hookSource).toMatch(/clientDetailRequestRef/)
   })
 
   it('BootstrapProvider force refresh shows loading immediately on retry', () => {

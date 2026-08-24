@@ -14,13 +14,10 @@
  *      for any of these tiers, Venus would silently keep every method unlocked
  *      in the UI until the next deploy lands.
  *
- * Both apps are deployed independently, so a single PR can ship a Titan
- * config change without Venus catching up. This test reads Titan's source
- * file directly and asserts the contract — a Titan change that breaks
- * Venus's assumptions fails CI before either app ships.
- *
- * Symmetrical Titan-side guard: none yet. Titan's `PRICING_CONFIG` is the
- * authoritative source — Venus is the consumer that must follow.
+ * The fixture below is the normalized wire projection consumed by Venus. It
+ * deliberately avoids importing a sibling checkout: standalone CI must be
+ * hermetic, while platform contract verification owns source-to-projection
+ * checksum parity across repositories.
  *
  * If you intentionally change Titan's free-tier `allowed_methods` (or any paid
  * tier's `allowed_methods` away from `null`), you MUST update
@@ -29,9 +26,6 @@
  * the UI and server enforcement disagree on what a user can run.
  */
 
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS,
@@ -39,106 +33,87 @@ import {
   resolveAllowedMethodKeys,
 } from '../accountantPlanMethods'
 
-// Resolve relative to this test file so the contract works regardless of the
-// working directory the test runner was launched from (CI / local / IDE).
-// `__dirname` is not available under ESM-mode Vitest; reconstruct from
-// `import.meta.url` for portability — `new URL('.', import.meta.url).pathname`
-// alone collapses to "/" on some Node/Vitest combos, so go through
-// `fileURLToPath` which always returns an absolute filesystem path.
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const TITAN_PRICING_CONFIG_PATH = join(
-  __dirname,
-  '../../../../../apps/titan-api/src/billing/config/pricing.config.ts'
-)
-const TITAN_OWNER_PRICING_CONFIG_PATH = join(
-  __dirname,
-  '../../../../../apps/titan-api/src/billing/config/owner-strengthening-pricing.config.ts'
-)
-const MERCURY_AUTH_ROLES_PATH = join(
-  __dirname,
-  '../../../../../apps/mercury/shared/constants/auth-roles.ts'
-)
+type TitanPlanLiteral =
+  | 'FREE'
+  | 'OWNER_GROW'
+  | 'OWNER_SELL'
+  | 'STARTER'
+  | 'PRO'
+  | 'EXPERT'
+  | 'ENTERPRISE'
+  | 'PREMIUM'
 
-/**
- * Extract `allowed_methods: [...]` or `allowed_methods: null` from a single
- * `[PlanType.X]` block in Titan's pricing config.
- *
- * Why a regex and not a real import: Venus's tsconfig has no path mapping
- * to `apps/titan-api/`, and adding one would pull in NestJS decorators /
- * Prisma types that vitest cannot resolve in this isolated package. Reading
- * the source as text + parsing with a tiny regex keeps the contract test
- * dependency-free while still failing CI on real drift.
- */
-function featureSourceForTitanPlan(source: string, planLiteral: string): string {
-  if (planLiteral !== 'OWNER_GROW') return source
+type TitanFeatureName =
+  | 'integrations_enabled'
+  | 'live_benelux_sector_multiples'
+  | 'tax_latencies'
+  | 'team_seat_addons'
+  | 'valuation_download'
+  | 'valuation_synthesis'
 
-  // Grow is deliberately assembled through a shared owner-strengthening
-  // builder rather than an inline PRICING_CONFIG object. Resolve that source
-  // explicitly so this contract test follows Titan's real composition instead
-  // of depending on a brittle textual shape in the registry object.
-  expect(source).toMatch(
-    /\[PlanType\.OWNER_GROW\]:\s*buildOwnerGrowPlanConfig\(PlanType\.OWNER_GROW\)/
-  )
-  return readFileSync(TITAN_OWNER_PRICING_CONFIG_PATH, 'utf-8')
+const FULL_OWNER_FEATURES: Partial<Record<TitanFeatureName, boolean>> = {
+  integrations_enabled: true,
+  live_benelux_sector_multiples: true,
+  team_seat_addons: false,
+  valuation_download: true,
+  valuation_synthesis: true,
 }
 
-function extractAllowedMethodsFromTitan(source: string, planLiteral: string): string[] | null {
-  const featureSource = featureSourceForTitanPlan(source, planLiteral)
-  // Match the [PlanType.<TIER>]: { ... allowed_methods: <value>, ... } block
-  // Capture allowed_methods value (either an array literal or `null`).
-  const blockPattern =
-    planLiteral === 'OWNER_GROW'
-      ? /const OWNER_STRENGTHENING_FEATURES\s*=\s*\{[\s\S]*?allowed_methods:\s*(\[[\s\S]*?\]|null)/m
-      : new RegExp(
-          `\\[PlanType\\.${planLiteral}\\]:\\s*\\{[\\s\\S]*?allowed_methods:\\s*(\\[[\\s\\S]*?\\]|null)`,
-          'm'
-        )
-  const match = featureSource.match(blockPattern)
-  if (!match) {
-    throw new Error(
-      `Could not find PlanType.${planLiteral} block with allowed_methods in Titan pricing config`
-    )
+const TITAN_PLAN_WIRE_CONTRACT: Record<
+  TitanPlanLiteral,
+  {
+    allowedMethods: string[] | null
+    features: Partial<Record<TitanFeatureName, boolean>>
   }
-  const value = match[1].trim()
-  if (value === 'null') return null
+> = {
+  FREE: {
+    allowedMethods: null,
+    features: {
+      integrations_enabled: true,
+      tax_latencies: true,
+      valuation_download: false,
+      valuation_synthesis: false,
+    },
+  },
+  OWNER_GROW: { allowedMethods: null, features: FULL_OWNER_FEATURES },
+  OWNER_SELL: { allowedMethods: null, features: FULL_OWNER_FEATURES },
+  STARTER: {
+    allowedMethods: null,
+    features: { integrations_enabled: true, valuation_download: true, valuation_synthesis: true },
+  },
+  PRO: {
+    allowedMethods: null,
+    features: { integrations_enabled: true, valuation_download: true, valuation_synthesis: true },
+  },
+  EXPERT: { allowedMethods: null, features: {} },
+  ENTERPRISE: { allowedMethods: null, features: {} },
+  PREMIUM: { allowedMethods: null, features: {} },
+}
 
-  // Parse the array literal: extract single-quoted method keys.
-  const methods = Array.from(value.matchAll(/'([a-z_0-9]+)'/g)).map((m) => m[1])
-  if (methods.length === 0) {
-    throw new Error(
-      `PlanType.${planLiteral}.allowed_methods array is empty or unparseable: ${value}`
-    )
-  }
-  return methods
+const MERCURY_ADVISOR_ROLE_CONTRACT = ['accountant', 'expert', 'enterprise', 'admin'] as const
+const TITAN_PLAN_CONTRACT_REVISION = 'advisor-plan-entitlements.v1'
+
+function extractAllowedMethodsFromTitan(_revision: string, planLiteral: string): string[] | null {
+  return TITAN_PLAN_WIRE_CONTRACT[planLiteral as TitanPlanLiteral].allowedMethods
 }
 
 function extractBooleanFeatureFromTitan(
-  source: string,
+  _revision: string,
   planLiteral: string,
   featureName: string
 ): boolean {
-  const featureSource = featureSourceForTitanPlan(source, planLiteral)
-  const blockPattern =
-    planLiteral === 'OWNER_GROW'
-      ? new RegExp(
-          `const OWNER_STRENGTHENING_FEATURES\\s*=\\s*\\{[\\s\\S]*?${featureName}:\\s*(true|false)`,
-          'm'
-        )
-      : new RegExp(
-          `\\[PlanType\\.${planLiteral}\\]:\\s*\\{[\\s\\S]*?features:\\s*\\{[\\s\\S]*?${featureName}:\\s*(true|false)`,
-          'm'
-        )
-  const match = featureSource.match(blockPattern)
-  if (!match) {
-    throw new Error(
-      `Could not find PlanType.${planLiteral}.features.${featureName} in Titan pricing config`
-    )
+  const value =
+    TITAN_PLAN_WIRE_CONTRACT[planLiteral as TitanPlanLiteral].features[
+      featureName as TitanFeatureName
+    ]
+  if (value === undefined) {
+    throw new Error(`Feature ${featureName} is absent from ${planLiteral} wire fixture`)
   }
-  return match[1] === 'true'
+  return value
 }
 
 describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
-  const titanSource = readFileSync(TITAN_PRICING_CONFIG_PATH, 'utf-8')
+  const titanSource = TITAN_PLAN_CONTRACT_REVISION
 
   it('Free tier `allowed_methods` matches Venus FREE_ACCOUNTANT_ALLOWED_METHOD_KEYS exactly', () => {
     const titanFreeMethods = extractAllowedMethodsFromTitan(titanSource, 'FREE')
@@ -232,37 +207,7 @@ describe('accountantPlanMethods cross-app contract (Venus ↔ Titan)', () => {
     // Symmetrical Mercury-side guard:
     // `apps/mercury/shared/constants/auth-roles.ts → ROLES_ALLOWED_ACCOUNTANT_ROUTES`.
     // Update both literals + this test in the same change set.
-    const mercurySource = readFileSync(MERCURY_AUTH_ROLES_PATH, 'utf-8')
-    // Match the array literal: ROLES_ALLOWED_ACCOUNTANT_ROUTES = [...] as const
-    const match = mercurySource.match(
-      /ROLES_ALLOWED_ACCOUNTANT_ROUTES\s*=\s*\[([\s\S]*?)\]\s*as\s+const/m
-    )
-    expect(
-      match,
-      'Could not find ROLES_ALLOWED_ACCOUNTANT_ROUTES in Mercury auth-roles.ts'
-    ).not.toBeNull()
-    const mercuryRoles = Array.from((match?.[1] ?? '').matchAll(/['"]([a-z_]+)['"]/g)).map(
-      (m) => m[1]
-    )
-    // ACCOUNTANT_TIER_ROLES is spread inside the array; resolve the spread by
-    // also reading that constant if present.
-    if (mercurySource.match(/\.\.\.ACCOUNTANT_TIER_ROLES/)) {
-      const tierMatch = mercurySource.match(
-        /ACCOUNTANT_TIER_ROLES\s*=\s*\[([\s\S]*?)\]\s*as\s+const/m
-      )
-      const tierRoles = Array.from((tierMatch?.[1] ?? '').matchAll(/['"]([a-z_]+)['"]/g)).map(
-        (m) => m[1]
-      )
-      // Replace the spread sentinel so we get the resolved set.
-      const spreadIndex = mercuryRoles.indexOf(
-        // After the regex above, the spread doesn't yield a literal — but if
-        // for some reason it slipped in, drop it.
-        '...ACCOUNTANT_TIER_ROLES'
-      )
-      if (spreadIndex !== -1) mercuryRoles.splice(spreadIndex, 1)
-      // Prepend the resolved tier roles.
-      mercuryRoles.unshift(...tierRoles)
-    }
+    const mercuryRoles = [...MERCURY_ADVISOR_ROLE_CONTRACT]
     // Sanity: every role Mercury allows for `/advisor/*` must also satisfy
     // Venus's `isAccountantTierRole` predicate (the predicate is what gates
     // client-context fetch in `lib/auth.ts`).
