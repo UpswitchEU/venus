@@ -75,7 +75,7 @@ export function NormalizedEbitdaSummary({
         <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.02] via-transparent to-violet-500/[0.02] pointer-events-none" />
 
         <div className="relative max-w-full min-w-0">
-          <div className="flex max-w-full min-w-0 flex-col gap-3 @[36rem]:flex-row @[36rem]:items-center @[36rem]:justify-between">
+          <div className="flex max-w-full min-w-0 flex-col gap-3 @[46rem]:flex-row @[46rem]:flex-wrap @[46rem]:items-center @[46rem]:justify-between">
             <div className="max-w-full min-w-0">
               <p className="text-xs font-medium text-foreground/60 mb-1">
                 {mi('fields.normalizedEbitda')}
@@ -112,12 +112,12 @@ export function NormalizedEbitdaSummary({
                 </p>
               )}
             </div>
-            <div className="flex max-w-full min-w-0 flex-col items-stretch gap-2 @[36rem]:shrink-0 @[36rem]:flex-row @[36rem]:items-center">
+            <div className="flex max-w-full min-w-0 flex-col items-stretch gap-2 @[46rem]:shrink-0 @[46rem]:flex-row @[46rem]:items-center">
               {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
                 <button
                   type="button"
                   onClick={() => onViewAllNormalizations?.()}
-                  className="min-w-0 self-start text-left text-xs font-medium leading-snug text-foreground/60 underline decoration-foreground/20 underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground/40 @[36rem]:whitespace-nowrap"
+                  className="inline-flex min-h-11 min-w-0 items-center self-start text-left text-xs font-medium leading-snug text-foreground/60 underline decoration-foreground/20 underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground/40 @[46rem]:whitespace-nowrap"
                 >
                   {acceptedNormCount > 0 && taxLatencyCount > 0
                     ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })} / ${tTax('summary', { count: taxLatencyCount })}`
@@ -127,10 +127,10 @@ export function NormalizedEbitdaSummary({
                 </button>
               )}
               <button
-                  type="button"
-                  onClick={() => onViewAllNormalizations?.()}
-                  className={cn(
-                  'w-full shrink-0 rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors @[36rem]:w-auto',
+                type="button"
+                onClick={() => onViewAllNormalizations?.()}
+                className={cn(
+                  'min-h-11 w-full shrink-0 rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors @[46rem]:w-auto',
                   hasAdjustments
                     ? 'bg-background border border-foreground/10 text-foreground hover:bg-foreground/[0.02]'
                     : 'bg-primary text-primary-foreground hover:bg-primary/90'

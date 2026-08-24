@@ -12,7 +12,9 @@ vi.mock('next-intl', () => ({
 
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+      <div {...props}>{children}</div>
+    ),
   },
 }))
 
@@ -72,8 +74,10 @@ describe('NormalizedEbitdaSummary', () => {
     )
 
     expect(source).toContain('@container')
-    expect(source).toContain('@[36rem]:flex-row')
+    expect(source).toContain('@[46rem]:flex-row')
+    expect(source).toContain('@[46rem]:flex-wrap')
     expect(source).toContain('@[22rem]:basis-auto')
+    expect(source).toContain('min-h-11')
     expect(source).not.toContain('sm:flex-row')
     expect(source).toContain('overflow-hidden')
     expect(source).not.toContain('transition-all')
