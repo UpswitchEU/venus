@@ -133,7 +133,7 @@
     "@types/react-dom": "^18.2.0",
     "@upswitch/platform-scripts": "file:./vendor/platform-scripts",
     "@vitejs/plugin-react": "^5.1.2",
-    "@vitest/ui": "^4.0.15",
+    "@vitest/ui": "^4.1.11",
     "autoprefixer": "^10.4.18",
     "critters": "^0.0.23",
     "jsdom": "^26.1.0",
@@ -142,7 +142,8 @@
     "postcss": "^8.5.18",
     "sharp": "^0.35.0",
     "typescript": "^5.2.2",
-    "vitest": "^4.0.15"
+    "vite": "^7.3.5",
+    "vitest": "^4.1.11"
   },
   "keywords": [
     "valuation",
@@ -181,7 +182,8 @@
       "protobufjs": "7.6.4",
       "rollup": "^4.59.0",
       "sharp": "0.35.0",
-      "vite": "^7.3.2"
+      "vite": "^7.3.5",
+      "ws": "8.21.0"
     }
   },
   "resolutions": {
