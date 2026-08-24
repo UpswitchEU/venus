@@ -262,9 +262,7 @@ export function AdvancedAdvisorControlsSection({
                 required
                 touched
                 error={
-                  untrustedMultiplesFallbackReason?.trim()
-                    ? undefined
-                    : t('fallbackReasonRequired')
+                  untrustedMultiplesFallbackReason?.trim() ? undefined : t('fallbackReasonRequired')
                 }
                 disabled={disabled}
               />

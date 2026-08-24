@@ -45,11 +45,7 @@ export function ManualLayoutChrome({
         <ManualLayoutModals {...modalsProps} />
       </div>
       <Suspense fallback={null}>
-        <ChatAssistantDrawer
-          {...chatDrawerProps}
-          lockScroll={isMobile}
-          showFabWhenClosed={false}
-        />
+        <ChatAssistantDrawer {...chatDrawerProps} lockScroll={isMobile} showFabWhenClosed={false} />
       </Suspense>
     </>
   )

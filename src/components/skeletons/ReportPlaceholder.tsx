@@ -49,9 +49,7 @@ export function ReportPlaceholder() {
             </div>
           ))}
         </div>
-        <div className="mt-5 text-xs text-foreground/40">
-          {t('placeholder.time')}
-        </div>
+        <div className="mt-5 text-xs text-foreground/40">{t('placeholder.time')}</div>
       </motion.div>
     </div>
   )

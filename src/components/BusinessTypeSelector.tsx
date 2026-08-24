@@ -340,7 +340,7 @@ export function BusinessTypeSelector({
   const selectedIdsKey = selectedIds.join('|')
   useEffect(() => {
     setMultipleSelections((prev) => {
-      const ids = selectedIds
+      const ids = selectedIdsKey ? selectedIdsKey.split('|') : []
       const prevKeys = Object.keys(prev)
       const sameSet = prevKeys.length === ids.length && prevKeys.every((id) => ids.includes(id))
       if (sameSet) return prev
@@ -364,7 +364,7 @@ export function BusinessTypeSelector({
       }
       return next
     })
-  }, [selectedIdsKey, selectedIds])
+  }, [selectedIdsKey])
 
   const handleMultipleSelectionChange = (
     businessTypeId: string,

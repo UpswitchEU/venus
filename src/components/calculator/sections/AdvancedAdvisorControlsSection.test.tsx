@@ -47,9 +47,7 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(toggle).not.toBeChecked()
     expect(screen.queryByLabelText(/fallbackReason/)).not.toBeInTheDocument()
 
-    rerender(
-      <AdvancedAdvisorControlsSection {...baseProps} allowUntrustedMultiplesFallback />
-    )
+    rerender(<AdvancedAdvisorControlsSection {...baseProps} allowUntrustedMultiplesFallback />)
     const reason = screen.getByLabelText(/fallbackReason/)
     expect(reason).toBeRequired()
     expect(reason).toHaveAttribute('aria-invalid', 'true')

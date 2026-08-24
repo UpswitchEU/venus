@@ -202,8 +202,7 @@ export function buildValuationRequestNormalizations({
         actualOwnerCompensation
       )
       const ruleVersion =
-        n.ruleVersion ??
-        (n.reviewedAt ? VENUS_NORMALIZATION_REVIEW_POLICY_VERSION : undefined)
+        n.ruleVersion ?? (n.reviewedAt ? VENUS_NORMALIZATION_REVIEW_POLICY_VERSION : undefined)
       yearEntry.totalAdjustment += amount
       yearEntry.count++
       if (n.confidence === 'high') yearEntry.confidence = 'high'
@@ -249,8 +248,7 @@ export function buildValuationRequestNormalizations({
         actualOwnerCompensation
       )
       const ruleVersion =
-        n.ruleVersion ??
-        (n.reviewedAt ? VENUS_NORMALIZATION_REVIEW_POLICY_VERSION : undefined)
+        n.ruleVersion ?? (n.reviewedAt ? VENUS_NORMALIZATION_REVIEW_POLICY_VERSION : undefined)
       if (n.status !== 'rejected') {
         yearEntry.pendingCount = (yearEntry.pendingCount ?? 0) + 1
       }

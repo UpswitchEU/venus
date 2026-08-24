@@ -450,9 +450,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const source = readFileSync(path, 'utf8')
 
     expect(source).toMatch(/if \(reportId\)/)
-    expect(source).toMatch(
-      /url\.searchParams\.set\(\s*['"]clientId['"]\s*,\s*advisorClientId\s*\)/
-    )
+    expect(source).toMatch(/url\.searchParams\.set\(\s*['"]clientId['"]\s*,\s*advisorClientId\s*\)/)
     expect(source).toMatch(/url\.searchParams\.set\(\s*['"]source['"]\s*,\s*['"]mercury['"]\s*\)/)
   })
 

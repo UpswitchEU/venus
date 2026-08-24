@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-
-import { buildCurrentYearData, mergeYearDataRows } from '@/utils/yearData'
 import type { YearDataInput } from '@/types/valuation'
+import { buildCurrentYearData, mergeYearDataRows } from '@/utils/yearData'
 
 /**
  * A connected client's imported year carries the whole balance sheet. These tests

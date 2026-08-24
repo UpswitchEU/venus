@@ -10,14 +10,14 @@ import { ValuationEditModal } from '../../../components/calculator/ValuationEdit
 import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import type { ValuationResponse } from '../../../types/valuation'
-import type { ManualReportMethodHydrationError } from '../hooks/useManualReportMethodHydration'
 import type { AdvisorApprovalDialogController } from '../hooks/useManualReportApproval'
+import type { ManualReportMethodHydrationError } from '../hooks/useManualReportMethodHydration'
 import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
+import { AdvisorApprovalDialog } from './AdvisorApprovalDialog'
 import {
   ManualStarterPaywallModal,
   type ManualStarterPaywallReason,
 } from './ManualStarterPaywallModal'
-import { AdvisorApprovalDialog } from './AdvisorApprovalDialog'
 import type { CollectedData } from './manualLayoutDataTypes'
 import { PanelSkeleton } from './manualLayoutShell'
 

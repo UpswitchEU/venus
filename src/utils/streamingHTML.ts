@@ -13,8 +13,8 @@
  * @module utils/streamingHTML
  */
 
-import { generalLogger } from './logger'
 import { HTMLProcessor } from './htmlProcessor'
+import { generalLogger } from './logger'
 
 /**
  * Configuration for HTML streaming
