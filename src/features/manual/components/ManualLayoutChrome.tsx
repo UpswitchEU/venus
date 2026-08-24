@@ -17,7 +17,6 @@ interface ManualLayoutChromeProps {
   modalsProps: ComponentProps<typeof ManualLayoutModals>
   navProps: ComponentProps<typeof ManualLayoutNav>
   pdfStaleBannerProps: ComponentProps<typeof ManualPdfStaleBanner>
-  showAssistantFab: boolean
 }
 
 export function ManualLayoutChrome({
@@ -29,7 +28,6 @@ export function ManualLayoutChrome({
   modalsProps,
   navProps,
   pdfStaleBannerProps,
-  showAssistantFab,
 }: ManualLayoutChromeProps) {
   return (
     <>
@@ -50,7 +48,7 @@ export function ManualLayoutChrome({
         <ChatAssistantDrawer
           {...chatDrawerProps}
           lockScroll={isMobile}
-          showFabWhenClosed={showAssistantFab}
+          showFabWhenClosed={false}
         />
       </Suspense>
     </>

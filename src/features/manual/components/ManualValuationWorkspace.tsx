@@ -48,7 +48,6 @@ import {
 import { ManualLayoutChrome } from './ManualLayoutChrome'
 import { ManualLayoutSessionGate } from './ManualLayoutSessionGate'
 import type { CollectedData } from './manualLayoutDataTypes'
-import { shouldShowManualAssistantFab } from './manualLayoutDerivedState'
 import { useManualLayoutViewport } from './manualLayoutShell'
 import type { ManualValuationWorkspaceProps } from './manualValuationWorkspaceTypes'
 import { useManualLayoutPreviewState } from './useManualLayoutPreviewState'
@@ -722,21 +721,10 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
       wrappedOnSubmit,
     })
   const lastFullYear = getCurrentFilingYear()
-  const showAssistantFab = shouldShowManualAssistantFab({
-    isStartupAssistantRoute,
-    chatDrawerOpen,
-    methodPaywallOpen,
-    showFullscreenModal,
-    showNewValuationModal,
-    showRecalculateConfirmation,
-    showUnifiedNormalizationModal,
-    showValuationEditModal,
-  })
   return (
     <ManualLayoutChrome
       chatDrawerOpen={chatDrawerOpen}
       isMobile={isMobile}
-      showAssistantFab={showAssistantFab}
       navProps={{
         accountantDisplayName,
         activeReportId: resolvedReportId || reportId,
@@ -828,8 +816,10 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
         translate: t,
       }}
       bodyProps={{
+        inputLabel: tReport('workspace.input'),
         isMobile,
         manualInputProps,
+        outputLabel: tReport('workspace.output'),
         reportId,
         workspaceProps: {
           isCalculating,

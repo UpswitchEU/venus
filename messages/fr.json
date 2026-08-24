@@ -680,9 +680,16 @@
 		"defaultFilename": "Rapport",
 		"pdfSuffix": "Rapport d'évaluation",
 		"placeholder": {
-			"title": "Votre rapport apparaîtra ici",
-			"description": "Remplissez les détails de l'entreprise à gauche. Une fois que vous avez terminé, le système générera automatiquement un rapport d’estimation indicative défendable avec piste d’audit.",
-			"time": "±15 min de temps de traitement moyen"
+			"title": "Votre valorisation se construit ici",
+			"description": "Vérifiez uniquement les données qui nécessitent votre jugement. Le résultat se met à jour lorsque les preuves sont prêtes.",
+			"context": "Contexte de l’entreprise chargé",
+			"financials": "Preuves financières préremplies",
+			"result": "Valeur et rapport après vérification",
+			"time": "La plupart des valorisations connectées prennent moins de 5 minutes"
+		},
+		"workspace": {
+			"input": "Entrée",
+			"output": "Résultat"
 		},
 		"generating": {
 			"title": "Génération du rapport",

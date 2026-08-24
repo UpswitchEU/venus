@@ -680,9 +680,16 @@
 		"defaultFilename": "Rapport",
 		"pdfSuffix": "Schattingsrapport",
 		"placeholder": {
-			"title": "Uw rapport verschijnt hier",
-			"description": "Vul links de bedrijfsgegevens in. Zodra u klaar bent, genereert het systeem automatisch een verdedigbaar schattingsrapport met auditspoor.",
-			"time": "±15 min gemiddelde doorlooptijd"
+			"title": "Uw waardering ontstaat hier",
+			"description": "Beoordeel alleen de invoer die uw oordeel vraagt. De uitvoer wordt bijgewerkt zodra het bewijs klaar is.",
+			"context": "Bedrijfscontext geladen",
+			"financials": "Financieel bewijs vooraf ingevuld",
+			"result": "Waarde en rapport na beoordeling",
+			"time": "De meeste gekoppelde waarderingen duren minder dan 5 minuten"
+		},
+		"workspace": {
+			"input": "Invoer",
+			"output": "Uitvoer"
 		},
 		"generating": {
 			"title": "Rapport genereren",

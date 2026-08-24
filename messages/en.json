@@ -680,9 +680,16 @@
 		"defaultFilename": "Report",
 		"pdfSuffix": "Valuation-Report",
 		"placeholder": {
-			"title": "Your report will appear here",
-			"description": "Fill in the business details on the left. Once you're done, the system will automatically generate a defensible indicative estimate report with audit trail.",
-			"time": "±15 min average processing time"
+			"title": "Your valuation builds here",
+			"description": "Review only the inputs that need your judgment. The output updates as the evidence becomes ready.",
+			"context": "Company context loaded",
+			"financials": "Financial evidence prefilled",
+			"result": "Value and report after review",
+			"time": "Most connected valuations take under 5 minutes"
+		},
+		"workspace": {
+			"input": "Input",
+			"output": "Output"
 		},
 		"generating": {
 			"title": "Generating report",

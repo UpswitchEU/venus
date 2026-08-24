@@ -8,15 +8,19 @@ import {
 import { ManualReportWorkspace } from './ManualReportWorkspace'
 
 export interface ManualLayoutBodyProps {
+  inputLabel: string
   isMobile: boolean
   manualInputProps: ComponentProps<typeof StartupAwareInputPanel>
+  outputLabel: string
   reportId: string
   workspaceProps: ComponentProps<typeof ManualReportWorkspace>
 }
 
 export function ManualLayoutBody({
+  inputLabel,
   isMobile,
   manualInputProps,
+  outputLabel,
   reportId,
   workspaceProps,
 }: ManualLayoutBodyProps) {
@@ -35,6 +39,9 @@ export function ManualLayoutBody({
       <ResizablePanelGroup className="h-full w-full">
         <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
           <div className="h-full flex flex-col min-h-0">
+            <div className="shrink-0 border-b border-foreground/[0.06] px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/45">
+              {inputLabel}
+            </div>
             <div className="flex-1 min-h-0 overflow-y-auto" data-manual-layout-scroll>
               <StartupAwareInputPanel key={reportId} {...manualInputProps} />
             </div>
@@ -47,7 +54,14 @@ export function ManualLayoutBody({
         />
 
         <ResizablePanel defaultSize={65} minSize={35}>
-          <ManualReportWorkspace {...workspaceProps} />
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="shrink-0 border-b border-foreground/[0.06] px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/45">
+              {outputLabel}
+            </div>
+            <div className="min-h-0 flex-1">
+              <ManualReportWorkspace {...workspaceProps} />
+            </div>
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
