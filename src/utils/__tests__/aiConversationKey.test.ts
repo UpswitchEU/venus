@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import aiConversationKeyContract from '../../../../../tests/contracts/ai-conversation-key-contract.json'
+import aiConversationKeyContract from '../../../vendor/contracts/ai-conversation-key-contract.json'
 import {
   deriveAdvisorWorkspaceSessionKey,
   deriveClientScopedSessionKey,
@@ -11,7 +11,8 @@ import {
  * MUST stay aligned with Mercury's parallel test in
  * `apps/mercury/tests/unit/ai-dock-tool-card-parser.test.ts`
  * (search for `deriveClientScopedSessionKey`). Both tests read the
- * shared root fixture. If the two derivations
+ * same versioned contract. The workspace contract guard verifies the vendored
+ * checksum before promotion. If the two derivations
  * drift, the Mercury advisor dock and the Venus calculator chat
  * drawer stop sharing a conversation row and the
  * `resolveConversationLookupKey` override in Titan's AI controller

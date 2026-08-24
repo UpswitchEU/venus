@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import certification from '../../../../../tests/contracts/valuation-certification-sentinel.v1.json'
+import certification from '../../../vendor/contracts/valuation-certification-sentinel.v1.json'
 import type { NormalizationItem } from '../../components/calculator/UnifiedNormalizationTypes'
 import type { ValuationFormData } from '../../types/valuation'
 import { buildValuationRequest } from '../buildValuationRequest'

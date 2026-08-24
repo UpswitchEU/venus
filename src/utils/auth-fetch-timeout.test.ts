@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import authTimeoutContract from '../../../../tests/contracts/auth-fetch-timeout-contract.json'
+import authTimeoutContract from '../../vendor/contracts/auth-fetch-timeout-contract.json'
 
 import {
   CLIENT_AUTH_ME_FETCH_TIMEOUT_MS,

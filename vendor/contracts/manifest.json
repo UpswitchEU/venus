@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "upswitch-vendored-contract-manifest.v1",
+  "sha256": {
+    "ai-conversation-key-contract.json": "49857fb007fc39a908aebc2ca1e3f38e3b1ee1cf497a21d351488c006773c1fb",
+    "auth-fetch-timeout-contract.json": "473a19a5df3f78b6679c8c6cc56153e27d18792b3419277668a9dbcc55164c35",
+    "internal-email-contract.json": "b54890d696e5092fb8e74239ac18c2c5a9a3fb8002e35787d466c272734022fd",
+    "preparer-multiple-contract.json": "a9f74599192b2f17efd271cf1c2e01444bf6c344768130eef1d33aded2a74287",
+    "valuation-certification-sentinel.v1.json": "8ade964fc603a6ef7db77bcc2800d09b096c457e7516437b9f19f552314c0fbb"
+  }
+}

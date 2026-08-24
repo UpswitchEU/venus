@@ -1,0 +1,50 @@
+{
+  "reasonKeys": [
+    "strategic_buyer_premium",
+    "exceptional_management_premium",
+    "key_person_discount",
+    "real_estate_included",
+    "customer_concentration",
+    "distressed_sale",
+    "recurring_revenue_premium",
+    "other"
+  ],
+  "requestFields": [
+    "preparer_ev_ebitda_median",
+    "preparer_ev_ebitda_override"
+  ],
+  "clearField": "clear_preparer_override",
+  "overridePayloadFields": [
+    "reason_key",
+    "note",
+    "acknowledged_extreme"
+  ],
+  "adjustmentSummaryFields": [
+    "metric_key",
+    "business_type_id",
+    "benchmark_multiple",
+    "selected_multiple",
+    "delta_multiple",
+    "benchmark_confidence_band",
+    "benchmark_source",
+    "reason_key",
+    "reason_tags",
+    "reason_label_en",
+    "reason_label_nl",
+    "free_text_reason",
+    "generated_footnote_en",
+    "generated_footnote_nl",
+    "acknowledged_extreme",
+    "updated_at",
+    "updated_by_user_id"
+  ],
+  "metricKey": "ev_ebitda_median",
+  "confidenceBands": [
+    "green",
+    "yellow",
+    "red",
+    "unknown"
+  ],
+  "noteMaxLength": 500,
+  "medianMax": 50
+}

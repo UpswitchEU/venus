@@ -1,0 +1,61 @@
+{
+  "clientScopedPrefix": "client_",
+  "clientScopedCases": [
+    {
+      "clientUserId": "abc-123",
+      "expected": "client_abc-123"
+    },
+    {
+      "clientUserId": "7c1d4b2e-9f3a-4a8e-b5d6-1c2b3a4d5e6f",
+      "expected": "client_7c1d4b2e-9f3a-4a8e-b5d6-1c2b3a4d5e6f"
+    },
+    {
+      "clientUserId": "cli-X",
+      "expected": "client_cli-X"
+    }
+  ],
+  "emptyClientIds": [
+    null,
+    ""
+  ],
+  "workspaceCases": [
+    {
+      "advisorUserId": "usr_1",
+      "pathname": "/nl/advisor/clients/x",
+      "expected": "advisor_usr_1_workspace"
+    },
+    {
+      "advisorUserId": "usr_1",
+      "pathname": "/en/advisor/dashboard",
+      "expected": "advisor_usr_1_workspace"
+    },
+    {
+      "advisorUserId": null,
+      "pathname": "/nl/advisor/clients/new",
+      "expected": "advisor_unknown_workspace"
+    },
+    {
+      "advisorUserId": "",
+      "pathname": "/nl/advisor/clients/new",
+      "expected": "advisor_unknown_workspace"
+    }
+  ],
+  "workspaceSessionKeys": [
+    "advisor_adv-1_workspace",
+    "advisor-u1_workspace",
+    "advisor_unknown_workspace"
+  ],
+  "nonWorkspaceSessionKeys": [
+    "client_cli_abc",
+    "mercury_advisor_client_abc123",
+    "advisor_workspace",
+    "advisor/u1_workspace",
+    "advisor_u1_workspace_extra",
+    ""
+  ],
+  "titanClientHeaderNames": [
+    "x-client-user-id",
+    "x-client-context-user"
+  ],
+  "fallbackReportId": "c61f49cf-3320-41d8-84c5-e4f874edaad2"
+}

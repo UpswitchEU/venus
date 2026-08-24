@@ -1,0 +1,27 @@
+{
+  "mercury": {
+    "defaultBffUpstreamTimeoutMs": 10000,
+    "authMeUpstreamTimeoutMs": 8000,
+    "authMeClientTimeoutMs": 12000,
+    "authRefreshClientTimeoutMs": 12000,
+    "authSignupClientTimeoutMs": 18000,
+    "authCheckEmailClientTimeoutMs": 5000,
+    "authLogoutClientTimeoutMs": 2000,
+    "authMeRouteMaxDurationSeconds": 15,
+    "authRefreshRouteMaxDurationSeconds": 30,
+    "authMeTitanPath": "/api/v2/auth/me-or-refresh",
+    "authMeTitanHopCount": 1
+  },
+  "venus": {
+    "defaultBffUpstreamTimeoutMs": 10000,
+    "authMeUpstreamTimeoutMs": 9000,
+    "authMeClientTimeoutMs": 12000,
+    "authRefreshClientTimeoutMs": 12000,
+    "authMeRouteMaxDurationSeconds": 15,
+    "authHealthRouteMaxDurationSeconds": 15,
+    "authRefreshRouteMaxDurationSeconds": 30,
+    "authRefreshTitanPath": "/api/v2/auth/refresh",
+    "authMeTitanPath": "/api/v2/auth/me-or-refresh",
+    "authMeTitanHopCount": 1
+  }
+}

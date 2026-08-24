@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import internalEmailContract from '../../../../../tests/contracts/internal-email-contract.json'
+import internalEmailContract from '../../../vendor/contracts/internal-email-contract.json'
 import { isInternalEmail } from '../is-internal-user'
 
 describe('Venus isInternalEmail', () => {

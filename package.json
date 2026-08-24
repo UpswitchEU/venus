@@ -25,7 +25,7 @@
     "guard:file-size": "node scripts/guard-file-size.mjs",
     "guard:file-size:update": "node scripts/guard-file-size.mjs --write-baseline",
     "guard:store-cycles": "node scripts/guard-store-cycles.mjs",
-    "guard:repo-hygiene": "node scripts/guard-repo-hygiene.mjs",
+    "guard:repo-hygiene": "node scripts/guard-repo-hygiene.mjs && node scripts/guard-standalone-deps.mjs",
     "guard:exact-boundary": "node scripts/guard-exact-boundary.cjs",
     "guard:type-debt": "node scripts/guard-type-debt.mjs",
     "guard:type-debt:update": "node scripts/guard-type-debt.mjs --write-baseline",

@@ -1,0 +1,48 @@
+{
+  "defaultDomains": [
+    "upswitch.com",
+    "upswitch.app",
+    "upswitch.eu",
+    "upswitch.io"
+  ],
+  "defaultInternalEmails": [
+    "matthias@upswitch.com",
+    "staff@upswitch.app",
+    "team@upswitch.eu",
+    "engineering@upswitch.io",
+    "  Matthias@Upswitch.COM  "
+  ],
+  "subdomainInternalEmails": [
+    "founders@team.upswitch.com",
+    "eng@platform.upswitch.app"
+  ],
+  "externalOrInvalidEmails": [
+    "customer@example.com",
+    "jane@gmail.com",
+    "pro@accountancy.be",
+    "  ",
+    "",
+    null,
+    "malformed",
+    "@upswitch.com",
+    "user@"
+  ],
+  "substringTrapEmails": [
+    "jane@notupswitch.com",
+    "mike@upswitch-fake.io"
+  ],
+  "extraDomainsRaw": "qa.local, dogfood.test",
+  "extraDomainInternalEmails": [
+    "tester@qa.local",
+    "user@sub.dogfood.test"
+  ],
+  "separatorDomainsRaw": "a.test\n   b.test,,, c.test",
+  "separatorDomainInternalEmails": [
+    "x@a.test",
+    "y@b.test",
+    "z@c.test"
+  ],
+  "allowlistRaw": "qa-bot@External.io",
+  "allowlistInternalEmail": "QA-bot@external.io",
+  "allowlistExternalEmail": "other@external.io"
+}

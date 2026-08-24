@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import preparerMultipleContract from '../../../../../../tests/contracts/preparer-multiple-contract.json'
+import preparerMultipleContract from '../../../../vendor/contracts/preparer-multiple-contract.json'
 import {
   buildPersistedPreparerMultiplePayload,
   buildPreparerMultiplePayload,
