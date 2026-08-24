@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 import type { SynthesisWeightSelection } from '@/lib/synthesis/synthesisWeights'
+import { ValidationError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import type { ValuationFormData } from '../../../components/calculator'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
@@ -19,6 +20,10 @@ import {
 import { generalLogger } from '../../../utils/logger'
 import { detectVersionChanges } from '../../../utils/versionDiffDetection'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
+import {
+  consumeReadyAccountingReconnect,
+  persistAccountingReconnectIntent,
+} from '../utils/accountingReconnectResume'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
 import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
@@ -78,6 +83,7 @@ export interface UseManualSubmitControllerParams {
   warnIfSubmitSynthesisSkipped: (result: ValuationResponse) => void
   onAccountingReconnectRequired?: (context: Record<string, unknown>) => void
   isAccountingReconnectRequired?: boolean
+  restorationComplete: boolean
 }
 
 export interface UseManualSubmitControllerResult {
@@ -124,6 +130,7 @@ export function useManualSubmitController({
   warnIfSubmitSynthesisSkipped,
   onAccountingReconnectRequired,
   isAccountingReconnectRequired = false,
+  restorationComplete,
 }: UseManualSubmitControllerParams): UseManualSubmitControllerResult {
   const lastSubmittedDataRef = useRef<ValuationFormData | null>(null)
   const postValuationListingHandoffPendingRef = useRef(false)
@@ -293,6 +300,23 @@ export function useManualSubmitController({
         })
         if (completionResult.aborted) return
       } catch (error) {
+        if (
+          error instanceof ValidationError &&
+          error.context?.code === 'ACCOUNTING_RECONNECT_REQUIRED' &&
+          typeof window !== 'undefined'
+        ) {
+          const provider = typeof error.context.provider === 'string' ? error.context.provider : ''
+          const clientId =
+            typeof error.context.client_id === 'string'
+              ? error.context.client_id
+              : accountantCustomerId || ''
+          persistAccountingReconnectIntent(window.sessionStorage, {
+            provider,
+            clientId,
+            reportId: resolvedReportId || reportId,
+            formData: data,
+          })
+        }
         handleManualSubmitError({
           error,
           retrySubmit: () => {
@@ -316,6 +340,7 @@ export function useManualSubmitController({
       linkedIdentifier,
       preSelectedMethod,
       reportId,
+      resolvedReportId,
       result,
       runManualCalculationExecution,
       selectedMethod,
@@ -331,29 +356,52 @@ export function useManualSubmitController({
   )
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('resume_calculation') !== '1') return
-    let shouldResume = false
-    try {
-      const raw = sessionStorage.getItem('venus_accounting_reconnect_resume')
-      sessionStorage.removeItem('venus_accounting_reconnect_resume')
-      const resume = raw ? (JSON.parse(raw) as { expiresAt?: number; ready?: boolean }) : null
-      shouldResume = Boolean(
-        resume?.ready === true &&
-          typeof resume.expiresAt === 'number' &&
-          resume.expiresAt >= Date.now()
+    if (typeof window === 'undefined' || !restorationComplete) return
+
+    const resume = () => {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('resume_calculation') !== '1') return
+      const cleaned = new URL(window.location.href)
+      cleaned.searchParams.delete('resume_calculation')
+      window.history.replaceState({}, '', cleaned.toString())
+
+      const ready = consumeReadyAccountingReconnect(window.sessionStorage, {
+        clientId: accountantCustomerId || '',
+        reportId: resolvedReportId || reportId,
+      })
+      if (!ready) return
+
+      const newestUnavailable = ready.unavailableYears?.reduce<number | null>(
+        (max, row) => (max === null || row.year > max ? row.year : max),
+        null
       )
-    } catch {
-      shouldResume = false
+      if (
+        newestUnavailable != null &&
+        ready.anchorYear != null &&
+        newestUnavailable > ready.anchorYear
+      ) {
+        const description =
+          currentLocale === 'nl'
+            ? `${newestUnavailable} is niet beschikbaar in ${ready.provider}. Het laatste volledige jaar ${ready.anchorYear} wordt gebruikt.`
+            : currentLocale === 'fr'
+              ? `${newestUnavailable} n’est pas disponible dans ${ready.provider}. La dernière année complète ${ready.anchorYear} est utilisée.`
+              : `${newestUnavailable} is not available in ${ready.provider}. The latest complete year ${ready.anchorYear} is used.`
+        toast.info(description)
+      }
+      void handleManualSubmit(ready.formData)
     }
-    const cleaned = new URL(window.location.href)
-    cleaned.searchParams.delete('resume_calculation')
-    window.history.replaceState({}, '', cleaned.toString())
-    if (!shouldResume) return
-    const restored = useManualFormStore.getState().formData
-    void handleManualSubmit(restored as ValuationFormData)
-  }, [handleManualSubmit])
+
+    resume()
+    window.addEventListener('upswitch:accounting-reconnect-ready', resume)
+    return () => window.removeEventListener('upswitch:accounting-reconnect-ready', resume)
+  }, [
+    accountantCustomerId,
+    currentLocale,
+    handleManualSubmit,
+    reportId,
+    resolvedReportId,
+    restorationComplete,
+  ])
 
   return {
     handleManualSubmit,

@@ -2,7 +2,6 @@
 
 import { AlertCircle, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { cn } from '@/design-system/utils'
 import { accountingAPI, parseAccountingApiError } from '@/services/api/accounting'
@@ -56,7 +55,6 @@ export function HistoricalYearCard({
   const t = useTranslations()
   const mi = useTranslations('manualInput')
   const locale = useLocale()
-  const searchParams = useSearchParams()
   const [attestationRationale, setAttestationRationale] = useState('')
   const [attestationError, setAttestationError] = useState<string | null>(null)
   const [attesting, setAttesting] = useState(false)
@@ -97,7 +95,9 @@ export function HistoricalYearCard({
         }
 
   const attestHighMargin = async () => {
-    const clientId = searchParams.get('clientId') ?? searchParams.get('client_id')
+    const searchParams =
+      typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
+    const clientId = searchParams?.get('clientId') ?? searchParams?.get('client_id')
     if (!clientId) {
       setAttestationError(reviewCopy.missingClient)
       return

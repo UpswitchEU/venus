@@ -103,6 +103,24 @@ export interface AccountingBatchPayload {
   dcf_projections_from_provider?: boolean
 }
 
+export interface ClientValuationFinancialSnapshot {
+  provider: string
+  anchor_year: number | null
+  last_successful_sync_at: string | null
+  years: Array<
+    AccountingFinancialPayload['data'] & {
+      source_provider?: string
+      source_kind?: string
+      source_synced_at?: string | null
+      quality_state?: string
+      source_digest?: string
+      attestation_id?: string
+      eligibility_reason?: string
+    }
+  >
+  unavailable_years: Array<{ year: number; reason: string }>
+}
+
 export interface AccountingConnectResponse {
   success: boolean
   message: string
@@ -122,6 +140,11 @@ export interface AccountingAdministrationListResponse {
 export interface IntegrationStatus {
   provider: string
   is_connected: boolean
+  connection_state?: 'connected' | 'reconnect_required' | 'temporarily_unavailable' | 'disconnected'
+  reconnect_required?: boolean
+  reason_code?: string
+  last_verified_at?: string
+  last_successful_sync_at?: string
   company_name?: string
   company_id?: string
   last_sync_at?: string
@@ -309,6 +332,13 @@ class AccountingAPI extends HttpClient {
       throw new Error(data.message || 'Failed to resync the linked accounting dossier')
     }
     return { success: true, message: data.message }
+  }
+
+  async getClientValuationFinancials(clientId: string): Promise<ClientValuationFinancialSnapshot> {
+    const response = await this.client.get<ClientValuationFinancialSnapshot>(
+      `/integrations/accounting/clients/${encodeURIComponent(clientId)}/valuation-financials`
+    )
+    return response.data
   }
 
   async attestSilverfinExtremeMargin(input: {

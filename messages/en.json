@@ -1470,7 +1470,8 @@
 		"liveAccountingImportHint": "Pull or refresh historical figures from your connected {provider} account.",
 		"silverfin": {
 			"importBatchSuccessTitle": "Imported {years} fiscal years from {provider}",
-			"importBatchSuccessDescription": "Trial balance mapped: {score}% match with Belgian MAR"
+			"importBatchSuccessDescription": "Trial balance mapped: {score}% match with Belgian MAR",
+			"incompleteYearsSkippedDescription": "Skipped {count, plural, one {# incomplete fiscal year} other {# incomplete fiscal years}}; revenue and EBITDA must come from the same year."
 		},
 		"bizzcontrol": {
 			"title": "Import from Bizzcontrol",

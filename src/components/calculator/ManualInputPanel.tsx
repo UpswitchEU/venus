@@ -189,6 +189,8 @@ export function ManualInputPanel({
       octopusForecastImportedDescription: mi('octopus.forecastImportedDescription'),
       batchSuccessDescription: (score: number) =>
         mi('silverfin.importBatchSuccessDescription', { score }),
+      incompleteYearsSkippedDescription: (count: number) =>
+        mi('silverfin.incompleteYearsSkippedDescription', { count }),
       batchSuccessTitle: ({ years, provider }: { years: number; provider: string }) =>
         mi('silverfin.importBatchSuccessTitle', { years, provider }),
     }),

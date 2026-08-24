@@ -1470,7 +1470,8 @@
 		"liveAccountingImportHint": "Extrayez ou actualisez les chiffres historiques de votre compte {provider} connecté.",
 		"silverfin": {
 			"importBatchSuccessTitle": "Exercices fiscaux {years} importés à partir de {provider}",
-			"importBatchSuccessDescription": "Balance de vérification cartographiée : {score}% correspond au MAR belge"
+			"importBatchSuccessDescription": "Balance de vérification cartographiée : {score}% correspond au MAR belge",
+			"incompleteYearsSkippedDescription": "{count, plural, one {# exercice incomplet a été ignoré} other {# exercices incomplets ont été ignorés}} ; le chiffre d’affaires et l’EBITDA doivent provenir du même exercice."
 		},
 		"bizzcontrol": {
 			"title": "Importer depuis Bizzcontrol",

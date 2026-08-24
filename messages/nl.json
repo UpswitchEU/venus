@@ -1470,7 +1470,8 @@
 		"liveAccountingImportHint": "Haal historische cijfers op of vernieuw ze vanuit uw gekoppelde {provider}-account.",
 		"silverfin": {
 			"importBatchSuccessTitle": "{years} boekjaren geïmporteerd uit {provider}",
-			"importBatchSuccessDescription": "Grootboek gemapt: {score}% overeenstemming met Belgische MAR"
+			"importBatchSuccessDescription": "Grootboek gemapt: {score}% overeenstemming met Belgische MAR",
+			"incompleteYearsSkippedDescription": "{count, plural, one {# onvolledig boekjaar is overgeslagen} other {# onvolledige boekjaren zijn overgeslagen}}; omzet en EBITDA moeten uit hetzelfde jaar komen."
 		},
 		"bizzcontrol": {
 			"title": "Importeren uit Bizzcontrol",

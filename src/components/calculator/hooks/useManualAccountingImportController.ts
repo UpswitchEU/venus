@@ -1,6 +1,12 @@
 'use client'
 
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  applyValuationSnapshotToReconnectDraft,
+  beginAccountingReconnectResync,
+  markAccountingReconnectFailed,
+  markAccountingReconnectReady,
+} from '@/features/manual/utils/accountingReconnectResume'
 import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import {
   type AccountingAdministration,
@@ -29,6 +35,7 @@ export interface ManualAccountingImportMessages {
   bizzcontrolForecastImportedDescription: string
   octopusForecastImportedDescription: string
   batchSuccessDescription: (score: number) => string
+  incompleteYearsSkippedDescription: (count: number) => string
   batchSuccessTitle: (values: { years: number; provider: string }) => string
 }
 
@@ -249,15 +256,60 @@ export function useManualAccountingImportController({
     ) => {
       setImportBatchData(batch)
       setImportAccountingError(null)
+      const completeActualYears = batch.years.filter((yearPayload) => {
+        const revenue = Number(yearPayload.data.revenue)
+        const ebitda = Number(yearPayload.data.ebitda)
+        return (
+          yearPayload.data.revenue != null &&
+          yearPayload.data.ebitda != null &&
+          Number.isFinite(revenue) &&
+          Number.isFinite(ebitda)
+        )
+      })
       setFormData((prev) => {
         const merged = [...prev.yearlyFinancials]
-        for (const yearPayload of batch.years) {
+        for (const yearPayload of completeActualYears) {
           const year = String(yearPayload.data.fiscal_year ?? getCurrentFilingYear())
           const raw = yearPayload.data as { capex?: number; depreciation?: number }
+          const revenue = Number(yearPayload.data.revenue)
+          const ebitda = Number(yearPayload.data.ebitda)
+          const rawQualityState = yearPayload.data.quality_state
+          const qualityState =
+            rawQualityState === 'ready' ||
+            rawQualityState === 'needs_review' ||
+            rawQualityState === 'blocked' ||
+            rawQualityState === 'attested_review'
+              ? rawQualityState
+              : undefined
           const nextYear: YearlyFinancials = {
             year,
-            revenue: coalesceFiniteNumber(yearPayload.data.revenue),
-            ebitda: coalesceFiniteNumber(yearPayload.data.ebitda),
+            revenue,
+            ebitda,
+            source_provider:
+              typeof yearPayload.data.source_provider === 'string'
+                ? yearPayload.data.source_provider
+                : provider,
+            source_kind:
+              typeof yearPayload.data.source_kind === 'string'
+                ? yearPayload.data.source_kind
+                : 'live_accounting',
+            source_synced_at:
+              typeof yearPayload.data.source_synced_at === 'string'
+                ? yearPayload.data.source_synced_at
+                : yearPayload.synced_at,
+            quality_state: qualityState,
+            source_digest:
+              typeof yearPayload.data.source_digest === 'string'
+                ? yearPayload.data.source_digest
+                : undefined,
+            attestation_id:
+              typeof yearPayload.data.attestation_id === 'string'
+                ? yearPayload.data.attestation_id
+                : undefined,
+            eligibility_reason:
+              typeof yearPayload.data.eligibility_reason === 'string'
+                ? yearPayload.data.eligibility_reason
+                : undefined,
             depreciation:
               yearPayload.data.depreciation != null
                 ? Number(yearPayload.data.depreciation)
@@ -301,13 +353,21 @@ export function useManualAccountingImportController({
         const forecastFromBatch = batch.forecast_years_data
         let nextForecast: YearDataInput[] | undefined
         if (forecastFromBatch && forecastFromBatch.length > 0) {
-          nextForecast = forecastFromBatch.map((row) => ({
-            year: row.year,
-            revenue: row.revenue,
-            ebitda: row.ebitda ?? 0,
-            capex: row.capex,
-            is_forecast: row.is_forecast ?? true,
-          }))
+          nextForecast = forecastFromBatch
+            .filter(
+              (row) =>
+                row.revenue != null &&
+                row.ebitda != null &&
+                Number.isFinite(Number(row.revenue)) &&
+                Number.isFinite(Number(row.ebitda))
+            )
+            .map((row) => ({
+              year: row.year,
+              revenue: Number(row.revenue),
+              ebitda: Number(row.ebitda),
+              capex: row.capex,
+              is_forecast: row.is_forecast ?? true,
+            }))
         }
 
         const prevBusinessContext =
@@ -329,28 +389,32 @@ export function useManualAccountingImportController({
       })
 
       import('sonner').then(({ toast }) => {
-        const mappedYears = batch.years.length
+        const mappedYears = completeActualYears.length
+        const skippedYears = batch.years.length - mappedYears
         const qualityScore =
-          batch.years.length > 0
+          completeActualYears.length > 0
             ? Math.round(
-                (batch.years.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
-                  batch.years.length) *
+                (completeActualYears.reduce((sum, year) => sum + (year.quality_score ?? 0), 0) /
+                  completeActualYears.length) *
                   100
               )
             : 0
         const baseDescription = messages.batchSuccessDescription(qualityScore)
+        const skippedDescription =
+          skippedYears > 0 ? messages.incompleteYearsSkippedDescription(skippedYears) : ''
         const forecastExtra =
           provider === 'bizzcontrol'
             ? messages.bizzcontrolForecastImportedDescription
             : provider === 'octopus'
               ? messages.octopusForecastImportedDescription
               : ''
-        const description =
+        const providerDescription =
           (provider === 'bizzcontrol' || provider === 'octopus') &&
           batch.forecast_years_data &&
           batch.forecast_years_data.length > 0
             ? `${baseDescription} ${forecastExtra}`
             : baseDescription
+        const description = [providerDescription, skippedDescription].filter(Boolean).join(' ')
         toast.success(
           messages.batchSuccessTitle({
             years: mappedYears,
@@ -441,12 +505,28 @@ export function useManualAccountingImportController({
       window.history.replaceState({}, '', cleanedUrl.toString())
     }
 
+    const oauthLockKey = `silverfin_oauth_${code}`
+    if (window.sessionStorage.getItem(oauthLockKey)) {
+      return
+    }
+    window.sessionStorage.setItem(oauthLockKey, '1')
+
     const stateCheck = consumeSilverfinOAuthState(statePayload?.nonce ?? null)
     const firmMismatch = Boolean(
       firmIdFromQuery && firmIdFromState && firmIdFromQuery !== firmIdFromState
     )
-    if (!stateCheck.ok || firmMismatch) {
+    const reconnectClientId = params.get('clientId')?.trim() || ''
+    const claimedIntent =
+      stateCheck.ok && !firmMismatch && statePayload?.nonce && reconnectClientId
+        ? beginAccountingReconnectResync(window.sessionStorage, {
+            provider: 'silverfin',
+            clientId: reconnectClientId,
+            nonce: statePayload.nonce,
+          })
+        : null
+    if (!stateCheck.ok || firmMismatch || !claimedIntent) {
       window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
+      window.sessionStorage.removeItem(oauthLockKey)
       stripSilverfinCallback()
       import('sonner').then(({ toast }) =>
         toast.error('Silverfin sign-in could not be verified. Start the reconnect flow again.')
@@ -454,73 +534,54 @@ export function useManualAccountingImportController({
       return
     }
 
-    const oauthLockKey = `silverfin_oauth_${code}`
-    if (window.sessionStorage.getItem(oauthLockKey)) {
-      params.delete('code')
-      params.delete('state')
-      params.delete('firm_id')
-      params.delete('silverfin_connect')
-      const nextSearch = params.toString()
-      window.history.replaceState(
-        {},
-        '',
-        nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname
-      )
-      return
-    }
-    window.sessionStorage.setItem(oauthLockKey, '1')
-
     const redirectUrl = new URL(window.location.href)
     redirectUrl.searchParams.delete('code')
     redirectUrl.searchParams.delete('state')
     redirectUrl.searchParams.delete('firm_id')
 
-    accountingAPI
-      .connectSilverfin(code, redirectUrl.toString(), resolvedFirmId)
-      .then(async () => {
-        window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
-        window.sessionStorage.removeItem(oauthLockKey)
-        const resumeRaw = window.sessionStorage.getItem('venus_accounting_reconnect_resume')
-        let shouldResume = false
-        if (resumeRaw) {
-          try {
-            const resume = JSON.parse(resumeRaw) as { expiresAt?: number; used?: boolean }
-            shouldResume =
-              typeof resume.expiresAt === 'number' &&
-              resume.expiresAt >= Date.now() &&
-              resume.used !== true
-          } catch {
-            shouldResume = false
-          }
-        }
-        const reconnectClientId = params.get('clientId')?.trim()
-        if (shouldResume && reconnectClientId) {
-          await accountingAPI.resyncClient(reconnectClientId, { force: true })
-          window.sessionStorage.setItem(
-            'venus_accounting_reconnect_resume',
-            JSON.stringify({ expiresAt: Date.now() + 60_000, ready: true })
-          )
+    void (async () => {
+      try {
+        await accountingAPI.connectSilverfin(code, redirectUrl.toString(), resolvedFirmId)
+        await accountingAPI.resyncClient(reconnectClientId, { force: true })
+        const snapshot = await accountingAPI.getClientValuationFinancials(reconnectClientId)
+        const correctedFormData = applyValuationSnapshotToReconnectDraft(
+          claimedIntent.formData,
+          snapshot
+        )
+        setFormData(correctedFormData)
+        if (
+          !markAccountingReconnectReady(window.sessionStorage, {
+            provider: 'silverfin',
+            clientId: reconnectClientId,
+            formData: correctedFormData,
+            anchorYear: snapshot.anchor_year,
+            unavailableYears: snapshot.unavailable_years,
+          })
+        ) {
+          throw new Error('The reconnect request expired before synchronization completed.')
         }
         await loadAccountingIntegrationStatus()
-        stripSilverfinCallback()
-        if (shouldResume && reconnectClientId) {
-          const resumeUrl = new URL(window.location.href)
-          resumeUrl.searchParams.delete('code')
-          resumeUrl.searchParams.delete('state')
-          resumeUrl.searchParams.delete('firm_id')
-          resumeUrl.searchParams.delete('silverfin_connect')
-          resumeUrl.searchParams.set('resume_calculation', '1')
-          window.location.replace(resumeUrl.toString())
-        }
-      })
-      .catch((error) => {
-        import('sonner').then(({ toast }) =>
-          toast.error(parseAccountingApiError(error) || 'Silverfin connection failed')
-        )
+        window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
         window.sessionStorage.removeItem(oauthLockKey)
         stripSilverfinCallback()
-      })
-  }, [loadAccountingIntegrationStatus])
+        const resumeUrl = new URL(window.location.href)
+        resumeUrl.searchParams.set('resume_calculation', '1')
+        window.history.replaceState({}, '', resumeUrl.toString())
+        window.dispatchEvent(new Event('upswitch:accounting-reconnect-ready'))
+      } catch (error) {
+        const message = parseAccountingApiError(error) || 'Silverfin connection failed'
+        markAccountingReconnectFailed(window.sessionStorage, {
+          provider: 'silverfin',
+          clientId: reconnectClientId,
+          failure: message,
+        })
+        import('sonner').then(({ toast }) => toast.error(message))
+        window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
+        window.sessionStorage.removeItem(oauthLockKey)
+        stripSilverfinCallback()
+      }
+    })()
+  }, [loadAccountingIntegrationStatus, setFormData])
 
   const setBizzcontrolOpen = useCallback((open: boolean) => {
     setShowBizzcontrolImportModal(open)

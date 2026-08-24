@@ -45,9 +45,9 @@ import {
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
+import { AccountingReconnectRecovery } from './AccountingReconnectRecovery'
 import { ManualLayoutChrome } from './ManualLayoutChrome'
 import { ManualLayoutSessionGate } from './ManualLayoutSessionGate'
-import { AccountingReconnectRecovery } from './AccountingReconnectRecovery'
 import type { CollectedData } from './manualLayoutDataTypes'
 import { useManualLayoutViewport } from './manualLayoutShell'
 import type { ManualValuationWorkspaceProps } from './manualValuationWorkspaceTypes'
@@ -464,6 +464,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     warnIfSubmitSynthesisSkipped,
     onAccountingReconnectRequired: setAccountingReconnectContext,
     isAccountingReconnectRequired: accountingReconnectContext !== null,
+    restorationComplete,
   })
   const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
   const {

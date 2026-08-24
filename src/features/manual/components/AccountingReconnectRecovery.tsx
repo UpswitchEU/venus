@@ -8,6 +8,7 @@ import {
   generateSilverfinOAuthNonce,
   persistSilverfinOAuthState,
 } from '@/utils/silverfin-oauth-state'
+import { bindAccountingReconnectOAuth } from '../utils/accountingReconnectResume'
 
 function parseFirmId(value: string): string | null {
   const trimmed = value.trim()
@@ -31,7 +32,8 @@ function trustedSilverfinAuthorizationUrl(value: string): string {
 
 export function AccountingReconnectRecovery({ context }: { context: Record<string, unknown> }) {
   const locale = useLocale()
-  const provider = typeof context.provider === 'string' ? context.provider : 'silverfin'
+  const provider = typeof context.provider === 'string' ? context.provider.trim().toLowerCase() : ''
+  const clientId = typeof context.client_id === 'string' ? context.client_id.trim() : ''
   const [firmId, setFirmId] = useState(typeof context.firm_id === 'string' ? context.firm_id : '')
   const [minimized, setMinimized] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -86,7 +88,7 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       return
     }
     const resolvedFirmId = parseFirmId(firmId)
-    if (!resolvedFirmId) {
+    if (!resolvedFirmId || !clientId) {
       setError(copy.firm)
       return
     }
@@ -99,17 +101,23 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       const nonce = generateSilverfinOAuthNonce()
       persistSilverfinOAuthState(nonce)
       sessionStorage.setItem('upswitch_silverfin_oauth_in_progress', '1')
-      sessionStorage.setItem(
-        'venus_accounting_reconnect_resume',
-        JSON.stringify({ expiresAt: Date.now() + 10 * 60 * 1000, used: false })
-      )
       const state = encodeSilverfinOAuthState(resolvedFirmId, nonce)
       const { authorization_url } = await accountingAPI.getSilverfinAuthorizeUrl(
         redirectUrl.toString(),
         state
       )
+      if (
+        !bindAccountingReconnectOAuth(sessionStorage, {
+          provider,
+          clientId,
+          nonce,
+        })
+      ) {
+        throw new Error('The saved reconnect request expired. Calculate again to restart safely.')
+      }
       window.location.assign(trustedSilverfinAuthorizationUrl(authorization_url))
     } catch (cause) {
+      sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
       setConnecting(false)
       setError(cause instanceof Error ? cause.message : 'Silverfin connection failed')
     }
