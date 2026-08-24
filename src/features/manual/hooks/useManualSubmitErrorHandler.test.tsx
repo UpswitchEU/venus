@@ -87,6 +87,33 @@ describe('useManualSubmitErrorHandler', () => {
     vi.clearAllMocks()
   })
 
+  it('opens recovery instead of offering a blind retry for reconnect-required 409s', () => {
+    const onAccountingReconnectRequired = vi.fn()
+    const { result } = renderHook(() =>
+      useManualSubmitErrorHandler({
+        translate,
+        translateErrors,
+        translatePreparer,
+        onAccountingReconnectRequired,
+      })
+    )
+    const submitRun = makeStillTargetRun()
+    result.current.handleManualSubmitError({
+      error: new ValidationError('Reconnect Silverfin', undefined, undefined, {
+        status: 409,
+        code: 'ACCOUNTING_RECONNECT_REQUIRED',
+        provider: 'silverfin',
+      }),
+      retrySubmit: vi.fn(),
+      submitRun,
+    })
+
+    expect(onAccountingReconnectRequired).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'ACCOUNTING_RECONNECT_REQUIRED' })
+    )
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
   describe('BENCHMARK_CONTRACT_REQUIRED', () => {
     it('renders the dedicated i18n keys and a Retry action when Titan returns 422', () => {
       const error = new ValidationError('A business type is required', undefined, undefined, {

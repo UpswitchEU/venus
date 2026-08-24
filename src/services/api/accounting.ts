@@ -288,6 +288,29 @@ class AccountingAPI extends HttpClient {
     }
   }
 
+  async resyncClient(
+    clientId: string,
+    options: { force?: boolean } = {}
+  ): Promise<{ success: boolean; message?: string }> {
+    const response = await fetch(
+      `/api/integrations/accounting/resync-client/${encodeURIComponent(clientId)}`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options.force ? { force: true } : {}),
+      }
+    )
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean
+      message?: string
+    }
+    if (!response.ok || data.success === false) {
+      throw new Error(data.message || 'Failed to resync the linked accounting dossier')
+    }
+    return { success: true, message: data.message }
+  }
+
   /**
    * One fiscal year from Titan for Yuki or Exact **after** Mercury sync (stored financials).
    * This is `GET /{provider}/financial-data`, not multi-year batch. Silverfin multi-year

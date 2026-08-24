@@ -1,8 +1,8 @@
 /**
  * Method registry — the single source of truth for the valuation method specs.
  *
- * The product surface has 10 distinct valuation methods. This registry stores
- * those 10 plus `revenue_multiple`, the English compatibility alias for the
+ * The canonical engine surface has 11 distinct valuation methods. This registry stores
+ * those 11 plus `revenue_multiple`, the English compatibility alias for the
  * same revenue lens as `omzet_multiple`. `revenue_multiple` is intentionally
  * not pre-selectable in the Venus nav, but it must stay here because API
  * payloads, engine results, and weight maps can still carry it.
@@ -30,6 +30,7 @@ import { ebitdaMultipleMethodSpec } from './ebitda_multiple/spec'
 import { fiscal4xMethodSpec } from './fiscal_4x/spec'
 import { liquidationAnalysisMethodSpec } from './liquidation_analysis/spec'
 import { omzetMultipleMethodSpec } from './omzet_multiple/spec'
+import { realEstateYieldMethodSpec } from './real_estate_yield/spec'
 import { revenueMultipleMethodSpec } from './revenue_multiple/spec'
 import { sdeMultipleMethodSpec } from './sde_multiple/spec'
 import { startupValuationMethodSpec } from './startup_valuation/spec'
@@ -48,6 +49,7 @@ const ORDERED_SPECS: readonly MethodSpec[] = [
   dcfMethodSpec,
   sdeMultipleMethodSpec,
   adjustedNavMethodSpec,
+  realEstateYieldMethodSpec,
   fiscal4xMethodSpec,
   startupValuationMethodSpec,
   liquidationAnalysisMethodSpec,

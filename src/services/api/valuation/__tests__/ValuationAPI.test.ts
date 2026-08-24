@@ -151,6 +151,40 @@ describe('ValuationAPI validation handling', () => {
     expect((thrownError as ValidationError).message).toMatch(/business type is required/)
   })
 
+  it('preserves the recoverable accounting reconnect 409 contract', () => {
+    const api = new ValuationAPI()
+    const axiosError = {
+      response: {
+        status: 409,
+        data: {
+          code: 'ACCOUNTING_RECONNECT_REQUIRED',
+          message: 'Reconnect Silverfin before calculating.',
+          provider: 'silverfin',
+          client_id: 'client-7',
+          firm_id: 'firm-42',
+          last_successful_sync_at: '2026-08-01T12:00:00.000Z',
+        },
+      },
+    }
+
+    let thrownError: unknown
+    try {
+      handleValuationError(api, axiosError, 'unified valuation')
+    } catch (error) {
+      thrownError = error
+    }
+
+    expect(thrownError).toBeInstanceOf(ValidationError)
+    expect((thrownError as ValidationError).context).toEqual(
+      expect.objectContaining({
+        status: 409,
+        code: 'ACCOUNTING_RECONNECT_REQUIRED',
+        provider: 'silverfin',
+        firm_id: 'firm-42',
+      })
+    )
+  })
+
   it('surfaces 503 with structured code into ValidationError instead of generic NetworkError', () => {
     const api = new ValuationAPI()
 

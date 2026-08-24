@@ -3,6 +3,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from 'react'
@@ -75,6 +76,8 @@ export interface UseManualSubmitControllerParams {
   userId?: string
   versionSyncTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
   warnIfSubmitSynthesisSkipped: (result: ValuationResponse) => void
+  onAccountingReconnectRequired?: (context: Record<string, unknown>) => void
+  isAccountingReconnectRequired?: boolean
 }
 
 export interface UseManualSubmitControllerResult {
@@ -119,6 +122,8 @@ export function useManualSubmitController({
   userId,
   versionSyncTimeoutRef,
   warnIfSubmitSynthesisSkipped,
+  onAccountingReconnectRequired,
+  isAccountingReconnectRequired = false,
 }: UseManualSubmitControllerParams): UseManualSubmitControllerResult {
   const lastSubmittedDataRef = useRef<ValuationFormData | null>(null)
   const postValuationListingHandoffPendingRef = useRef(false)
@@ -163,10 +168,15 @@ export function useManualSubmitController({
     translate,
     translateErrors,
     translatePreparer,
+    onAccountingReconnectRequired,
   })
 
   const handleManualSubmit = useCallback(
     async (data: ValuationFormData) => {
+      if (isAccountingReconnectRequired) {
+        toast.warning('Reconnect accounting before calculating again.')
+        return
+      }
       const effectiveMethod =
         useManualResultsStore.getState().preSelectedMethod ??
         useManualResultsStore.getState().selectedMethod
@@ -295,6 +305,7 @@ export function useManualSubmitController({
       }
     },
     [
+      isAccountingReconnectRequired,
       accountantCustomerId,
       beginManualSubmitRun,
       calculationRequestIdentifiers,
@@ -318,6 +329,31 @@ export function useManualSubmitController({
       warnIfSubmitSynthesisSkipped,
     ]
   )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('resume_calculation') !== '1') return
+    let shouldResume = false
+    try {
+      const raw = sessionStorage.getItem('venus_accounting_reconnect_resume')
+      sessionStorage.removeItem('venus_accounting_reconnect_resume')
+      const resume = raw ? (JSON.parse(raw) as { expiresAt?: number; ready?: boolean }) : null
+      shouldResume = Boolean(
+        resume?.ready === true &&
+          typeof resume.expiresAt === 'number' &&
+          resume.expiresAt >= Date.now()
+      )
+    } catch {
+      shouldResume = false
+    }
+    const cleaned = new URL(window.location.href)
+    cleaned.searchParams.delete('resume_calculation')
+    window.history.replaceState({}, '', cleaned.toString())
+    if (!shouldResume) return
+    const restored = useManualFormStore.getState().formData
+    void handleManualSubmit(restored as ValuationFormData)
+  }, [handleManualSubmit])
 
   return {
     handleManualSubmit,

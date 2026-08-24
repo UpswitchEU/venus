@@ -18,6 +18,55 @@ export interface SilverfinOAuthStatePayload {
   nonce: string | null
 }
 
+const SILVERFIN_OAUTH_STATE_KEY = 'venus_silverfin_oauth_state'
+const SILVERFIN_OAUTH_STATE_TTL_MS = 10 * 60 * 1000
+
+type SilverfinOAuthConsumeResult = {
+  ok: boolean
+  reason?: 'missing' | 'expired' | 'mismatch' | 'no-stored'
+}
+
+export function generateSilverfinOAuthNonce(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+export function persistSilverfinOAuthState(nonce: string): void {
+  const cleanNonce = nonce.trim()
+  if (!cleanNonce) throw new Error('nonce is required')
+  sessionStorage.setItem(
+    SILVERFIN_OAUTH_STATE_KEY,
+    JSON.stringify({ nonce: cleanNonce, expiresAt: Date.now() + SILVERFIN_OAUTH_STATE_TTL_MS })
+  )
+}
+
+/** Consume first, then compare: every callback attempt is single-use, including failures. */
+export function consumeSilverfinOAuthState(
+  receivedNonce: string | null
+): SilverfinOAuthConsumeResult {
+  let raw: string | null = null
+  try {
+    raw = sessionStorage.getItem(SILVERFIN_OAUTH_STATE_KEY)
+    sessionStorage.removeItem(SILVERFIN_OAUTH_STATE_KEY)
+  } catch {
+    return { ok: false, reason: 'no-stored' }
+  }
+  if (!raw) return { ok: false, reason: 'no-stored' }
+  let stored: { nonce?: string; expiresAt?: number }
+  try {
+    stored = JSON.parse(raw) as { nonce?: string; expiresAt?: number }
+  } catch {
+    return { ok: false, reason: 'no-stored' }
+  }
+  if (typeof stored.expiresAt !== 'number' || stored.expiresAt < Date.now()) {
+    return { ok: false, reason: 'expired' }
+  }
+  if (!receivedNonce?.trim()) return { ok: false, reason: 'missing' }
+  if (stored.nonce !== receivedNonce.trim()) return { ok: false, reason: 'mismatch' }
+  return { ok: true }
+}
+
 export function encodeSilverfinOAuthState(firmId: string, nonce?: string): string {
   const trimmedFirm = firmId.trim()
   if (!trimmedFirm) {

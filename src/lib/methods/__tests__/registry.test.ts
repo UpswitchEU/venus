@@ -33,6 +33,7 @@ const EXPECTED_METHOD_KEYS = [
   'dcf',
   'sde_multiple',
   'adjusted_nav',
+  'real_estate_yield',
   'fiscal_4x',
   'startup_valuation',
   'liquidation_analysis',

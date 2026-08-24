@@ -10,9 +10,9 @@ import {
  * Order is stable for UX (headline → multiples → DCF → balance sheet → fiscal → downside).
  * Generated from ValuationIQ's canonical method registry.
  *
- * There are 10 primary keys here but **9 primary-list methodologies** because
+ * There are 11 primary keys here but **10 primary-list methodologies** because
  * `omzet_multiple` and `revenue_multiple` are the same turnover/revenue-multiple
- * approach (NL vs EN alias). The complete product surface has 10 distinct
+ * approach (NL vs EN alias). The complete product surface has 11 distinct
  * methods: the registry also includes the standalone `startup_valuation` path.
  * `liquidation_analysis` is the downside lens (orderly + forced) and shares the
  * balance-sheet input contract with `adjusted_nav`.

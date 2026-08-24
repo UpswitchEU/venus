@@ -37,11 +37,12 @@ exports.VALUATION_METHOD_KEYS = [
     'sde_multiple',
     'arr_multiple',
     'adjusted_nav',
+    'real_estate_yield',
     'fiscal_4x',
     'startup_valuation',
     'liquidation_analysis',
 ];
-exports.DISTINCT_VALUATION_METHOD_COUNT = 10;
+exports.DISTINCT_VALUATION_METHOD_COUNT = 11;
 exports.VALUATION_METHOD_ALIASES = {
     'revenue_multiple': 'omzet_multiple',
 };
@@ -60,6 +61,7 @@ exports.USER_WEIGHT_VALUATION_METHOD_KEYS = [
     'sde_multiple',
     'arr_multiple',
     'adjusted_nav',
+    'real_estate_yield',
     'fiscal_4x',
     'startup_valuation',
     'liquidation_analysis',
@@ -68,6 +70,7 @@ exports.USER_WEIGHT_VALUATION_METHOD_KEYS = [
 exports.NON_COMBINABLE_VALUATION_METHOD_KEYS = [
     'startup_valuation',
     'liquidation_analysis',
+    'real_estate_yield',
 ];
 exports.VALUATION_PRIMARY_OMNI_METHOD_ORDER = [
     'upswitch_adaptive',
@@ -78,6 +81,7 @@ exports.VALUATION_PRIMARY_OMNI_METHOD_ORDER = [
     'sde_multiple',
     'dcf',
     'adjusted_nav',
+    'real_estate_yield',
     'fiscal_4x',
     'liquidation_analysis',
 ];
@@ -90,6 +94,7 @@ exports.OMNI_CALC_PATCHABLE_METHODS = [
     'omzet_multiple',
     'revenue_multiple',
     'adjusted_nav',
+    'real_estate_yield',
     'fiscal_4x',
     'startup_valuation',
     'liquidation_analysis',

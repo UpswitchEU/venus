@@ -15,7 +15,10 @@ import {
 import type { ManualValuationFormData, YearDataInput, YearlyFinancials } from '@/types/valuation'
 import { getCurrentFilingYear } from '@/utils/fiscalYear'
 import { mergeImportedLedgerAnalysisIntoBusinessContext } from '@/utils/mergeImportedLedgerAnalysisIntoBusinessContext'
-import { decodeSilverfinOAuthState } from '@/utils/silverfin-oauth-state'
+import {
+  consumeSilverfinOAuthState,
+  decodeSilverfinOAuthStatePayload,
+} from '@/utils/silverfin-oauth-state'
 
 type LiveBatchImportProvider = 'bizzcontrol' | 'octopus'
 type ImportHistoryRange = '3' | '5'
@@ -421,12 +424,35 @@ export function useManualAccountingImportController({
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
     const firmIdFromQuery = params.get('firm_id')?.trim() || null
-    const firmIdFromState = decodeSilverfinOAuthState(params.get('state'))
+    const statePayload = decodeSilverfinOAuthStatePayload(params.get('state'))
+    const firmIdFromState = statePayload?.firm_id ?? null
     const resolvedFirmId = firmIdFromQuery || firmIdFromState
     const silverfinConnectRequested =
       params.get('silverfin_connect') === '1' ||
       window.sessionStorage.getItem('upswitch_silverfin_oauth_in_progress') === '1'
     if (!code || !resolvedFirmId || !silverfinConnectRequested) return
+
+    const stripSilverfinCallback = () => {
+      const cleanedUrl = new URL(window.location.href)
+      cleanedUrl.searchParams.delete('code')
+      cleanedUrl.searchParams.delete('state')
+      cleanedUrl.searchParams.delete('firm_id')
+      cleanedUrl.searchParams.delete('silverfin_connect')
+      window.history.replaceState({}, '', cleanedUrl.toString())
+    }
+
+    const stateCheck = consumeSilverfinOAuthState(statePayload?.nonce ?? null)
+    const firmMismatch = Boolean(
+      firmIdFromQuery && firmIdFromState && firmIdFromQuery !== firmIdFromState
+    )
+    if (!stateCheck.ok || firmMismatch) {
+      window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
+      stripSilverfinCallback()
+      import('sonner').then(({ toast }) =>
+        toast.error('Silverfin sign-in could not be verified. Start the reconnect flow again.')
+      )
+      return
+    }
 
     const oauthLockKey = `silverfin_oauth_${code}`
     if (window.sessionStorage.getItem(oauthLockKey)) {
@@ -454,25 +480,45 @@ export function useManualAccountingImportController({
       .then(async () => {
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
         window.sessionStorage.removeItem(oauthLockKey)
+        const resumeRaw = window.sessionStorage.getItem('venus_accounting_reconnect_resume')
+        let shouldResume = false
+        if (resumeRaw) {
+          try {
+            const resume = JSON.parse(resumeRaw) as { expiresAt?: number; used?: boolean }
+            shouldResume =
+              typeof resume.expiresAt === 'number' &&
+              resume.expiresAt >= Date.now() &&
+              resume.used !== true
+          } catch {
+            shouldResume = false
+          }
+        }
+        const reconnectClientId = params.get('clientId')?.trim()
+        if (shouldResume && reconnectClientId) {
+          await accountingAPI.resyncClient(reconnectClientId, { force: true })
+          window.sessionStorage.setItem(
+            'venus_accounting_reconnect_resume',
+            JSON.stringify({ expiresAt: Date.now() + 60_000, ready: true })
+          )
+        }
         await loadAccountingIntegrationStatus()
-        const cleanedUrl = new URL(window.location.href)
-        cleanedUrl.searchParams.delete('code')
-        cleanedUrl.searchParams.delete('state')
-        cleanedUrl.searchParams.delete('firm_id')
-        cleanedUrl.searchParams.delete('silverfin_connect')
-        window.history.replaceState({}, '', cleanedUrl.toString())
+        stripSilverfinCallback()
+        if (shouldResume && reconnectClientId) {
+          const resumeUrl = new URL(window.location.href)
+          resumeUrl.searchParams.delete('code')
+          resumeUrl.searchParams.delete('state')
+          resumeUrl.searchParams.delete('firm_id')
+          resumeUrl.searchParams.delete('silverfin_connect')
+          resumeUrl.searchParams.set('resume_calculation', '1')
+          window.location.replace(resumeUrl.toString())
+        }
       })
       .catch((error) => {
         import('sonner').then(({ toast }) =>
           toast.error(parseAccountingApiError(error) || 'Silverfin connection failed')
         )
         window.sessionStorage.removeItem(oauthLockKey)
-        const cleanedUrl = new URL(window.location.href)
-        cleanedUrl.searchParams.delete('code')
-        cleanedUrl.searchParams.delete('state')
-        cleanedUrl.searchParams.delete('firm_id')
-        cleanedUrl.searchParams.delete('silverfin_connect')
-        window.history.replaceState({}, '', cleanedUrl.toString())
+        stripSilverfinCallback()
       })
   }, [loadAccountingIntegrationStatus])
 

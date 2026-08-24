@@ -375,6 +375,26 @@ export class ValuationAPI extends HttpClient {
       throw new CreditError('Insufficient credits for valuation calculation.')
     }
 
+    if (status === 409 && asString(response?.code) === 'ACCOUNTING_RECONNECT_REQUIRED') {
+      throw new ValidationError(
+        extractValidationMessage(
+          responseData,
+          'Reconnect the accounting provider before calculating.'
+        ),
+        undefined,
+        undefined,
+        {
+          status,
+          code: 'ACCOUNTING_RECONNECT_REQUIRED',
+          provider: asString(response?.provider),
+          client_id: asString(response?.client_id),
+          firm_id: asString(response?.firm_id),
+          last_successful_sync_at: asString(response?.last_successful_sync_at),
+          resume_context: response?.resume_context,
+        }
+      )
+    }
+
     if (status === 400 || status === 422) {
       const message = extractValidationMessage(responseData, 'Invalid valuation data provided.')
       const field = asString(response?.field) ?? extractValidationIssues(response?.errors)[0]?.field

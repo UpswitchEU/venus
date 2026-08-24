@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  consumeSilverfinOAuthState,
   decodeSilverfinOAuthState,
   decodeSilverfinOAuthStatePayload,
   encodeSilverfinOAuthState,
+  persistSilverfinOAuthState,
 } from '../silverfin-oauth-state'
 
 describe('silverfin-oauth-state', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    vi.useRealTimers()
+  })
   it('encodeSilverfinOAuthState round-trips firm id in state', () => {
     const state = encodeSilverfinOAuthState('12345')
     expect(decodeSilverfinOAuthState(state)).toBe('12345')
@@ -53,5 +59,31 @@ describe('silverfin-oauth-state', () => {
     const json = JSON.stringify({ nonce: 'abc' })
     const state = btoa(json).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
     expect(decodeSilverfinOAuthStatePayload(state)).toBeNull()
+  })
+
+  it('accepts a matching nonce once and rejects OAuth replay', () => {
+    persistSilverfinOAuthState('nonce-1')
+    expect(consumeSilverfinOAuthState('nonce-1')).toEqual({ ok: true })
+    expect(consumeSilverfinOAuthState('nonce-1')).toEqual({
+      ok: false,
+      reason: 'no-stored',
+    })
+  })
+
+  it('rejects mismatched and expired nonce state', () => {
+    persistSilverfinOAuthState('nonce-1')
+    expect(consumeSilverfinOAuthState('attacker')).toEqual({
+      ok: false,
+      reason: 'mismatch',
+    })
+
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T12:00:00.000Z'))
+    persistSilverfinOAuthState('nonce-2')
+    vi.advanceTimersByTime(10 * 60 * 1000 + 1)
+    expect(consumeSilverfinOAuthState('nonce-2')).toEqual({
+      ok: false,
+      reason: 'expired',
+    })
   })
 })

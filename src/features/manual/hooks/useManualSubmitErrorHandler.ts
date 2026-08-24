@@ -24,6 +24,7 @@ export interface UseManualSubmitErrorHandlerParams {
   translate: ManualSubmitToastTranslator
   translateErrors: ManualSubmitToastTranslator
   translatePreparer: ManualSubmitToastTranslator
+  onAccountingReconnectRequired?: (context: Record<string, unknown>) => void
 }
 
 export interface UseManualSubmitErrorHandlerResult {
@@ -34,6 +35,7 @@ export function useManualSubmitErrorHandler({
   translate,
   translateErrors,
   translatePreparer,
+  onAccountingReconnectRequired,
 }: UseManualSubmitErrorHandlerParams): UseManualSubmitErrorHandlerResult {
   const handleManualSubmitError = useCallback(
     ({ error, retrySubmit, submitRun }: HandleManualSubmitErrorParams) => {
@@ -46,6 +48,18 @@ export function useManualSubmitErrorHandler({
       }
 
       submitRun.endLoading()
+
+      if (
+        error instanceof ValidationError &&
+        error.context?.code === 'ACCOUNTING_RECONNECT_REQUIRED'
+      ) {
+        onAccountingReconnectRequired?.(error.context)
+        generalLogger.info('[ManualValuationWorkspace] Accounting reconnect required', {
+          provider: error.context.provider,
+          clientId: error.context.client_id,
+        })
+        return
+      }
 
       if (error instanceof ValidationError && error.context?.code === 'EXTREME_MULTIPLE') {
         toast.error(translatePreparer('extremeServerToast'), {
@@ -135,7 +149,7 @@ export function useManualSubmitErrorHandler({
         isSessionExpired,
       })
     },
-    [translate, translateErrors, translatePreparer]
+    [onAccountingReconnectRequired, translate, translateErrors, translatePreparer]
   )
 
   return { handleManualSubmitError }

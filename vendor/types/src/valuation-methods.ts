@@ -34,6 +34,7 @@ export const VALUATION_METHOD_KEYS = [
   'sde_multiple',
   'arr_multiple',
   'adjusted_nav',
+  'real_estate_yield',
   'fiscal_4x',
   'startup_valuation',
   'liquidation_analysis',
@@ -41,7 +42,7 @@ export const VALUATION_METHOD_KEYS = [
 
 export type ValuationMethodKey = (typeof VALUATION_METHOD_KEYS)[number];
 
-export const DISTINCT_VALUATION_METHOD_COUNT = 10 as const;
+export const DISTINCT_VALUATION_METHOD_COUNT = 11 as const;
 
 export const VALUATION_METHOD_ALIASES = {
   'revenue_multiple': 'omzet_multiple',
@@ -66,6 +67,7 @@ export const USER_WEIGHT_VALUATION_METHOD_KEYS = [
   'sde_multiple',
   'arr_multiple',
   'adjusted_nav',
+  'real_estate_yield',
   'fiscal_4x',
   'startup_valuation',
   'liquidation_analysis',
@@ -77,6 +79,7 @@ export type UserWeightValuationMethodKey = (typeof USER_WEIGHT_VALUATION_METHOD_
 export const NON_COMBINABLE_VALUATION_METHOD_KEYS = [
   'startup_valuation',
   'liquidation_analysis',
+  'real_estate_yield',
 ] as const;
 
 export type NonCombinableValuationMethodKey =
@@ -91,6 +94,7 @@ export const VALUATION_PRIMARY_OMNI_METHOD_ORDER = [
   'sde_multiple',
   'dcf',
   'adjusted_nav',
+  'real_estate_yield',
   'fiscal_4x',
   'liquidation_analysis',
 ] as const;
@@ -107,6 +111,7 @@ export const OMNI_CALC_PATCHABLE_METHODS = [
   'omzet_multiple',
   'revenue_multiple',
   'adjusted_nav',
+  'real_estate_yield',
   'fiscal_4x',
   'startup_valuation',
   'liquidation_analysis',
