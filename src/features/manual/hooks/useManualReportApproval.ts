@@ -22,6 +22,53 @@ interface ReviewBffPayload {
   data?: ReviewStateRow
 }
 
+export const ADVISOR_APPROVAL_CHECKS = [
+  'scope',
+  'identity',
+  'closed_periods',
+  'normalizations',
+  'business_type',
+  'method',
+  'benchmark',
+  'balance_sheet',
+  'net_debt',
+  'final_pdf',
+] as const
+
+export type AdvisorApprovalCheck = (typeof ADVISOR_APPROVAL_CHECKS)[number]
+export type AdvisorApprovalChecklist = Record<AdvisorApprovalCheck, boolean>
+
+export interface ApprovalCandidate {
+  downloadUrl: string
+  pdfSha256: string
+  renderSnapshotHash: string
+  receiptSha256: string
+  expiresInSeconds: number
+}
+
+export interface AdvisorApprovalDialogController {
+  candidate: ApprovalCandidate | null
+  checklist: AdvisorApprovalChecklist
+  close: () => void
+  confirm: () => Promise<void>
+  isApproving: boolean
+  isPreparingCandidate: boolean
+  notes: string
+  open: boolean
+  prepareCandidate: () => Promise<void>
+  setCheck: (key: AdvisorApprovalCheck, checked: boolean) => void
+  setNotes: (notes: string) => void
+}
+
+interface ApprovalCandidatePayload {
+  success?: boolean
+  message?: string
+  data?: ApprovalCandidate
+}
+
+const emptyApprovalChecklist = (): AdvisorApprovalChecklist =>
+  Object.fromEntries(ADVISOR_APPROVAL_CHECKS.map((key) => [key, false])) as AdvisorApprovalChecklist
+
 interface UseManualReportApprovalParams {
   reportId: string | null | undefined
   enabled: boolean
@@ -62,7 +109,7 @@ function isSuccessfulReviewPayload(json: ReviewBffPayload): json is ReviewBffPay
 
 function resolveApproveFailureMessage(
   res: Response,
-  json: ReviewBffPayload,
+  json: { message?: string },
   failedTitle: string,
   transientFailedDescription: string
 ): string {
@@ -90,14 +137,29 @@ export function useManualReportApproval({
   const [reviewState, setReviewState] = useState<ReviewState | null>(null)
   const [allowApproveWithoutReviewState, setAllowApproveWithoutReviewState] = useState(false)
   const [isApproving, setIsApproving] = useState(false)
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false)
+  const [approvalChecklist, setApprovalChecklist] =
+    useState<AdvisorApprovalChecklist>(emptyApprovalChecklist)
+  const [approvalNotes, setApprovalNotes] = useState('')
+  const [approvalCandidate, setApprovalCandidate] = useState<ApprovalCandidate | null>(null)
+  const [isPreparingCandidate, setIsPreparingCandidate] = useState(false)
   const isApprovingRef = useRef(false)
 
   useEffect(() => {
     if (!enabled || !reportId) {
       setReviewState(null)
       setAllowApproveWithoutReviewState(false)
+      setApprovalDialogOpen(false)
+      setApprovalChecklist(emptyApprovalChecklist())
+      setApprovalNotes('')
+      setApprovalCandidate(null)
       return
     }
+
+    setApprovalDialogOpen(false)
+    setApprovalChecklist(emptyApprovalChecklist())
+    setApprovalNotes('')
+    setApprovalCandidate(null)
 
     let cancelled = false
     let backgroundTimer: ReturnType<typeof setTimeout> | null = null
@@ -181,6 +243,60 @@ export function useManualReportApproval({
     if (!reportId || isApprovingRef.current || reviewState === 'accountant_approved') return
     if (reviewState === null && !allowApproveWithoutReviewState) return
 
+    setApprovalDialogOpen(true)
+  }, [allowApproveWithoutReviewState, reportId, reviewState])
+
+  const setApprovalCheck = useCallback((key: AdvisorApprovalCheck, checked: boolean) => {
+    setApprovalChecklist((current) => ({
+      ...current,
+      [key]: checked,
+      ...(key !== 'final_pdf' ? { final_pdf: false } : {}),
+    }))
+    if (key !== 'final_pdf') setApprovalCandidate(null)
+  }, [])
+
+  const prepareApprovalCandidate = useCallback(async () => {
+    if (!reportId || isPreparingCandidate || isApprovingRef.current) return
+    const preflightComplete = ADVISOR_APPROVAL_CHECKS.filter((key) => key !== 'final_pdf').every(
+      (key) => approvalChecklist[key]
+    )
+    if (!preflightComplete) return
+
+    setIsPreparingCandidate(true)
+    try {
+      const { res, json } = await fetchBffJsonWithTransientRetry<ApprovalCandidatePayload>(
+        `/api/valuations/${encodeURIComponent(reportId)}/review/approval-candidate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reviewChecklist: approvalChecklist }),
+        },
+        DEFAULT_BFF_TRANSIENT_RETRY_OPTIONS
+      )
+      if (!res.ok || !json.success || !json.data?.pdfSha256 || !json.data.downloadUrl) {
+        throw new Error(
+          resolveApproveFailureMessage(res, json, failedTitle, transientFailedDescription)
+        )
+      }
+      setApprovalCandidate(json.data)
+      setApprovalChecklist((current) => ({ ...current, final_pdf: false }))
+    } catch (error) {
+      const description = isNetworkFailure(error)
+        ? transientFailedDescription
+        : error instanceof Error
+          ? error.message
+          : undefined
+      toast.error(failedTitle, { description })
+    } finally {
+      setIsPreparingCandidate(false)
+    }
+  }, [approvalChecklist, failedTitle, isPreparingCandidate, reportId, transientFailedDescription])
+
+  const confirmApproval = useCallback(async () => {
+    if (!reportId || !approvalCandidate || !approvalChecklist.final_pdf || isApprovingRef.current) {
+      return
+    }
+
     isApprovingRef.current = true
     setIsApproving(true)
 
@@ -190,7 +306,11 @@ export function useManualReportApproval({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          body: JSON.stringify({
+            notes: approvalNotes,
+            reviewChecklist: approvalChecklist,
+            expectedPdfSha256: approvalCandidate.pdfSha256,
+          }),
         },
         DEFAULT_BFF_TRANSIENT_RETRY_OPTIONS
       )
@@ -203,6 +323,8 @@ export function useManualReportApproval({
 
       setReviewState(json.data?.reviewState ?? 'accountant_approved')
       setAllowApproveWithoutReviewState(false)
+      setApprovalDialogOpen(false)
+      setApprovalCandidate(null)
       toast.success(approvedTitle)
     } catch (error) {
       const description = isNetworkFailure(error)
@@ -216,13 +338,19 @@ export function useManualReportApproval({
       setIsApproving(false)
     }
   }, [
-    allowApproveWithoutReviewState,
+    approvalCandidate,
+    approvalChecklist,
+    approvalNotes,
     approvedTitle,
     failedTitle,
     reportId,
-    reviewState,
     transientFailedDescription,
   ])
+
+  const closeApprovalDialog = useCallback(() => {
+    if (isApproving || isPreparingCandidate) return
+    setApprovalDialogOpen(false)
+  }, [isApproving, isPreparingCandidate])
 
   const canApprove =
     enabled &&
@@ -231,6 +359,19 @@ export function useManualReportApproval({
     (reviewState !== null || allowApproveWithoutReviewState)
 
   return {
+    approvalDialog: {
+      candidate: approvalCandidate,
+      checklist: approvalChecklist,
+      close: closeApprovalDialog,
+      confirm: confirmApproval,
+      isApproving,
+      isPreparingCandidate,
+      notes: approvalNotes,
+      open: approvalDialogOpen,
+      prepareCandidate: prepareApprovalCandidate,
+      setCheck: setApprovalCheck,
+      setNotes: setApprovalNotes,
+    },
     approveLabel,
     canApprove,
     handleApprove,

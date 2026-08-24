@@ -11,11 +11,13 @@ import { NewValuationModal } from '../../../components/NewValuationModal'
 import { RecalculateConfirmationPopup } from '../../../components/normalization/RecalculateConfirmationPopup'
 import type { ValuationResponse } from '../../../types/valuation'
 import type { ManualReportMethodHydrationError } from '../hooks/useManualReportMethodHydration'
+import type { AdvisorApprovalDialogController } from '../hooks/useManualReportApproval'
 import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
 import {
   ManualStarterPaywallModal,
   type ManualStarterPaywallReason,
 } from './ManualStarterPaywallModal'
+import { AdvisorApprovalDialog } from './AdvisorApprovalDialog'
 import type { CollectedData } from './manualLayoutDataTypes'
 import { PanelSkeleton } from './manualLayoutShell'
 
@@ -33,6 +35,7 @@ interface GuidedNormalizationPrefill {
 }
 
 export interface ManualLayoutModalsProps {
+  approvalDialog: AdvisorApprovalDialogController
   allowedMethodKeys: readonly string[] | null
   canDownloadPdf: boolean
   clientContextId?: string | null
@@ -99,6 +102,7 @@ export interface ManualLayoutModalsProps {
 }
 
 export function ManualLayoutModals({
+  approvalDialog,
   allowedMethodKeys,
   canDownloadPdf,
   clientContextId,
@@ -162,6 +166,8 @@ export function ManualLayoutModals({
 }: ManualLayoutModalsProps) {
   return (
     <>
+      <AdvisorApprovalDialog {...approvalDialog} locale={currentLocale} />
+
       <FullscreenReportModal
         open={showFullscreenModal}
         onOpenChange={setShowFullscreenModal}

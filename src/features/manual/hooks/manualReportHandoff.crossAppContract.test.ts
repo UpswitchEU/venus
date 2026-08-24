@@ -111,6 +111,9 @@ describe('manual report handoff load contract', () => {
     expect(readVenusApp('app/api/valuations/[id]/review/approve/route.ts')).toMatch(
       /getTitanApiUrl\(request\)/
     )
+    expect(readVenusApp('app/api/valuations/[id]/review/approval-candidate/route.ts')).toMatch(
+      /getTitanApiUrl\(request\)/
+    )
   })
 
   it('useManualPdfExportController surfaces transient download degradation softly', () => {

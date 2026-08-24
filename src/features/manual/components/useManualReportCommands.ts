@@ -46,14 +46,15 @@ export function useManualReportCommands({
     notFinalizedDescription: translate('attestReportNotFinalized'),
   })
 
-  const { approveLabel, canApprove, handleApprove, isApproving } = useManualReportApproval({
-    reportId: attestReportId,
-    enabled: reportCommandEnabled,
-    approveLabel: translate('approveValuation'),
-    approvedTitle: translate('valuationApproved'),
-    failedTitle: translate('approveValuationFailed'),
-    transientFailedDescription: translate('approveValuationTransientFailed'),
-  })
+  const { approvalDialog, approveLabel, canApprove, handleApprove, isApproving } =
+    useManualReportApproval({
+      reportId: attestReportId,
+      enabled: reportCommandEnabled,
+      approveLabel: translate('approveValuation'),
+      approvedTitle: translate('valuationApproved'),
+      failedTitle: translate('approveValuationFailed'),
+      transientFailedDescription: translate('approveValuationTransientFailed'),
+    })
 
   useManualUrlActions({
     attestReportId,
@@ -68,6 +69,7 @@ export function useManualReportCommands({
   })
 
   return {
+    approvalDialog,
     approveLabel,
     canApprove,
     canSignAttest,

@@ -583,6 +583,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     translateReport: tReport,
   })
   const {
+    approvalDialog,
     approveLabel,
     canApprove,
     canSignAttest,
@@ -846,6 +847,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
         },
       }}
       modalsProps={{
+        approvalDialog,
         allowedMethodKeys,
         canDownloadPdf,
         clientContextId,
