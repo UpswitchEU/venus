@@ -3,6 +3,8 @@ import {
   VALUATION_PRIMARY_OMNI_METHOD_ORDER,
 } from '@upswitch/types'
 
+// Standalone builds resolve this generated contract from Venus's committed vendor package.
+
 /**
  * Method keys shown in the primary list (before "Show all methods") in OmniCalc UI.
  * Order is stable for UX (headline → multiples → DCF → balance sheet → fiscal → downside).
