@@ -1,9 +1,8 @@
 /**
- * Omni-Calc: derive equity low/high for display.
- * Prefers model-backed band from engine `details` when present; otherwise ±20% illustrative band.
+ * Omni-Calc: read the ValuationIQ equity low/high band for display.
  */
 
-export type OmniRangeSource = 'model' | 'illustrative'
+export type OmniRangeSource = 'model'
 
 export interface OmniMethodRangeInput {
   value: number | null
@@ -26,7 +25,7 @@ function pickNumeric(
 }
 
 /**
- * Returns sorted low/high and whether values come from the valuation engine or a fallback band.
+ * Returns sorted engine low/high. A midpoint-only result has no range.
  */
 export function getOmniMethodEquityRange(method: OmniMethodRangeInput): {
   low: number
@@ -35,7 +34,6 @@ export function getOmniMethodEquityRange(method: OmniMethodRangeInput): {
 } | null {
   if (!method.available || method.value == null || !Number.isFinite(Number(method.value)))
     return null
-  const mid = Number(method.value)
   const low = pickNumeric(method.details, ['equity_range_low', 'equity_low', 'equity_value_low'])
   const high = pickNumeric(method.details, [
     'equity_range_high',
@@ -49,9 +47,5 @@ export function getOmniMethodEquityRange(method: OmniMethodRangeInput): {
       source: 'model',
     }
   }
-  return {
-    low: Math.round(mid * 0.8),
-    high: Math.round(mid * 1.2),
-    source: 'illustrative',
-  }
+  return null
 }

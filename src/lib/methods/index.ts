@@ -34,7 +34,6 @@ export {
   fiscal4xMethodSpec,
   shouldMountFiscalReferenceSectionStack,
   shouldRenderFiscalInputs,
-  shouldShowFiscalReferenceNotice,
 } from './fiscal_4x'
 export {
   deriveLiquidationDeferredTaxPrefillSource,

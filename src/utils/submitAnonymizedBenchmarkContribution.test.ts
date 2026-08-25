@@ -31,7 +31,11 @@ describe('extractBenchmarkMultipleRatios', () => {
         revenue_multiple: { enterprise_value: 400, revenue: 200 },
       },
     })
-    expect(extractBenchmarkMultipleRatios(r).evRevenue).toBe(2)
+    expect(extractBenchmarkMultipleRatios(r)).toEqual({
+      evEbitda: null,
+      evRevenue: 2,
+      enterpriseValue: 400,
+    })
   })
 
   it('resolves omzet_multiple alias for EV/Revenue (EN/NL map mismatch)', () => {
@@ -52,7 +56,22 @@ describe('extractBenchmarkMultipleRatios', () => {
         },
       },
     })
-    expect(extractBenchmarkMultipleRatios(r).evEbitda).toBe(3)
+    expect(extractBenchmarkMultipleRatios(r)).toEqual({
+      evEbitda: 3,
+      evRevenue: null,
+      enterpriseValue: 300,
+    })
+  })
+
+  it('keeps the exact engine EV instead of reconstructing it from a rounded ratio', () => {
+    const r = baseResponse({
+      valuation_results: {
+        ebitda_multiple: { enterprise_value: 333.33, ebitda: 100 },
+      },
+    })
+    const extracted = extractBenchmarkMultipleRatios(r)
+    expect(extracted.evEbitda).toBe(3.33)
+    expect(extracted.enterpriseValue).toBe(333.33)
   })
 })
 

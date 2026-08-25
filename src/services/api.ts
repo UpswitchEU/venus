@@ -10,7 +10,6 @@ import type {
   MethodologyRecommendation,
   OwnerProfileRequest,
   OwnerProfileResponse,
-  QuickValuationRequest,
   ValuationRequest,
   ValuationResponse,
 } from '../types/valuation'
@@ -59,12 +58,6 @@ class ValuationAPI {
   // Health check
   async health(): Promise<{ status: string }> {
     const response = await this.client.get('/health')
-    return response.data
-  }
-
-  // Quick valuation (fast multiples-only calculation for live preview)
-  async quickValuation(data: QuickValuationRequest): Promise<ValuationResponse> {
-    const response = await this.client.post('/api/valuations/quick', data)
     return response.data
   }
 

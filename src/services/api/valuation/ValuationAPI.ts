@@ -236,6 +236,33 @@ export class ValuationAPI extends HttpClient {
   }
 
   /**
+   * Non-persistent Startup Studio preview. Titan validates and enriches the
+   * request, then delegates every monetary output to ValuationIQ.
+   */
+  async calculateStartupPreview(
+    data: ValuationRequest,
+    options?: APIRequestConfig
+  ): Promise<ValuationResponse> {
+    try {
+      return await this.executeRequest<ValuationResponse>(
+        {
+          method: 'POST',
+          url: '/api/v2/valuations/startup-preview',
+          data,
+          headers: {},
+        },
+        {
+          ...options,
+          timeout: options?.timeout ?? 30_000,
+          retry: { ...options?.retry, maxRetries: 0 },
+        }
+      )
+    } catch (error) {
+      this.handleValuationError(error, 'Startup Studio preview')
+    }
+  }
+
+  /**
    * Unified valuation calculation (determines type automatically)
    */
   async calculateValuationUnified(

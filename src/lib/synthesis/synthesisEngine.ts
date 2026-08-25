@@ -1,12 +1,10 @@
 /**
- * SynthesisEngine — pure evaluation of the multi-method client-side blend.
+ * Read-side adapter for ValuationIQ's weighted synthesis.
  *
- * Replaces two near-identical copies of the same logic that lived inline in
- * `features/manual/components/ManualValuationWorkspace.tsx` (the `navValuationSummary`
- * memo and the "blend skipped" toast effect).
- *
- * The function is pure: no React, no side effects, no toasts. Callers decide
- * what to display or warn about based on the discriminated outcome.
+ * Venus may validate method readiness for UX, but it never multiplies method
+ * values by weights or constructs a blended monetary output. The only blend
+ * returned from this module is `weighted_valuation.blended_equity_value`
+ * calculated by ValuationIQ.
  */
 
 import { resolveSynthesisPercentWeightsForMethods } from '@/constants/methodFieldConfig'
@@ -44,7 +42,6 @@ export type ClientBlendStatus =
       weightsByMethod: Record<string, number>
     }
   | { kind: 'invalid-sum'; weightsByMethod: Record<string, number> }
-  | { kind: 'blended'; value: number; weightsByMethod: Record<string, number> }
 
 export interface SynthesisEvaluation {
   client: ClientBlendStatus
@@ -72,7 +69,6 @@ export function evaluateSynthesisBlend(input: SynthesisEngineInput): SynthesisEv
     return { client: { kind: 'no-hydrated-results' }, serverBlended }
   }
 
-  let sum = 0
   for (const method of preSelectedMethods) {
     const pct = blendPct[method] ?? 0
     if (pct <= 0) continue
@@ -96,28 +92,14 @@ export function evaluateSynthesisBlend(input: SynthesisEngineInput): SynthesisEv
         serverBlended,
       }
     }
-    sum += n * (pct / 100)
   }
-
-  if (!(sum > 0) || !Number.isFinite(sum)) {
-    return {
-      client: { kind: 'invalid-sum', weightsByMethod: blendPct },
-      serverBlended,
-    }
-  }
-
-  return {
-    client: { kind: 'blended', value: Math.round(sum), weightsByMethod: blendPct },
-    serverBlended,
-  }
+  return { client: { kind: 'invalid-sum', weightsByMethod: blendPct }, serverBlended }
 }
 
 /**
- * Display priority: live client blend (reflects current weights) wins over the
- * server-persisted blend (which may have been computed with previous weights).
+ * The ValuationIQ result is the sole monetary authority.
  */
 export function bestBlendedValue(ev: SynthesisEvaluation): number | null {
-  if (ev.client.kind === 'blended') return ev.client.value
   return ev.serverBlended
 }
 
@@ -184,8 +166,7 @@ function readCanonicalMultiplesEquityValue(
   result: ValuationResponse | null | undefined
 ): number | null {
   return (
-    toFiniteNumber(result?.multiples_valuation?.adjusted_equity_value) ??
-    toFiniteNumber(result?.multiples_valuation?.enterprise_value)
+    toFiniteNumber(result?.multiples_valuation?.adjusted_equity_value) ?? null
   )
 }
 

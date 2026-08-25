@@ -132,6 +132,10 @@ class BackendAPI {
     return this.valuationAPI.calculateInstantValuation(data)
   }
 
+  async calculateStartupPreview(data: ValuationRequest): Promise<ValuationResponse> {
+    return this.valuationAPI.calculateStartupPreview(data)
+  }
+
   async calculateValuationForReport(data: ValuationRequest): Promise<ValuationResponse> {
     return this.valuationAPI.calculateValuationUnified(data)
   }

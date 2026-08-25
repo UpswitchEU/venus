@@ -25,7 +25,7 @@ describe('synthesis weighting model', () => {
     expect(formatCompactCurrency(-1_250_000)).toBe('-€1.3M')
   })
 
-  it('builds contributions and a live blended value only when weighted methods are available', () => {
+  it('exposes exact engine method rows without calculating monetary contributions', () => {
     const model = buildSynthesisWeightingModel({
       displayWeights: { dcf: 40, ebitda_multiple: 60, adjusted_nav: 0 },
       methods: ['dcf', 'ebitda_multiple', 'adjusted_nav'],
@@ -43,9 +43,11 @@ describe('synthesis weighting model', () => {
       },
     })
 
-    expect(model.liveBlended).toBe(1_300_000)
-    expect(model.contributionByMethod?.dcf.contribution).toBe(400_000)
-    expect(model.contributionByMethod?.ebitda_multiple.contribution).toBe(900_000)
+    expect(model.liveBlended).toBeNull()
+    expect(model.contributionByMethod?.dcf.contribution).toBeNull()
+    expect(model.contributionByMethod?.ebitda_multiple.contribution).toBeNull()
+    expect(model.contributionByMethod?.dcf.equity).toBe(1_000_000)
+    expect(model.contributionByMethod?.ebitda_multiple.equity).toBe(1_500_000)
     expect(model.contributionByMethod?.adjusted_nav.contribution).toBeNull()
     expect(model.contributionByMethod?.adjusted_nav.available).toBe(false)
   })

@@ -32,7 +32,7 @@ export const METHOD_PREVIEW_AUDIT = {
   },
   sde_multiple: {
     bonusSections: ['sde_owner_compensation'] as const,
-    clientPreview: 'lib/sde computeSdePreviewMetrics (omni_calc SDE branch)',
+    clientPreview: 'input eligibility only; all SDE monetary outputs come from ValuationIQ',
   },
   adjusted_nav: {
     bonusSections: ['nav_asset_schedule'] as const,
@@ -40,8 +40,7 @@ export const METHOD_PREVIEW_AUDIT = {
   },
   fiscal_4x: {
     bonusSections: [] as const,
-    clientPreview:
-      'fiscalPreviewMetrics (4× anchor + book equity) × ownershipMultiplierFromSharesForSale; Step 8 not client-side',
+    clientPreview: 'server result only; ValuationIQ owns the fiscal anchor and equity bridge',
   },
   /** Omni secondary key; same economics as `omzet_multiple` in coordinator. */
   revenue_multiple: {

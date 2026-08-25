@@ -393,10 +393,14 @@ export interface ValuationResponse {
   /** User-configured blended valuation (Waarderingssynthese). Present when user_weights were supplied. */
   weighted_valuation?: {
     blended_equity_value: number | string
+    valuation_range_low?: number | string | null
+    valuation_range_high?: number | string | null
     contributions: Array<{
       method_key: string
       label: string
       equity_value: number | string
+      equity_value_low?: number | string | null
+      equity_value_high?: number | string | null
       weight: number
       weighted_contribution: number | string
     }>

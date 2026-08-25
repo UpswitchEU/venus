@@ -1,7 +1,7 @@
 'use client'
 
 import { useLocale } from 'next-intl'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { accountingAPI } from '@/services/api/accounting'
 import {
   encodeSilverfinOAuthState,
@@ -49,15 +49,13 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
     typeof context.recovery_phase === 'string' ? context.recovery_phase : 'reconnect_required'
   const recoveryInProgress = ['oauth_pending', 'handoff_pending', 'resyncing'].includes(phase)
   const providerName = accountingReconnectProviderName(provider)
-  const [firmId, setFirmId] = useState(typeof context.firm_id === 'string' ? context.firm_id : '')
+  const contextFirmId = typeof context.firm_id === 'string' ? context.firm_id : ''
+  const [firmId, setFirmId] = useState(contextFirmId)
   const [minimized, setMinimized] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const [error, setError] = useState<string | null>(
-    typeof context.failure === 'string' ? context.failure : null
-  )
-  useEffect(() => {
-    setError(typeof context.failure === 'string' ? context.failure : null)
-  }, [context.failure])
+  const [error, setError] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const reconnectInFlightRef = useRef(false)
   const lastSync = useMemo(() => {
     if (typeof context.last_successful_sync_at !== 'string') return null
     const date = new Date(context.last_successful_sync_at)
@@ -130,11 +128,66 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
             failed: `${providerName} connection failed`,
           }
 
+  useEffect(() => {
+    setError(typeof context.failure === 'string' ? copy.failed : null)
+  }, [context.failure, copy.failed])
+
+  useEffect(() => {
+    if (!contextFirmId) return
+    setFirmId((current) => current || contextFirmId)
+  }, [contextFirmId])
+
+  useEffect(() => {
+    if (minimized) return
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const dialog = dialogRef.current
+    const focusable = () =>
+      Array.from(
+        dialog?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((element) => element.offsetParent !== null)
+    const initial = focusable()[0] ?? dialog
+    initial?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setMinimized(true)
+        return
+      }
+      if (event.key !== 'Tab') return
+      const items = focusable()
+      if (items.length === 0) {
+        event.preventDefault()
+        dialog?.focus()
+        return
+      }
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      previouslyFocused?.focus()
+    }
+  }, [minimized])
+
   const beginReconnect = async () => {
+    if (reconnectInFlightRef.current) return
     if (!clientId || !provider) {
       setError(copy.incomplete)
       return
     }
+    reconnectInFlightRef.current = true
     setConnecting(true)
     setError(null)
     try {
@@ -185,20 +238,25 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       window.location.assign(trustedSilverfinAuthorizationUrl(authorization_url))
     } catch (cause) {
       sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
+      const safeFailure =
+        cause instanceof Error && [copy.incomplete, copy.expired, copy.firm].includes(cause.message)
+          ? cause.message
+          : copy.failed
       markAccountingReconnectFailed(sessionStorage, {
         provider,
         clientId,
-        failure: cause instanceof Error ? cause.message : copy.failed,
+        failure: safeFailure,
       })
+      reconnectInFlightRef.current = false
       setConnecting(false)
-      setError(cause instanceof Error ? cause.message : copy.failed)
+      setError(safeFailure)
     }
   }
 
   if (minimized) {
     return (
-      <div className="fixed inset-x-4 bottom-4 z-[120] mx-auto flex max-w-3xl items-center justify-between gap-4 rounded-xl border border-amber-500/30 bg-background p-4 shadow-xl">
-        <div>
+      <div className="fixed inset-x-4 bottom-4 z-[120] mx-auto flex max-w-3xl flex-col items-stretch gap-3 rounded-xl border border-amber-500/30 bg-background p-4 shadow-xl sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0">
           <p className="font-medium">{copy.title}</p>
           {lastSync ? (
             <p className="text-xs opacity-70">
@@ -207,7 +265,7 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
           ) : null}
         </div>
         <button
-          className="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
+          className="shrink-0 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-primary-foreground"
           onClick={() => setMinimized(false)}
           type="button"
         >
@@ -225,45 +283,51 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
     >
-      <div className="w-full max-w-lg rounded-2xl bg-background p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold" id={titleId}>
-          {recoveryInProgress ? copy.refreshingTitle : copy.title}
-        </h2>
-        <p className="mt-3 text-sm leading-6 opacity-75" id={descriptionId}>
-          {recoveryInProgress ? copy.refreshingBody : copy.body}
-        </p>
-        <p className="mt-2 text-xs leading-5 opacity-65">
-          {provider === 'silverfin' ? copy.unavailable : copy.unavailableGeneric}
-        </p>
-        {provider !== 'silverfin' && !recoveryInProgress ? (
-          <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-xs leading-5 opacity-80">
-            {copy.handoff}
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="grid max-h-[min(90dvh,42rem)] w-full max-w-lg grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl bg-background shadow-2xl outline-none"
+      >
+        <header className="border-b px-5 py-5 sm:px-6">
+          <h2 className="min-h-7 text-xl font-semibold" id={titleId}>
+            {recoveryInProgress ? copy.refreshingTitle : copy.title}
+          </h2>
+          <p className="mt-2 min-h-12 text-sm leading-6 opacity-75" id={descriptionId}>
+            {recoveryInProgress ? copy.refreshingBody : copy.body}
           </p>
-        ) : null}
-        {lastSync ? (
-          <p className="mt-3 text-xs opacity-70">
-            {copy.lastSync}: {lastSync}
+        </header>
+        <div className="min-h-0 overflow-y-auto px-5 py-4 sm:px-6">
+          <p className="text-xs leading-5 opacity-65">
+            {provider === 'silverfin' ? copy.unavailable : copy.unavailableGeneric}
           </p>
-        ) : null}
-        {provider === 'silverfin' && !recoveryInProgress ? (
-          <label className="mt-5 block text-sm font-medium">
-            {copy.firm}
-            <input
-              className="mt-2 w-full rounded-lg border bg-transparent px-3 py-2"
-              value={firmId}
-              onChange={(event) => setFirmId(event.target.value)}
-              autoComplete="off"
-            />
-          </label>
-        ) : null}
-        {error ? (
-          <p className="mt-3 text-sm text-destructive" role="alert">
-            {error}
+          {provider !== 'silverfin' && !recoveryInProgress ? (
+            <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-xs leading-5 opacity-80">
+              {copy.handoff}
+            </p>
+          ) : null}
+          {lastSync ? (
+            <p className="mt-3 text-xs opacity-70">
+              {copy.lastSync}: {lastSync}
+            </p>
+          ) : null}
+          {provider === 'silverfin' && !recoveryInProgress ? (
+            <label className="mt-5 block text-sm font-medium">
+              {copy.firm}
+              <input
+                className="mt-2 w-full rounded-lg border bg-transparent px-3 py-2"
+                value={firmId}
+                onChange={(event) => setFirmId(event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+          ) : null}
+          <p className="mt-3 min-h-5 text-sm text-destructive" role="alert" aria-live="polite">
+            {error ?? ''}
           </p>
-        ) : null}
-        <div className="mt-6 flex justify-end gap-3">
+        </div>
+        <footer className="flex flex-col-reverse gap-2 border-t bg-background/95 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
           <button
-            className="rounded-lg border px-4 py-2"
+            className="min-w-28 whitespace-nowrap rounded-lg border px-4 py-2"
             type="button"
             onClick={() => {
               setMinimized(true)
@@ -272,15 +336,16 @@ export function AccountingReconnectRecovery({ context }: { context: Record<strin
             {copy.close}
           </button>
           <button
-            className="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+            className="min-w-44 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
             type="button"
             disabled={connecting || recoveryInProgress}
             onClick={() => void beginReconnect()}
             aria-live="polite"
+            aria-busy={connecting || recoveryInProgress}
           >
             {connecting || recoveryInProgress ? copy.refreshing : copy.reconnect}
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   )

@@ -246,7 +246,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     selectedMethod,
     setReport,
   })
-  const { effectiveIsRestoringExistingReport, isStartupAssistantRoute, liveMultipleReportPreview } =
+  const { effectiveIsRestoringExistingReport, isStartupAssistantRoute } =
     useManualLayoutPreviewState({
       isGenerating,
       preparerAppliedMedian,
@@ -883,7 +883,6 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
             isRecoveringReportHtml,
             isDeletingCurrentReport: !!deletingValuationId,
             isMethodSwitchRendering,
-            liveMultipleReportPreview,
             onVersionRestore: handleVersionRestore,
             report,
             reportId,

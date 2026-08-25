@@ -31,7 +31,7 @@ function makeSession(overrides: Partial<ValuationSession> = {}): ValuationSessio
 }
 
 describe('useManualLayoutPreviewState', () => {
-  it('derives live multiple preview and startup route state', () => {
+  it('derives startup route state without calculating a browser-side valuation', () => {
     const { result } = renderHook(() =>
       useManualLayoutPreviewState({
         isGenerating: false,
@@ -57,12 +57,7 @@ describe('useManualLayoutPreviewState', () => {
     expect(result.current.isStartupAssistantRoute).toBe(true)
     expect(result.current.effectiveAssistantMethod).toBe('startup_valuation')
     expect(result.current.effectiveIsRestoringExistingReport).toBe(false)
-    expect(result.current.liveMultipleReportPreview).toEqual({
-      previewEquity: 505_000,
-      delta: 35_000,
-      appliedMultiple: 5.5,
-      benchmarkMultiple: 4.5,
-    })
+    expect(result.current).not.toHaveProperty('liveMultipleReportPreview')
   })
 
   it('keeps the restoration gate active while a restorable session is hydrating', () => {
@@ -83,7 +78,6 @@ describe('useManualLayoutPreviewState', () => {
     )
 
     expect(result.current.isStartupAssistantRoute).toBe(false)
-    expect(result.current.liveMultipleReportPreview).toBeNull()
     expect(result.current.effectiveIsRestoringExistingReport).toBe(true)
   })
 })

@@ -99,6 +99,8 @@ type MultipleRowEv = { enterprise_value?: number; ebitda?: number; revenue?: num
 export function extractBenchmarkMultipleRatios(result: ValuationResponse): {
   evEbitda: number | null
   evRevenue: number | null
+  /** Exact ValuationIQ method result; never reconstructed from a ratio. */
+  enterpriseValue: number | null
 } {
   const valuationResults =
     hydrateClientValuationResultsMap(result as unknown as Record<string, unknown>) ??
@@ -107,6 +109,7 @@ export function extractBenchmarkMultipleRatios(result: ValuationResponse): {
 
   let evEbitda: number | null = null
   let evRevenue: number | null = null
+  let enterpriseValue: number | null = null
 
   if (valuationResults && typeof valuationResults === 'object') {
     const ebitdaMethod = getValuationMethodResultForKey(
@@ -115,6 +118,7 @@ export function extractBenchmarkMultipleRatios(result: ValuationResponse): {
     ) as MultipleRowEv | undefined
     if (ebitdaMethod?.enterprise_value && ebitdaMethod?.ebitda) {
       evEbitda = +(ebitdaMethod.enterprise_value / ebitdaMethod.ebitda).toFixed(2)
+      enterpriseValue = Number(ebitdaMethod.enterprise_value)
     }
 
     const revenueMethod = getValuationMethodResultForKey(
@@ -123,10 +127,18 @@ export function extractBenchmarkMultipleRatios(result: ValuationResponse): {
     ) as MultipleRowEv | undefined
     if (revenueMethod?.enterprise_value && revenueMethod?.revenue) {
       evRevenue = +(revenueMethod.enterprise_value / revenueMethod.revenue).toFixed(2)
+      if (enterpriseValue == null) enterpriseValue = Number(revenueMethod.enterprise_value)
     }
   }
 
-  return { evEbitda, evRevenue }
+  return {
+    evEbitda,
+    evRevenue,
+    enterpriseValue:
+      enterpriseValue != null && Number.isFinite(enterpriseValue) && enterpriseValue > 0
+        ? enterpriseValue
+        : null,
+  }
 }
 
 /**
@@ -143,7 +155,7 @@ export async function submitAnonymizedBenchmarkContribution(
   result: ValuationResponse
 ): Promise<void> {
   const businessTypeId = result.business_type || result.industry
-  const { evEbitda, evRevenue } = extractBenchmarkMultipleRatios(result)
+  const { enterpriseValue, evEbitda, evRevenue } = extractBenchmarkMultipleRatios(result)
   const row = result as unknown as Record<string, unknown>
   const titanUrl = process.env.NEXT_PUBLIC_TITAN_API_URL || ''
   const ebitda = row.ebitda != null ? Number(row.ebitda) : null
@@ -154,8 +166,9 @@ export async function submitAnonymizedBenchmarkContribution(
   }
 
   const hasContributionData =
-    (evEbitda != null && ebitda != null && Number.isFinite(ebitda)) ||
-    (evRevenue != null && revenue != null && Number.isFinite(revenue))
+    enterpriseValue != null &&
+    ((evEbitda != null && ebitda != null && Number.isFinite(ebitda)) ||
+      (evRevenue != null && revenue != null && Number.isFinite(revenue)))
   if (!hasContributionData) {
     generalLogger.info(
       'Skipping anonymized benchmark contribution (incomplete valuation payload)',
@@ -183,7 +196,10 @@ export async function submitAnonymizedBenchmarkContribution(
     body: JSON.stringify({
       business_type_id: businessTypeId,
       country_code: (row.country_code as string) || 'XX',
-      enterprise_value: evEbitda != null && ebitda != null ? evEbitda * ebitda : null,
+      // Transport the engine's exact EV. Reconstructing EV as a rounded
+      // multiple × EBITDA created a second, drifting valuation calculation in
+      // Venus and could disagree with the signed ValuationIQ result.
+      enterprise_value: enterpriseValue,
       ebitda,
       revenue,
       observation_type: 'CLOSED_DEAL',

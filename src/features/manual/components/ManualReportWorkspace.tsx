@@ -14,7 +14,6 @@ import { SafeReportHtml } from '../../../components/valuation/report/SafeReportH
 import { springDefault } from '../../../design-system/components/motion'
 import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { useSessionStore } from '../../../store/useSessionStore'
-import type { ManualLiveMultiplePreview } from '../utils/manualLiveMultiplePreview'
 import { PanelSkeleton } from './manualLayoutShell'
 
 // Lazy so the visx valuation-curve bundle only loads when the user opens the
@@ -34,7 +33,6 @@ export interface ManualReportWorkspaceProps {
   isRecoveringReportHtml?: boolean
   isDeletingCurrentReport?: boolean
   isMethodSwitchRendering: boolean
-  liveMultipleReportPreview: ManualLiveMultiplePreview | null
   onVersionRestore: HistoryPanelProps['onVersionRestore']
   report: ValuationReportData | null
   reportId: string
@@ -54,53 +52,18 @@ function MethodSwitchOverlay({ translate }: { translate: ManualReportWorkspaceTr
   )
 }
 
-function LiveMultiplePreviewBanner({
-  preview,
-  translate,
-}: {
-  preview: ManualLiveMultiplePreview
-  translate: ManualReportWorkspaceTranslator
-}) {
-  return (
-    <div className="sticky top-0 z-[5] border-b border-primary/15 bg-primary/[0.06] px-4 py-3 backdrop-blur-sm">
-      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/75">
-            {translate('previewEquityValue')}
-          </p>
-          <p className="text-sm text-foreground/70">{translate('previewEquityBlurb')}</p>
-        </div>
-        <div className="text-left md:text-right">
-          <p className="text-lg font-mono font-semibold tabular-nums text-primary">
-            €{(preview.previewEquity / 1_000_000).toFixed(2)}M
-          </p>
-          <p className="text-[11px] font-mono tabular-nums text-foreground/55">
-            {preview.delta >= 0 ? '+' : '-'}€{(Math.abs(preview.delta) / 1_000).toFixed(0)}K ·{' '}
-            {preview.appliedMultiple.toFixed(2)}×
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function HtmlReportSurface({
   isMethodSwitchRendering,
-  liveMultipleReportPreview,
   report,
   translate,
 }: {
   isMethodSwitchRendering: boolean
-  liveMultipleReportPreview: ManualLiveMultiplePreview | null
   report: ValuationReportData
   translate: ManualReportWorkspaceTranslator
 }) {
   return (
     <div className="relative">
       {isMethodSwitchRendering && <MethodSwitchOverlay translate={translate} />}
-      {liveMultipleReportPreview && (
-        <LiveMultiplePreviewBanner preview={liveMultipleReportPreview} translate={translate} />
-      )}
       <div className="sticky top-0 z-[5] mx-4 mt-3 space-y-2 bg-background/95 backdrop-blur-sm">
         <AcademicValidationNotice className="border-b-0" />
       </div>
@@ -183,7 +146,6 @@ export function ManualReportWorkspace({
   isRecoveringReportHtml = false,
   isDeletingCurrentReport = false,
   isMethodSwitchRendering,
-  liveMultipleReportPreview,
   onVersionRestore,
   report,
   reportId,
@@ -276,7 +238,6 @@ export function ManualReportWorkspace({
                   >
                     <HtmlReportSurface
                       isMethodSwitchRendering={isMethodSwitchRendering}
-                      liveMultipleReportPreview={liveMultipleReportPreview}
                       report={report}
                       translate={translate}
                     />
@@ -347,7 +308,6 @@ export function ManualReportWorkspace({
             >
               <HtmlReportSurface
                 isMethodSwitchRendering={isMethodSwitchRendering}
-                liveMultipleReportPreview={liveMultipleReportPreview}
                 report={report}
                 translate={translate}
               />

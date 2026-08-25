@@ -1,6 +1,8 @@
 # Omni preview (`lib/omniPreview`)
 
-Client-side **preview** math and UX helpers aligned with ValuationIQ `omni_calc_coordinator` where possible. Full valuation numbers (calibrated multiples, DCF EV, Step 8 ownership) still come from the API.
+Client-side input summaries and UX helpers for the ValuationIQ calculator. All
+monetary valuation outputs, including method anchors and ownership bridges,
+come from the API.
 
 **For accountants / M&A users:** method purposes, blending rules, and QA checklist → [`docs/VALUATION_METHODS_OPERATING_GUIDE.md`](../../../docs/VALUATION_METHODS_OPERATING_GUIDE.md).
 
@@ -22,18 +24,17 @@ Client-side **preview** math and UX helpers aligned with ValuationIQ `omni_calc_
 | `useManualPreviewFormatters.ts` | Hook wrapping the factories with `useLocale()` |
 | `guards.ts` | `toFiniteNumber` for safe coercion |
 | `methodPreviewAudit.ts` | Which methods have local previews vs server-only |
-| `fiscalPreviewMetrics.ts`, `revenueQualityPreview.ts`, … | Pure preview calculators |
-| `../saas`, `../sde` | SaaS / SDE domain math (also re-exported from the barrel) |
+| `revenueQualityPreview.ts`, … | Non-monetary input summaries |
+| `../saas`, `../sde` | Input-quality and eligibility helpers |
 
 ## Calculator sections — formatter audit (Venus)
 
 | Section / surface | `useManualPreviewFormatters` | Notes |
 |-------------------|------------------------------|--------|
 | SaaS metrics | `saasMetric`, `currency` | `lib/saas` preview math |
-| SDE owner comp | `sdeMultiple`, `currency` | `lib/sde` preview math |
+| SDE owner comp | — | Input eligibility only; value comes from ValuationIQ |
 | Revenue quality | `ratio`, `currency` | EBITDA margin, backlog months |
 | NAV adjustments | `currency` | Sum of schedule lines |
-| Fiscal 4× notice (`AdaptiveSections`) | `previewCurrencyFormatter` (from parent hook) | Fiscal preview cards |
 | `ManualInputPanel` (panel currency) | `currency` | Official filing / EV bridge copy |
 | DCF FCFF / projection / forecast workspace | `currency` | Table + inline € |
 | DCF sensitivity matrix | `formatEurCompact`, `ratio` | Large EV uses compact €; axis uses ratio decimals |

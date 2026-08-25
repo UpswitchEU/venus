@@ -64,9 +64,8 @@ export function SdeOwnerCompensationSection({
       computeSdePreviewMetrics({
         revenue,
         ebitda,
-        ownerSalaryAddback,
       }),
-    [revenue, ebitda, ownerSalaryAddback]
+    [revenue, ebitda]
   )
 
   const sectionComplete = useMemo(

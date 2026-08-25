@@ -56,8 +56,8 @@ function pricesFromCurrentSummary(
   if (!report) return null
 
   const valuation = finiteNumber(report.valuation) ?? 0
-  const min = finiteNumber(report.valuationLow) ?? Math.round(valuation * 0.85)
-  const max = finiteNumber(report.valuationHigh) ?? Math.round(valuation * 1.15)
+  const min = finiteNumber(report.valuationLow) ?? valuation
+  const max = finiteNumber(report.valuationHigh) ?? valuation
   const recommendedAskingPrice = finiteNumber(report.recommendedAskingPrice)
   const askPrice =
     recommendedAskingPrice != null && recommendedAskingPrice > 0
@@ -88,8 +88,8 @@ export function buildManualVersionHistoryForNav({
         id: 'current',
         label: currentVersionLabel,
         priceRange: currentPrices?.priceRange ?? {
-          min: report.valuationLow ?? Math.round(report.valuation * 0.85),
-          max: report.valuationHigh ?? Math.round(report.valuation * 1.15),
+          min: report.valuationLow ?? report.valuation,
+          max: report.valuationHigh ?? report.valuation,
         },
         askPrice: currentPrices?.askPrice ?? report.recommendedAskingPrice ?? report.valuation,
         timestamp: report.generatedAt,

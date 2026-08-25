@@ -1,235 +1,298 @@
 'use client'
 
 /**
- * useLiveValuation
- * ----------------
+ * ValuationIQ-backed Startup Studio preview.
  *
- * Pure-frontend mirror of the Python engine's three-leg founder
- * triangulation (Berkus + SaaS Forward + VC Method).  Powers the
- * sticky right-hand "Live Valuation Receipt" so founders see the
- * range update on every keystroke without a Titan round-trip.
- *
- * The canonical numbers still come from the Python engine when the
- * founder hits "Generate report" — this hook is only for the live
- * preview during the wizard.
- *
- * Math is intentionally a 1:1 (rounded) shadow of:
- *   - apps/valuation-iq/src/domain/startup_valuation/berkus.py
- *   - apps/valuation-iq/src/domain/startup_valuation/vc_method.py
- *   - apps/valuation-iq/src/domain/startup_valuation/synthesis._FOUNDER_STAGE_WEIGHTS
- *
- * Anything more sophisticated (Scorecard regional anchoring, SaaS
- * forward ARR projection) is rendered with the same simple math the
- * existing legacy panel already uses.
- *
- * Important for founders: the blended pre-money is **not** solved to hit
- * a target dilution on the round. Dilution for a priced close is still
- * raise ÷ (pre-money + raise). Also, the VC-method leg uses
- * pre = exit_value÷target_ROI − round_size, so **a larger raise lowers
- * that leg** and can pull the whole blend down — that is intentional
- * parity with the Python engine, not a UI bug.
+ * Venus owns inputs and presentation only. It never mirrors Berkus, VC,
+ * scorecard, SaaS-forward, weighting, pedigree, inception-lens, cap-table, or
+ * range formulas. A debounced, shared request asks local/normal Titan to attach
+ * Business Types evidence and delegate the calculation to ValuationIQ.
  */
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
+import { backendAPI } from '@/services/backendApi'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
-  calculatePedigreeMultiplier,
-  INCEPTION_LENS_OVERLAY,
   type InceptionLens,
-  STUDIO_BERKUS_KEYS,
-  type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+import type { ValuationRequest, ValuationResponse } from '@/types/valuation'
+import { buildStartupValuationRequest } from '@/utils/buildStartupValuationRequest'
+import { resolveVentureCountryIso2 } from '@/utils/resolveVentureCountryIso2'
 
 export interface LiveLeg {
-  /** Engine-side leg name. */
   key: 'berkus' | 'scorecard' | 'vc' | 'saas_forward'
-  /** Translatable label key (resolved in the receipt component). */
   label: string
-  /** Mid value EUR — null when the leg is unavailable. */
   value: number | null
-  /** Range low/high EUR around the mid (±20% by default). */
+  /** ValuationIQ currently returns each startup leg as a point, not a band. */
   low: number | null
   high: number | null
-  /** Founder-facing weight in the blend (0–1). */
   weight: number
-  /** True when this leg was dropped (renormalised). */
   unavailable: boolean
 }
 
 export interface LiveValuation {
-  /** Blended pre-money range EUR — *after* both pedigree AND inception
-   *  lens overlays.  Mirrors the engine's canonical `equity_*` fields. */
   blended: { low: number; mid: number; high: number } | null
-  /** Same blend without the pedigree multiplier — surfaced so the report
-   *  preview can show "leg blend €X → with pedigree €Y" transparently. */
   blendedPrePedigree: { low: number; mid: number; high: number } | null
-  /** Founder pedigree multiplier currently applied (1.0 = neutral). */
   pedigreeMultiplier: number
-  /** Inception-lens currently applied. */
   inceptionLens: InceptionLens
-  /** Inception-lens overlay multiplier (1.0 = milestones_driven). */
   inceptionLensMultiplier: number
-  /** Inception-lens band-widening pct (0 = milestones_driven). */
   inceptionLensBandWidenPct: number
-  /** Pre-lens blend (post-pedigree but pre-inception-lens) — surfaced so
-   *  the report can show "leg blend × pedigree → with lens" transparently. */
   blendedPreLens: { low: number; mid: number; high: number } | null
   legs: LiveLeg[]
-  /** True until the founder has answered enough to compute anything. */
   isEmpty: boolean
 }
 
-const FOUNDER_WEIGHTS: Record<StartupStage, Record<LiveLeg['key'], number>> = {
-  pre_seed: { berkus: 0.55, vc: 0.25, saas_forward: 0.2, scorecard: 0 },
-  seed: { berkus: 0.25, vc: 0.4, saas_forward: 0.35, scorecard: 0 },
-  series_a: { berkus: 0.1, vc: 0.5, saas_forward: 0.4, scorecard: 0 },
+type UnknownRecord = Record<string, unknown>
+type PreviewEntry = {
+  listeners: Set<(value: LiveValuation) => void>
+  promise?: Promise<void>
+  timer?: ReturnType<typeof setTimeout>
+  value?: LiveValuation
 }
 
-function safeRange(mid: number | null, spread = 0.2) {
-  if (mid == null || !Number.isFinite(mid) || mid <= 0) return { low: null, high: null }
+const PREVIEW_DEBOUNCE_MS = 500
+const MAX_PREVIEW_CACHE_ENTRIES = 50
+const previewCache = new Map<string, PreviewEntry>()
+
+const LEG_LABELS: Record<LiveLeg['key'], string> = {
+  berkus: 'studio.legs.berkus',
+  scorecard: 'studio.legs.scorecard',
+  vc: 'studio.legs.vc',
+  saas_forward: 'studio.legs.saas',
+}
+
+function asRecord(value: unknown): UnknownRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : null
+}
+
+function finiteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function positiveNumber(value: unknown): number | null {
+  const numeric = finiteNumber(value)
+  return numeric != null && numeric > 0 ? numeric : null
+}
+
+function rangeFromRecord(
+  value: UnknownRecord | null,
+  lowKey: string,
+  midKey: string,
+  highKey: string
+): { low: number; mid: number; high: number } | null {
+  const low = positiveNumber(value?.[lowKey])
+  const mid = positiveNumber(value?.[midKey])
+  const high = positiveNumber(value?.[highKey])
+  return low != null && mid != null && high != null ? { low, mid, high } : null
+}
+
+function emptyLiveValuation(inceptionLens: InceptionLens): LiveValuation {
   return {
-    low: Math.round(mid * (1 - spread)),
-    high: Math.round(mid * (1 + spread)),
+    blended: null,
+    blendedPrePedigree: null,
+    pedigreeMultiplier: 1,
+    inceptionLens,
+    inceptionLensMultiplier: 1,
+    inceptionLensBandWidenPct: 0,
+    blendedPreLens: null,
+    legs: [],
+    isEmpty: true,
   }
 }
 
-function normaliseWeights(legs: LiveLeg[]) {
-  const total = legs.reduce((sum, leg) => sum + (leg.unavailable ? 0 : leg.weight), 0)
-  if (total <= 0) return legs.map((l) => ({ ...l, weight: 0 }))
-  return legs.map((l) => (l.unavailable ? l : { ...l, weight: l.weight / total }))
+/** Copy the signed ValuationIQ preview into Venus's presentation model. */
+export function valuationIqPreviewToLiveValuation(
+  response: ValuationResponse | UnknownRecord | null | undefined,
+  fallbackLens: InceptionLens = 'milestones_driven'
+): LiveValuation {
+  const root = asRecord(response)
+  const authority = asRecord(root?.valuation_authority)
+  if (authority?.authority !== 'valuation_iq') return emptyLiveValuation(fallbackLens)
+
+  const results = asRecord(root?.valuation_results)
+  const startup = asRecord(results?.startup_valuation)
+  const details = asRecord(startup?.details)
+  if (startup?.available !== true || !details) return emptyLiveValuation(fallbackLens)
+
+  const canonical = asRecord(details.canonical)
+  const blended = canonical
+    ? rangeFromRecord(canonical, 'pre_money_low', 'pre_money_mid', 'pre_money_high')
+    : rangeFromRecord(details, 'equity_value_low', 'equity_value_mid', 'equity_value_high')
+  if (!blended) return emptyLiveValuation(fallbackLens)
+
+  const founderView = asRecord(details.founder_view)
+  const founderWeights = asRecord(founderView?.weights)
+  const founderContributors = new Set(
+    Array.isArray(founderView?.contributors)
+      ? founderView.contributors.filter((item): item is string => typeof item === 'string')
+      : []
+  )
+  const advisorContributors = new Set(
+    Array.isArray(details.contributors)
+      ? details.contributors.filter((item): item is string => typeof item === 'string')
+      : []
+  )
+  const contributors = founderContributors.size > 0 ? founderContributors : advisorContributors
+
+  const legs = (['berkus', 'scorecard', 'vc', 'saas_forward'] as const).map((key) => {
+    const block = asRecord(details[key])
+    const value = positiveNumber(block?.pre_money)
+    const weight = finiteNumber(founderWeights?.[key]) ?? 0
+    return {
+      key,
+      label: LEG_LABELS[key],
+      value,
+      low: null,
+      high: null,
+      weight,
+      unavailable: value == null || !contributors.has(key),
+    }
+  })
+
+  const prePedigree = asRecord(details.pre_pedigree)
+  const blendedPrePedigree = rangeFromRecord(
+    prePedigree,
+    'equity_value_low',
+    'equity_value_mid',
+    'equity_value_high'
+  )
+  const pedigree = asRecord(details.founder_pedigree)
+  const inception = asRecord(details.inception_lens)
+  const preLens = asRecord(inception?.pre_lens)
+  const lensValue = inception?.lens
+  const inceptionLens: InceptionLens =
+    lensValue === 'momentum_driven' ||
+    lensValue === 'inception_bet' ||
+    lensValue === 'milestones_driven'
+      ? lensValue
+      : fallbackLens
+
+  const blendedPreLens = rangeFromRecord(
+    preLens,
+    'equity_value_low',
+    'equity_value_mid',
+    'equity_value_high'
+  )
+
+  return {
+    blended,
+    blendedPrePedigree,
+    pedigreeMultiplier: finiteNumber(pedigree?.multiplier) ?? 1,
+    inceptionLens,
+    inceptionLensMultiplier: finiteNumber(inception?.multiplier) ?? 1,
+    inceptionLensBandWidenPct: finiteNumber(inception?.band_widen_pct) ?? 0,
+    blendedPreLens,
+    legs,
+    isEmpty: false,
+  }
 }
 
-export function useLiveValuation(benchmark: StartupBenchmarkRow): LiveValuation {
-  const state = useStartupValuationStore()
+function previewKey(request: ValuationRequest): string {
+  return JSON.stringify(request)
+}
 
-  return useMemo(() => {
-    // ── Berkus leg ────────────────────────────────────────────────
-    const berkusMax = benchmark.berkus_max_per_milestone_eur
-    const berkusValue = STUDIO_BERKUS_KEYS.reduce((sum, key) => {
-      const score = (state[key] as number | undefined) ?? 0
-      const clamped = Math.min(100, Math.max(0, score))
-      return sum + (clamped / 100) * berkusMax
-    }, 0)
-    const hasAnyBerkusAnswer = STUDIO_BERKUS_KEYS.some((k) => state.maturity[k] !== 'none')
-
-    // ── VC method leg ─────────────────────────────────────────────
-    // pre = (year5 × exit_multiple ÷ target_roi) − round_size
-    let vcValue: number | null = null
-    if (
-      state.year5_revenue_projection != null &&
-      state.year5_revenue_projection > 0 &&
-      state.exit_revenue_multiple != null &&
-      state.exit_revenue_multiple > 0 &&
-      state.target_roi_x != null &&
-      state.target_roi_x > 0
-    ) {
-      const exit = state.year5_revenue_projection * state.exit_revenue_multiple
-      const post = exit / state.target_roi_x
-      const round = state.investment_amount_sought ?? 0
-      vcValue = Math.max(0, post - round)
+function prunePreviewCache(): void {
+  if (previewCache.size <= MAX_PREVIEW_CACHE_ENTRIES) return
+  for (const [key, entry] of previewCache) {
+    if (entry.listeners.size === 0 && !entry.promise && !entry.timer) {
+      previewCache.delete(key)
+      if (previewCache.size <= MAX_PREVIEW_CACHE_ENTRIES) return
     }
+  }
+}
 
-    // ── SaaS forward leg ──────────────────────────────────────────
-    // Conservative ARR × stage-default multiple (≈10× SaaS rule).
-    let saasValue: number | null = null
-    if (state.mrr != null && state.mrr > 0) {
-      const arr = state.mrr * 12
-      // 10× ARR is the SaaS forward rule the engine starts from.
-      saasValue = arr * 10
+function schedulePreview(
+  key: string,
+  request: ValuationRequest,
+  fallbackLens: InceptionLens
+): PreviewEntry {
+  const existing = previewCache.get(key)
+  if (existing) return existing
+
+  const entry: PreviewEntry = { listeners: new Set() }
+  entry.timer = setTimeout(() => {
+    entry.timer = undefined
+    entry.promise = backendAPI
+      .calculateStartupPreview(request)
+      .then((response) => {
+        entry.value = valuationIqPreviewToLiveValuation(response, fallbackLens)
+        for (const listener of entry.listeners) listener(entry.value)
+      })
+      .catch(() => {
+        // Fail closed: an unavailable engine produces no preview number. The
+        // canonical report submission remains the explicit retry surface.
+        entry.value = emptyLiveValuation(fallbackLens)
+        for (const listener of entry.listeners) listener(entry.value)
+      })
+      .finally(() => {
+        entry.promise = undefined
+        prunePreviewCache()
+      })
+  }, PREVIEW_DEBOUNCE_MS)
+  previewCache.set(key, entry)
+  prunePreviewCache()
+  return entry
+}
+
+export function useLiveValuation(_benchmark: StartupBenchmarkRow): LiveValuation {
+  const startupState = useStartupValuationStore()
+  const formData = useManualFormStore((state) => state.formData)
+  const fallbackLens = startupState.inception_lens
+
+  const request = useMemo(() => {
+    const countryCode = resolveVentureCountryIso2(formData)
+    const naceCode = formData.nace_code?.trim() || formData.canonical_nace_code?.trim() || ''
+    const startupInputs = {
+      ...startupState.toRequestPayload(),
+      country_code: countryCode,
+      ...(naceCode ? { nace_code: naceCode } : {}),
     }
+    return buildStartupValuationRequest({
+      companyName: formData.company_name ?? 'Unknown Startup',
+      countryCode,
+      currency: formData.currency,
+      industry: formData.industry,
+      businessModel: formData.business_model,
+      foundingYear: formData.founding_year,
+      naceCode: naceCode || undefined,
+      naceDescription: formData.nace_description,
+      businessTypeId: formData.business_type_id,
+      businessTypeSegments: formData.business_type_segments,
+      businessTypeMix: formData.business_type_mix,
+      businessTypeWeights: formData.business_type_weights,
+      businessType: formData.business_type,
+      startupInputs,
+    })
+  }, [formData, startupState])
+  const key = useMemo(() => previewKey(request), [request])
+  const [snapshot, setSnapshot] = useState<{ key: string; value: LiveValuation }>(() => ({
+    key,
+    value: previewCache.get(key)?.value ?? emptyLiveValuation(fallbackLens),
+  }))
 
-    const weights = FOUNDER_WEIGHTS[state.stage]
+  useEffect(() => {
+    const entry = schedulePreview(key, request, fallbackLens)
+    const listener = (value: LiveValuation) => setSnapshot({ key, value })
+    entry.listeners.add(listener)
+    setSnapshot({ key, value: entry.value ?? emptyLiveValuation(fallbackLens) })
 
-    const legs: LiveLeg[] = [
-      {
-        key: 'berkus',
-        label: 'studio.legs.berkus',
-        value: hasAnyBerkusAnswer ? Math.round(berkusValue) : null,
-        ...safeRange(hasAnyBerkusAnswer ? berkusValue : null, 0.15),
-        weight: weights.berkus,
-        unavailable: !hasAnyBerkusAnswer,
-      },
-      {
-        key: 'vc',
-        label: 'studio.legs.vc',
-        value: vcValue != null ? Math.round(vcValue) : null,
-        ...safeRange(vcValue, 0.2),
-        weight: weights.vc,
-        unavailable: vcValue == null,
-      },
-      {
-        key: 'saas_forward',
-        label: 'studio.legs.saas',
-        value: saasValue != null ? Math.round(saasValue) : null,
-        ...safeRange(saasValue, 0.25),
-        weight: weights.saas_forward,
-        unavailable: saasValue == null,
-      },
-    ]
-
-    const normalised = normaliseWeights(legs)
-    const pedigreeMultiplier = calculatePedigreeMultiplier(state.founder_pedigree)
-    const lensSpec = INCEPTION_LENS_OVERLAY[state.inception_lens] ?? {
-      multiplier: 1,
-      bandWidenPct: 0,
-    }
-    const usable = normalised.filter((l) => !l.unavailable && l.value != null)
-    if (usable.length === 0) {
-      return {
-        blended: null,
-        blendedPrePedigree: null,
-        pedigreeMultiplier,
-        inceptionLens: state.inception_lens,
-        inceptionLensMultiplier: lensSpec.multiplier,
-        inceptionLensBandWidenPct: lensSpec.bandWidenPct,
-        blendedPreLens: null,
-        legs: normalised,
-        isEmpty: true,
+    return () => {
+      entry.listeners.delete(listener)
+      if (entry.listeners.size === 0 && entry.timer) {
+        clearTimeout(entry.timer)
+        entry.timer = undefined
+        previewCache.delete(key)
       }
     }
-    const midPre = usable.reduce((sum, l) => sum + (l.value ?? 0) * l.weight, 0)
-    const lowPre = Math.min(...usable.map((l) => l.low ?? 0))
-    const highPre = Math.max(...usable.map((l) => l.high ?? 0))
+  }, [fallbackLens, key, request])
 
-    // Pedigree applied (pre-lens band):
-    const midPedigree = midPre * pedigreeMultiplier
-    const lowPedigree = lowPre * pedigreeMultiplier
-    const highPedigree = highPre * pedigreeMultiplier
-
-    // Inception lens — multiplier lifts the mid uniformly; band-widen
-    // multiplicatively widens the EXISTING leg-spread band so the
-    // engine's "Berkus disagrees with VC by 15×" signal stays visible.
-    // Floor dips (mult × (1 − widen)), ceiling lifts (mult × (1 + widen)).
-    // Mirrors the Python engine's `apply_inception_lens` exactly.
-    const midPostLens = midPedigree * lensSpec.multiplier
-    const lowPostLens = lowPedigree * lensSpec.multiplier * (1 - lensSpec.bandWidenPct)
-    const highPostLens = highPedigree * lensSpec.multiplier * (1 + lensSpec.bandWidenPct)
-
-    return {
-      blended: {
-        low: Math.round(lowPostLens),
-        mid: Math.round(midPostLens),
-        high: Math.round(highPostLens),
-      },
-      blendedPrePedigree: {
-        low: Math.round(lowPre),
-        mid: Math.round(midPre),
-        high: Math.round(highPre),
-      },
-      blendedPreLens: {
-        low: Math.round(lowPedigree),
-        mid: Math.round(midPedigree),
-        high: Math.round(highPedigree),
-      },
-      pedigreeMultiplier,
-      inceptionLens: state.inception_lens,
-      inceptionLensMultiplier: lensSpec.multiplier,
-      inceptionLensBandWidenPct: lensSpec.bandWidenPct,
-      legs: normalised,
-      isEmpty: false,
-    }
-  }, [benchmark.berkus_max_per_milestone_eur, state])
+  return snapshot.key === key ? snapshot.value : emptyLiveValuation(fallbackLens)
 }
 
 export function formatEur(value: number | null): string {

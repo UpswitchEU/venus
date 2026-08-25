@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, RotateCcw, Scale, TrendingUp } from 'lucide-react'
+import { AlertCircle, RotateCcw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -91,7 +91,7 @@ export function SynthesisWeightingSection({
     [methods, displayWeights]
   )
 
-  const { contributionByMethod, contributions, liveBlended } = useMemo(
+  const { contributionByMethod } = useMemo(
     () =>
       buildSynthesisWeightingModel({
         displayWeights,
@@ -350,16 +350,6 @@ export function SynthesisWeightingSection({
                 )}
               </div>
 
-              {/* Weighted contribution indicator (post-calculation) */}
-              {contrib && contrib.contribution != null && w > 0 && (
-                <div className="flex items-center justify-end gap-1.5 pr-0.5">
-                  <TrendingUp className="w-3 h-3 text-primary/50" />
-                  <span className="text-[10px] tabular-nums text-primary/60 font-medium font-mono">
-                    {formatCompactCurrency(contrib.contribution)}
-                  </span>
-                </div>
-              )}
-
               {contrib?.apvBridge && w > 0 && (
                 <div className="flex items-center justify-between gap-2 pr-0.5 text-[10px] text-foreground/45">
                   <span className="truncate">{synth('apvBridge')}</span>
@@ -376,104 +366,6 @@ export function SynthesisWeightingSection({
       {total !== 100 && (
         <div className="text-xs text-destructive font-medium px-1">
           {synth('totalWarning', { total: String(total) })}
-        </div>
-      )}
-
-      {/* Live blended valuation preview */}
-      {liveBlended != null && total === 100 && (
-        <div className="rounded-xl border border-foreground/[0.08] bg-card/[0.6] backdrop-blur-lg px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-1.5">
-            <Scale className="w-3.5 h-3.5 text-foreground/55" />
-            <p className="text-[10px] text-foreground/55 uppercase tracking-wider font-medium">
-              {synth('blendedValue')}
-            </p>
-          </div>
-          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-foreground/90">
-            {formatCompactCurrency(liveBlended)}
-          </p>
-        </div>
-      )}
-
-      {/* Contributions breakdown table (post-calculation) */}
-      {contributions && liveBlended != null && total === 100 && (
-        <div className="rounded-lg border border-foreground/[0.06] bg-muted/30 overflow-x-auto">
-          <table className="w-full text-[11px]">
-            <thead>
-              <tr className="border-b border-foreground/[0.06]">
-                <th
-                  scope="col"
-                  className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-foreground/40"
-                >
-                  {synth('methodCol')}
-                </th>
-                <th
-                  scope="col"
-                  className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap"
-                >
-                  {synth('valueCol')}
-                </th>
-                <th
-                  scope="col"
-                  className="px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40"
-                >
-                  {synth('weight')}
-                </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2 text-right text-[9px] font-semibold uppercase tracking-wider text-foreground/40 whitespace-nowrap"
-                >
-                  {synth('contributionCol')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-foreground/[0.04]">
-              {contributions.map((c) => (
-                <tr key={c.method} className={cn(!c.available && c.weight > 0 && 'opacity-50')}>
-                  <td className="px-3 py-2 text-foreground/70 font-medium truncate max-w-[8rem]">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span className="truncate">{c.label}</span>
-                      {c.apvBridge && (
-                        <span
-                          className="shrink-0 rounded-full bg-primary/[0.08] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-primary/65"
-                          title={c.apvBridge.doubleCountingGuard ?? synth('apvBadgeTooltip')}
-                        >
-                          {synth(
-                            c.apvBridge.isCustomerTemplate ? 'apvCustomerTemplateBasis' : 'apvBasis'
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    {c.apvBridge && (
-                      <div className="mt-0.5 text-[9px] font-normal text-foreground/40">
-                        {synth('apvBridge')} +{formatCompactCurrency(c.apvBridge.taxShield)}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-right tabular-nums font-mono text-foreground/55 whitespace-nowrap">
-                    {c.equity != null ? formatCompactCurrency(c.equity) : '—'}
-                  </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-foreground/55 whitespace-nowrap">
-                    {c.weight}%
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums font-mono font-medium text-foreground/70 whitespace-nowrap">
-                    {c.contribution != null ? formatCompactCurrency(c.contribution) : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-foreground/[0.08] bg-muted/40">
-                <td className="px-3 py-2.5 font-semibold text-foreground/80">
-                  {synth('blendedValue')}
-                </td>
-                <td />
-                <td className="px-2 py-2.5 text-right tabular-nums text-foreground/50">100%</td>
-                <td className="px-3 py-2.5 text-right tabular-nums font-mono font-bold text-primary whitespace-nowrap">
-                  {formatCompactCurrency(liveBlended)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
         </div>
       )}
 

@@ -1,6 +1,5 @@
 import { normalizeRemainderWeights, rebalanceMethodWeights } from '@/constants/methodFieldConfig'
 import type { BusinessTypeSegmentInput } from '../../../types/valuation/request'
-import { computeSegmentWeightedMultiple } from './segmentWeightedMultiple'
 
 export type WeightingMode = 'standard' | 'weighted'
 export type MultipleTypeKey = 'ev_ebitda' | 'ev_revenue' | 'pe'
@@ -336,40 +335,6 @@ function deriveRawHistoricalWeights({
   return normalizeRemainderWeights(yearKeys, out)
 }
 
-function deriveLivePreview({
-  previewBaselineMultiple,
-  previewEffectiveMultiple,
-  previewEbitdaBasis,
-}: {
-  previewBaselineMultiple: number | null
-  previewEffectiveMultiple: number | null
-  previewEbitdaBasis: number | null
-}): AdvancedAdvisorLivePreview | null {
-  if (
-    previewBaselineMultiple == null ||
-    previewEffectiveMultiple == null ||
-    previewEbitdaBasis == null
-  ) {
-    return null
-  }
-  const beforeValue = previewBaselineMultiple * previewEbitdaBasis
-  const afterValue = previewEffectiveMultiple * previewEbitdaBasis
-  const deltaValue = afterValue - beforeValue
-  const deltaPercent = beforeValue === 0 ? null : (deltaValue / beforeValue) * 100
-  const maxValue = Math.max(Math.abs(beforeValue), Math.abs(afterValue), 1)
-
-  return {
-    afterMultiple: previewEffectiveMultiple,
-    afterValue,
-    afterWidth: `${Math.max(8, Math.min(100, (Math.abs(afterValue) / maxValue) * 100))}%`,
-    beforeMultiple: previewBaselineMultiple,
-    beforeValue,
-    beforeWidth: `${Math.max(8, Math.min(100, (Math.abs(beforeValue) / maxValue) * 100))}%`,
-    deltaPercent,
-    deltaValue,
-  }
-}
-
 function deriveActivePreviewChangeKeys({
   adjustment,
   discountWeights,
@@ -431,37 +396,22 @@ export function deriveAdvancedAdvisorControlModel({
   const floorFactor = clampDiscountFloorFactor(discountFloorFactor)
   const discountWeights = deriveDiscountWeights(advisorDiscountWeights)
   const adjustment = multipleCalibrationAdjustment ?? 0
-  const calibratedMultiple =
-    sectorAverageMultiple != null && Number.isFinite(sectorAverageMultiple)
-      ? sectorAverageMultiple + adjustment
-      : null
+  // Advisor controls are request inputs. ValuationIQ applies calibration,
+  // business-type mixtures, and EBITDA to produce monetary outputs.
+  const calibratedMultiple = null
   const previewBaselineMultiple =
     sectorAverageMultiple != null &&
     Number.isFinite(sectorAverageMultiple) &&
     sectorAverageMultiple > 0
       ? sectorAverageMultiple
       : null
-  const segmentWeightedMultiple = computeSegmentWeightedMultiple(businessTypeSegments)
-  const hasSegmentBlend = segmentWeightedMultiple != null
-  const explicitOverride = toFiniteNumber(effectiveMultipleOverride)
-  const previewEffectiveMultiple =
-    explicitOverride != null && explicitOverride > 0
-      ? explicitOverride
-      : segmentWeightedMultiple != null
-        ? adjustment !== 0
-          ? segmentWeightedMultiple + adjustment
-          : segmentWeightedMultiple
-        : calibratedMultiple != null && calibratedMultiple > 0
-          ? calibratedMultiple
-          : null
+  const segmentWeightedMultiple = null
+  const hasSegmentBlend = Boolean(businessTypeSegments?.length)
+  const previewEffectiveMultiple = null
   const previewEbitdaNumber = toFiniteNumber(previewEbitda)
   const previewEbitdaBasis =
     previewEbitdaNumber != null && previewEbitdaNumber > 0 ? previewEbitdaNumber : null
-  const livePreview = deriveLivePreview({
-    previewBaselineMultiple,
-    previewEffectiveMultiple,
-    previewEbitdaBasis,
-  })
+  const livePreview = null
   const activePreviewChangeKeys = deriveActivePreviewChangeKeys({
     adjustment,
     discountWeights,

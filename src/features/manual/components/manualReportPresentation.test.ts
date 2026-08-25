@@ -66,6 +66,8 @@ describe('deriveManualReportPresentation', () => {
       selected_valuation_method: 'upswitch_adaptive',
       weighted_valuation: {
         blended_equity_value: 567_771.4,
+        valuation_range_low: 453_502,
+        valuation_range_high: 616_744,
         contributions: [
           { method_key: 'dcf', equity_value: 616_744, weight: 0.7 },
           { method_key: 'ebitda_multiple', equity_value: 453_502, weight: 0.3 },
@@ -89,7 +91,7 @@ describe('deriveManualReportPresentation', () => {
     expect(presentation.valuationHigh).toBe(616_744)
   })
 
-  it('prefers live client blend over server weighted_valuation', () => {
+  it('ignores a client blend and uses only persisted ValuationIQ synthesis', () => {
     const result: any = {
       weighted_valuation: { blended_equity_value: 500_000 },
       valuation_results: {
@@ -101,7 +103,7 @@ describe('deriveManualReportPresentation', () => {
       clientBlendedValue: 568_000,
     })
 
-    expect(presentation.valuation).toBe(568_000)
+    expect(presentation.valuation).toBe(500_000)
   })
 
   it('falls back to report payload multiple when no method-specific multiple exists', () => {
@@ -173,7 +175,7 @@ describe('deriveManualReportPresentation', () => {
 })
 
 describe('resolveSynthesisAwarePresentation', () => {
-  it('matches VAL-2026 70/30 client blend', () => {
+  it('does not calculate a 70/30 blend in the presentation layer', () => {
     const presentation = resolveSynthesisAwarePresentation(
       {
         valuation_results: {
@@ -188,7 +190,7 @@ describe('resolveSynthesisAwarePresentation', () => {
       }
     )
 
-    expect(presentation.valuation).toBe(567_771)
+    expect(presentation.valuation).toBe(616_744)
   })
 })
 
@@ -202,7 +204,7 @@ describe('shouldAlignRecommendedAskingWithSynthesis', () => {
     ).toBe(true)
   })
 
-  it('returns true for live 70/30 blend before server synthesis is stored', () => {
+  it('returns false for weights before server synthesis is stored', () => {
     expect(
       shouldAlignRecommendedAskingWithSynthesis(
         {
@@ -216,7 +218,7 @@ describe('shouldAlignRecommendedAskingWithSynthesis', () => {
           userWeights: { dcf: 70, ebitda_multiple: 30 },
         }
       )
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('returns false for adaptive-only selection', () => {

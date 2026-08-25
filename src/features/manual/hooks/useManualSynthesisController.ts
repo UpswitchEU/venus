@@ -99,8 +99,8 @@ export function useManualSynthesisController({
         : (reportAskingPrice ?? presentation.valuation)
     return {
       priceRange: {
-        min: presentation.valuationLow ?? report.valuationLow ?? Math.round(primaryValue * 0.85),
-        max: presentation.valuationHigh ?? report.valuationHigh ?? Math.round(primaryValue * 1.15),
+        min: presentation.valuationLow ?? report.valuationLow ?? primaryValue,
+        max: presentation.valuationHigh ?? report.valuationHigh ?? primaryValue,
       },
       askPrice: primaryValue,
       confidence: 'high' as const,

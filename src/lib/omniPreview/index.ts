@@ -12,14 +12,6 @@
 export * from '../saas'
 export * from '../sde'
 export { resolveBookEquityFromYearRow, type YearRowForBookEquity } from './bookEquityFromYearRow'
-export {
-  computeFiscal4xPreview,
-  FISCAL_EBITDA_MULTIPLIER,
-  type Fiscal4xPreviewInputs,
-  type Fiscal4xPreviewMetrics,
-  type Fiscal4xUnavailableReason,
-  type FiscalPreviewEbitdaSource,
-} from './fiscalPreviewMetrics'
 export { coalesceFiniteNumber, toFiniteNumber } from './guards'
 export {
   createManualCurrencyFormatter,
@@ -53,7 +45,6 @@ export {
   resolveCountryTaxLatencyPct,
 } from './navPrefill'
 export {
-  computeEstimatedNav,
   computeGrossPositiveAdjustments,
   computeNavAdjustmentsSum,
   computeTaxLatencyDeduction,

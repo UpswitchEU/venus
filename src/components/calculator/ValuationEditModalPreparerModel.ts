@@ -9,7 +9,7 @@ import {
   type PreparerEbitdaReasonKey,
 } from '../../store/manual/usePreparerMultipleStore'
 import type { MultiplePipelineStage, ValuationResponse, WaterfallStep } from '../../types/valuation'
-import { sumAdjustmentValues, toNumberOrNull } from './ValuationEditModalFormatting'
+import { toNumberOrNull } from './ValuationEditModalFormatting'
 
 export type PreparerConfidenceKey =
   | 'confidenceHigh'
@@ -84,12 +84,6 @@ const PREVIEW_DELTA_THRESHOLD = 0.005
 const TRIVIAL_ENGINE_DISCOUNT_PCT = 0.1
 const DEFAULT_BENCHMARK_MULTIPLE = 5
 const SLIDER_ROUNDING_FACTOR = 20
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
 
 export function buildEngineDiscountSteps(result: ValuationResponse | null): EngineDiscountStep[] {
   const pipeline = result?.multiple_pipeline
@@ -245,41 +239,6 @@ function getSavedPreview(result: ValuationResponse | null, locale: string): stri
     : (savedSummary?.generated_footnote_en ?? savedSummary?.generated_footnote ?? null)
 }
 
-function buildLiveEquityPreview({
-  result,
-  appliedNum,
-  benchmarkNum,
-}: {
-  result: ValuationResponse | null
-  appliedNum: number | null
-  benchmarkNum: number | null
-}): number | null {
-  const resultRecord = (result ?? null) as Record<string, unknown> | null
-  const resultDetails = asRecord(resultRecord?.details) ?? {}
-  const previewNetDebt =
-    toNumberOrNull(resultDetails.net_debt) ?? toNumberOrNull(resultRecord?.net_debt) ?? 0
-  const previewBalanceSheetAdjustments =
-    sumAdjustmentValues(resultDetails.balance_sheet_adjustments) ??
-    sumAdjustmentValues(resultRecord?.balance_sheet_adjustments) ??
-    0
-  const sustainableEbitda =
-    toNumberOrNull(resultDetails.sustainable_ebitda) ??
-    toNumberOrNull(resultDetails.weighted_ebitda_total) ??
-    toNumberOrNull(resultRecord?.ebitda)
-  const previewMultiple =
-    appliedNum != null && Number.isFinite(appliedNum)
-      ? appliedNum
-      : benchmarkNum != null && Number.isFinite(benchmarkNum)
-        ? benchmarkNum
-        : null
-
-  return sustainableEbitda != null && previewMultiple != null && previewMultiple > 0
-    ? Math.round(
-        sustainableEbitda * previewMultiple - previewNetDebt + previewBalanceSheetAdjustments
-      )
-    : null
-}
-
 export function buildValuationEditPreparerModel({
   result,
   benchmarkMedian,
@@ -357,7 +316,9 @@ export function buildValuationEditPreparerModel({
     effectiveDisabled: Boolean(preparerDisabled || nonEbitdaMethodSelected || isMethodPersisting),
     livePreview: buildLivePreviewModel({ benchmarkNum, appliedNum, reasonKey, note }),
     savedPreview: getSavedPreview(result, locale),
-    liveEquityPreview: buildLiveEquityPreview({ result, appliedNum, benchmarkNum }),
+    // The next monetary preview arrives from a ValuationIQ recalculation. Venus
+    // never estimates EBITDA x multiple or the EV-to-equity bridge itself.
+    liveEquityPreview: null,
     activeMetricValue: toNumberOrNull(activeMethodValue),
   }
 }

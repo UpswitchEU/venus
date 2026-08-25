@@ -88,6 +88,9 @@ export function buildSynthesisWeightingModel({
   total: number
   valuationResults?: Record<string, ValuationMethodResult> | null
 }): SynthesisWeightingModel {
+  // `total` remains in the input contract while callers migrate. Venus may
+  // validate weights, but it never turns them into a monetary contribution.
+  void total
   const hasResults = !!valuationResults && Object.keys(valuationResults).length > 0
   if (!hasResults) {
     return {
@@ -108,7 +111,7 @@ export function buildSynthesisWeightingModel({
       label: resolveLabel(method),
       equity,
       weight,
-      contribution: equity != null && weight > 0 ? Math.round(equity * (weight / 100)) : null,
+      contribution: null,
       available: result?.available ?? false,
       unavailableReason: result?.unavailable_reason ?? null,
       apvBridge,
@@ -120,25 +123,9 @@ export function buildSynthesisWeightingModel({
     contributionByMethod[contribution.method] = contribution
   }
 
-  let liveBlended: number | null = null
-  if (total === 100) {
-    let sum = 0
-    let allWeightedMethodsAvailable = true
-    for (const contribution of contributions) {
-      if (contribution.weight <= 0) continue
-      if (!contribution.available || contribution.equity == null) {
-        allWeightedMethodsAvailable = false
-        continue
-      }
-      sum += contribution.equity * (contribution.weight / 100)
-    }
-    liveBlended =
-      allWeightedMethodsAvailable && Number.isFinite(sum) && sum > 0 ? Math.round(sum) : null
-  }
-
   return {
     contributionByMethod,
     contributions,
-    liveBlended,
+    liveBlended: null,
   }
 }

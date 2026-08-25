@@ -50,7 +50,6 @@ describe('ManualReportWorkspace', () => {
         isCalculating={false}
         isGenerating={false}
         isMethodSwitchRendering={false}
-        liveMultipleReportPreview={null}
         onVersionRestore={vi.fn()}
         report={report}
         reportId="report-1"

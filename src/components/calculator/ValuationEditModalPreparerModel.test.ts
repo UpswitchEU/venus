@@ -128,7 +128,7 @@ describe('ValuationEditModalPreparerModel', () => {
       note: 'board approved',
       reasonKey: 'strategic_buyer_premium',
     })
-    expect(model.liveEquityPreview).toBe(490_000)
+    expect(model.liveEquityPreview).toBeNull()
     expect(model.sliderMin).toBe(1.8)
     expect(model.sliderMax).toBe(8.8)
   })

@@ -9,10 +9,7 @@ import {
 } from '@/constants/methodFieldConfig'
 import type { TerminalValueMethod } from '@/lib/methods/dcf/DcfGlobalAssumptionsSectionStack'
 import { shouldMountDcfGlobalAssumptionsSectionStack } from '@/lib/methods/dcf/sectionEligibility'
-import {
-  shouldMountFiscalReferenceSectionStack,
-  shouldShowFiscalReferenceNotice,
-} from '@/lib/methods/fiscal_4x/sectionEligibility'
+import { shouldMountFiscalReferenceSectionStack } from '@/lib/methods/fiscal_4x/sectionEligibility'
 import type { ManualValuationFormData as ValuationFormData } from '@/types/valuation'
 import { getLatestCompleteYearlyFinancial } from '@/utils/yearlyFinancials'
 
@@ -145,7 +142,6 @@ export function AdaptiveSections({
     [formData.yearlyFinancials]
   )
 
-  const showFiscalNotice = shouldShowFiscalReferenceNotice(methods, firmCountryCode)
   const shouldMountFiscalStack = shouldMountFiscalReferenceSectionStack({
     methods,
     firmCountryCode,
@@ -158,7 +154,7 @@ export function AdaptiveSections({
     onTerminalValueMethodChange,
     dcfGlobalStep: sectionHeaderSteps.dcfGlobal,
   })
-  if (sections.length === 0 && !showFiscalNotice) return null
+  if (sections.length === 0) return null
 
   return (
     <>
@@ -183,7 +179,7 @@ export function AdaptiveSections({
         {shouldMountDcfGlobalStack && terminalValueMethod && onTerminalValueMethodChange && (
           <Suspense key="dcf_global_assumptions" fallback={<BonusSectionFallback />}>
             <DcfGlobalAssumptionsSectionStack
-              className={showFiscalNotice ? 'mt-6' : undefined}
+              className={shouldMountFiscalStack ? 'mt-6' : undefined}
               step={sectionHeaderSteps.dcfGlobal as number}
               formData={formData}
               terminalValueMethod={terminalValueMethod}

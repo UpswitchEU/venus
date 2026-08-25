@@ -26,7 +26,7 @@ describe('advancedAdvisorControlsModel', () => {
     expect(Object.values(weights).reduce((sum, weight) => sum + weight, 0)).toBe(100)
   })
 
-  it('derives live preview value movement from a calibration premium', () => {
+  it('transports calibration inputs without calculating a browser-side valuation', () => {
     const model = deriveAdvancedAdvisorControlModel({
       sectorAverageMultiple: 5.5,
       multipleCalibrationAdjustment: 1.25,
@@ -35,17 +35,13 @@ describe('advancedAdvisorControlsModel', () => {
       historicalYears: [2023, 2024, 2025],
     })
 
-    expect(model.calibratedMultiple).toBe(6.75)
-    expect(model.livePreview).toMatchObject({
-      beforeValue: 550_000,
-      afterValue: 675_000,
-      deltaValue: 125_000,
-    })
+    expect(model.calibratedMultiple).toBeNull()
+    expect(model.livePreview).toBeNull()
     expect(model.activePreviewChangeKeys).toContain('livePreviewMultiplePremium')
     expect(model.complete).toBe(true)
   })
 
-  it('lets an explicit effective multiple override win over a segment blend', () => {
+  it('records override and segment inputs without blending their multiples locally', () => {
     const model = deriveAdvancedAdvisorControlModel({
       sectorAverageMultiple: 5.5,
       effectiveMultipleOverride: 7,
@@ -58,9 +54,9 @@ describe('advancedAdvisorControlsModel', () => {
       historicalYears: [2023, 2024, 2025],
     })
 
-    expect(model.segmentWeightedMultiple).toBe(6.8)
-    expect(model.previewEffectiveMultiple).toBe(7)
-    expect(model.livePreview?.afterValue).toBe(700_000)
+    expect(model.segmentWeightedMultiple).toBeNull()
+    expect(model.previewEffectiveMultiple).toBeNull()
+    expect(model.livePreview).toBeNull()
     expect(model.activePreviewChangeKeys).toEqual([
       'livePreviewEffectiveOverride',
       'livePreviewSegmentWeights',

@@ -1,5 +1,4 @@
 import { coalesceFiniteNumber } from '../../../lib/omniPreview'
-import { bestBlendedValue, evaluateSynthesisBlend } from '../../../lib/synthesis/synthesisEngine'
 import type { ValuationMethodResult, ValuationResponse } from '../../../types/valuation'
 import {
   getValuationMethodResultForKey,
@@ -55,7 +54,7 @@ function midpointFromRange(low: unknown, high: unknown): number | null {
 }
 
 export type DeriveManualReportPresentationOpts = {
-  /** Live client blend (current weights); wins over server-persisted synthesis. */
+  /** @deprecated Monetary synthesis is read only from ValuationIQ. */
   clientBlendedValue?: number | null
 }
 
@@ -85,16 +84,9 @@ function readSynthesisHeadlineFromResult(r: ManualReportRecord): number | null {
 
 function readSynthesisRangeFromResult(r: ManualReportRecord): { low?: number; high?: number } {
   const weighted = asRecord(r.weighted_valuation)
-  const contributions = Array.isArray(weighted.contributions) ? weighted.contributions : []
-  const equityValues = contributions
-    .map((row) => coalesceFiniteNumber(asRecord(row).equity_value))
-    .filter((value): value is number => value != null)
-
-  if (equityValues.length >= 2) {
-    return { low: Math.min(...equityValues), high: Math.max(...equityValues) }
-  }
-
-  return {}
+  const low = positiveFiniteNumber(weighted.valuation_range_low)
+  const high = positiveFiniteNumber(weighted.valuation_range_high)
+  return low != null && high != null ? { low, high } : {}
 }
 
 function resolvePreferredMethodKey(
@@ -128,18 +120,10 @@ export function shouldAlignRecommendedAskingWithSynthesis(
   if (resultHasWeightedSynthesisSignal(result as unknown as Record<string, unknown>)) {
     return true
   }
-  return (
-    bestBlendedValue(
-      evaluateSynthesisBlend({
-        result,
-        preSelectedMethods: synthesis.preSelectedMethods,
-        userWeights: synthesis.userWeights,
-      })
-    ) != null
-  )
+  return readSynthesisHeadlineFromResult(asRecord(result)) != null
 }
 
-/** Headline + range using live weights and/or persisted `weighted_valuation`. */
+/** Headline + range copied from persisted ValuationIQ weighted synthesis. */
 export function resolveSynthesisAwarePresentation(
   result: ValuationResponse | null | undefined,
   selectedMethod: string,
@@ -148,14 +132,8 @@ export function resolveSynthesisAwarePresentation(
     userWeights: Record<string, number>
   }
 ): ManualReportPresentation {
-  const blend = bestBlendedValue(
-    evaluateSynthesisBlend({
-      result,
-      preSelectedMethods: synthesis.preSelectedMethods,
-      userWeights: synthesis.userWeights,
-    })
-  )
-  return deriveManualReportPresentation(result, selectedMethod, { clientBlendedValue: blend })
+  void synthesis
+  return deriveManualReportPresentation(result, selectedMethod)
 }
 
 export function deriveManualReportPresentation(
@@ -164,6 +142,7 @@ export function deriveManualReportPresentation(
   opts?: DeriveManualReportPresentationOpts
 ): ManualReportPresentation {
   if (!result) return { valuation: 0 }
+  void opts
   const r = asRecord(result)
 
   const valuationResult = asRecord(r.valuation_result)
@@ -190,17 +169,9 @@ export function deriveManualReportPresentation(
   const methodValueRaw =
     methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? details.equity_value_mid
 
-  const clientBlend =
-    opts?.clientBlendedValue != null &&
-    Number.isFinite(opts.clientBlendedValue) &&
-    opts.clientBlendedValue > 0
-      ? opts.clientBlendedValue
-      : null
-  const serverSynthesis =
-    resultHasWeightedSynthesisSignal(r) || clientBlend != null
-      ? readSynthesisHeadlineFromResult(r)
-      : null
-  const synthesisHeadline = clientBlend ?? serverSynthesis
+  const synthesisHeadline = resultHasWeightedSynthesisSignal(r)
+    ? readSynthesisHeadlineFromResult(r)
+    : null
   const synthesisRange = synthesisHeadline != null ? readSynthesisRangeFromResult(r) : {}
 
   const valuationLowRaw =
@@ -240,15 +211,11 @@ export function deriveManualReportPresentation(
     valuationLow:
       valuationLowRaw != null
         ? coalesceFiniteNumber(valuationLowRaw)
-        : valuation != null && Number.isFinite(valuation)
-          ? Math.round(valuation * 0.8)
-          : undefined,
+        : undefined,
     valuationHigh:
       valuationHighRaw != null
         ? coalesceFiniteNumber(valuationHighRaw)
-        : valuation != null && Number.isFinite(valuation)
-          ? Math.round(valuation * 1.2)
-          : undefined,
+        : undefined,
     multiple: multipleRaw != null ? coalesceFiniteNumber(multipleRaw) : undefined,
     multipleRange:
       multipleLowRaw != null && multipleHighRaw != null
@@ -289,11 +256,11 @@ export function deriveNavPricesForVersionNav(
       min:
         valuationLow != null && Number.isFinite(valuationLow)
           ? valuationLow
-          : Math.round(valuation * 0.85),
+          : valuation,
       max:
         valuationHigh != null && Number.isFinite(valuationHigh)
           ? valuationHigh
-          : Math.round(valuation * 1.15),
+          : valuation,
     },
     askPrice,
   }

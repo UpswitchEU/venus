@@ -1,5 +1,4 @@
 import type { BusinessModel, ValuationFormData, YearDataInput } from './request'
-import type { ValuationResponse } from './response'
 
 // -----------------------------------------------------------------------------
 // Manual calculator (`ManualInputPanel`) — do not duplicate engine fields
@@ -86,13 +85,3 @@ export interface ManualValuationFormUiBase {
  * plus the UI base. Add new server/engine form keys to `ValuationFormData` only.
  */
 export type ManualValuationFormData = Partial<ValuationFormData> & ManualValuationFormUiBase
-
-export interface QuickValuationRequest {
-  revenue: number
-  ebitda: number
-  industry: string
-  country_code: string
-}
-
-// Quick valuation uses same response format as full valuation
-export type QuickValuationResponse = ValuationResponse
