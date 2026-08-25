@@ -21,6 +21,7 @@ import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '
 import type { ValuationResponse } from '../../types/valuation'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
+import { promoteSavedReportIdentity } from '../../utils/reportIdentityPromotion'
 
 const logger = createContextLogger('ReportAssetService')
 
@@ -121,7 +122,10 @@ export class ReportAssetService {
     }
   }
 
-  private async _saveReportAssetsInternal(reportId: string, assets: ReportAssets): Promise<void> {
+  private async _saveReportAssetsInternal(
+    reportId: string,
+    assets: ReportAssets
+  ): Promise<void> {
     const startTime = performance.now()
 
     try {
@@ -185,9 +189,18 @@ export class ReportAssetService {
         name: assets.name,
       })
       const putResultDuration = performance.now() - putResultStartTime
+      const identity = promoteSavedReportIdentity({
+        previousId: reportId,
+        response: saveResponse,
+        valuationResult: assets.valuationResult,
+      })
+      const canonicalReportId = identity.reportId ?? reportId
 
       logger.info('Complete report package saved successfully (PUT /result)', {
         reportId,
+        canonicalReportId,
+        sessionKey: identity.sessionKey ?? null,
+        engineRunId: identity.engineRunId ?? null,
         hasSessionData: !!assets.sessionData,
         hasValuationResult: !!assets.valuationResult,
         hasHtmlReport: !!assets.htmlReport,
@@ -239,8 +252,15 @@ export class ReportAssetService {
         // `/reports/by-session/<new-val-id>` forever and the skeleton never
         // resolved.
         if (authoritativeSession) {
-          globalSessionCache.set(reportId, authoritativeSession)
-          useSessionStore.getState().hydrateSession(authoritativeSession)
+          const canonicalSession = {
+            ...authoritativeSession,
+            reportId: canonicalReportId,
+          }
+          globalSessionCache.set(canonicalReportId, canonicalSession)
+          if (canonicalReportId !== reportId) {
+            globalSessionCache.set(reportId, canonicalSession)
+          }
+          useSessionStore.getState().hydrateSession(canonicalSession)
         }
 
         const needsImmediateReload =
@@ -249,7 +269,7 @@ export class ReportAssetService {
           saveResponse.reportReady === false
 
         if (!needsImmediateReload) {
-          sessionService.revalidateSessionInBackground(reportId)
+          sessionService.revalidateSessionInBackground(canonicalReportId)
           logger.info(
             '[ReportAssetService] Cache updated from authoritative PUT /result response',
             {
@@ -265,9 +285,10 @@ export class ReportAssetService {
           // stale entry first. We restore it below if the reload succeeds,
           // and leave the previous (pre-save) cache intact if the reload
           // fails so the page can keep rendering the same reportId.
-          const preSaveCache = globalSessionCache.get(reportId)
-          globalSessionCache.remove(reportId)
-          let freshSession = await sessionService.loadSession(reportId)
+          const preSaveCache =
+            globalSessionCache.get(canonicalReportId) ?? globalSessionCache.get(reportId)
+          globalSessionCache.remove(canonicalReportId)
+          let freshSession = await sessionService.loadSession(canonicalReportId)
 
           if (freshSession && freshSession.reportReady === false) {
             logger.warn(
@@ -276,12 +297,13 @@ export class ReportAssetService {
                 reportId,
               }
             )
-            freshSession = await sessionService.loadSession(reportId)
+            freshSession = await sessionService.loadSession(canonicalReportId)
           }
 
           if (freshSession) {
-            globalSessionCache.set(reportId, freshSession)
-            useSessionStore.getState().hydrateSession(freshSession)
+            const canonicalFreshSession = { ...freshSession, reportId: canonicalReportId }
+            globalSessionCache.set(canonicalReportId, canonicalFreshSession)
+            useSessionStore.getState().hydrateSession(canonicalFreshSession)
             logger.info('[ReportAssetService] Cache updated from immediate post-save reload', {
               reportId,
               reloadDuration_ms: (performance.now() - reloadStartTime).toFixed(2),
@@ -294,7 +316,7 @@ export class ReportAssetService {
             // its session state and we don't trigger the bootstrap fallback
             // that mints a fresh `val_<timestamp>_v<rand>` reportId.
             if (preSaveCache) {
-              globalSessionCache.set(reportId, preSaveCache)
+              globalSessionCache.set(canonicalReportId, preSaveCache)
             }
             logger.error(
               '[ReportAssetService] Failed to reload session after report save - restored pre-save cache',

@@ -40,7 +40,12 @@ export interface SaveValuationResponse {
 
 export interface SaveValuationResultResponse {
   success: boolean
+  /** Durable Titan valuation_reports UUID. */
   reportId?: string
+  /** Temporary Venus draft identifier. */
+  sessionKey?: string
+  /** ValuationIQ run identifier; always val_* when present. */
+  engineRunId?: string
   message: string
   reportReady?: boolean
   session?: ValuationSession

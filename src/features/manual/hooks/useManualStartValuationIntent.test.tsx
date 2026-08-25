@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ValuationFormData } from '../../../components/calculator'
 import {
+  START_VALUATION_RESERVATION_TTL_MS,
   startValuationIntentStorageKey,
   urlWithoutStartValuationIntent,
   useManualStartValuationIntent,
@@ -22,7 +23,11 @@ const readyData = {
 describe('useManualStartValuationIntent', () => {
   beforeEach(() => {
     window.sessionStorage.clear()
-    window.history.replaceState(null, '', '/nl/reports/val_1_demo?intent=start_valuation&source=mercury')
+    window.history.replaceState(
+      null,
+      '',
+      '/nl/reports/val_1_demo?intent=start_valuation&source=mercury'
+    )
   })
 
   it('waits for delegated context and prefill, then starts exactly once', async () => {
@@ -78,6 +83,84 @@ describe('useManualStartValuationIntent', () => {
 
     await waitFor(() => expect(window.location.search).toBe('?source=mercury'))
     expect(onStart).not.toHaveBeenCalled()
+  })
+
+  it('releases the reservation after a failed start so a new explicit CTA can retry', async () => {
+    const onStart = vi.fn().mockRejectedValue(new Error('engine unavailable'))
+    renderHook(() =>
+      useManualStartValuationIntent({
+        accountantCustomerId: 'client-1',
+        buildSubmitData: () => readyData,
+        effectiveMethod: 'upswitch_adaptive',
+        hasExistingValuation: false,
+        intent: 'start_valuation',
+        isAccountantMode: true,
+        isCalculating: false,
+        isGenerating: false,
+        onStart,
+        reportId: 'val_1_demo',
+        restorationComplete: true,
+      })
+    )
+
+    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem(startValuationIntentStorageKey('val_1_demo'))).toBeNull()
+    )
+  })
+
+  it('does not duplicate an in-flight start after refresh', async () => {
+    const onStart = vi.fn().mockResolvedValue(undefined)
+    const storageKey = startValuationIntentStorageKey('val_1_demo')
+    window.sessionStorage.setItem(storageKey, `reserved:${Date.now()}`)
+
+    renderHook(() =>
+      useManualStartValuationIntent({
+        accountantCustomerId: 'client-1',
+        buildSubmitData: () => readyData,
+        effectiveMethod: 'upswitch_adaptive',
+        hasExistingValuation: false,
+        intent: 'start_valuation',
+        isAccountantMode: true,
+        isCalculating: false,
+        isGenerating: false,
+        onStart,
+        reportId: 'val_1_demo',
+        restorationComplete: true,
+      })
+    )
+
+    await waitFor(() => expect(window.location.search).toBe('?source=mercury'))
+    expect(onStart).not.toHaveBeenCalled()
+    expect(window.sessionStorage.getItem(storageKey)).toMatch(/^reserved:\d+$/)
+  })
+
+  it('recovers an abandoned reservation when the advisor clicks the CTA again', async () => {
+    const onStart = vi.fn().mockResolvedValue(undefined)
+    const storageKey = startValuationIntentStorageKey('val_1_demo')
+    window.sessionStorage.setItem(
+      storageKey,
+      `reserved:${Date.now() - START_VALUATION_RESERVATION_TTL_MS - 1}`
+    )
+
+    renderHook(() =>
+      useManualStartValuationIntent({
+        accountantCustomerId: 'client-1',
+        buildSubmitData: () => readyData,
+        effectiveMethod: 'upswitch_adaptive',
+        hasExistingValuation: false,
+        intent: 'start_valuation',
+        isAccountantMode: true,
+        isCalculating: false,
+        isGenerating: false,
+        onStart,
+        reportId: 'val_1_demo',
+        restorationComplete: true,
+      })
+    )
+
+    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(window.sessionStorage.getItem(storageKey)).toBe('complete'))
   })
 
   it('removes only the one-shot intent from the current URL', () => {
