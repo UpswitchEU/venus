@@ -343,7 +343,7 @@ function applyFinancialPrefill(
     source_kind?: string
     source_synced_at?: string | null
     source_digest?: string
-    quality_state?: string
+    quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review'
     eligibility_reason?: string
     attestation_id?: string
   }> = []
@@ -369,11 +369,17 @@ function applyFinancialPrefill(
           ...(typeof data.source_synced_at === 'string' || data.source_synced_at === null
             ? { source_synced_at: data.source_synced_at }
             : {}),
-          ...(typeof data.source_digest === 'string'
-            ? { source_digest: data.source_digest }
-            : {}),
-          ...(typeof data.quality_state === 'string'
-            ? { quality_state: data.quality_state }
+          ...(typeof data.source_digest === 'string' ? { source_digest: data.source_digest } : {}),
+          ...(['ready', 'needs_review', 'blocked', 'attested_review'].includes(
+            String(data.quality_state)
+          )
+            ? {
+                quality_state: data.quality_state as
+                  | 'ready'
+                  | 'needs_review'
+                  | 'blocked'
+                  | 'attested_review',
+              }
             : {}),
           ...(typeof data.eligibility_reason === 'string'
             ? { eligibility_reason: data.eligibility_reason }

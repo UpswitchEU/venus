@@ -212,6 +212,7 @@ describe('useBootstrapPrefill imported accounting and fallback surfaces', () => 
         financials: {
           revenue: 1_500_000,
           ebitda: 250_000,
+          dataSource: 'exact',
           employeeCount: 12,
           importQuality,
           importedLedgerAnalysis,
@@ -249,6 +250,7 @@ describe('useBootstrapPrefill imported accounting and fallback surfaces', () => 
       ])
 
       expect(useImportQualityStore.getState().importQuality).toEqual(importQuality)
+      expect(useImportQualityStore.getState().provider).toBe('exact')
     })
   })
 

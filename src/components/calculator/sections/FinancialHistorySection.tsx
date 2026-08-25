@@ -5,9 +5,9 @@ import { Plus } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { trackFinancialsStepViewed } from '@/lib/analytics'
 import { useImportQualityStore } from '@/store/useImportQualityStore'
-import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
 import {
@@ -18,6 +18,7 @@ import {
 import { hasExplicitNumericValue as hasExplicitFinancialValue } from '../../../utils/yearlyFinancials'
 import type { FieldHelpContext } from '../FieldHelpTrigger'
 import { FilingYearPrompt } from '../FilingYearPrompt'
+import { useVenusClientValuationReadiness } from '../hooks/useVenusClientValuationReadiness'
 import type { ManualInputFieldValidation } from '../utils/manualInputFieldValidation'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 import type { UpdateManualYearlyFinancials } from '../utils/manualYearlyFinancialUpdates'
@@ -27,7 +28,6 @@ import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
 import type { DcfSmartDefaults, WaccSectorBand } from './dcfSmartDefaults'
 import { EmbeddedDcfControls } from './EmbeddedDcfControls'
 import { HistoricalYearCard } from './HistoricalYearCard'
-import { useVenusClientValuationReadiness } from '../hooks/useVenusClientValuationReadiness'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 import { NormalizedEbitdaSummary } from './NormalizedEbitdaSummary'
 
@@ -130,11 +130,13 @@ export function FinancialHistorySection({
   const importedProvider = useImportQualityStore((state) => state.provider)
   const importQuality = useImportQualityStore((state) => state.importQuality)
   const sourceProvider = readiness?.source.provider ?? liveImportProviderName ?? importedProvider
-  const sourceSyncedAt = readiness?.source.synced_at ?? Object.values(importQuality ?? {})
-    .map((quality) => quality.source_provenance?.fetched_at ?? quality.fetched_at)
-    .filter((value): value is string => typeof value === 'string')
-    .sort()
-    .at(-1)
+  const sourceSyncedAt =
+    readiness?.source.synced_at ??
+    Object.values(importQuality ?? {})
+      .map((quality) => quality.source_provenance?.fetched_at ?? quality.fetched_at)
+      .filter((value): value is string => typeof value === 'string')
+      .sort()
+      .at(-1)
   const reviewIssuesByYear = new Map(
     (readiness?.issues ?? [])
       .filter((issue) => typeof issue.fiscal_year === 'number')
@@ -155,8 +157,7 @@ export function FinancialHistorySection({
       }
     }
     window.addEventListener('venus:financial-review-required', handleReviewRequired)
-    return () =>
-      window.removeEventListener('venus:financial-review-required', handleReviewRequired)
+    return () => window.removeEventListener('venus:financial-review-required', handleReviewRequired)
   }, [financialsStepRef])
   const resyncSilverfin = async () => {
     if (!clientId || isResyncing) return

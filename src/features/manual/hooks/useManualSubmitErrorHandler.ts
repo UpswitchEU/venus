@@ -61,10 +61,7 @@ export function useManualSubmitErrorHandler({
         return
       }
 
-      if (
-        error instanceof ValidationError &&
-        error.context?.code === 'FINANCIAL_REVIEW_REQUIRED'
-      ) {
+      if (error instanceof ValidationError && error.context?.code === 'FINANCIAL_REVIEW_REQUIRED') {
         window.dispatchEvent(
           new CustomEvent('venus:financial-review-required', {
             detail: { fiscalYear: error.context.fiscalYear },

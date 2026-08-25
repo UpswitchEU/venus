@@ -114,6 +114,24 @@ describe('useManualSubmitErrorHandler', () => {
     expect(toast.error).not.toHaveBeenCalled()
   })
 
+  it('focuses the affected financial year inline instead of showing a terminal toast', () => {
+    const listener = vi.fn()
+    window.addEventListener('venus:financial-review-required', listener)
+
+    callHandler(
+      new ValidationError('Review imported expenses', undefined, undefined, {
+        status: 409,
+        code: 'FINANCIAL_REVIEW_REQUIRED',
+        fiscalYear: 2024,
+      })
+    )
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect((listener.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({ fiscalYear: 2024 })
+    expect(toast.error).not.toHaveBeenCalled()
+    window.removeEventListener('venus:financial-review-required', listener)
+  })
+
   describe('BENCHMARK_CONTRACT_REQUIRED', () => {
     it('renders the dedicated i18n keys and a Retry action when Titan returns 422', () => {
       const error = new ValidationError('A business type is required', undefined, undefined, {
