@@ -15,6 +15,7 @@ import { FieldHelpTrigger } from '../FieldHelpTrigger'
 import type { ManualInputFieldValidation } from '../utils/manualInputFieldValidation'
 import type { ManualInputNormalizedYear } from '../utils/manualInputNormalizedData'
 import type { UpdateManualYearlyFinancials } from '../utils/manualYearlyFinancialUpdates'
+import { canOfferSourceBoundHighMarginAttestation } from './highMarginAttestationEligibility'
 import { NbbResetHint } from './NbbResetHint'
 
 interface HistoricalYearCardProps {
@@ -78,11 +79,12 @@ export function HistoricalYearCard({
     !yearData.isForecast &&
     (yearData.eligibility_reason === 'extreme_margin_unattested' ||
       readinessIssue?.reason_code === 'extreme_margin_unattested')
-  const canAttestHighMargin =
-    requiresHighMarginReview &&
-    yearData.source_provider === 'silverfin' &&
-    typeof yearData.source_digest === 'string' &&
-    readinessIssue?.supports_attestation === true
+  const canAttestHighMargin = canOfferSourceBoundHighMarginAttestation({
+    requiresReview: requiresHighMarginReview,
+    sourceProvider: yearData.source_provider,
+    sourceDigest: yearData.source_digest,
+    titanSupportsAttestation: readinessIssue?.supports_attestation,
+  })
   const reviewCopy =
     locale === 'nl'
       ? {

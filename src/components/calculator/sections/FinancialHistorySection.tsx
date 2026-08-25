@@ -143,6 +143,13 @@ export function FinancialHistorySection({
       .filter((issue) => typeof issue.fiscal_year === 'number')
       .map((issue) => [issue.fiscal_year as number, issue])
   )
+  const reviewIssueCount = reviewIssuesByYear.size || readiness?.issues.length || 0
+  const reviewIssueLabel =
+    locale === 'nl'
+      ? `${reviewIssueCount} ${reviewIssueCount === 1 ? 'boekjaar controleren' : 'boekjaren controleren'}`
+      : locale === 'fr'
+        ? `${reviewIssueCount} ${reviewIssueCount === 1 ? 'exercice à contrôler' : 'exercices à contrôler'}`
+        : `${reviewIssueCount} ${reviewIssueCount === 1 ? 'fiscal year to review' : 'fiscal years to review'}`
   const [isResyncing, setIsResyncing] = useState(false)
   const [recoveryError, setRecoveryError] = useState<string | null>(null)
   const [locallyBlockedYear, setLocallyBlockedYear] = useState<number | null>(null)
@@ -239,14 +246,10 @@ export function FinancialHistorySection({
               ).format(new Date(sourceSyncedAt))}
             </span>
           ) : null}
-          {readiness?.state === 'review_required' || reviewIssuesByYear.size > 0 ? (
+          {readiness?.state === 'review_required' || reviewIssueCount > 0 ? (
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-primary/15 pt-2">
               <span className="font-medium text-amber-700 dark:text-amber-300">
-                {locale === 'nl'
-                  ? `${reviewIssuesByYear.size || readiness.issues.length} boekjaren controleren`
-                  : locale === 'fr'
-                    ? `${reviewIssuesByYear.size || readiness.issues.length} exercices à contrôler`
-                    : `${reviewIssuesByYear.size || readiness.issues.length} fiscal years to review`}
+                {reviewIssueLabel}
               </span>
               {sourceLabel.toLowerCase() === 'silverfin' ? (
                 <button
