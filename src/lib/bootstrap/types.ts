@@ -147,6 +147,14 @@ export interface PartialFinancials {
       revenue?: number
       ebitda?: number
       netIncome?: number
+      source_provider?: string
+      source_kind?: string
+      source_synced_at?: string | null
+      source_digest?: string
+      quality_state?: string
+      eligibility_reason?: string
+      attestation_id?: string
+      [key: string]: unknown
     }
   }
   importQuality?: Record<string, unknown>

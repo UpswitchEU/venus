@@ -79,7 +79,7 @@ function assertPlausibleImportedEbitdaMargin({
   throw new ValidationError(
     'EBITDA is almost equal to revenue. Review the imported expenses before generating the valuation report.',
     'current_year_data.ebitda',
-    { fiscalYear, revenue, ebitda, margin }
+    { code: 'FINANCIAL_REVIEW_REQUIRED', fiscalYear, revenue, ebitda, margin }
   )
 }
 

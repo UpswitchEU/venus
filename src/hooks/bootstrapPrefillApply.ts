@@ -283,10 +283,21 @@ function applyFinancialPrefill(
     Object.keys(financials.importQuality).length > 0
   ) {
     const existingProvider = useImportQualityStore.getState().provider
+    const qualityRows = Object.values(
+      financials.importQuality as Record<string, ImportQualityPerYear>
+    )
+    const provenanceProvider = qualityRows.find(
+      (quality) => typeof quality.source_provenance?.provider === 'string'
+    )?.source_provenance?.provider
+    const importedProvider =
+      provenanceProvider ??
+      (typeof financials.dataSource === 'string' && financials.dataSource.trim()
+        ? financials.dataSource.trim().toLowerCase()
+        : existingProvider)
     useImportQualityStore
       .getState()
       .setImportQuality(financials.importQuality as Record<string, ImportQualityPerYear>, {
-        provider: existingProvider,
+        provider: importedProvider,
       })
   }
   if (financials.saasMetrics) {
@@ -324,17 +335,52 @@ function applyFinancialPrefill(
     }
   }
 
-  const historicalYears: Array<{ year: number; revenue: number; ebitda: number }> = []
+  const historicalYears: Array<{
+    year: number
+    revenue: number
+    ebitda: number
+    source_provider?: string
+    source_kind?: string
+    source_synced_at?: string | null
+    source_digest?: string
+    quality_state?: string
+    eligibility_reason?: string
+    attestation_id?: string
+  }> = []
   if (financials.yearData && Object.keys(financials.yearData).length > 0) {
     Object.entries(financials.yearData).forEach(([yearStr, data]) => {
       const year = parseInt(yearStr, 10)
       const hasFiniteRevenue = data?.revenue != null && Number.isFinite(Number(data.revenue))
       const hasFiniteEbitda = data?.ebitda != null && Number.isFinite(Number(data.ebitda))
       if (year >= 2000 && year <= 2100 && (hasFiniteRevenue || hasFiniteEbitda)) {
+        const sourceProvider =
+          typeof data.source_provider === 'string'
+            ? data.source_provider
+            : typeof financials.dataSource === 'string' &&
+                financials.dataSource !== 'accounting_integration'
+              ? financials.dataSource
+              : undefined
         historicalYears.push({
           year,
           revenue: data.revenue ?? 0,
           ebitda: data.ebitda ?? 0,
+          ...(sourceProvider ? { source_provider: sourceProvider.toLowerCase() } : {}),
+          ...(typeof data.source_kind === 'string' ? { source_kind: data.source_kind } : {}),
+          ...(typeof data.source_synced_at === 'string' || data.source_synced_at === null
+            ? { source_synced_at: data.source_synced_at }
+            : {}),
+          ...(typeof data.source_digest === 'string'
+            ? { source_digest: data.source_digest }
+            : {}),
+          ...(typeof data.quality_state === 'string'
+            ? { quality_state: data.quality_state }
+            : {}),
+          ...(typeof data.eligibility_reason === 'string'
+            ? { eligibility_reason: data.eligibility_reason }
+            : {}),
+          ...(typeof data.attestation_id === 'string'
+            ? { attestation_id: data.attestation_id }
+            : {}),
         })
       }
     })
@@ -357,11 +403,10 @@ function applyFinancialPrefill(
       const currentYearRow = safeHistoricalYears[0]
       allData.historical_years_data = safeHistoricalYears.slice(1)
       allData.current_year_data = {
-        year: currentYearRow.year,
-        revenue: currentYearRow.revenue,
-        ebitda: currentYearRow.ebitda,
+        ...currentYearRow,
       }
       allData.yearlyFinancials = safeHistoricalYears.map((row) => ({
+        ...row,
         year: String(row.year),
         revenue: Number.isFinite(Number(row.revenue)) ? Number(row.revenue) : 0,
         ebitda: Number.isFinite(Number(row.ebitda)) ? Number(row.ebitda) : 0,

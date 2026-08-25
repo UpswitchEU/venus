@@ -61,6 +61,21 @@ export function useManualSubmitErrorHandler({
         return
       }
 
+      if (
+        error instanceof ValidationError &&
+        error.context?.code === 'FINANCIAL_REVIEW_REQUIRED'
+      ) {
+        window.dispatchEvent(
+          new CustomEvent('venus:financial-review-required', {
+            detail: { fiscalYear: error.context.fiscalYear },
+          })
+        )
+        generalLogger.info('[ManualValuationWorkspace] Financial review required', {
+          fiscalYear: error.context.fiscalYear,
+        })
+        return
+      }
+
       if (error instanceof ValidationError && error.context?.code === 'EXTREME_MULTIPLE') {
         toast.error(translatePreparer('extremeServerToast'), {
           description: error.message,

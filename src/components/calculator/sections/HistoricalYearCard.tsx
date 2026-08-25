@@ -35,6 +35,7 @@ interface HistoricalYearCardProps {
   partialYears: string[]
   updateYearlyFinancials: UpdateManualYearlyFinancials
   yearData: YearlyFinancials
+  readinessIssue?: { reason_code?: string; supports_attestation?: boolean }
 }
 
 export function HistoricalYearCard({
@@ -51,6 +52,7 @@ export function HistoricalYearCard({
   partialYears,
   updateYearlyFinancials,
   yearData,
+  readinessIssue,
 }: HistoricalYearCardProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
@@ -74,9 +76,13 @@ export function HistoricalYearCard({
     : false
   const requiresHighMarginReview =
     !yearData.isForecast &&
+    (yearData.eligibility_reason === 'extreme_margin_unattested' ||
+      readinessIssue?.reason_code === 'extreme_margin_unattested')
+  const canAttestHighMargin =
+    requiresHighMarginReview &&
     yearData.source_provider === 'silverfin' &&
-    yearData.eligibility_reason === 'extreme_margin_unattested' &&
-    typeof yearData.source_digest === 'string'
+    typeof yearData.source_digest === 'string' &&
+    readinessIssue?.supports_attestation !== false
   const reviewCopy =
     locale === 'nl'
       ? {
@@ -110,7 +116,8 @@ export function HistoricalYearCard({
       setAttestationError(reviewCopy.missingClient)
       return
     }
-    if (!yearData.source_digest || attestationRationale.trim().length < 12) return
+    if (!canAttestHighMargin || !yearData.source_digest || attestationRationale.trim().length < 12)
+      return
     setAttesting(true)
     setAttestationError(null)
     try {
@@ -286,23 +293,27 @@ export function HistoricalYearCard({
             {reviewCopy.title}
           </p>
           <p className="mt-1 text-[11px] leading-5 text-foreground/65">{reviewCopy.body}</p>
-          <textarea
-            className="mt-2 min-h-20 w-full rounded-md border bg-background px-2.5 py-2 text-xs"
-            value={attestationRationale}
-            onChange={(event) => setAttestationRationale(event.target.value)}
-            placeholder={reviewCopy.placeholder}
-          />
-          {attestationError ? (
-            <p className="mt-1 text-[11px] text-destructive">{attestationError}</p>
+          {canAttestHighMargin ? (
+            <>
+              <textarea
+                className="mt-2 min-h-20 w-full rounded-md border bg-background px-2.5 py-2 text-xs"
+                value={attestationRationale}
+                onChange={(event) => setAttestationRationale(event.target.value)}
+                placeholder={reviewCopy.placeholder}
+              />
+              {attestationError ? (
+                <p className="mt-1 text-[11px] text-destructive">{attestationError}</p>
+              ) : null}
+              <button
+                type="button"
+                className="mt-2 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                disabled={attesting || attestationRationale.trim().length < 12}
+                onClick={() => void attestHighMargin()}
+              >
+                {attesting ? '…' : reviewCopy.confirm}
+              </button>
+            </>
           ) : null}
-          <button
-            type="button"
-            className="mt-2 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-            disabled={attesting || attestationRationale.trim().length < 12}
-            onClick={() => void attestHighMargin()}
-          >
-            {attesting ? '…' : reviewCopy.confirm}
-          </button>
         </div>
       ) : null}
 

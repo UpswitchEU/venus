@@ -54,6 +54,16 @@ export interface ImportQualityPerYear {
   accounts_fallback: number
   accounts_skipped: number
   fetched_at?: string | null
+  source_provenance?: {
+    provider?: string | null
+    period_id?: string | null
+    period_start_date?: string | null
+    period_end_date?: string | null
+    is_year_end?: boolean
+    is_partial_period?: boolean
+    source_digest?: string | null
+    fetched_at?: string | null
+  } | null
   /** Raw ledger rows that fell back / were unmapped in Hermes. */
   unmapped_ledger_lines?: Array<{ account_code: string; description: string }>
   ai_enrichment?: ImportQualityAiEnrichment

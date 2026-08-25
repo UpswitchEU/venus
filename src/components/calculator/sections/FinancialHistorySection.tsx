@@ -2,10 +2,12 @@
 
 import { motion } from 'framer-motion'
 import { Plus } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import type React from 'react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { trackFinancialsStepViewed } from '@/lib/analytics'
+import { useImportQualityStore } from '@/store/useImportQualityStore'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
 import {
@@ -25,6 +27,7 @@ import type { DcfProjectionPreviewRow } from './dcfProjectionPreview'
 import type { DcfSmartDefaults, WaccSectorBand } from './dcfSmartDefaults'
 import { EmbeddedDcfControls } from './EmbeddedDcfControls'
 import { HistoricalYearCard } from './HistoricalYearCard'
+import { useVenusClientValuationReadiness } from '../hooks/useVenusClientValuationReadiness'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 import { NormalizedEbitdaSummary } from './NormalizedEbitdaSummary'
 
@@ -122,6 +125,64 @@ export function FinancialHistorySection({
   waccSectorBand,
 }: FinancialHistorySectionProps) {
   const mi = useTranslations('manualInput')
+  const locale = useLocale()
+  const { clientId, readiness } = useVenusClientValuationReadiness()
+  const importedProvider = useImportQualityStore((state) => state.provider)
+  const importQuality = useImportQualityStore((state) => state.importQuality)
+  const sourceProvider = readiness?.source.provider ?? liveImportProviderName ?? importedProvider
+  const sourceSyncedAt = readiness?.source.synced_at ?? Object.values(importQuality ?? {})
+    .map((quality) => quality.source_provenance?.fetched_at ?? quality.fetched_at)
+    .filter((value): value is string => typeof value === 'string')
+    .sort()
+    .at(-1)
+  const reviewIssuesByYear = new Map(
+    (readiness?.issues ?? [])
+      .filter((issue) => typeof issue.fiscal_year === 'number')
+      .map((issue) => [issue.fiscal_year as number, issue])
+  )
+  const [isResyncing, setIsResyncing] = useState(false)
+  const [locallyBlockedYear, setLocallyBlockedYear] = useState<number | null>(null)
+  useEffect(() => {
+    const handleReviewRequired = (event: Event) => {
+      const detail = (event as CustomEvent<{ fiscalYear?: unknown }>).detail
+      const year = Number(detail?.fiscalYear)
+      setLocallyBlockedYear(Number.isFinite(year) ? year : null)
+      if (financialsStepRef.current) {
+        scrollElementIntoManualLayout(financialsStepRef.current, {
+          behavior: 'smooth',
+          block: 'start',
+        })
+      }
+    }
+    window.addEventListener('venus:financial-review-required', handleReviewRequired)
+    return () =>
+      window.removeEventListener('venus:financial-review-required', handleReviewRequired)
+  }, [financialsStepRef])
+  const resyncSilverfin = async () => {
+    if (!clientId || isResyncing) return
+    setIsResyncing(true)
+    try {
+      await fetch(`/api/integrations/accounting/resync-client/${encodeURIComponent(clientId)}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      })
+    } finally {
+      setIsResyncing(false)
+    }
+  }
+  const sourceCopy =
+    locale === 'nl'
+      ? { prefix: 'Vooraf ingevuld uit', synced: 'gesynchroniseerd' }
+      : locale === 'fr'
+        ? { prefix: 'Prérempli depuis', synced: 'synchronisé' }
+        : { prefix: 'Prefilled from', synced: 'synced' }
+  const sourceLabel = sourceProvider
+    ? sourceProvider.toLowerCase() === 'silverfin'
+      ? 'Silverfin'
+      : sourceProvider
+    : null
 
   // BET-315 — financials-step funnel impression (entry → here → submit). Fire
   // once per mount, only when the step is actually shown (past the guard below).
@@ -148,6 +209,50 @@ export function FinancialHistorySection({
         <SectionStatusCircle step={3} complete={hasFinancials} className="flex" />
         <h3 className="text-sm font-medium text-foreground">{mi('sections.financialHistory')}</h3>
       </div>
+
+      {sourceLabel ? (
+        <div className="ml-8 rounded-lg border border-primary/20 bg-primary/[0.05] px-3 py-2 text-xs text-foreground/70">
+          <span className="font-semibold text-foreground">
+            {sourceCopy.prefix} {sourceLabel}
+          </span>
+          {sourceSyncedAt ? (
+            <span className="ml-2 text-foreground/50">
+              · {sourceCopy.synced}{' '}
+              {new Intl.DateTimeFormat(
+                locale === 'nl' ? 'nl-BE' : locale === 'fr' ? 'fr-BE' : 'en-GB',
+                { hour: '2-digit', minute: '2-digit' }
+              ).format(new Date(sourceSyncedAt))}
+            </span>
+          ) : null}
+          {readiness?.state === 'review_required' ? (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-primary/15 pt-2">
+              <span className="font-medium text-amber-700 dark:text-amber-300">
+                {locale === 'nl'
+                  ? `${reviewIssuesByYear.size || readiness.issues.length} boekjaren controleren`
+                  : locale === 'fr'
+                    ? `${reviewIssuesByYear.size || readiness.issues.length} exercices à contrôler`
+                    : `${reviewIssuesByYear.size || readiness.issues.length} fiscal years to review`}
+              </span>
+              {sourceLabel.toLowerCase() === 'silverfin' ? (
+                <button
+                  type="button"
+                  disabled={isResyncing}
+                  onClick={() => void resyncSilverfin()}
+                  className="rounded-md border border-primary/25 px-2.5 py-1 font-semibold text-primary hover:bg-primary/[0.08] disabled:opacity-50"
+                >
+                  {isResyncing
+                    ? '…'
+                    : locale === 'nl'
+                      ? 'Silverfin opnieuw synchroniseren'
+                      : locale === 'fr'
+                        ? 'Resynchroniser Silverfin'
+                        : 'Resync Silverfin'}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {importAccountingError && (
         <p className="text-xs text-destructive ml-8">{importAccountingError}</p>
@@ -215,6 +320,12 @@ export function FinancialHistorySection({
               partialYears={partialYears}
               updateYearlyFinancials={updateYearlyFinancials}
               yearData={yearData}
+              readinessIssue={
+                reviewIssuesByYear.get(Number(yearData.year)) ??
+                (locallyBlockedYear === Number(yearData.year)
+                  ? { reason_code: 'extreme_margin_unattested' }
+                  : undefined)
+              }
             />
           )
         })}
