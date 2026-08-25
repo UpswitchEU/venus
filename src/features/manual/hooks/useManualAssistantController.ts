@@ -94,7 +94,7 @@ export interface UseManualAssistantControllerParams {
   handleChatMessage: ChatSendHandler
   handleFieldHelpRequest: ManualInputProps['onFieldHelpRequest']
   handleFormDataChange: ManualInputProps['onFormDataChange']
-  handleManualSubmit: (data: ValuationFormData) => void | Promise<void>
+  handleManualSubmit: (data: ValuationFormData) => void | Promise<unknown>
   handleNewConversation: NonNullable<ChatDrawerProps['onNewConversation']>
   handleShowNormalisationReview: ManualInputProps['onViewAllNormalizations']
   handleRejectNormalisation: NonNullable<ChatDrawerProps['onRejectNormalisation']>

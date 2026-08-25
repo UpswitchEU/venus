@@ -59,6 +59,7 @@ export interface CompleteManualCalculationParams {
 
 export interface CompleteManualCalculationResult {
   aborted: boolean
+  durableSaveSucceeded: boolean
   versionCreationFailed: boolean
 }
 
@@ -147,7 +148,7 @@ export function useManualCalculationCompletion({
 
       if (saveResult.aborted) {
         if (willPersist) durableSaveInFlightRef.current = false
-        return { aborted: true, versionCreationFailed: false }
+        return { aborted: true, durableSaveSucceeded: false, versionCreationFailed: false }
       }
 
       if (saveResult.saveError) {
@@ -190,7 +191,12 @@ export function useManualCalculationCompletion({
         initialVersionLabel: startProposalVersionLabelRef.current,
       })
 
-      if (versionCreationFailed.aborted) return versionCreationFailed
+      if (versionCreationFailed.aborted) {
+        return {
+          ...versionCreationFailed,
+          durableSaveSucceeded: saveResult.durableSaveSucceeded,
+        }
+      }
 
       if (saveResult.durableSaveSucceeded && idForApi && submitRun.isStillTarget()) {
         resultForUi = await applyPostCalculateHtmlRecovery({
@@ -198,11 +204,23 @@ export function useManualCalculationCompletion({
           session: useSessionStore.getState().session,
           result: resultForUi,
         })
-        if (!submitRun.isStillTarget()) return { aborted: true, versionCreationFailed: false }
+        if (!submitRun.isStillTarget()) {
+          return {
+            aborted: true,
+            durableSaveSucceeded: saveResult.durableSaveSucceeded,
+            versionCreationFailed: false,
+          }
+        }
       }
 
       if (saveResult.durableSaveSucceeded && !versionCreationFailed.versionCreationFailed) {
-        if (!submitRun.isStillTarget()) return { aborted: true, versionCreationFailed: false }
+        if (!submitRun.isStillTarget()) {
+          return {
+            aborted: true,
+            durableSaveSucceeded: saveResult.durableSaveSucceeded,
+            versionCreationFailed: false,
+          }
+        }
 
         const recoveryStillMissing =
           idForApi &&
@@ -225,7 +243,10 @@ export function useManualCalculationCompletion({
         }
       }
 
-      return versionCreationFailed
+      return {
+        ...versionCreationFailed,
+        durableSaveSucceeded: saveResult.durableSaveSucceeded,
+      }
     },
     [
       createVersion,
@@ -281,7 +302,7 @@ async function completeManualVersioning({
   valuationResult: ValuationResponse
   versionSyncTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
   initialVersionLabel?: string | null
-}): Promise<CompleteManualCalculationResult> {
+}): Promise<Omit<CompleteManualCalculationResult, 'durableSaveSucceeded'>> {
   if (!idForApi) return { aborted: false, versionCreationFailed: false }
 
   if (!durableSaveSucceeded) {

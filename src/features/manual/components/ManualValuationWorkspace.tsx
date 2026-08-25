@@ -787,7 +787,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     async (data: Parameters<typeof handleManualSubmit>[0]) => {
       startProposalVersionLabelRef.current = 'v1 – Startvoorstel'
       try {
-        await handleManualSubmit(data)
+        return await handleManualSubmit(data)
       } finally {
         startProposalVersionLabelRef.current = null
       }

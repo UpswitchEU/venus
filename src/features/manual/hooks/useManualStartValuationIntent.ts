@@ -23,6 +23,40 @@ function activeStartValuationReservation(value: string | null, now: number): boo
   return Number.isFinite(reservedAt) && now - reservedAt < START_VALUATION_RESERVATION_TTL_MS
 }
 
+function readStartValuationIntentState(storageKey: string): string | null {
+  try {
+    return window.sessionStorage.getItem(storageKey)
+  } catch (error) {
+    generalLogger.warn('[start-valuation-intent] session storage read unavailable', {
+      storageKey,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
+}
+
+function writeStartValuationIntentState(storageKey: string, value: string): void {
+  try {
+    window.sessionStorage.setItem(storageKey, value)
+  } catch (error) {
+    generalLogger.warn('[start-valuation-intent] session storage write unavailable', {
+      storageKey,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+function removeStartValuationIntentState(storageKey: string): void {
+  try {
+    window.sessionStorage.removeItem(storageKey)
+  } catch (error) {
+    generalLogger.warn('[start-valuation-intent] session storage cleanup unavailable', {
+      storageKey,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
 export function urlWithoutStartValuationIntent(href: string): string {
   const url = new URL(href)
   if (url.searchParams.get('intent') === START_VALUATION_INTENT) {
@@ -40,7 +74,8 @@ export interface UseManualStartValuationIntentParams {
   isAccountantMode: boolean
   isCalculating: boolean
   isGenerating: boolean
-  onStart: (data: ValuationFormData) => Promise<void>
+  /** Resolve true only after calculation and durable v1 persistence succeed. */
+  onStart: (data: ValuationFormData) => Promise<boolean>
   reportId: string
   restorationComplete: boolean
 }
@@ -59,10 +94,10 @@ export function useManualStartValuationIntent({
   reportId,
   restorationComplete,
 }: UseManualStartValuationIntentParams): void {
-  const consumedRef = useRef(false)
+  const consumedReportIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (intent !== START_VALUATION_INTENT || consumedRef.current) return
+    if (intent !== START_VALUATION_INTENT || consumedReportIdRef.current === reportId) return
     if (!restorationComplete || !isAccountantMode || !accountantCustomerId) return
     if (isCalculating || isGenerating || !reportId) return
 
@@ -71,11 +106,11 @@ export function useManualStartValuationIntent({
       window.history.replaceState(null, '', urlWithoutStartValuationIntent(window.location.href))
     }
 
-    const storedIntentState = window.sessionStorage.getItem(storageKey)
+    const storedIntentState = readStartValuationIntentState(storageKey)
     const completed = storedIntentState === START_VALUATION_COMPLETE
     const reserved = activeStartValuationReservation(storedIntentState, Date.now())
     if (hasExistingValuation || completed || reserved) {
-      consumedRef.current = true
+      consumedReportIdRef.current = reportId
       stripIntentFromAddress()
       generalLogger.info('[start-valuation-intent] automatic start skipped', {
         reportId,
@@ -91,13 +126,13 @@ export function useManualStartValuationIntent({
     // A reservation can outlive an aborted navigation because the browser may
     // terminate the promise without running its rejection handler. Expire it
     // after a short lease so a fresh explicit CTA can recover safely.
-    if (storedIntentState) window.sessionStorage.removeItem(storageKey)
+    if (storedIntentState) removeStartValuationIntentState(storageKey)
 
     const submitData = buildSubmitData()
     if (getManualSubmitValidationIssue(submitData, effectiveMethod)) return
 
-    consumedRef.current = true
-    window.sessionStorage.setItem(storageKey, startValuationReservation(Date.now()))
+    consumedReportIdRef.current = reportId
+    writeStartValuationIntentState(storageKey, startValuationReservation(Date.now()))
     stripIntentFromAddress()
     generalLogger.info('[start-valuation-intent] automatic start reserved', {
       reportId,
@@ -106,12 +141,19 @@ export function useManualStartValuationIntent({
         : 0,
     })
     void onStart(submitData)
-      .then(() => {
-        window.sessionStorage.setItem(storageKey, START_VALUATION_COMPLETE)
+      .then((completed) => {
+        if (!completed) {
+          removeStartValuationIntentState(storageKey)
+          generalLogger.warn('[start-valuation-intent] automatic start not completed', {
+            reportId,
+          })
+          return
+        }
+        writeStartValuationIntentState(storageKey, START_VALUATION_COMPLETE)
         generalLogger.info('[start-valuation-intent] automatic start completed', { reportId })
       })
       .catch((error) => {
-        window.sessionStorage.removeItem(storageKey)
+        removeStartValuationIntentState(storageKey)
         generalLogger.error('[start-valuation-intent] automatic start failed', {
           reportId,
           error: error instanceof Error ? error.message : String(error),

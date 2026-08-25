@@ -90,7 +90,8 @@ export interface UseManualSubmitControllerParams {
 }
 
 export interface UseManualSubmitControllerResult {
-  handleManualSubmit: (data: ValuationFormData) => Promise<void>
+  /** True only when calculation and required report/version persistence completed. */
+  handleManualSubmit: (data: ValuationFormData) => Promise<boolean>
   lastSubmittedDataRef: MutableRefObject<ValuationFormData | null>
   pendingPostValuationAgentPrompt: string | null
   postValuationListingHandoffPendingRef: MutableRefObject<boolean>
@@ -189,7 +190,7 @@ export function useManualSubmitController({
     async (data: ValuationFormData) => {
       if (isAccountingReconnectRequired && !reconnectResumeBypassRef.current) {
         toast.warning('Reconnect accounting before calculating again.')
-        return
+        return false
       }
       const effectiveMethod =
         useManualResultsStore.getState().preSelectedMethod ??
@@ -214,11 +215,11 @@ export function useManualSubmitController({
       if (validationIssue) {
         const toastKeys = MANUAL_SUBMIT_VALIDATION_TOAST_KEYS[validationIssue]
         toast.warning(translate(toastKeys.title), { description: translate(toastKeys.description) })
-        return
+        return false
       }
 
       const wasSet = trySetCalculating()
-      if (!wasSet) return
+      if (!wasSet) return false
 
       const submitRun = beginManualSubmitRun()
       lastSubmittedDataRef.current = data
@@ -265,7 +266,7 @@ export function useManualSubmitController({
         if (shouldBlockExtremePreparerMultiple(prep, result?.multiples_valuation)) {
           submitRun.endLoading()
           toast.error(translatePreparer('extremeWarning'))
-          return
+          return false
         }
 
         const previousVersion = idForApi ? getLatestVersion(idForApi) : null
@@ -290,7 +291,7 @@ export function useManualSubmitController({
           retrySubmit,
           submitRun,
         })
-        if (calculationResult.aborted || !calculationResult.valuationResult) return
+        if (calculationResult.aborted || !calculationResult.valuationResult) return false
 
         const calcResult = calculationResult.valuationResult
         warnIfSubmitSynthesisSkipped(calcResult)
@@ -305,7 +306,11 @@ export function useManualSubmitController({
           submitRun,
           valuationResult: calcResult,
         })
-        if (completionResult.aborted) return
+        if (completionResult.aborted) return false
+        return (
+          !idForApi ||
+          (completionResult.durableSaveSucceeded && !completionResult.versionCreationFailed)
+        )
       } catch (error) {
         if (
           error instanceof ValidationError &&
@@ -340,6 +345,7 @@ export function useManualSubmitController({
           },
           submitRun,
         })
+        return false
       }
     },
     [

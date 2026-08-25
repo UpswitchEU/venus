@@ -21,7 +21,7 @@ import {
 import { runManualSellabilityScore } from '../utils/manualSellabilityScore'
 import { resolveManualCanonicalReportId } from '../utils/manualSessionIdentifiers'
 
-type ManualSubmitHandler = (data: ValuationFormData) => void | Promise<void>
+type ManualSubmitHandler = (data: ValuationFormData) => void | Promise<unknown>
 type PdfExportHandler = (() => Promise<unknown>) | null | undefined
 
 export interface UseManualAiProposalActionsParams {

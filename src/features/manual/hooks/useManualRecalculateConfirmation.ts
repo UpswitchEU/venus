@@ -14,7 +14,7 @@ import { areChangesSignificant, detectVersionChanges } from '../../../utils/vers
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
 import { buildManualCalculationRequest } from '../utils/manualValuationRequest'
 
-type ManualSubmitHandler = (data: ValuationFormData) => Promise<void> | void
+type ManualSubmitHandler = (data: ValuationFormData) => Promise<unknown> | void
 
 type ManualHistoryTranslator = (
   key: string,
