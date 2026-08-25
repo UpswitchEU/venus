@@ -74,10 +74,11 @@ describe('NormalizedEbitdaSummary', () => {
     )
 
     expect(source).toContain('@container')
-    expect(source).toContain('@[46rem]:flex-row')
-    expect(source).toContain('@[46rem]:flex-wrap')
+    expect(source).toContain('@[46rem]:grid')
+    expect(source).toContain('@[46rem]:grid-cols-[minmax(0,1fr)_auto]')
     expect(source).toContain('@[22rem]:basis-auto')
     expect(source).toContain('min-h-11')
+    expect(source).not.toContain('@[46rem]:flex-wrap')
     expect(source).not.toContain('sm:flex-row')
     expect(source).toContain('overflow-hidden')
     expect(source).not.toContain('transition-all')

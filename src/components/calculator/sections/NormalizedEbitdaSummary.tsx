@@ -75,7 +75,7 @@ export function NormalizedEbitdaSummary({
         <div className="absolute inset-0 rounded-[11px] bg-gradient-to-br from-primary/[0.02] via-transparent to-violet-500/[0.02] pointer-events-none" />
 
         <div className="relative max-w-full min-w-0">
-          <div className="flex max-w-full min-w-0 flex-col gap-3 @[46rem]:flex-row @[46rem]:flex-wrap @[46rem]:items-center @[46rem]:justify-between">
+          <div className="flex max-w-full min-w-0 flex-col gap-3 @[46rem]:grid @[46rem]:grid-cols-[minmax(0,1fr)_auto] @[46rem]:items-center">
             <div className="max-w-full min-w-0">
               <p className="text-xs font-medium text-foreground/60 mb-1">
                 {mi('fields.normalizedEbitda')}

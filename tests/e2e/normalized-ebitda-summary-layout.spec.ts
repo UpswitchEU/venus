@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-const CARD_WIDTHS = [280, 360, 735, 736] as const
+const CARD_WIDTHS = [280, 360, 735, 736, 936] as const
 
 function cardMarkup(width: number) {
   return `
@@ -13,14 +13,14 @@ function cardMarkup(width: number) {
           <div class="relative max-w-full min-w-0">
             <div
               data-testid="summary-layout"
-              class="flex max-w-full min-w-0 flex-col gap-3 @[46rem]:flex-row @[46rem]:flex-wrap @[46rem]:items-center @[46rem]:justify-between"
+              class="flex max-w-full min-w-0 flex-col gap-3 @[46rem]:grid @[46rem]:grid-cols-[minmax(0,1fr)_auto] @[46rem]:items-center"
             >
               <div class="max-w-full min-w-0">
                 <p class="text-xs font-medium text-foreground/60 mb-1">Genormaliseerde EBITDA</p>
                 <div class="flex max-w-full flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <span class="shrink-0 whitespace-nowrap text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">€ 283.074</span>
-                  <span class="shrink-0 whitespace-nowrap text-xs text-foreground/50">(5 jaren)</span>
-                  <span class="basis-full text-sm font-medium text-success @[22rem]:basis-auto">+€ 92.965</span>
+                  <span class="shrink-0 whitespace-nowrap text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">€ 1.400.760</span>
+                  <span class="shrink-0 whitespace-nowrap text-xs text-foreground/50">(1 jaar)</span>
+                  <span class="basis-full text-sm font-medium text-success @[22rem]:basis-auto">+€ 464.826</span>
                 </div>
               </div>
               <div
@@ -72,13 +72,17 @@ test.describe('Normalized EBITDA summary layout', () => {
       }))
       expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth)
 
-      const expectedDirection = width < 736 ? 'column' : 'row'
-      await expect(layout).toHaveCSS('flex-direction', expectedDirection)
-      await expect(actions).toHaveCSS('flex-direction', expectedDirection)
+      await expect(layout).toHaveCSS('display', width < 736 ? 'flex' : 'grid')
+      await expect(actions).toHaveCSS('flex-direction', width < 736 ? 'column' : 'row')
 
       for (const button of await buttons.all()) {
         const box = await button.boundingBox()
         expect(box?.height).toBeGreaterThanOrEqual(44)
+        const cardBox = await card.boundingBox()
+        expect(box?.x).toBeGreaterThanOrEqual(cardBox?.x ?? 0)
+        expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+          (cardBox?.x ?? 0) + (cardBox?.width ?? 0)
+        )
       }
     })
   }
