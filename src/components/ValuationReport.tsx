@@ -10,7 +10,13 @@ import { trackReportOpen, trackSessionStart } from '../lib/analytics'
 import UrlGeneratorService from '../services/urlGenerator'
 import type { ValuationResponse } from '../types/valuation'
 import { getMercuryUrl } from '../utils/getMercuryUrl'
+import { isSessionKey, isUuid } from '../utils/identifiers'
 import { generalLogger } from '../utils/logger'
+import {
+  getCanonicalReportAlias,
+  REPORT_IDENTITY_PROMOTED_EVENT,
+  type ReportIdentityPromotedDetail,
+} from '../utils/reportIdentityPromotion'
 import { generateReportId, isValidReportId } from '../utils/reportIdGenerator'
 import { resolveStandaloneReportReadyHash } from '../utils/standaloneReportReadyHash'
 import { submitAnonymizedBenchmarkContribution } from '../utils/submitAnonymizedBenchmarkContribution'
@@ -97,6 +103,69 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
         reportId: scopedReportId?.substring(0, 30),
       })
     }, [reportId])
+
+    // A successful first save promotes the temporary val_* concept to the
+    // durable Titan UUID. Keep the address bar, the embedded Mercury shell and
+    // all subsequent reads on that UUID immediately; a stale session-key URL
+    // is resolved from the local alias on a later Mercury/Venus round-trip.
+    useEffect(() => {
+      if (typeof window === 'undefined') return
+
+      const navigateToCanonicalReport = (canonicalReportId: string): void => {
+        if (!isUuid(canonicalReportId) || canonicalReportId === reportId) return
+        const target = `${UrlGeneratorService.reportById(canonicalReportId)}${window.location.search}`
+        router.replace(target)
+      }
+
+      if (isSessionKey(reportId)) {
+        const existingAlias = getCanonicalReportAlias(reportId)
+        if (existingAlias) {
+          navigateToCanonicalReport(existingAlias)
+        }
+      }
+
+      const onIdentityPromoted = (event: Event): void => {
+        const detail = (event as CustomEvent<ReportIdentityPromotedDetail>).detail
+        const canonicalReportId =
+          detail && typeof detail.reportId === 'string' && isUuid(detail.reportId)
+            ? detail.reportId
+            : null
+        if (!detail || !canonicalReportId) return
+        const belongsToCurrentRoute =
+          detail.previousId === reportId ||
+          detail.sessionKey === reportId ||
+          canonicalReportId === reportId
+        if (!belongsToCurrentRoute) return
+
+        if (window.parent !== window) {
+          window.parent.postMessage(
+            {
+              type: ENGINE_TO_MERCURY_MESSAGE_TYPES.reportCreated,
+              source: 'valuation.upswitch.app',
+              data: {
+                reportId: canonicalReportId,
+                sessionKey: detail.sessionKey,
+                engineRunId: detail.engineRunId,
+              },
+            },
+            new URL(getMercuryUrl()).origin
+          )
+        }
+
+        generalLogger.info('Promoting valuation route to durable report UUID', {
+          previousId: detail.previousId,
+          reportId: canonicalReportId,
+          sessionKey: detail.sessionKey ?? null,
+          engineRunId: detail.engineRunId ?? null,
+        })
+        navigateToCanonicalReport(canonicalReportId)
+      }
+
+      window.addEventListener(REPORT_IDENTITY_PROMOTED_EVENT, onIdentityPromoted)
+      return () => {
+        window.removeEventListener(REPORT_IDENTITY_PROMOTED_EVENT, onIdentityPromoted)
+      }
+    }, [reportId, router])
 
     // Sync initial mode and version to URL on mount
     useEffect(() => {
