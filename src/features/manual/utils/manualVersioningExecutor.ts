@@ -15,6 +15,11 @@ export interface ManualVersioningExecutorDeps {
   fetchVersions: (reportId: string) => Promise<void>
   getLatestVersion: (reportId: string) => ManualLatestVersion | null
   createVersion: (request: CreateVersionRequest) => Promise<ValuationVersion>
+  updateVersion: (
+    reportId: string,
+    versionNumber: number,
+    updates: { versionLabel?: string }
+  ) => Promise<void>
   snapshotNormalizationsToVersion: (reportId: string, versionId: string) => Promise<void>
   logRegeneration: (
     reportId: string,
@@ -32,6 +37,7 @@ export interface RunManualCalculationVersioningParams {
   valuationResult: ValuationResponse
   calculationDurationMs: number
   userId?: string
+  initialVersionLabel?: string
   isStillTarget?: () => boolean
   deps: ManualVersioningExecutorDeps
 }
@@ -55,6 +61,7 @@ export async function runManualCalculationVersioning({
   valuationResult,
   calculationDurationMs,
   userId,
+  initialVersionLabel,
   isStillTarget = () => true,
   deps,
 }: RunManualCalculationVersioningParams): Promise<ManualCalculationVersioningResult> {
@@ -79,6 +86,13 @@ export async function runManualCalculationVersioning({
     if (!isStillTarget()) return { aborted: true, versionCreationFailed: false }
 
     if (versioningDecision.firstTitanVersionAudit) {
+      if (initialVersionLabel) {
+        await deps.updateVersion(
+          reportId,
+          versioningDecision.firstTitanVersionAudit.versionNumber,
+          { versionLabel: initialVersionLabel }
+        )
+      }
       deps.logRegeneration(
         reportId,
         versioningDecision.firstTitanVersionAudit.versionNumber,

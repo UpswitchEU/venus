@@ -221,6 +221,13 @@ export {
   useManualSubmitController,
 } from './useManualSubmitController'
 export {
+  START_VALUATION_INTENT,
+  startValuationIntentStorageKey,
+  type UseManualStartValuationIntentParams,
+  urlWithoutStartValuationIntent,
+  useManualStartValuationIntent,
+} from './useManualStartValuationIntent'
+export {
   type HandleManualSubmitErrorParams,
   type UseManualSubmitErrorHandlerParams,
   type UseManualSubmitErrorHandlerResult,

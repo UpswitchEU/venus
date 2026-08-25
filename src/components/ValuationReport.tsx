@@ -312,6 +312,9 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 urlAction={urlAction}
                 initialDrawerOpen={urlParams.drawer === 'open'}
                 initialAgentNext={urlParams.agent_next || urlParams.ai_next}
+                initialValuationIntent={
+                  urlParams.intent === 'start_valuation' ? 'start_valuation' : undefined
+                }
                 guidedResolution={{
                   spotlight: urlParams.spotlight,
                   focusField: urlParams.focusField,

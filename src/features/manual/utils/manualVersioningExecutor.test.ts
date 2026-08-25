@@ -56,6 +56,7 @@ function deps(overrides: Partial<ManualVersioningExecutorDeps> = {}): ManualVers
     fetchVersions: vi.fn().mockResolvedValue(undefined),
     getLatestVersion: vi.fn().mockReturnValue({ versionNumber: 1 }),
     createVersion: vi.fn().mockResolvedValue(version({ id: 'version-3', versionNumber: 3 })),
+    updateVersion: vi.fn().mockResolvedValue(undefined),
     snapshotNormalizationsToVersion: vi.fn().mockResolvedValue(undefined),
     logRegeneration: vi.fn(),
     ...overrides,
@@ -84,6 +85,25 @@ describe('runManualCalculationVersioning', () => {
       123,
       'user-1'
     )
+    expect(d.createVersion).not.toHaveBeenCalled()
+  })
+
+  it('labels the first Titan version as the Mercury start proposal without creating v2', async () => {
+    const d = deps({ getLatestVersion: vi.fn().mockReturnValue({ versionNumber: 1 }) })
+
+    await runManualCalculationVersioning({
+      reportId: 'report-1',
+      previousVersion: null,
+      request: request(),
+      valuationResult: response(),
+      calculationDurationMs: 123,
+      initialVersionLabel: 'v1 – Startvoorstel',
+      deps: d,
+    })
+
+    expect(d.updateVersion).toHaveBeenCalledWith('report-1', 1, {
+      versionLabel: 'v1 – Startvoorstel',
+    })
     expect(d.createVersion).not.toHaveBeenCalled()
   })
 

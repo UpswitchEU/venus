@@ -36,6 +36,7 @@ import {
   useManualRestoredFinancialSnapshotBaseline,
   useManualSessionPersistenceLifecycles,
   useManualSubmitController,
+  useManualStartValuationIntent,
   useManualSynthesisController,
   useManualSynthesisSkippedWarnings,
   useManualToastMessageLifecycle,
@@ -77,6 +78,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   urlAction,
   initialDrawerOpen = false,
   initialAgentNext,
+  initialValuationIntent,
   guidedResolutionUrl,
   initialSelectedMethodFromUrl,
   initialSelectedMethodsFromUrl,
@@ -87,6 +89,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   const tErrors = useTranslations('errors')
   const tPreparer = useTranslations('preparerMultiple')
   const tMethodSelector = useTranslations('manualInput.methodSelector')
+  const startProposalVersionLabelRef = React.useRef<string | null>(null)
   const [accountingReconnectContext, setAccountingReconnectContext] = React.useState<Record<
     string,
     unknown
@@ -512,6 +515,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     onAccountingReconnectRecovered: handleAccountingReconnectRecovered,
     isAccountingReconnectRequired: accountingReconnectContext !== null,
     restorationComplete,
+    startProposalVersionLabelRef,
   })
   const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
   const {
@@ -704,7 +708,12 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     translatePreparer: tPreparer,
     updateFormData,
   })
-  const { assistantOpenTasksCount, chatDrawerProps, manualInputProps } =
+  const {
+    assistantOpenTasksCount,
+    buildLiveValuationSubmitData,
+    chatDrawerProps,
+    manualInputProps,
+  } =
     useManualAssistantController({
       acknowledgedQualityWarnings,
       acknowledgedStartupIssues,
@@ -775,6 +784,30 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
       userWeights,
       wrappedOnSubmit,
     })
+  const handleStartProposal = React.useCallback(
+    async (data: Parameters<typeof handleManualSubmit>[0]) => {
+      startProposalVersionLabelRef.current = 'v1 – Startvoorstel'
+      try {
+        await handleManualSubmit(data)
+      } finally {
+        startProposalVersionLabelRef.current = null
+      }
+    },
+    [handleManualSubmit]
+  )
+  useManualStartValuationIntent({
+    accountantCustomerId: requestAccountantCustomerId,
+    buildSubmitData: buildLiveValuationSubmitData,
+    effectiveMethod: preSelectedMethod ?? selectedMethod,
+    hasExistingValuation: Boolean(result),
+    intent: initialValuationIntent,
+    isAccountantMode,
+    isCalculating,
+    isGenerating,
+    onStart: handleStartProposal,
+    reportId: resolvedReportId || reportId,
+    restorationComplete,
+  })
   const lastFullYear = getCurrentFilingYear()
   return (
     <>

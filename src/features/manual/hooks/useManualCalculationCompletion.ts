@@ -79,6 +79,7 @@ export interface UseManualCalculationCompletionParams {
   translateReport: ManualCalculationReportTranslator
   userId?: string
   versionSyncTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
+  startProposalVersionLabelRef: MutableRefObject<string | null>
 }
 
 export interface UseManualCalculationCompletionResult {
@@ -104,6 +105,7 @@ export function useManualCalculationCompletion({
   translateReport,
   userId,
   versionSyncTimeoutRef,
+  startProposalVersionLabelRef,
 }: UseManualCalculationCompletionParams): UseManualCalculationCompletionResult {
   const completeManualCalculation = useCallback(
     async ({
@@ -185,6 +187,7 @@ export function useManualCalculationCompletion({
         userId,
         valuationResult,
         versionSyncTimeoutRef,
+        initialVersionLabel: startProposalVersionLabelRef.current,
       })
 
       if (versionCreationFailed.aborted) return versionCreationFailed
@@ -241,6 +244,7 @@ export function useManualCalculationCompletion({
       translateReport,
       userId,
       versionSyncTimeoutRef,
+      startProposalVersionLabelRef,
     ]
   )
 
@@ -261,6 +265,7 @@ async function completeManualVersioning({
   userId,
   valuationResult,
   versionSyncTimeoutRef,
+  initialVersionLabel,
 }: {
   calculationDurationMs: number
   createVersion: (request: CreateVersionRequest) => Promise<ValuationVersion>
@@ -275,6 +280,7 @@ async function completeManualVersioning({
   userId?: string
   valuationResult: ValuationResponse
   versionSyncTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
+  initialVersionLabel?: string | null
 }): Promise<CompleteManualCalculationResult> {
   if (!idForApi) return { aborted: false, versionCreationFailed: false }
 
@@ -295,11 +301,14 @@ async function completeManualVersioning({
     valuationResult,
     calculationDurationMs,
     userId,
+    initialVersionLabel: initialVersionLabel ?? undefined,
     isStillTarget: submitRun.isStillTarget,
     deps: {
       fetchVersions: (reportId) => useVersionHistoryStore.getState().fetchVersions(reportId),
       getLatestVersion: (reportId) => useVersionHistoryStore.getState().getLatestVersion(reportId),
       createVersion,
+      updateVersion: (reportId, versionNumber, updates) =>
+        useVersionHistoryStore.getState().updateVersion(reportId, versionNumber, updates),
       snapshotNormalizationsToVersion,
       logRegeneration: (...args) => valuationAuditService.logRegeneration(...args),
     },

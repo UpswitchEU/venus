@@ -86,6 +86,7 @@ export interface UseManualSubmitControllerParams {
   onAccountingReconnectRecovered?: () => void
   isAccountingReconnectRequired?: boolean
   restorationComplete: boolean
+  startProposalVersionLabelRef: MutableRefObject<string | null>
 }
 
 export interface UseManualSubmitControllerResult {
@@ -134,6 +135,7 @@ export function useManualSubmitController({
   onAccountingReconnectRecovered,
   isAccountingReconnectRequired = false,
   restorationComplete,
+  startProposalVersionLabelRef,
 }: UseManualSubmitControllerParams): UseManualSubmitControllerResult {
   const lastSubmittedDataRef = useRef<ValuationFormData | null>(null)
   const postValuationListingHandoffPendingRef = useRef(false)
@@ -169,6 +171,7 @@ export function useManualSubmitController({
     translateReport,
     userId,
     versionSyncTimeoutRef,
+    startProposalVersionLabelRef,
   })
 
   const { runManualCalculationExecution } = useManualCalculationExecution({

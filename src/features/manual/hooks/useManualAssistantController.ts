@@ -142,6 +142,7 @@ export interface UseManualAssistantControllerParams {
 
 export interface UseManualAssistantControllerResult {
   assistantOpenTasksCount: number
+  buildLiveValuationSubmitData: () => ValuationFormData
   chatDrawerProps: ChatDrawerProps
   manualInputProps: ManualInputProps
 }
@@ -534,6 +535,7 @@ export function useManualAssistantController({
 
   return {
     assistantOpenTasksCount: pendingUpdates.length + qualityWarnings.length + startupIssues.length,
+    buildLiveValuationSubmitData,
     chatDrawerProps,
     manualInputProps,
   }

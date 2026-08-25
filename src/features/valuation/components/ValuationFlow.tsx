@@ -25,6 +25,7 @@ interface ValuationFlowProps {
   urlAction?: string
   initialDrawerOpen?: boolean
   initialAgentNext?: string
+  initialValuationIntent?: 'start_valuation'
   guidedResolution?: {
     spotlight?: string
     focusField?: string
@@ -52,6 +53,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
   urlAction,
   initialDrawerOpen = false,
   initialAgentNext,
+  initialValuationIntent,
   guidedResolution,
   initialSelectedMethodFromUrl,
   initialSelectedMethodsFromUrl,
@@ -67,6 +69,7 @@ export const ValuationFlow: React.FC<ValuationFlowProps> = ({
       urlAction={urlAction}
       initialDrawerOpen={initialDrawerOpen}
       initialAgentNext={initialAgentNext}
+      initialValuationIntent={initialValuationIntent}
       guidedResolutionUrl={guidedResolution}
       initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
       initialSelectedMethodsFromUrl={initialSelectedMethodsFromUrl}

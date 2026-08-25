@@ -63,6 +63,8 @@ interface ValuationFlowSelectorProps {
   initialDrawerOpen?: boolean
   /** One-shot assistant intent forwarded from Mercury. */
   initialAgentNext?: string
+  /** Explicit one-shot start; consumed only after delegated prefill is ready. */
+  initialValuationIntent?: 'start_valuation'
   /** Mercury deep link: guided resolution query params */
   guidedResolution?: {
     spotlight?: string
@@ -177,6 +179,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     urlAction,
     initialDrawerOpen = false,
     initialAgentNext,
+    initialValuationIntent,
     guidedResolution,
     initialSelectedMethodFromUrl,
     initialSelectedMethodsFromUrl,
@@ -247,6 +250,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
                 urlAction={urlAction}
                 initialDrawerOpen={initialDrawerOpen}
                 initialAgentNext={initialAgentNext}
+                initialValuationIntent={initialValuationIntent}
                 guidedResolution={guidedResolution}
                 initialSelectedMethodFromUrl={initialSelectedMethodFromUrl}
                 initialSelectedMethodsFromUrl={initialSelectedMethodsFromUrl}
@@ -294,6 +298,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       prevProps.urlAction === nextProps.urlAction &&
       prevProps.initialDrawerOpen === nextProps.initialDrawerOpen &&
       prevProps.initialAgentNext === nextProps.initialAgentNext &&
+      prevProps.initialValuationIntent === nextProps.initialValuationIntent &&
       prevProps.initialSelectedMethodFromUrl === nextProps.initialSelectedMethodFromUrl &&
       prevProps.initialSelectedMethodsFromUrl === nextProps.initialSelectedMethodsFromUrl &&
       prevProps.onRetry === nextProps.onRetry &&

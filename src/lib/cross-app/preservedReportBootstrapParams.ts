@@ -26,6 +26,8 @@ export const PRESERVED_REPORT_BOOTSTRAP_PARAM_KEYS = [
   'guestSessionId',
   'embedded',
   'drawer',
+  /** Explicit, one-shot Mercury → Venus calculation start. */
+  'intent',
   /** One-shot assistant intent, e.g. Mercury approved "start valuation" → Venus auto-prompts. */
   'agent_next',
   /** Alias used by assistant-driven links in Mercury/Titan. */

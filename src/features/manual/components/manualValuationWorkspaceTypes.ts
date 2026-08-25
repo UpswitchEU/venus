@@ -13,6 +13,8 @@ export interface ManualValuationWorkspaceProps {
   initialDrawerOpen?: boolean
   /** One-shot assistant intent forwarded from Mercury. */
   initialAgentNext?: string
+  /** Explicit Mercury CTA intent. It is consumed once after delegated prefill is ready. */
+  initialValuationIntent?: 'start_valuation'
   /**
    * Mercury STP: `focusField` + optional `flagYear` prepare a normalization search hint
    * for the review CTA (`spotlight` is ignored; kept for URL compatibility).
