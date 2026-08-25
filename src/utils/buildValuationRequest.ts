@@ -568,7 +568,11 @@ export function buildValuationRequest(
     number_of_employees: numberOfEmployees,
     number_of_owners: numberOfOwners,
     recurring_revenue_percentage: recurringRevenuePercentage,
-    use_dcf: formData.use_dcf ?? true,
+    ...(formData.use_dcf !== undefined
+      ? { use_dcf: formData.use_dcf }
+      : formData.selected_method === 'upswitch_adaptive'
+        ? {}
+        : { use_dcf: true }),
     use_multiples: formData.use_multiples ?? true,
     ...(formData.selected_method && { selected_method: formData.selected_method }),
     ...(formData.user_weights && { user_weights: formData.user_weights }),

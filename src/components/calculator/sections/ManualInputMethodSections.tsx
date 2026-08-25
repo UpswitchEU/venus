@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Lock } from 'lucide-react'
+import { Info, Lock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
@@ -125,6 +125,17 @@ export function ManualInputMethodSections({
       }),
     [formData, historicalCardRows, normalizedData]
   )
+  const hasExplicitDcfIntent = Boolean(
+    formData.user_configured_dcf ||
+      formData.dcf_input_mode === 'fcff_only' ||
+      Object.entries(formData.user_weights ?? {}).some(
+        ([method, weight]) => method.toLowerCase().includes('dcf') && Number(weight) > 0
+      )
+  )
+  const showAdaptiveDcfFallbackNotice =
+    activeValuationMethods.includes('upswitch_adaptive') &&
+    !hasExplicitDcfIntent &&
+    advisorWeightingYears.length < 3
 
   useEffect(() => {
     const nextCount = synthesisMethods.length
@@ -216,6 +227,20 @@ export function ManualInputMethodSections({
 
       <div className="mt-4 flex flex-col gap-6">
         <MethodDataPlanPanel methodDataPlan={methodDataPlan ?? null} />
+        {showAdaptiveDcfFallbackNotice && (
+          <div
+            role="status"
+            className="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.06] px-3 py-2 text-xs text-foreground/65"
+          >
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-600" />
+            <span>
+              {mi('adaptiveDcfFallbackNotice', {
+                count: advisorWeightingYears.length,
+                required: 3,
+              })}
+            </span>
+          </div>
+        )}
         <AdaptiveSections
           effectiveMethod={effectiveMethod}
           effectiveMethods={effectiveMethods}

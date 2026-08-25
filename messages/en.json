@@ -1200,6 +1200,7 @@
 			"default": "Owner defaults",
 			"expert": "Expert mode"
 		},
+		"adaptiveDcfFallbackNotice": "Adaptive will use the market approach; DCF is excluded because {count} of {required} closed fiscal years are available.",
 		"synthesis": {
 			"lockedTitle": "Locked",
 			"lockedDescription": "Add more valuation methods to unlock the synthesis."
@@ -2128,7 +2129,8 @@
 				"ownerConcentration": "Owner concentration",
 				"historicalWeighting": "Historical year weighting",
 				"historicalWeightingTitle": "Historical year weighting",
-				"historicalWeightingHint": "Sets how much each fiscal year counts toward revenue and EBITDA. By default the most recent year is weighted heaviest (50/33/17).",
+				"historicalWeightingHint": "Sets how much each fiscal year counts toward revenue and EBITDA. By default the most recent available year is weighted heaviest.",
+				"standardWeightingSummary": "Applied standard weights: {weights}",
 				"standardAverage": "Standard (recent year heaviest)",
 				"weightedAverage": "Custom weights",
 				"resetEqual": "Reset to default",
@@ -2245,6 +2247,8 @@
 		"businessTypeMissingDesc": "Select a business type to continue.",
 		"financialDataIncomplete": "Financial data incomplete",
 		"financialDataIncompleteDesc": "Enter at least 1 year with revenue and EBITDA.",
+		"dcfNotReady": "DCF data incomplete",
+		"dcfNotReadyDesc": "Add a third closed fiscal year or explicit FCFF projections, or choose Upswitch Adaptive for a market valuation without DCF.",
 		"calculationFailed": "Calculation failed",
 		"calculationFailedNoResult": "No result received.",
 		"serviceUnavailable": "The valuation service is temporarily unavailable. Please try again in a moment.",

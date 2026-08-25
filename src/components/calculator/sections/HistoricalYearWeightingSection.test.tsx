@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HistoricalYearWeightingSection } from './HistoricalYearWeightingSection'
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string, values?: Record<string, string>) =>
+    values?.weights ? `${key}: ${values.weights}` : key,
   useLocale: () => 'en',
 }))
 
@@ -58,6 +59,7 @@ describe('HistoricalYearWeightingSection', () => {
 
     expect(screen.getByRole('radio', { name: 'weightedAverage' })).toBeDisabled()
     expect(screen.getByText('needsThreeYears')).toBeInTheDocument()
+    expect(screen.getByText('standardWeightingSummary: 2025 67% · 2024 33%')).toBeInTheDocument()
   })
 
   it('renders one slider per year when already in weighted mode', () => {

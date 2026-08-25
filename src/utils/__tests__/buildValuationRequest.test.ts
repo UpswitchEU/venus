@@ -362,6 +362,26 @@ describe('buildValuationRequest core registry and financial contract', () => {
     expect(result.user_configured_dcf).toBe(true)
   })
 
+  it('omits the default DCF capability flag when Adaptive is already selected', () => {
+    const filingYear = getCurrentFilingYear()
+    const result = buildValuationRequest(
+      makeFormData({
+        selected_method: 'upswitch_adaptive',
+        current_year_data: {
+          year: filingYear,
+          revenue: 1_000_000,
+          ebitda: 100_000,
+        },
+        historical_years_data: [{ year: filingYear - 1, revenue: 900_000, ebitda: 100_000 }],
+      }),
+      []
+    )
+
+    expect(result.selected_method).toBe('upswitch_adaptive')
+    expect(result.use_dcf).toBeUndefined()
+    expect(result.use_multiples).toBe(true)
+  })
+
   it('serializes Henk-style FCFF-only DCF inputs with year-end discounting', () => {
     const filingYear = getCurrentFilingYear()
     const result = buildValuationRequest(

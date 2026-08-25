@@ -1200,6 +1200,7 @@
 			"default": "Valeurs propriétaire",
 			"expert": "Mode expert"
 		},
+		"adaptiveDcfFallbackNotice": "Adaptive utilisera l'approche de marché ; le DCF est exclu car {count} exercices clôturés sur {required} sont disponibles.",
 		"synthesis": {
 			"lockedTitle": "Verrouillé",
 			"lockedDescription": "Ajoutez plus de méthodes de valorisation pour débloquer la synthèse."
@@ -2130,7 +2131,8 @@
 				"ownerConcentration": "Concentration proprietaire",
 				"historicalWeighting": "Pondération historique par année",
 				"historicalWeightingTitle": "Pondération historique par année",
-				"historicalWeightingHint": "Définit le poids de chaque exercice dans le chiffre d'affaires et l'EBITDA. Par défaut, l'année la plus récente pèse le plus (50/33/17).",
+				"historicalWeightingHint": "Définit le poids de chaque exercice dans le chiffre d'affaires et l'EBITDA. Par défaut, l'exercice disponible le plus récent pèse le plus.",
+				"standardWeightingSummary": "Pondération standard appliquée : {weights}",
 				"standardAverage": "Standard (année récente prioritaire)",
 				"weightedAverage": "Pondération personnalisée",
 				"resetEqual": "Rétablir la valeur par défaut",
@@ -2247,6 +2249,8 @@
 		"businessTypeMissingDesc": "Sélectionnez un type d'entreprise pour continuer.",
 		"financialDataIncomplete": "Données financières incomplètes",
 		"financialDataIncompleteDesc": "Entrez au moins 1 an avec les revenus et l'EBITDA.",
+		"dcfNotReady": "Données DCF incomplètes",
+		"dcfNotReadyDesc": "Ajoutez un troisième exercice clôturé ou des projections FCFF explicites, ou choisissez Upswitch Adaptive pour une valorisation de marché sans DCF.",
 		"calculationFailed": "Échec du calcul",
 		"calculationFailedNoResult": "Aucun résultat reçu.",
 		"serviceUnavailable": "Le service d'évaluation est temporairement indisponible. Veuillez réessayer dans un instant.",

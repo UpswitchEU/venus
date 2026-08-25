@@ -54,6 +54,11 @@ export function HistoricalYearWeightingSection({
       }),
     [historicalYears, historicalEbitdaWeightingMode, historicalEbitdaWeights]
   )
+  const standardWeights = useMemo(() => buildRecencyHistoricalWeights(yearKeys), [yearKeys])
+  const standardWeightingSummary = [...years]
+    .reverse()
+    .map((year) => `${year} ${standardWeights[year] ?? 0}%`)
+    .join(' · ')
 
   const updateWeight = (year: number, nextValue: number) => {
     onFieldChange(
@@ -111,6 +116,12 @@ export function HistoricalYearWeightingSection({
           <Info className="h-3.5 w-3.5" />
           {t('needsThreeYears')}
         </div>
+      )}
+
+      {mode === 'standard' && standardWeightingSummary && (
+        <p className="text-[11px] text-foreground/55 tabular-nums">
+          {t('standardWeightingSummary', { weights: standardWeightingSummary })}
+        </p>
       )}
 
       {mode === 'weighted' && canWeight && (

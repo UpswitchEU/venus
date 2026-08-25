@@ -85,4 +85,26 @@ describe('ManualInputMethodSections expert mode', () => {
 
     expect(screen.getByTestId('advisor-controls-trigger-stub')).toBeInTheDocument()
   })
+
+  it('explains the multiples-only fallback before a two-year Adaptive calculation', () => {
+    render(
+      <ManualInputMethodSections
+        {...baseProps}
+        effectiveMethod="upswitch_adaptive"
+        effectiveMethods={['upswitch_adaptive']}
+        formData={
+          {
+            current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
+            historical_years_data: [
+              { year: 2024, revenue: 900_000, ebitda: 100_000 },
+              { year: 2023, revenue: 0, ebitda: 0 },
+            ],
+          } as never
+        }
+        historicalCardRows={[{ year: 2025 }, { year: 2024 }, { year: 2023 }]}
+      />
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('adaptiveDcfFallbackNotice')
+  })
 })

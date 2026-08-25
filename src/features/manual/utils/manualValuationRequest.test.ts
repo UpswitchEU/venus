@@ -55,6 +55,23 @@ describe('decorateManualValuationRequest', () => {
     expect(request.sessionKey).toBe('val_1700000000000_abc')
     expect(request.user_weights).toEqual({ dcf: 0.35, ebitda_multiple: 0.65 })
     expect(request.user_weight_justification).toBe('DCF is useful, market evidence dominates.')
+    expect(request.use_dcf).toBe(true)
+  })
+
+  it('omits the legacy DCF capability flag for plain Adaptive requests', () => {
+    const base = baseRequest()
+    base.use_dcf = true
+
+    const request = decorateManualValuationRequest(base, {
+      selectedMethod: 'upswitch_adaptive',
+      synthesisSelection: {
+        preSelectedMethods: ['upswitch_adaptive'],
+        userWeights: {},
+      },
+    })
+
+    expect(request.selected_method).toBe('upswitch_adaptive')
+    expect(request.use_dcf).toBeUndefined()
   })
 
   it('omits optional fields when absent or blank', () => {

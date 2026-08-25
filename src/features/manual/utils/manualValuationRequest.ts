@@ -37,6 +37,21 @@ function normalizeAccountantCustomerId(value?: string | null): string | undefine
   return UUID_PATTERN.test(trimmed) ? trimmed : undefined
 }
 
+function hasPositiveDcfWeight(weights?: Record<string, number>): boolean {
+  return Object.entries(weights ?? {}).some(
+    ([method, weight]) => method.toLowerCase().includes('dcf') && Number(weight) > 0
+  )
+}
+
+function hasExplicitDcfIntent(request: ValuationRequest): boolean {
+  return Boolean(
+    request.selected_method === 'dcf' ||
+      request.user_configured_dcf ||
+      request.dcf_input_mode === 'fcff_only' ||
+      hasPositiveDcfWeight(request.user_weights)
+  )
+}
+
 /**
  * Applies the cross-cutting manual-flow request contract once:
  * source marker, selected method, synthesis weights, report/session ids,
@@ -57,6 +72,14 @@ export function decorateManualValuationRequest(
   attachSynthesisWeightsToValuationRequest(out, params.synthesisSelection)
   if (out.user_weights && Object.keys(out.user_weights).length > 1) {
     out.selected_method = ADAPTIVE_METHOD
+  }
+
+  // `use_dcf` is a capability flag, not durable user intent. Omit the legacy
+  // default for plain Adaptive requests so older Titan/IQ deployments also
+  // degrade safely to their market leg. Explicit DCF controls keep the flag.
+  if (out.selected_method === ADAPTIVE_METHOD) {
+    if (hasExplicitDcfIntent(out)) out.use_dcf = true
+    else delete out.use_dcf
   }
 
   if (params.identifiers?.reportId) {

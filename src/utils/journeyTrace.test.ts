@@ -5,6 +5,7 @@ import { beginNewJourney, createTraceparent, getOrCreateJourneyId } from './jour
 describe('valuation journey tracing', () => {
   beforeEach(() => {
     window.sessionStorage.clear()
+    window.history.replaceState({}, '', '/')
   })
 
   it('keeps one journey UUID stable until a new draft starts', () => {
@@ -23,5 +24,14 @@ describe('valuation journey tracing', () => {
     expect(first).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/)
     expect(second).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/)
     expect(second).not.toBe(first)
+  })
+
+  it('adopts the validated Mercury journey across the cross-origin handoff', () => {
+    const mercuryJourney = crypto.randomUUID().toLowerCase()
+    window.history.replaceState({}, '', `/?journey_id=${mercuryJourney}`)
+
+    expect(getOrCreateJourneyId()).toBe(mercuryJourney)
+    expect(beginNewJourney()).toBe(mercuryJourney)
+    expect(window.sessionStorage.getItem('upswitch_valuation_journey_id.v1')).toBe(mercuryJourney)
   })
 })

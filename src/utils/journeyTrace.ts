@@ -17,6 +17,16 @@ function readStoredJourneyId(): string | null {
   }
 }
 
+function readIncomingJourneyId(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const value = new URLSearchParams(window.location.search).get('journey_id')
+    return value && UUID_PATTERN.test(value) ? value.toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
 function persistJourneyId(journeyId: string): void {
   memoryJourneyId = journeyId
   if (typeof window === 'undefined') return
@@ -28,6 +38,11 @@ function persistJourneyId(journeyId: string): void {
 }
 
 export function getOrCreateJourneyId(): string {
+  const incoming = readIncomingJourneyId()
+  if (incoming) {
+    persistJourneyId(incoming)
+    return incoming
+  }
   const existing = readStoredJourneyId() ?? memoryJourneyId
   if (existing && UUID_PATTERN.test(existing)) return existing
   const created = newJourneyId()
@@ -37,7 +52,7 @@ export function getOrCreateJourneyId(): string {
 
 /** Start one import → valuation → render → reopen journey for a new draft. */
 export function beginNewJourney(): string {
-  const created = newJourneyId()
+  const created = readIncomingJourneyId() ?? newJourneyId()
   persistJourneyId(created)
   return created
 }

@@ -146,13 +146,30 @@ describe('getManualSubmitValidationIssue', () => {
     ).toBeNull()
   })
 
-  it('passes complete SME submissions', () => {
+  it('blocks explicit DCF with fewer than three closed fiscal years', () => {
     expect(
       getManualSubmitValidationIssue(
         {
           companyName: 'Acme',
           businessType: 'Consulting',
           yearlyFinancials: [{ year: '2025', revenue: 100, ebitda: 10 }],
+        },
+        'dcf'
+      )
+    ).toBe('dcfNotReady')
+  })
+
+  it('passes explicit DCF with three closed fiscal years', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Acme',
+          businessType: 'Consulting',
+          yearlyFinancials: [
+            { year: '2025', revenue: 100, ebitda: 10 },
+            { year: '2024', revenue: 90, ebitda: 9 },
+            { year: '2023', revenue: 80, ebitda: 8 },
+          ],
         },
         'dcf'
       )
@@ -172,6 +189,63 @@ describe('getManualSubmitValidationIssue', () => {
           ],
         },
         'upswitch_adaptive'
+      )
+    ).toBeNull()
+  })
+
+  it('passes the exact two-year LGS case through Adaptive', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'LGS workshop',
+          businessType: 'Reclamebureau',
+          yearlyFinancials: [
+            { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+            { year: '2024', revenue: 900_000, ebitda: 100_000 },
+            { year: '2023', revenue: 0, ebitda: 0 },
+          ],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBeNull()
+  })
+
+  it('blocks an Adaptive synthesis carrying a positive DCF weight when not ready', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'LGS workshop',
+          businessType: 'Reclamebureau',
+          user_weights: { dcf: 0.4, ebitda_multiple: 0.6 },
+          yearlyFinancials: [
+            { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+            { year: '2024', revenue: 900_000, ebitda: 100_000 },
+          ],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBe('dcfNotReady')
+  })
+
+  it('allows explicit FCFF projections with fewer than three actual years', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'LGS workshop',
+          businessType: 'Reclamebureau',
+          dcf_input_mode: 'fcff_only',
+          yearlyFinancials: [
+            { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+            {
+              year: '2026',
+              revenue: 0,
+              ebitda: 0,
+              free_cash_flow: 125_000,
+              isForecast: true,
+            },
+          ],
+        },
+        'dcf'
       )
     ).toBeNull()
   })

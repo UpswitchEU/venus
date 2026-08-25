@@ -1200,6 +1200,7 @@
 			"default": "Eigenaarsdefault",
 			"expert": "Expertmodus"
 		},
+		"adaptiveDcfFallbackNotice": "Adaptive gebruikt de marktbenadering; DCF wordt niet opgenomen omdat {count} van {required} afgesloten boekjaren beschikbaar zijn.",
 		"synthesis": {
 			"lockedTitle": "Vergrendeld",
 			"lockedDescription": "Voeg meer waarderingsmethodes toe om de synthese te ontgrendelen."
@@ -2130,7 +2131,8 @@
 				"ownerConcentration": "Eigenaarconcentratie",
 				"historicalWeighting": "Historische jaarweging",
 				"historicalWeightingTitle": "Historische jaarweging",
-				"historicalWeightingHint": "Bepaalt hoe zwaar elk boekjaar meetelt voor omzet en EBITDA. Standaard telt het recentste jaar het zwaarst (50/33/17).",
+				"historicalWeightingHint": "Bepaalt hoe zwaar elk boekjaar meetelt voor omzet en EBITDA. Standaard telt het recentste beschikbare jaar het zwaarst.",
+				"standardWeightingSummary": "Toegepaste standaardweging: {weights}",
 				"standardAverage": "Standaard (recent jaar zwaarder)",
 				"weightedAverage": "Aangepaste weging",
 				"resetEqual": "Terug naar standaard",
@@ -2247,6 +2249,8 @@
 		"businessTypeMissingDesc": "Selecteer een bedrijfstype om verder te gaan.",
 		"financialDataIncomplete": "Financiële gegevens onvolledig",
 		"financialDataIncompleteDesc": "Vul minstens 1 jaar met omzet én EBITDA in.",
+		"dcfNotReady": "DCF-gegevens onvolledig",
+		"dcfNotReadyDesc": "Voeg een derde afgesloten boekjaar of expliciete FCFF-projecties toe, of kies Upswitch Adaptive voor een marktwaardering zonder DCF.",
 		"calculationFailed": "Berekening mislukt",
 		"calculationFailedNoResult": "Geen resultaat ontvangen.",
 		"serviceUnavailable": "De waarderingsservice is tijdelijk niet beschikbaar. Probeer het over een ogenblik opnieuw.",

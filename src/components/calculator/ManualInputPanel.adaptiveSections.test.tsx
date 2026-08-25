@@ -210,23 +210,19 @@ describe('AdaptiveSections', () => {
     expect(screen.queryByText('sections.saasMetrics')).not.toBeInTheDocument()
   })
 
-  it('renders the fiscal preview card when fiscal 4x is selected', async () => {
-    // The amber disclaimer banner was dropped from the data rail
-    // 2026-05-10 (advisory copy duplicates `fiscal_scope_disclaimer` on
-    // the fiscal_reference report page). The fiscal preview card stays
-    // — it's a live calculator showing what the data implies for the
-    // forfait formula. Section heading sentinel: 'sections.fiscalDerivedMetrics'.
+  it('renders the fiscal source-input section when fiscal 4x is selected', async () => {
     render(
       <AdaptiveSections
         {...baseProps}
         effectiveMethod="fiscal_4x"
+        firmCountryCode="BE"
         businessCategory="holding"
         businessTypeId="family-holdco"
+        sectionHeaderSteps={{ ...baseProps.sectionHeaderSteps, fiscal: 9 }}
       />
     )
 
-    expect(await screen.findByText('sections.fiscalDerivedMetrics')).toBeInTheDocument()
-    // Disclaimer banner sentinel must NOT render anywhere on the rail.
+    expect(await screen.findByTestId('fiscal-inputs-section')).toBeInTheDocument()
     expect(screen.queryByText('fiscalDisclaimerText')).not.toBeInTheDocument()
   })
 
@@ -241,10 +237,11 @@ describe('AdaptiveSections', () => {
         firmCountryCode="NL"
         businessCategory="holding"
         businessTypeId="family-holdco"
+        sectionHeaderSteps={{ ...baseProps.sectionHeaderSteps, fiscal: 9 }}
       />
     )
 
-    expect(screen.queryByText('sections.fiscalDerivedMetrics')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('fiscal-inputs-section')).not.toBeInTheDocument()
   })
 
   it('surfaces the DCF autofill action and forwards clicks', () => {

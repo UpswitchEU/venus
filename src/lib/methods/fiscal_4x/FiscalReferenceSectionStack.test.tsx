@@ -51,4 +51,14 @@ describe('FiscalReferenceSectionStack', () => {
       })
     ).toBe(false)
   })
+
+  it('does not mount the Belgian fiscal input stack for an NL firm', () => {
+    expect(
+      shouldMountFiscalReferenceSectionStack({
+        methods: ['fiscal_4x'],
+        firmCountryCode: 'nl',
+        bonusSections: ['fiscal_inputs'],
+      })
+    ).toBe(false)
+  })
 })
