@@ -6,6 +6,7 @@ import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedDa
 import { NormalizedEbitdaSummary } from './NormalizedEbitdaSummary'
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'nl',
   useTranslations: () => (key: string, values?: Record<string, string | number>) =>
     values ? `${key}:${Object.values(values).join(',')}` : key,
 }))
@@ -43,6 +44,7 @@ function renderSummary(onViewAllNormalizations = vi.fn()) {
       hasEbitdaValue
       hasFinancials
       normalizedData={normalizedData}
+      normalizationReviewCount={2}
       onViewAllNormalizations={onViewAllNormalizations}
       taxLatencyCount={1}
       totalYearsWithEbitda={5}
@@ -61,7 +63,9 @@ describe('NormalizedEbitdaSummary', () => {
     expect(screen.getByText('(5 years)')).toBeInTheDocument()
     expect(screen.getByText('+€ 92.965')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '2 normalizations:2 / summary:1' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: '2 normalisaties te beoordelen / summary:1' })
+    )
     fireEvent.click(screen.getByRole('button', { name: 'reviewAdjustments' }))
 
     expect(onViewAllNormalizations).toHaveBeenCalledTimes(2)

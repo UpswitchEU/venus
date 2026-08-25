@@ -437,6 +437,7 @@ export function ManualInputPanel({
     baseFilingYearForLabels,
     historicalCardRows,
     normalizedData,
+    normalizationReviewCount,
     readiness: {
       canSubmit,
       hasBusinessType,
@@ -575,6 +576,7 @@ export function ManualInputPanel({
               latestHistoricalRevenue={latestHistoricalRevenue}
               liveImportProviderName={liveImportProviderName}
               normalizedData={normalizedData}
+              normalizationReviewCount={normalizationReviewCount}
               onFieldHelpRequest={onFieldHelpRequest}
               onViewAllNormalizations={onViewAllNormalizations}
               partialYears={partialYears}

@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
 import { hasExplicitNumericValue as hasExplicitFinancialValue } from '../../../utils/yearlyFinancials'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
@@ -12,6 +12,7 @@ interface NormalizedEbitdaSummaryProps {
   hasEbitdaValue: boolean
   hasFinancials: boolean
   normalizedData: ManualInputNormalizedData
+  normalizationReviewCount: number
   onViewAllNormalizations?: () => void
   taxLatencyCount: number
   totalYearsWithEbitda: number
@@ -23,12 +24,14 @@ export function NormalizedEbitdaSummary({
   hasEbitdaValue,
   hasFinancials,
   normalizedData,
+  normalizationReviewCount,
   onViewAllNormalizations,
   taxLatencyCount,
   totalYearsWithEbitda,
 }: NormalizedEbitdaSummaryProps) {
   const mi = useTranslations('manualInput')
   const tTax = useTranslations('taxLatency')
+  const locale = useLocale()
 
   if (!(hasEbitdaValue && hasFinancials && totalYearsWithEbitda > 0)) return null
 
@@ -51,6 +54,20 @@ export function NormalizedEbitdaSummary({
   const averageAdjustment = yearsWithEbitda.length > 0 ? adjustmentSum / yearsWithEbitda.length : 0
   const safeAverageAdjustment = Number.isFinite(averageAdjustment) ? averageAdjustment : 0
   const hasManualAdjustment = normalizedData.years.some((year) => year.totalAdjustment !== 0)
+  const normalizationStatusLabel =
+    normalizationReviewCount > 0
+      ? locale === 'nl'
+        ? `${normalizationReviewCount} ${normalizationReviewCount === 1 ? 'normalisatie' : 'normalisaties'} te beoordelen`
+        : locale === 'fr'
+          ? `${normalizationReviewCount} ${normalizationReviewCount === 1 ? 'normalisation à examiner' : 'normalisations à examiner'}`
+          : `${normalizationReviewCount} ${normalizationReviewCount === 1 ? 'normalization' : 'normalizations'} to review`
+      : acceptedNormCount > 0
+        ? locale === 'nl'
+          ? `${acceptedNormCount} ${acceptedNormCount === 1 ? 'normalisatie verwerkt' : 'normalisaties verwerkt'}`
+          : locale === 'fr'
+            ? `${acceptedNormCount} ${acceptedNormCount === 1 ? 'normalisation traitée' : 'normalisations traitées'}`
+            : `${acceptedNormCount} ${acceptedNormCount === 1 ? 'normalization applied' : 'normalizations applied'}`
+        : null
 
   return (
     <motion.div
@@ -113,17 +130,15 @@ export function NormalizedEbitdaSummary({
               )}
             </div>
             <div className="flex max-w-full min-w-0 flex-col items-stretch gap-2 @[46rem]:shrink-0 @[46rem]:flex-row @[46rem]:items-center">
-              {(acceptedNormCount > 0 || taxLatencyCount > 0) && (
+              {(normalizationStatusLabel || taxLatencyCount > 0) && (
                 <button
                   type="button"
                   onClick={() => onViewAllNormalizations?.()}
                   className="inline-flex min-h-11 min-w-0 items-center self-start text-left text-xs font-medium leading-snug text-foreground/60 underline decoration-foreground/20 underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground/40 @[46rem]:whitespace-nowrap"
                 >
-                  {acceptedNormCount > 0 && taxLatencyCount > 0
-                    ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })} / ${tTax('summary', { count: taxLatencyCount })}`
-                    : acceptedNormCount > 0
-                      ? `${acceptedNormCount} ${mi('normalizations', { count: acceptedNormCount })}`
-                      : tTax('summary', { count: taxLatencyCount })}
+                  {normalizationStatusLabel && taxLatencyCount > 0
+                    ? `${normalizationStatusLabel} / ${tTax('summary', { count: taxLatencyCount })}`
+                    : (normalizationStatusLabel ?? tTax('summary', { count: taxLatencyCount }))}
                 </button>
               )}
               <button

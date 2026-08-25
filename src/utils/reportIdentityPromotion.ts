@@ -19,7 +19,7 @@ function validEngineRunId(value: unknown): string | undefined {
   return typeof value === 'string' && /^val_[A-Za-z0-9_-]+$/.test(value) ? value : undefined
 }
 
-function engineRunIdFromResult(value: ValuationResponse | undefined): string | undefined {
+function engineRunIdFromResult(value: Partial<ValuationResponse> | undefined): string | undefined {
   if (!value || typeof value !== 'object') return undefined
   const record = value as unknown as Record<string, unknown>
   return validEngineRunId(record.valuation_id)
@@ -43,7 +43,7 @@ export function getCanonicalReportAlias(sessionKey: string): string | undefined 
 export function promoteSavedReportIdentity(input: {
   previousId: string
   response: SaveValuationResultResponse
-  valuationResult?: ValuationResponse
+  valuationResult?: Partial<ValuationResponse>
 }): ReportIdentity {
   const reportId = isUuid(input.response.reportId) ? input.response.reportId : undefined
   const sessionKey = isSessionKey(input.response.sessionKey)

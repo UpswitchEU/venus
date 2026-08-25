@@ -65,6 +65,7 @@ interface FinancialHistorySectionProps {
   latestHistoricalRevenue?: number
   liveImportProviderName: string | null
   normalizedData: ManualInputNormalizedData
+  normalizationReviewCount: number
   onFieldHelpRequest?: (context: FieldHelpContext) => void
   onViewAllNormalizations?: () => void
   partialYears: string[]
@@ -112,6 +113,7 @@ export function FinancialHistorySection({
   latestHistoricalRevenue,
   liveImportProviderName,
   normalizedData,
+  normalizationReviewCount,
   onFieldHelpRequest,
   onViewAllNormalizations,
   partialYears,
@@ -296,6 +298,7 @@ export function FinancialHistorySection({
         hasEbitdaValue={hasEbitdaValue}
         hasFinancials={hasFinancials}
         normalizedData={normalizedData}
+        normalizationReviewCount={normalizationReviewCount}
         onViewAllNormalizations={onViewAllNormalizations}
         taxLatencyCount={taxLatencyCount}
         totalYearsWithEbitda={totalYearsWithEbitda}

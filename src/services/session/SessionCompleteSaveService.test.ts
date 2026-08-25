@@ -5,8 +5,13 @@ import { saveCompleteValuationSession } from './SessionCompleteSaveService'
 
 const mocks = vi.hoisted(() => ({
   broadcastReportUpdated: vi.fn(),
-  saveValuationResult: vi.fn().mockResolvedValue(undefined),
+  saveValuationResult: vi.fn().mockResolvedValue({ reportId: 'saved-report-id' }),
+  promoteSavedReportIdentity: vi.fn().mockReturnValue({
+    reportId: '44444444-4444-4444-8444-444444444444',
+    sessionKey: 'val_range_restore',
+  }),
   updateValuationSession: vi.fn().mockResolvedValue({ success: true }),
+  cacheGet: vi.fn(),
   cacheRemove: vi.fn(),
   cacheSet: vi.fn(),
 }))
@@ -25,9 +30,14 @@ vi.mock('../backendApi', () => ({
 
 vi.mock('../../utils/sessionCacheManager', () => ({
   globalSessionCache: {
+    get: mocks.cacheGet,
     remove: mocks.cacheRemove,
     set: mocks.cacheSet,
   },
+}))
+
+vi.mock('../../utils/reportIdentityPromotion', () => ({
+  promoteSavedReportIdentity: mocks.promoteSavedReportIdentity,
 }))
 
 vi.mock('../../utils/auth/cross-domain-logout', () => ({
@@ -81,7 +91,7 @@ describe('saveCompleteValuationSession', () => {
 
     expect(mocks.broadcastReportUpdated).toHaveBeenCalledWith(
       expect.objectContaining({
-        reportId: 'val_range_restore',
+        reportId: '44444444-4444-4444-8444-444444444444',
         reportName: 'Range BV',
         valuationResult: expect.objectContaining({
           equity_value_low: 12_800_000,
@@ -92,6 +102,33 @@ describe('saveCompleteValuationSession', () => {
           methodology: 'hybrid',
         }),
       })
+    )
+  })
+
+  it('restores the canonical cache when the post-save reload throws', async () => {
+    const previousSession = {
+      reportId: 'val_range_restore',
+      name: 'Range BV',
+    } as ValuationSession
+    mocks.cacheGet.mockReturnValueOnce(previousSession)
+
+    await saveCompleteValuationSession(
+      'val_range_restore',
+      {
+        valuationResult: {
+          valuation_id: 'val_engine_run',
+          equity_value_mid: 15_600_000,
+        },
+      },
+      async () => {
+        throw new Error('temporary reload failure')
+      }
+    )
+
+    expect(mocks.cacheRemove).toHaveBeenCalledWith('44444444-4444-4444-8444-444444444444')
+    expect(mocks.cacheSet).toHaveBeenCalledWith(
+      '44444444-4444-4444-8444-444444444444',
+      previousSession
     )
   })
 

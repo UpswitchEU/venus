@@ -94,7 +94,12 @@ describe('manual input presentation model', () => {
       latestCompleteYearlyFinancial: { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
       normalizationItems: [
         normalization({ id: 'accepted', adjustment: 25_000 }),
-        normalization({ id: 'pending', adjustment: 50_000, status: 'pending' }),
+        normalization({
+          id: 'pending',
+          adjustment: 50_000,
+          source: 'silverfin',
+          status: 'pending',
+        }),
       ],
       selectedBusinessCategoryForMethodInputs,
       selectedBusinessType,
@@ -105,6 +110,7 @@ describe('manual input presentation model', () => {
     })
 
     expect(model.acceptedNormCount).toBe(1)
+    expect(model.normalizationReviewCount).toBe(1)
     expect(model.historicalCardRows.map((row) => row.year)).toEqual(['2025'])
     expect(model.normalizedData.averageNormalizedEbitda).toBe(125_000)
     expect(model.resolvedBusinessTypeIdForBonusSections).toBe('picker-primary')

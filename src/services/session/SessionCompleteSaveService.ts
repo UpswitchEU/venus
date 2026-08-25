@@ -6,6 +6,7 @@ import {
   businessTypeWeightsFromSegments,
   resolveBusinessTypeSegments,
 } from '../../utils/normalizeBusinessTypeSegments'
+import { promoteSavedReportIdentity } from '../../utils/reportIdentityPromotion'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import { validateOptionalValuationCompanyGraphContext } from '../../utils/valuationCompanyGraphContext'
 import {
@@ -54,6 +55,7 @@ export async function saveCompleteValuationSession(
 
     const { SessionAPI } = await import('../api/session/SessionAPI')
     const sessionAPI = new SessionAPI()
+    let canonicalReportId = reportId
     const sessionUpdate: Partial<ValuationRequest> = {}
 
     if (data.formData) {
@@ -103,36 +105,60 @@ export async function saveCompleteValuationSession(
     }
 
     if (data.valuationResult || data.htmlReport) {
-      await sessionAPI.saveValuationResult(reportId, {
+      const saveResponse = await sessionAPI.saveValuationResult(reportId, {
         valuationResult: data.valuationResult,
         htmlReport: data.htmlReport,
       })
+      const identity = promoteSavedReportIdentity({
+        previousId: reportId,
+        response: saveResponse,
+        valuationResult: data.valuationResult,
+      })
+      canonicalReportId = identity.reportId ?? reportId
 
       logger.debug('Valuation result saved', {
         reportId,
+        canonicalReportId,
         hasHtmlReport: !!data.htmlReport,
       })
     }
 
     let freshSession: ValuationSession | null = null
+    const preSaveCache =
+      globalSessionCache.get(canonicalReportId) ?? globalSessionCache.get(reportId)
     try {
-      globalSessionCache.remove(reportId)
-      freshSession = await loadSession(reportId)
+      globalSessionCache.remove(canonicalReportId)
+      freshSession = await loadSession(canonicalReportId)
 
       if (freshSession) {
-        globalSessionCache.set(reportId, freshSession)
+        const canonicalSession = { ...freshSession, reportId: canonicalReportId }
+        globalSessionCache.set(canonicalReportId, canonicalSession)
+        if (canonicalReportId !== reportId) {
+          globalSessionCache.set(reportId, canonicalSession)
+        }
 
         logger.debug('Cache updated with fresh valuation data', {
-          reportId,
+          reportId: canonicalReportId,
           hasHtmlReport: !!freshSession.htmlReport,
           hasValuationResult: !!freshSession.valuationResult,
         })
       } else {
-        logger.warn('Failed to reload session after save, cache remains cleared', { reportId })
+        if (preSaveCache) {
+          globalSessionCache.set(canonicalReportId, preSaveCache)
+        }
+        logger.warn('Failed to reload session after save, previous cache restored', {
+          reportId: canonicalReportId,
+          hadPreSaveCache: !!preSaveCache,
+        })
       }
     } catch (cacheError) {
+      if (preSaveCache) {
+        globalSessionCache.set(canonicalReportId, preSaveCache)
+      }
       logger.error('Failed to update cache after save', {
         reportId,
+        canonicalReportId,
+        restoredPreviousCache: !!preSaveCache,
         error: getErrorMessage(cacheError),
       })
     }
@@ -144,14 +170,14 @@ export async function saveCompleteValuationSession(
         const { useClientContext } = await import('../../stores/clientContext')
 
         const versionStore = useVersionHistoryStore.getState()
-        const versions = versionStore.versions[reportId] || []
-        const latestVersion = versionStore.getLatestVersion(reportId)
+        const versions = versionStore.versions[canonicalReportId] || []
+        const latestVersion = versionStore.getLatestVersion(canonicalReportId)
         const clientContext = useClientContext.getState()
         const broadcastValuationResult = data.valuationResult ?? {}
         const finalValuation = getFinalValuation(broadcastValuationResult)
 
         broadcastReportUpdated({
-          reportId,
+          reportId: canonicalReportId,
           reportName: freshSession?.name,
           updatedAt: new Date(),
           clientId: clientContext.isActingAsClient
@@ -181,7 +207,7 @@ export async function saveCompleteValuationSession(
             : undefined,
         })
 
-        logger.debug('Report update broadcasted to Mercury', { reportId })
+        logger.debug('Report update broadcasted to Mercury', { reportId: canonicalReportId })
       } catch (broadcastError) {
         logger.warn('Failed to broadcast report update', {
           reportId,
@@ -194,6 +220,7 @@ export async function saveCompleteValuationSession(
 
     logger.debug('Complete session saved successfully', {
       reportId,
+      canonicalReportId,
       duration_ms: duration.toFixed(2),
     })
   } catch (error) {

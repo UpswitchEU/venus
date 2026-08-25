@@ -7,6 +7,7 @@ import {
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { isYearRowForecast } from '../../../utils/yearData'
 import type { NormalizationItem } from '../UnifiedNormalizationModal'
+import { requiresIndividualImportedNormalizationReview } from '../UnifiedNormalizationTypes'
 import { getSeedBaseFilingYear } from './manualFinancialSeeds'
 import {
   buildManualInputAdaptiveHeaderSteps,
@@ -32,6 +33,7 @@ export interface ManualInputPresentationModel {
   baseFilingYearForLabels: number
   historicalCardRows: YearlyFinancials[]
   normalizedData: ManualInputNormalizedData
+  normalizationReviewCount: number
   readiness: ManualInputReadiness
   resolvedBusinessCategoryForBonusSections: unknown
   resolvedBusinessTypeIdForBonusSections?: string | null
@@ -98,6 +100,9 @@ export function buildManualInputPresentationModel({
   storeBusinessTypeId?: string
 }): ManualInputPresentationModel {
   const acceptedNormCount = normalizationItems.filter((n) => n.status === 'accepted').length
+  const normalizationReviewCount = normalizationItems.filter(
+    (item) => item.status === 'pending' && requiresIndividualImportedNormalizationReview(item)
+  ).length
   const normalizedData = buildManualInputNormalizedData({
     estimatedMarketRent: formData.estimated_market_rent,
     excludeRealEstate: formData.exclude_real_estate,
@@ -153,6 +158,7 @@ export function buildManualInputPresentationModel({
     baseFilingYearForLabels,
     historicalCardRows,
     normalizedData,
+    normalizationReviewCount,
     readiness,
     resolvedBusinessCategoryForBonusSections,
     resolvedBusinessTypeIdForBonusSections,
