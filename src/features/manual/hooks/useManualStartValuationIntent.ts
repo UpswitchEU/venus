@@ -72,6 +72,7 @@ export function useManualStartValuationIntent({
     void onStart(submitData)
       .then(() => window.sessionStorage.setItem(storageKey, 'complete'))
       .catch((error) => {
+        window.sessionStorage.removeItem(storageKey)
         generalLogger.error('[start-valuation-intent] automatic start failed', {
           reportId,
           error: error instanceof Error ? error.message : String(error),

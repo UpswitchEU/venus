@@ -130,6 +130,7 @@ describe('/reports/new param preservation', () => {
     const url = await callPage({
       drawer: 'normalisation',
       agent_next: 'run_valuation',
+      intent: 'start_valuation',
       spotlight: 'salary',
       focusField: 'owner_compensation',
       flagYear: '2024',
@@ -137,6 +138,7 @@ describe('/reports/new param preservation', () => {
     const u = new URL(url, 'https://example.com')
     expect(u.searchParams.get('drawer')).toBe('normalisation')
     expect(u.searchParams.get('agent_next')).toBe('run_valuation')
+    expect(u.searchParams.get('intent')).toBe('start_valuation')
     expect(u.searchParams.get('spotlight')).toBe('salary')
     expect(u.searchParams.get('focusField')).toBe('owner_compensation')
     expect(u.searchParams.get('flagYear')).toBe('2024')
