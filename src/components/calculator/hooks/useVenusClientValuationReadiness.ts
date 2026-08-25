@@ -15,6 +15,7 @@ export interface VenusClientValuationReadiness {
     action: string
     fiscal_year?: number
     reason_code?: string
+    source_digest?: string
     supports_attestation?: boolean
   }>
 }

@@ -824,11 +824,12 @@ describe('normalizeSessionData', () => {
     expect(normalized.formData.company_name).toBe('Merged Co')
   })
 
-  it('prefers val_* from nested session_data over stale UUID reportId', () => {
+  it('keeps a durable report UUID and exposes the nested val_* session key separately', () => {
     const normalized = normalizeSessionData({
       reportId: 'd290f1ee-6c54-4b01-90e6-d701748f0851',
       session_data: { session_key: 'val_nested_routing' },
     })
-    expect(normalized.reportId).toBe('val_nested_routing')
+    expect(normalized.reportId).toBe('d290f1ee-6c54-4b01-90e6-d701748f0851')
+    expect(normalized.sessionKey).toBe('val_nested_routing')
   })
 })

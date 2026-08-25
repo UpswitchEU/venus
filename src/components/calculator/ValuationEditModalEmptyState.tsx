@@ -16,6 +16,7 @@ interface ValuationEditModalEmptyStateProps {
   methodDataLoadError: ValuationEditMethodDataLoadError
   onRetryMethodDataLoad?: () => void
   onContinueImportReview?: () => void
+  isMigratedLegacy: boolean
 }
 
 function translateEmptyStateCopy(
@@ -36,6 +37,7 @@ export function ValuationEditModalEmptyState({
   methodDataLoadError,
   onRetryMethodDataLoad,
   onContinueImportReview,
+  isMigratedLegacy,
 }: ValuationEditModalEmptyStateProps) {
   const t = useTranslations('omniCalc')
   const tModal = useTranslations('valuationEditModal')
@@ -43,6 +45,7 @@ export function ValuationEditModalEmptyState({
     isHydratingMethods,
     methodDataLoadError,
     hasImportReviewRecovery: Boolean(onContinueImportReview),
+    isMigratedLegacy,
   })
 
   const title = translateEmptyStateCopy(emptyState.titleSource, emptyState.titleKey, tModal, t)

@@ -359,7 +359,47 @@ class AccountingAPI extends HttpClient {
         provider: 'silverfin',
         year: input.year,
         source_digest: input.sourceDigest,
-        rationale: input.rationale,
+        reason_code: 'verified_ledger_classification',
+        note: input.rationale,
+      }
+    )
+    return response.data
+  }
+
+  async createFinancialCorrection(input: {
+    clientId: string
+    provider:
+      | 'yuki'
+      | 'exact'
+      | 'silverfin'
+      | 'winbooks'
+      | 'octopus'
+      | 'horus'
+      | 'bizzcontrol'
+      | 'generic'
+      | 'expertm'
+      | 'wings'
+    fiscalYear: number
+    sourceDigest: string
+    revenue: string
+    ebitda: string
+    reason: string
+  }): Promise<{
+    id: string
+    status: 'active'
+    provider: string
+    fiscal_year: number
+    source_digest: string
+    corrected_fields: { revenue: string; ebitda: string }
+  }> {
+    const response = await this.client.post(
+      `/integrations/accounting/clients/${encodeURIComponent(input.clientId)}/financial-corrections`,
+      {
+        provider: input.provider,
+        fiscal_year: input.fiscalYear,
+        source_digest: input.sourceDigest,
+        corrected_fields: { revenue: input.revenue, ebitda: input.ebitda },
+        reason: input.reason,
       }
     )
     return response.data

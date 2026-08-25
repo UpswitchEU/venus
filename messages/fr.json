@@ -3756,6 +3756,8 @@
 		"unavailableBlurb": "Les options de méthode ne se sont pas chargées. Appuyez à nouveau sur Calculer ou actualisez la page.",
 		"unavailableTitleLegacy": "Données sur la méthode de valorisation indisponibles",
 		"unavailableBlurbLegacy": "Les évaluations plus anciennes peuvent ne pas avoir stocké les ventilations par méthode dans la base de données. Démarrez une nouvelle évaluation ou contactez le support si cela persiste.",
+		"unavailableTitleMissing": "Données de méthode manquantes",
+		"unavailableBlurbMissing": "Il s’agit d’un rapport natif, mais ses données de méthode sont absentes. Réessayez de les charger ; si elles restent indisponibles, le rapport est incomplet et doit être recalculé.",
 		"unavailableTitleReportPending": "Rapport pas encore lié",
 		"unavailableBlurbReportPending": "Le rapport est toujours lié à cette session. Attendez un instant, actualisez la page ou rouvrez la valorisation.",
 		"transientLoadTitle": "Données de méthode temporairement indisponibles",

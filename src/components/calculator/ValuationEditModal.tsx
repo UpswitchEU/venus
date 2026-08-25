@@ -56,6 +56,7 @@ export interface ValuationEditModalProps {
   /** Null = all methods; list = plan restriction (shows locked rows as teasers) */
   planAllowedMethodKeys?: string[] | null
   onPlanLockedMethodClick?: () => void
+  reportOrigin?: 'native' | 'migrated_legacy'
 }
 
 export function ValuationEditModal({
@@ -86,6 +87,7 @@ export function ValuationEditModal({
   firmCountryCode,
   planAllowedMethodKeys = null,
   onPlanLockedMethodClick,
+  reportOrigin = 'native',
 }: ValuationEditModalProps) {
   const t = useTranslations('omniCalc')
   const tPrep = useTranslations('preparerMultiple')
@@ -292,6 +294,7 @@ export function ValuationEditModal({
         methodDataLoadError={methodDataLoadError}
         onRetryMethodDataLoad={onRetryMethodDataLoad}
         onContinueImportReview={onContinueImportReview}
+        isMigratedLegacy={reportOrigin === 'migrated_legacy'}
       />
     )
   }

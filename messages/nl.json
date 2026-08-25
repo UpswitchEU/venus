@@ -3756,6 +3756,8 @@
 		"unavailableBlurb": "Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.",
 		"unavailableTitleLegacy": "Methodedata niet beschikbaar",
 		"unavailableBlurbLegacy": "Bij oudere waarderingen zijn methodes soms niet in de database opgeslagen. Start een nieuwe waardering of neem contact op met support als dit blijft gebeuren.",
+		"unavailableTitleMissing": "Methodedata ontbreken",
+		"unavailableBlurbMissing": "Dit is een native rapport, maar de methodegegevens ontbreken. Probeer opnieuw te laden; blijft dit zo, dan is het rapport onvolledig en moet de berekening opnieuw worden uitgevoerd.",
 		"unavailableTitleReportPending": "Rapport nog niet gekoppeld",
 		"unavailableBlurbReportPending": "Het rapport wordt nog aan deze sessie gekoppeld. Wacht even, vernieuw de pagina of open de waardering opnieuw.",
 		"transientLoadTitle": "Methodedata tijdelijk niet geladen",

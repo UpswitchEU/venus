@@ -46,6 +46,8 @@ export interface SaveValuationResultResponse {
   sessionKey?: string
   /** ValuationIQ run identifier; always val_* when present. */
   engineRunId?: string
+  reportStatus?: 'draft' | 'import_review' | 'calculating' | 'ready' | 'failed'
+  origin?: 'native' | 'migrated_legacy'
   message: string
   reportReady?: boolean
   session?: ValuationSession

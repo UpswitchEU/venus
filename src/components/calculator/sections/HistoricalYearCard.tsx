@@ -18,6 +18,25 @@ import type { UpdateManualYearlyFinancials } from '../utils/manualYearlyFinancia
 import { canOfferSourceBoundHighMarginAttestation } from './highMarginAttestationEligibility'
 import { NbbResetHint } from './NbbResetHint'
 
+const CORRECTABLE_PROVIDERS: ReadonlySet<string> = new Set([
+  'yuki',
+  'exact',
+  'silverfin',
+  'winbooks',
+  'octopus',
+  'horus',
+  'bizzcontrol',
+  'generic',
+  'expertm',
+  'wings',
+] as const)
+
+type CorrectableProvider = Parameters<typeof accountingAPI.createFinancialCorrection>[0]['provider']
+
+function isCorrectableProvider(value: string | null | undefined): value is CorrectableProvider {
+  return !!value && CORRECTABLE_PROVIDERS.has(value.toLowerCase())
+}
+
 interface HistoricalYearCardProps {
   baseFilingYearForLabels: number
   fieldValidation: ManualInputFieldValidation
@@ -33,10 +52,20 @@ interface HistoricalYearCardProps {
     attestationId: string
     sourceDigest: string
   }) => void
+  onFinancialCorrectionRecorded?: (result: {
+    year: number
+    correctionId: string
+    sourceDigest: string
+  }) => void
   partialYears: string[]
   updateYearlyFinancials: UpdateManualYearlyFinancials
   yearData: YearlyFinancials
-  readinessIssue?: { reason_code?: string; supports_attestation?: boolean }
+  readinessIssue?: {
+    reason_code?: string
+    source_digest?: string
+    supports_attestation?: boolean
+  }
+  sourceProvider?: string | null
 }
 
 export function HistoricalYearCard({
@@ -50,10 +79,12 @@ export function HistoricalYearCard({
   onRemoveHistoricalYear,
   onViewAllNormalizations,
   onHighMarginAttested,
+  onFinancialCorrectionRecorded,
   partialYears,
   updateYearlyFinancials,
   yearData,
   readinessIssue,
+  sourceProvider,
 }: HistoricalYearCardProps) {
   const t = useTranslations()
   const mi = useTranslations('manualInput')
@@ -61,6 +92,10 @@ export function HistoricalYearCard({
   const [attestationRationale, setAttestationRationale] = useState('')
   const [attestationError, setAttestationError] = useState<string | null>(null)
   const [attesting, setAttesting] = useState(false)
+  const [showCorrection, setShowCorrection] = useState(false)
+  const [correctionReason, setCorrectionReason] = useState('')
+  const [correctionError, setCorrectionError] = useState<string | null>(null)
+  const [correcting, setCorrecting] = useState(false)
   const normCount = Number(normalizedYear?.normalizationCount ?? 0)
   const histOffset = getFilingYearHistoricalOffset(yearData.year, baseFilingYearForLabels)
   const isPartial = partialYears.includes(yearData.year)
@@ -75,16 +110,32 @@ export function HistoricalYearCard({
     ? hasExplicitFinancialValue(yearData.ebitda) &&
       (normalizedYear.totalAdjustment !== 0 || (normalizedYear.fictiveRentDeduction ?? 0) > 0)
     : false
+  const yearReviewReason =
+    yearData.eligibility_reason ??
+    (yearData.source_kind === 'manual' ? undefined : readinessIssue?.reason_code)
   const requiresHighMarginReview =
-    !yearData.isForecast &&
-    (yearData.eligibility_reason === 'extreme_margin_unattested' ||
-      readinessIssue?.reason_code === 'extreme_margin_unattested')
+    !yearData.isForecast && yearReviewReason === 'extreme_margin_unattested'
   const canAttestHighMargin = canOfferSourceBoundHighMarginAttestation({
     requiresReview: requiresHighMarginReview,
     sourceProvider: yearData.source_provider,
     sourceDigest: yearData.source_digest,
     titanSupportsAttestation: readinessIssue?.supports_attestation,
   })
+  const correctionProviderCandidate = yearData.source_provider ?? sourceProvider
+  const correctionProvider = isCorrectableProvider(correctionProviderCandidate)
+    ? (correctionProviderCandidate.toLowerCase() as CorrectableProvider)
+    : null
+  const correctionMatchesReadinessSource =
+    !readinessIssue?.source_digest || readinessIssue.source_digest === yearData.source_digest
+  const canRecordFinancialCorrection = Boolean(
+    !yearData.isForecast &&
+      readinessIssue &&
+      correctionProvider &&
+      yearData.source_digest &&
+      correctionMatchesReadinessSource &&
+      Number.isFinite(yearData.revenue) &&
+      Number.isFinite(yearData.ebitda)
+  )
   const reviewCopy =
     locale === 'nl'
       ? {
@@ -108,6 +159,66 @@ export function HistoricalYearCard({
             placeholder: 'Explain why this margin is correct (minimum 12 characters)',
             confirm: 'Confirm reviewed figures',
             missingClient: 'Client context is missing. Reopen this report from Mercury.',
+          }
+  const correctionCopy =
+    locale === 'nl'
+      ? {
+          open: 'Broncijfers dossierbreed corrigeren',
+          body: 'Dit is een broncorrectie, geen EBITDA-normalisatie. Ze blijft gebonden aan deze provider-sync en wordt bij nieuwe brondata opnieuw te beoordelen.',
+          placeholder:
+            'Beschrijf welk bronbewijs de gecorrigeerde omzet en EBITDA ondersteunt (min. 12 tekens)',
+          confirm: 'Correctie duurzaam opslaan',
+        }
+      : locale === 'fr'
+        ? {
+            open: 'Corriger les chiffres source du dossier',
+            body: 'Il s’agit d’une correction de source, pas d’une normalisation EBITDA. Elle reste liée à cette synchronisation et devra être réexaminée si la source change.',
+            placeholder:
+              'Décrivez la preuve qui justifie le chiffre d’affaires et l’EBITDA corrigés (12 caractères minimum)',
+            confirm: 'Enregistrer durablement la correction',
+          }
+        : {
+            open: 'Correct dossier-wide source figures',
+            body: 'This is a source correction, not an EBITDA normalization. It remains bound to this provider sync and returns to review when the source changes.',
+            placeholder:
+              'Describe the evidence supporting corrected revenue and EBITDA (minimum 12 characters)',
+            confirm: 'Save durable correction',
+          }
+  const excludedYearCopy =
+    locale === 'nl'
+      ? {
+          title: 'Dit boekjaar telt nog niet mee',
+          body:
+            yearReviewReason === 'incomplete_operating_pair'
+              ? 'Vul omzet en EBITDA voor ditzelfde boekjaar aan om het opnieuw toe te laten.'
+              : yearReviewReason === 'ebitda_exceeds_revenue'
+                ? 'De EBITDA is hoger dan de omzet. Controleer en corrigeer één van beide cijfers.'
+                : yearReviewReason === 'fiscal_year_mismatch'
+                  ? 'Het bronjaar en dit boekjaar komen niet overeen. Controleer de cijfers voor dit jaar.'
+                  : 'De broncontrole voor dit boekjaar is niet volledig. Corrigeer de cijfers hier of synchroniseer Silverfin opnieuw.',
+        }
+      : locale === 'fr'
+        ? {
+            title: "Cet exercice n'est pas encore pris en compte",
+            body:
+              yearReviewReason === 'incomplete_operating_pair'
+                ? 'Complétez le chiffre d’affaires et l’EBITDA du même exercice pour le réadmettre.'
+                : yearReviewReason === 'ebitda_exceeds_revenue'
+                  ? 'L’EBITDA dépasse le chiffre d’affaires. Vérifiez et corrigez l’un des deux montants.'
+                  : yearReviewReason === 'fiscal_year_mismatch'
+                    ? 'L’exercice de la source ne correspond pas à cette année. Vérifiez les chiffres de cet exercice.'
+                    : 'La vérification de la source est incomplète. Corrigez les chiffres ici ou resynchronisez Silverfin.',
+          }
+        : {
+            title: 'This fiscal year is not included yet',
+            body:
+              yearReviewReason === 'incomplete_operating_pair'
+                ? 'Enter revenue and EBITDA for the same year to admit it again.'
+                : yearReviewReason === 'ebitda_exceeds_revenue'
+                  ? 'EBITDA is higher than revenue. Review and correct either figure.'
+                  : yearReviewReason === 'fiscal_year_mismatch'
+                    ? 'The source year does not match this fiscal year. Review the figures for this year.'
+                    : 'Source verification for this year is incomplete. Correct the figures here or resync Silverfin.',
           }
 
   const attestHighMargin = async () => {
@@ -138,6 +249,48 @@ export function HistoricalYearCard({
       setAttestationError(parseAccountingApiError(error))
     } finally {
       setAttesting(false)
+    }
+  }
+
+  const recordFinancialCorrection = async () => {
+    const searchParams =
+      typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
+    const clientId = searchParams?.get('clientId') ?? searchParams?.get('client_id')
+    if (!clientId) {
+      setCorrectionError(reviewCopy.missingClient)
+      return
+    }
+    if (
+      !canRecordFinancialCorrection ||
+      !correctionProvider ||
+      !yearData.source_digest ||
+      correctionReason.trim().length < 12
+    ) {
+      return
+    }
+    setCorrecting(true)
+    setCorrectionError(null)
+    try {
+      const correction = await accountingAPI.createFinancialCorrection({
+        clientId,
+        provider: correctionProvider,
+        fiscalYear: Number(yearData.year),
+        sourceDigest: yearData.source_digest,
+        revenue: String(yearData.revenue),
+        ebitda: String(yearData.ebitda),
+        reason: correctionReason.trim(),
+      })
+      onFinancialCorrectionRecorded?.({
+        year: correction.fiscal_year,
+        correctionId: correction.id,
+        sourceDigest: correction.source_digest,
+      })
+      setShowCorrection(false)
+      setCorrectionReason('')
+    } catch (error) {
+      setCorrectionError(parseAccountingApiError(error))
+    } finally {
+      setCorrecting(false)
     }
   }
 
@@ -188,7 +341,11 @@ export function HistoricalYearCard({
                 onClick={() => onViewAllNormalizations?.()}
                 className="text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
               >
-                {normCount} {mi('normalizations', { count: normCount })}
+                {locale === 'nl'
+                  ? `${normCount} normalisaties te beoordelen`
+                  : locale === 'fr'
+                    ? `${normCount} normalisations à examiner`
+                    : `${normCount} normalizations to review`}
               </button>
             )}
             {yearData.isForecast && (
@@ -289,6 +446,15 @@ export function HistoricalYearCard({
         }
       />
 
+      {yearReviewReason && !requiresHighMarginReview ? (
+        <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+            {excludedYearCopy.title}
+          </p>
+          <p className="mt-1 text-[11px] leading-5 text-foreground/65">{excludedYearCopy.body}</p>
+        </div>
+      ) : null}
+
       {requiresHighMarginReview ? (
         <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3">
           <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
@@ -315,6 +481,44 @@ export function HistoricalYearCard({
                 {attesting ? '…' : reviewCopy.confirm}
               </button>
             </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {canRecordFinancialCorrection ? (
+        <div className="mt-3 rounded-lg border border-foreground/10 bg-background p-3">
+          <button
+            type="button"
+            className="text-xs font-semibold text-primary underline decoration-primary/30 underline-offset-2"
+            onClick={() => setShowCorrection((visible) => !visible)}
+            aria-expanded={showCorrection}
+          >
+            {correctionCopy.open}
+          </button>
+          {showCorrection ? (
+            <div className="mt-2">
+              <p className="text-[11px] leading-5 text-foreground/65">{correctionCopy.body}</p>
+              <textarea
+                className="mt-2 min-h-20 w-full rounded-md border bg-background px-2.5 py-2 text-xs"
+                value={correctionReason}
+                onChange={(event) => setCorrectionReason(event.target.value)}
+                placeholder={correctionCopy.placeholder}
+                aria-label={correctionCopy.placeholder}
+              />
+              {correctionError ? (
+                <p className="mt-1 text-[11px] text-destructive" role="alert">
+                  {correctionError}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                className="mt-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                disabled={correcting || correctionReason.trim().length < 12}
+                onClick={() => void recordFinancialCorrection()}
+              >
+                {correcting ? '…' : correctionCopy.confirm}
+              </button>
+            </div>
           ) : null}
         </div>
       ) : null}

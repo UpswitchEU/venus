@@ -3756,6 +3756,8 @@
 		"unavailableBlurb": "Method options didn’t load. Tap Calculate again or refresh the page.",
 		"unavailableTitleLegacy": "Valuation method data unavailable",
 		"unavailableBlurbLegacy": "Older valuations may not have stored per-method breakdowns in the database. Start a new valuation or contact support if this persists.",
+		"unavailableTitleMissing": "Valuation method data missing",
+		"unavailableBlurbMissing": "This is a native report, but its method data is missing. Retry loading it; if it remains unavailable, the report is incomplete and must be recalculated.",
 		"unavailableTitleReportPending": "Report not linked yet",
 		"unavailableBlurbReportPending": "The report is still being linked to this session. Wait a moment, refresh the page, or reopen the valuation.",
 		"transientLoadTitle": "Method data temporarily unavailable",

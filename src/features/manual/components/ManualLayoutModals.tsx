@@ -81,6 +81,7 @@ export interface ManualLayoutModalsProps {
   report: ValuationReportData | null
   reportId: string
   reportMethodHydrationError: ManualReportMethodHydrationError
+  reportOrigin?: 'native' | 'migrated_legacy'
   rightPanelView: RightPanelView
   resolvedReportId?: string | null
   result: ValuationResponse | null
@@ -145,6 +146,7 @@ export function ManualLayoutModals({
   report,
   reportId,
   reportMethodHydrationError,
+  reportOrigin,
   rightPanelView,
   resolvedReportId,
   result,
@@ -245,6 +247,7 @@ export function ManualLayoutModals({
         fiscalAnchor={result?.fiscal_4x_anchor}
         showFiscalAnchorRow={showFiscalReferenceForOmni === true}
         result={result}
+        reportOrigin={reportOrigin}
         preparerDisabled={isGenerating || isCalculating || effectiveIsRestoringExistingReport}
         industryLabel={collectedData.industry}
         businessTypeLabel={collectedData.businessType}

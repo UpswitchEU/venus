@@ -54,10 +54,12 @@ export function resolveValuationEditEmptyState({
   isHydratingMethods,
   methodDataLoadError,
   hasImportReviewRecovery,
+  isMigratedLegacy,
 }: {
   isHydratingMethods: boolean
   methodDataLoadError: ValuationEditMethodDataLoadError
   hasImportReviewRecovery: boolean
+  isMigratedLegacy: boolean
 }): ValuationEditEmptyState {
   if (isHydratingMethods) {
     return {
@@ -94,9 +96,9 @@ export function resolveValuationEditEmptyState({
 
   return {
     titleSource: 'omni',
-    titleKey: 'unavailableTitleLegacy',
+    titleKey: isMigratedLegacy ? 'unavailableTitleLegacy' : 'unavailableTitleMissing',
     blurbSource: 'omni',
-    blurbKey: 'unavailableBlurbLegacy',
+    blurbKey: isMigratedLegacy ? 'unavailableBlurbLegacy' : 'unavailableBlurbMissing',
     showRetry: false,
     showImportReviewRecovery: false,
   }

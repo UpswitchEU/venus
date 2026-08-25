@@ -43,22 +43,24 @@ describe('sessionReportIdentity', () => {
     const valKey = 'val_1700000000_abc12'
     const staleUuid = 'a3bb189e-8bf9-3888-9242-7d234c596a4f'
 
-    it('sets reportId from session_key when reportId is a conflicting UUID', () => {
+    it('preserves a durable report UUID and exposes session_key separately', () => {
       const p: Record<string, unknown> = {
         reportId: staleUuid,
         session_key: valKey,
       }
       applyStableReportIdFromSessionKeys(p)
-      expect(p.reportId).toBe(valKey)
+      expect(p.reportId).toBe(staleUuid)
+      expect(p.sessionKey).toBe(valKey)
     })
 
-    it('prefers sessionKey camelCase when session_key absent', () => {
+    it('preserves a durable UUID when sessionKey camelCase is also present', () => {
       const p: Record<string, unknown> = {
         reportId: staleUuid,
         sessionKey: valKey,
       }
       applyStableReportIdFromSessionKeys(p)
-      expect(p.reportId).toBe(valKey)
+      expect(p.reportId).toBe(staleUuid)
+      expect(p.sessionKey).toBe(valKey)
     })
 
     it('leaves non-session-key session_key as-is when no val_* candidate', () => {
@@ -67,7 +69,7 @@ describe('sessionReportIdentity', () => {
       expect(p.reportId).toBe('not-a-val-key')
     })
 
-    it('sets reportId from nested session_data.session_key when top-level keys are absent', () => {
+    it('keeps a UUID canonical when a nested session key is present', () => {
       const staleUuid = 'a3bb189e-8bf9-3888-9242-7d234c596a4f'
       const valKey = 'val_1700000000_abc12'
       const p: Record<string, unknown> = {
@@ -75,7 +77,8 @@ describe('sessionReportIdentity', () => {
         session_data: { session_key: valKey },
       }
       applyStableReportIdFromSessionKeys(p)
-      expect(p.reportId).toBe(valKey)
+      expect(p.reportId).toBe(staleUuid)
+      expect(p.sessionKey).toBe(valKey)
     })
   })
 

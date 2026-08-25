@@ -51,7 +51,8 @@ export interface YearDataInput {
   source_provider?: string
   source_kind?: string
   source_synced_at?: string | null
-  quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review'
+  quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review' | 'advisor_corrected'
+  correction_id?: string
   source_digest?: string
   attestation_id?: string
   eligibility_reason?: string

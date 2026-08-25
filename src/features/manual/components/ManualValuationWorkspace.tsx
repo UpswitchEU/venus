@@ -970,6 +970,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
           report,
           reportId,
           reportMethodHydrationError,
+          reportOrigin: session?.origin,
           rightPanelView,
           resolvedReportId,
           result,

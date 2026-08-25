@@ -345,6 +345,27 @@ export function FinancialHistorySection({
                   setRecoveryError(parseAccountingApiError(error))
                 })
               }}
+              onFinancialCorrectionRecorded={({ year, correctionId, sourceDigest }) => {
+                setFormData((previous) => ({
+                  ...previous,
+                  yearlyFinancials: previous.yearlyFinancials.map((row) =>
+                    Number(row.year) === year && !row.isForecast
+                      ? {
+                          ...row,
+                          source_digest: sourceDigest,
+                          correction_id: correctionId,
+                          quality_state: 'advisor_corrected',
+                          eligibility_reason: undefined,
+                        }
+                      : row
+                  ),
+                }))
+                setLocallyBlockedYear(null)
+                setRecoveryError(null)
+                void refreshReadiness().catch((error) => {
+                  setRecoveryError(parseAccountingApiError(error))
+                })
+              }}
               partialYears={partialYears}
               updateYearlyFinancials={updateYearlyFinancials}
               yearData={yearData}
@@ -354,6 +375,7 @@ export function FinancialHistorySection({
                   ? { reason_code: 'extreme_margin_unattested' }
                   : undefined)
               }
+              sourceProvider={sourceProvider}
             />
           )
         })}

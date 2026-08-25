@@ -78,7 +78,11 @@ export interface ValuationAdjustmentDisplay {
  */
 export interface ValuationSession {
   // Session metadata
-  reportId: string // Links to report URL (val_timestamp_random format) - single ID for everything
+  reportId: string // Durable Titan report UUID after first save
+  sessionKey?: string // Temporary val_* concept/session identity
+  engineRunId?: string // ValuationIQ val_* calculation identity
+  reportStatus?: 'draft' | 'import_review' | 'calculating' | 'ready' | 'failed'
+  origin?: 'native' | 'migrated_legacy'
   currentView: 'manual' | 'conversational' // Current UI view
   dataSource: 'manual' | 'conversational' | 'mixed' // Tracks which flow provided data
   status?: 'active' | 'completed' | 'expired' | string

@@ -19,6 +19,8 @@ const translations: Record<string, Record<string, string>> = {
     unavailableBlurb: 'Methoden zijn niet geladen. Tik opnieuw op Bereken of vernieuw de pagina.',
     unavailableTitleLegacy: 'Methodedata niet beschikbaar (legacy)',
     unavailableBlurbLegacy: 'Oudere waarderingen.',
+    unavailableTitleMissing: 'Methodedata ontbreken',
+    unavailableBlurbMissing: 'Dit native rapport is onvolledig.',
     unavailableTitleReportPending: 'Rapport nog niet gekoppeld',
     unavailableBlurbReportPending: 'Wacht even.',
     transientLoadTitle: 'Methodedata tijdelijk niet geladen',
@@ -152,6 +154,20 @@ describe('ValuationEditModal', () => {
 
   it('shows the unavailable state only when hydration has finished without methods', () => {
     render(<ValuationEditModal {...baseProps} isHydratingMethods={false} />)
+
+    expect(screen.getByText('Methodedata ontbreken')).toBeInTheDocument()
+    expect(screen.getByText('Dit native rapport is onvolledig.')).toBeInTheDocument()
+    expect(screen.queryByText('Oudere waarderingen.')).not.toBeInTheDocument()
+  })
+
+  it('shows legacy copy only for an explicitly migrated report', () => {
+    render(
+      <ValuationEditModal
+        {...baseProps}
+        isHydratingMethods={false}
+        reportOrigin="migrated_legacy"
+      />
+    )
 
     expect(screen.getByText('Methodedata niet beschikbaar (legacy)')).toBeInTheDocument()
     expect(screen.getByText('Oudere waarderingen.')).toBeInTheDocument()

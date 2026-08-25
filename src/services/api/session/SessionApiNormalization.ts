@@ -79,6 +79,11 @@ export function normalizeBackendSessionPayload(sessionData: unknown): ValuationS
 
   return {
     ...payload,
+    reportId: normalized.reportId,
+    ...(normalized.sessionKey ? { sessionKey: normalized.sessionKey } : {}),
+    ...(normalized.engineRunId ? { engineRunId: normalized.engineRunId } : {}),
+    reportStatus: normalized.reportStatus,
+    origin: normalized.origin,
     status: payload.status ?? normalized.status,
     reportReady:
       typeof payload.reportReady === 'boolean' ? payload.reportReady : normalized.reportReady,

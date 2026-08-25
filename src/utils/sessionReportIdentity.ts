@@ -75,8 +75,9 @@ export function extractStableSessionKeyFromMergedSession(s: unknown): string | u
 }
 
 /**
- * Prefer `session_key` / `sessionKey` for `reportId` when it is a stable `val_*` handle and the
- * explicit `reportId` is missing, is a UUID, or disagrees with that handle.
+ * Preserve a durable report UUID when one is present. The `val_*` session key
+ * remains a separate compatibility handle and only fills reportId for drafts
+ * that have not been promoted yet.
  * Mutates `payload` in place (API boundary normalization).
  *
  * Scans nested `sessionData` / `session_data` so this runs safely before SessionAPI merges
@@ -88,7 +89,11 @@ export function applyStableReportIdFromSessionKeys(payload: Record<string, unkno
   const explicitReportId = trimString(payload.reportId) ?? ''
 
   if (sessionKeyCandidate) {
-    if (!explicitReportId || explicitReportId !== sessionKeyCandidate || isUuid(explicitReportId)) {
+    payload.sessionKey = sessionKeyCandidate
+    if (
+      !explicitReportId ||
+      (!isUuid(explicitReportId) && explicitReportId !== sessionKeyCandidate)
+    ) {
       payload.reportId = sessionKeyCandidate
     }
   } else if (!explicitReportId) {

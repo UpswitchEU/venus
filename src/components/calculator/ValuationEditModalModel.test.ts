@@ -29,6 +29,7 @@ describe('ValuationEditModalModel', () => {
         isHydratingMethods: true,
         methodDataLoadError: null,
         hasImportReviewRecovery: true,
+        isMigratedLegacy: false,
       })
     ).toMatchObject({
       titleSource: 'modal',
@@ -43,6 +44,7 @@ describe('ValuationEditModalModel', () => {
         isHydratingMethods: false,
         methodDataLoadError: 'transient',
         hasImportReviewRecovery: true,
+        isMigratedLegacy: false,
       })
     ).toMatchObject({
       titleSource: 'omni',
@@ -56,12 +58,37 @@ describe('ValuationEditModalModel', () => {
         isHydratingMethods: false,
         methodDataLoadError: 'report_pending',
         hasImportReviewRecovery: true,
+        isMigratedLegacy: false,
       })
     ).toMatchObject({
       titleKey: 'unavailableTitleReportPending',
       blurbKey: 'unavailableBlurbReportPending',
       showRetry: true,
       showImportReviewRecovery: true,
+    })
+
+    expect(
+      resolveValuationEditEmptyState({
+        isHydratingMethods: false,
+        methodDataLoadError: null,
+        hasImportReviewRecovery: false,
+        isMigratedLegacy: false,
+      })
+    ).toMatchObject({
+      titleKey: 'unavailableTitleMissing',
+      blurbKey: 'unavailableBlurbMissing',
+    })
+
+    expect(
+      resolveValuationEditEmptyState({
+        isHydratingMethods: false,
+        methodDataLoadError: null,
+        hasImportReviewRecovery: false,
+        isMigratedLegacy: true,
+      })
+    ).toMatchObject({
+      titleKey: 'unavailableTitleLegacy',
+      blurbKey: 'unavailableBlurbLegacy',
     })
   })
 

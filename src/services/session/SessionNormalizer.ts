@@ -16,7 +16,7 @@
 
 import type { MethodWeightsDataPlan } from '../../types/methodDataPlan'
 import type { ValuationRequest, ValuationResponse } from '../../types/valuation'
-import { isSessionKey } from '../../utils/identifiers'
+import { isSessionKey, isUuid } from '../../utils/identifiers'
 import { generalLogger } from '../../utils/logger'
 import { sessionEnvelopeHasIdentitySignals } from '../../utils/mergeOptionalSessionPrefillFields'
 import {
@@ -71,6 +71,10 @@ export interface NormalizedSessionData {
   reportId: string
   flowType: 'manual' | 'conversational'
   status: 'active' | 'completed' | 'expired'
+  sessionKey?: string
+  engineRunId?: string
+  reportStatus: 'draft' | 'import_review' | 'calculating' | 'ready' | 'failed'
+  origin: 'native' | 'migrated_legacy'
 
   // Timestamps
   createdAt: Date | null
@@ -240,16 +244,17 @@ export function normalizeSessionData(backendSession: unknown): NormalizedSession
 
   const sessionData = mergeSessionDataEnvelopesFromRoot(backendRecord)
 
-  // Prefer stable val_* session_key over UUID reportId (Mercury / stale FK) so downstream
-  // ensure-html + PDF flows resolve the same row Titan uses for GET session.
+  // A durable UUID owns routing. The val_* key remains an explicit draft/session
+  // identity and is only used before Titan has promoted the report.
   const preferredSessionKey = extractStableSessionKeyFromMergedSession(backendRecord)
 
   const explicitReportId =
     typeof backendRecord.reportId === 'string' ? backendRecord.reportId.trim() : ''
 
   const reportId =
-    preferredSessionKey ??
-    explicitReportId ??
+    (isUuid(explicitReportId) ? explicitReportId : '') ||
+    preferredSessionKey ||
+    explicitReportId ||
     (typeof backendRecord.id === 'string' && isSessionKey(backendRecord.id.trim())
       ? backendRecord.id.trim()
       : '')
@@ -278,6 +283,19 @@ export function normalizeSessionData(backendSession: unknown): NormalizedSession
   const normalized: NormalizedSessionData = {
     // Metadata
     reportId,
+    ...(preferredSessionKey ? { sessionKey: preferredSessionKey } : {}),
+    ...(typeof backendRecord.engineRunId === 'string' &&
+    /^val_[A-Za-z0-9_-]+$/.test(backendRecord.engineRunId)
+      ? { engineRunId: backendRecord.engineRunId }
+      : {}),
+    reportStatus:
+      backendRecord.reportStatus === 'import_review' ||
+      backendRecord.reportStatus === 'calculating' ||
+      backendRecord.reportStatus === 'ready' ||
+      backendRecord.reportStatus === 'failed'
+        ? backendRecord.reportStatus
+        : 'draft',
+    origin: backendRecord.origin === 'migrated_legacy' ? 'migrated_legacy' : 'native',
     flowType: normalizeFlowType(
       optionalString(backendRecord.currentView) ?? optionalString(sessionData.currentView)
     ),
@@ -334,6 +352,8 @@ export function normalizeSessionData(backendSession: unknown): NormalizedSession
 export function createEmptyNormalizedData(reportId: string): NormalizedSessionData {
   return {
     reportId,
+    reportStatus: 'draft',
+    origin: 'native',
     flowType: 'manual',
     status: 'active',
     createdAt: null,
