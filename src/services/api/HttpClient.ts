@@ -31,6 +31,7 @@ import {
   getUserFriendlyErrorMessage,
 } from '../../utils/errorRecovery'
 import { getApiUrl } from '../../utils/getMercuryUrl'
+import { createTraceparent, getOrCreateJourneyId } from '../../utils/journeyTrace'
 import { apiLogger, extractCorrelationId, setCorrelationFromResponse } from '../../utils/logger'
 import {
   getConfigBodyFieldByteLengths,
@@ -208,6 +209,8 @@ export class HttpClient {
         // BANK-GRADE: Add correlation ID for distributed tracing
         const correlationId = generateCorrelationId()
         config.headers['X-Correlation-ID'] = correlationId
+        config.headers['X-Journey-ID'] = getOrCreateJourneyId()
+        config.headers.traceparent = createTraceparent()
         config.headers['X-Request-ID'] = `req_${Date.now()}`
         config.headers['X-Client-Version'] = CLIENT_VERSION
 

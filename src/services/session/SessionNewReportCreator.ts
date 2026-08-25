@@ -2,6 +2,7 @@ import { getBootstrapReportMode } from '../../lib/bootstrap/bootstrapReportModeR
 import { ValidationError } from '../../types/errors'
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
 import { isUuid } from '../../utils/identifiers'
+import { beginNewJourney } from '../../utils/journeyTrace'
 import { createContextLogger } from '../../utils/logger'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import {
@@ -150,6 +151,7 @@ export async function createSessionForNewReportIfAllowed(
   })
 
   try {
+    beginNewJourney()
     await checkValuationCreationAllowed()
 
     const prefilledSessionData = prefilledQuery

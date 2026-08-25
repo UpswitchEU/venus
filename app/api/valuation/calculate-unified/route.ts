@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTitanAccessTokenFromCookieHeader } from '@/utils/auth/cookieHeader'
 import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...getTitanClientContextHeaders(request),
     }
 
     const cookie = request.headers.get('cookie')

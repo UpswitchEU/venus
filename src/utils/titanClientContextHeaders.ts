@@ -30,5 +30,21 @@ export function getTitanClientContextHeaders(request: RequestWithHeaders): Recor
   if (accountantUserId) headers[CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID] = accountantUserId
   if (relationshipId) headers[CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID] = relationshipId
 
+  const correlationId = getTrimmedHeader(request, 'x-correlation-id')
+  const journeyId = getTrimmedHeader(request, 'x-journey-id')
+  const traceparent = getTrimmedHeader(request, 'traceparent')
+  if (correlationId && correlationId.length <= 160) {
+    headers['x-correlation-id'] = correlationId
+  }
+  if (
+    journeyId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(journeyId)
+  ) {
+    headers['x-journey-id'] = journeyId.toLowerCase()
+  }
+  if (traceparent && /^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/i.test(traceparent)) {
+    headers.traceparent = traceparent.toLowerCase()
+  }
+
   return headers
 }

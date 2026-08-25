@@ -3,6 +3,7 @@ import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { PRIVATE_BFF_JSON_HEADERS } from '@/utils/bffResponseHeaders'
 import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 // Force dynamic rendering - this route uses cookies() which is dynamic
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,7 @@ export async function DELETE(
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...getTitanClientContextHeaders(request),
     }
     if (cookieHeader) headers.Cookie = cookieHeader
 

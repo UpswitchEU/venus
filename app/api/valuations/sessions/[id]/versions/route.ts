@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -40,6 +41,7 @@ async function proxyToTitan(
       method,
       headers: {
         'Content-Type': 'application/json',
+        ...getTitanClientContextHeaders(request),
         ...(cookieHeader && { Cookie: cookieHeader }),
         ...(authHeader && { Authorization: authHeader }),
       },

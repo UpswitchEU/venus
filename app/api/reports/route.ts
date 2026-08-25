@@ -13,6 +13,7 @@ import { getBffCookieHeaderForTitan } from '@/utils/bffAuthProxy'
 import { PRIVATE_BFF_JSON_HEADERS } from '@/utils/bffResponseHeaders'
 import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 // Force dynamic rendering - this route uses cookies(), headers(), and searchParams which are dynamic
 export const dynamic = 'force-dynamic'
@@ -41,7 +42,7 @@ function buildReportsQuery(params: { skip: number; take: number; status: string 
 }
 
 function buildTitanHeaders(request: NextRequest, cookieHeader: string): Record<string, string> {
-  const titanHeaders: Record<string, string> = {}
+  const titanHeaders: Record<string, string> = getTitanClientContextHeaders(request)
 
   if (cookieHeader) {
     titanHeaders.Cookie = cookieHeader
