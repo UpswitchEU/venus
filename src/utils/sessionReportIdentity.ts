@@ -1,6 +1,6 @@
 /**
- * Aligns Titan session payloads with Venus routing: prefer stable `val_*` session keys over
- * valuation_reports UUIDs when both appear on the same object (fixes ensure-html + PDF export).
+ * Aligns Titan session payloads with Venus routing: preserve a canonical
+ * valuation_reports UUID after promotion and keep `val_*` as a draft/resolver alias.
  * Also merges `sessionData` / `session_data` envelopes without letting `{}` hide the sibling blob.
  */
 

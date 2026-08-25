@@ -139,18 +139,16 @@ function buildSessionResponseWithInlineHtml(
 
 function pickTitanReportIdForEnsure(urlId: string, session: ValuationSession): string | null {
   const sessionKey = extractStableSessionKeyFromMergedSession(session)
-  const mergedReport =
-    typeof session.reportId === 'string' &&
-    (isUuid(session.reportId) || isSessionKey(session.reportId))
-      ? session.reportId.trim()
-      : undefined
+  const mergedReport = typeof session.reportId === 'string' ? session.reportId.trim() : undefined
 
-  // Prefer stable handles: session key resolves to the current row even when the URL
-  // still carries an older valuation_reports.id after re-save / version link-updates.
+  // Once Titan has promoted a draft, its UUID is the durable report identity.
+  // Session keys remain resolver aliases only; preferring one here could reopen
+  // another draft/cache entry after Mercury → Venus navigation.
+  if (mergedReport && isUuid(mergedReport)) return mergedReport
+  if (isUuid(urlId)) return urlId
   if (sessionKey) return sessionKey
   if (isSessionKey(urlId)) return urlId
-  if (mergedReport) return mergedReport
-  if (isUuid(urlId)) return urlId
+  if (mergedReport && isSessionKey(mergedReport)) return mergedReport
   return null
 }
 

@@ -436,4 +436,28 @@ describe('tryRefetchAfterEnsureHtml', () => {
     expect(second).toBeNull()
     expect(ensureReportHtml).toHaveBeenCalledTimes(2)
   })
+
+  it('uses the promoted report UUID instead of the draft session alias', async () => {
+    const ensureReportHtml = vi.mocked(backendAPI.ensureReportHtml)
+    const reportId = '93f1b36f-c4dd-4f21-9ef0-b103c18f3c31'
+    const session = {
+      ...recoveryCandidate(reportId),
+      reportId,
+      sessionKey: 'val_promoted_report_alias',
+    } as unknown as ValuationSession
+
+    ensureReportHtml.mockResolvedValue({
+      success: true,
+      status: 'failed',
+      reportId,
+      html_report: '<main>Recovered promoted report</main>',
+    })
+
+    await tryRefetchAfterEnsureHtml('val_promoted_report_alias', session)
+
+    expect(ensureReportHtml).toHaveBeenCalledWith(
+      reportId,
+      expect.objectContaining({ sessionKey: 'val_promoted_report_alias' })
+    )
+  })
 })
