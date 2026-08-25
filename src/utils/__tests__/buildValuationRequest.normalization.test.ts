@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NormalizationCategory } from '../../types/ebitdaNormalization'
+import { ValidationError } from '../../types/errors'
 import { buildValuationRequest } from '../buildValuationRequest'
 import { getCurrentFilingYear } from '../fiscalYear'
 import { makeFormData } from './buildValuationRequest.testUtils'
@@ -302,7 +303,8 @@ describe('buildValuationRequest normalization integrity guards', () => {
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
     const lastFullYear = getCurrentFilingYear()
 
-    expect(() =>
+    let capturedError: unknown
+    try {
       buildValuationRequest(
         makeFormData({
           revenue: 198_768.46,
@@ -315,7 +317,17 @@ describe('buildValuationRequest normalization integrity guards', () => {
         }),
         []
       )
-    ).toThrow(/EBITDA is almost equal to revenue/)
+    } catch (error) {
+      capturedError = error
+    }
+
+    expect(capturedError).toBeInstanceOf(ValidationError)
+    expect((capturedError as ValidationError).message).toMatch(/EBITDA is almost equal to revenue/)
+    expect((capturedError as ValidationError).field).toBe('current_year_data.ebitda')
+    expect((capturedError as ValidationError).context).toMatchObject({
+      code: 'FINANCIAL_REVIEW_REQUIRED',
+      fiscalYear: lastFullYear,
+    })
 
     const matched = warnSpy.mock.calls.find(
       ([msg]) => typeof msg === 'string' && msg.includes('Blocking implausible EBITDA margin')
@@ -323,7 +335,9 @@ describe('buildValuationRequest normalization integrity guards', () => {
     expect(matched).toBeDefined()
     const ctx = matched?.[1] as Record<string, unknown> | undefined
     expect(ctx?.fiscal_year).toBe(lastFullYear)
-    expect(ctx?.ebitda_margin).toBeGreaterThan(0.99)
+    expect(ctx?.margin_basis_points).toBeGreaterThan(9_900)
+    expect(ctx).not.toHaveProperty('revenue')
+    expect(ctx).not.toHaveProperty('ebitda')
 
     warnSpy.mockRestore()
   })

@@ -53,12 +53,10 @@ type FormDataRecord = ValuationFormData & Record<string, unknown>
 const MAX_AUTO_ACCEPTED_EBITDA_MARGIN = 0.9
 
 function assertPlausibleImportedEbitdaMargin({
-  companyName,
   fiscalYear,
   revenue,
   ebitda,
 }: {
-  companyName: string
   fiscalYear: number
   revenue: number
   ebitda: number
@@ -68,18 +66,20 @@ function assertPlausibleImportedEbitdaMargin({
   if (margin < MAX_AUTO_ACCEPTED_EBITDA_MARGIN) return
 
   generalLogger.warn('[buildValuationRequest] Blocking implausible EBITDA margin', {
-    business_name: companyName,
     fiscal_year: fiscalYear,
-    revenue,
-    ebitda,
-    ebitda_margin: margin,
-    threshold: MAX_AUTO_ACCEPTED_EBITDA_MARGIN,
+    margin_basis_points: Math.round(margin * 10_000),
+    threshold_basis_points: Math.round(MAX_AUTO_ACCEPTED_EBITDA_MARGIN * 10_000),
     note: 'This usually means imported expense accounts were dropped or sign-mapped incorrectly. Re-import and review the source financials before generating a valuation report.',
   })
   throw new ValidationError(
     'EBITDA is almost equal to revenue. Review the imported expenses before generating the valuation report.',
     'current_year_data.ebitda',
-    { code: 'FINANCIAL_REVIEW_REQUIRED', fiscalYear, revenue, ebitda, margin }
+    ebitda,
+    {
+      code: 'FINANCIAL_REVIEW_REQUIRED',
+      fiscalYear,
+      marginBasisPoints: Math.round(margin * 10_000),
+    }
   )
 }
 
@@ -236,7 +236,6 @@ export function buildValuationRequest(
   }
   const ebitda = rawEbitda ?? 0
   assertPlausibleImportedEbitdaMargin({
-    companyName,
     fiscalYear: currentFiscalYear,
     revenue,
     ebitda,

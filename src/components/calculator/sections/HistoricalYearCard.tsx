@@ -82,7 +82,7 @@ export function HistoricalYearCard({
     requiresHighMarginReview &&
     yearData.source_provider === 'silverfin' &&
     typeof yearData.source_digest === 'string' &&
-    readinessIssue?.supports_attestation !== false
+    readinessIssue?.supports_attestation === true
   const reviewCopy =
     locale === 'nl'
       ? {

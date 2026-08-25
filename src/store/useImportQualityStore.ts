@@ -61,6 +61,10 @@ export interface ImportQualityPerYear {
     period_end_date?: string | null
     is_year_end?: boolean
     is_partial_period?: boolean
+    provider_type_accounts?: number
+    mapped_code_accounts?: number
+    fallback_accounts?: number
+    account_mapping_coverage_pct?: number
     source_digest?: string | null
     fetched_at?: string | null
   } | null

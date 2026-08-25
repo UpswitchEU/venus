@@ -7,6 +7,7 @@ import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { trackFinancialsStepViewed } from '@/lib/analytics'
+import { accountingAPI, parseAccountingApiError } from '@/services/api/accounting'
 import { useImportQualityStore } from '@/store/useImportQualityStore'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
@@ -126,7 +127,7 @@ export function FinancialHistorySection({
 }: FinancialHistorySectionProps) {
   const mi = useTranslations('manualInput')
   const locale = useLocale()
-  const { clientId, readiness } = useVenusClientValuationReadiness()
+  const { clientId, readiness, refreshReadiness } = useVenusClientValuationReadiness()
   const importedProvider = useImportQualityStore((state) => state.provider)
   const importQuality = useImportQualityStore((state) => state.importQuality)
   const sourceProvider = readiness?.source.provider ?? liveImportProviderName ?? importedProvider
@@ -143,7 +144,9 @@ export function FinancialHistorySection({
       .map((issue) => [issue.fiscal_year as number, issue])
   )
   const [isResyncing, setIsResyncing] = useState(false)
+  const [recoveryError, setRecoveryError] = useState<string | null>(null)
   const [locallyBlockedYear, setLocallyBlockedYear] = useState<number | null>(null)
+  const focusedReadinessReviewRef = useRef(false)
   useEffect(() => {
     const handleReviewRequired = (event: Event) => {
       const detail = (event as CustomEvent<{ fiscalYear?: unknown }>).detail
@@ -159,16 +162,27 @@ export function FinancialHistorySection({
     window.addEventListener('venus:financial-review-required', handleReviewRequired)
     return () => window.removeEventListener('venus:financial-review-required', handleReviewRequired)
   }, [financialsStepRef])
+  useEffect(() => {
+    if (readiness?.state !== 'review_required') {
+      focusedReadinessReviewRef.current = false
+      return
+    }
+    if (focusedReadinessReviewRef.current || !financialsStepRef.current) return
+    focusedReadinessReviewRef.current = true
+    scrollElementIntoManualLayout(financialsStepRef.current, {
+      behavior: 'smooth',
+      block: 'start',
+    })
+  }, [financialsStepRef, readiness?.state])
   const resyncSilverfin = async () => {
     if (!clientId || isResyncing) return
     setIsResyncing(true)
+    setRecoveryError(null)
     try {
-      await fetch(`/api/integrations/accounting/resync-client/${encodeURIComponent(clientId)}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true }),
-      })
+      await accountingAPI.resyncClient(clientId, { force: true })
+      await refreshReadiness()
+    } catch (error) {
+      setRecoveryError(parseAccountingApiError(error))
     } finally {
       setIsResyncing(false)
     }
@@ -225,7 +239,7 @@ export function FinancialHistorySection({
               ).format(new Date(sourceSyncedAt))}
             </span>
           ) : null}
-          {readiness?.state === 'review_required' ? (
+          {readiness?.state === 'review_required' || reviewIssuesByYear.size > 0 ? (
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-primary/15 pt-2">
               <span className="font-medium text-amber-700 dark:text-amber-300">
                 {locale === 'nl'
@@ -251,6 +265,11 @@ export function FinancialHistorySection({
                 </button>
               ) : null}
             </div>
+          ) : null}
+          {recoveryError ? (
+            <p className="mt-2 text-destructive" role="alert">
+              {recoveryError}
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -302,7 +321,7 @@ export function FinancialHistorySection({
               }
               onRemoveHistoricalYear={requestRemoveHistoricalYear}
               onViewAllNormalizations={onViewAllNormalizations}
-              onHighMarginAttested={({ year, attestationId, sourceDigest }) =>
+              onHighMarginAttested={({ year, attestationId, sourceDigest }) => {
                 setFormData((previous) => ({
                   ...previous,
                   yearlyFinancials: previous.yearlyFinancials.map((row) =>
@@ -317,7 +336,12 @@ export function FinancialHistorySection({
                       : row
                   ),
                 }))
-              }
+                setLocallyBlockedYear(null)
+                setRecoveryError(null)
+                void refreshReadiness().catch((error) => {
+                  setRecoveryError(parseAccountingApiError(error))
+                })
+              }}
               partialYears={partialYears}
               updateYearlyFinancials={updateYearlyFinancials}
               yearData={yearData}

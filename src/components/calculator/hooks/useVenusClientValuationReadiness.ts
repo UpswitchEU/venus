@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 export interface VenusClientValuationReadiness {
   state: 'syncing' | 'review_required' | 'ready' | 'queued' | 'calculating' | 'complete' | 'failed'
@@ -19,13 +19,40 @@ export interface VenusClientValuationReadiness {
   }>
 }
 
+async function fetchClientValuationReadiness(
+  clientId: string,
+  signal?: AbortSignal
+): Promise<VenusClientValuationReadiness> {
+  const response = await fetch(
+    `/api/accountants/clients/${encodeURIComponent(clientId)}/valuation-readiness`,
+    {
+      credentials: 'include',
+      cache: 'no-store',
+      signal,
+    }
+  )
+  if (!response.ok) throw new Error('Failed to fetch valuation readiness')
+  return response.json() as Promise<VenusClientValuationReadiness>
+}
+
 export function useVenusClientValuationReadiness(): {
   clientId: string | null
   readiness: VenusClientValuationReadiness | null
+  refreshReadiness: () => Promise<VenusClientValuationReadiness | null>
 } {
   const searchParams = useSearchParams()
   const clientId = searchParams?.get('clientId')?.trim() || null
   const [readiness, setReadiness] = useState<VenusClientValuationReadiness | null>(null)
+
+  const refreshReadiness = useCallback(async () => {
+    if (!clientId) {
+      setReadiness(null)
+      return null
+    }
+    const next = await fetchClientValuationReadiness(clientId)
+    setReadiness(next)
+    return next
+  }, [clientId])
 
   useEffect(() => {
     if (!clientId) {
@@ -33,21 +60,12 @@ export function useVenusClientValuationReadiness(): {
       return
     }
     const controller = new AbortController()
-    void fetch(`/api/accountants/clients/${encodeURIComponent(clientId)}/valuation-readiness`, {
-      credentials: 'include',
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return null
-        return (await response.json()) as VenusClientValuationReadiness
-      })
-      .then((result) => {
-        if (result) setReadiness(result)
-      })
+    setReadiness(null)
+    void fetchClientValuationReadiness(clientId, controller.signal)
+      .then(setReadiness)
       .catch(() => undefined)
     return () => controller.abort()
   }, [clientId])
 
-  return { clientId, readiness }
+  return { clientId, readiness, refreshReadiness }
 }
