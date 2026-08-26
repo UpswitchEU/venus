@@ -611,7 +611,9 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(normalizationSource).toMatch(/updateSessionData\(\{ _normalizations: items \}\)/)
     expect(normalizationSource).toMatch(/saveSession\('autosave'\)/)
     expect(normalizationSource).not.toMatch(/sessionService\.saveSession/)
-    expect(taxSource).toMatch(/updateSessionData\(\{ _taxLatencies: items \}\)/)
+    expect(taxSource).toMatch(
+      /updateSessionData\(\{\s*tax_latencies: canonicalTaxLatencies,\s*_taxLatencies: items,\s*\}\)/
+    )
     expect(taxSource).toMatch(/saveSession\('autosave'\)/)
     expect(taxSource).not.toMatch(/sessionService\.saveSession/)
   })
