@@ -132,6 +132,31 @@ describe('useManualSubmitErrorHandler', () => {
     window.removeEventListener('venus:financial-review-required', listener)
   })
 
+  it('routes tax-latency contract errors to localized review recovery', () => {
+    const listener = vi.fn()
+    window.addEventListener('venus:tax-latency-review-required', listener)
+
+    callHandler(
+      new ValidationError('Validation failed', 'tax_latencies.0.tax_rate', undefined, {
+        code: 'TAX_LATENCY_FIELD_CONFLICT',
+        correlationId: 'cid-tax-1',
+      })
+    )
+
+    expect(toast.error).toHaveBeenCalledWith(
+      'taxLatencyReviewRequired',
+      expect.objectContaining({
+        description: 'taxLatencyReviewRequiredDesc',
+        action: expect.objectContaining({ label: 'review' }),
+      })
+    )
+    const options = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]
+    options.action.onClick()
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    window.removeEventListener('venus:tax-latency-review-required', listener)
+  })
+
   describe('BENCHMARK_CONTRACT_REQUIRED', () => {
     it('renders the dedicated i18n keys and a Retry action when Titan returns 422', () => {
       const error = new ValidationError('A business type is required', undefined, undefined, {

@@ -1,6 +1,5 @@
 import type { NormalizationItem } from '../../components/calculator/UnifiedNormalizationTypes'
 import type { ImportQualityPerYear } from '../../store/useImportQualityStore'
-import type { TaxLatencyItem } from '../../store/useTaxLatencyStore'
 import type { ValuationFormData, ValuationResponse } from '../../types/valuation'
 import type { FormSnapshotForRevenueNav } from '../../utils/currentYearRevenueForMethodNav'
 import type { ImportedLedgerAnalysisLike } from '../../utils/importedLedgerNormalization'
@@ -41,10 +40,6 @@ export function asValuationResultWithAssets(
 
 export function asNormalizationItems(value: unknown): NormalizationItem[] {
   return Array.isArray(value) ? (value as unknown as NormalizationItem[]) : []
-}
-
-export function asTaxLatencyItems(value: unknown): TaxLatencyItem[] {
-  return Array.isArray(value) ? (value as unknown as TaxLatencyItem[]) : []
 }
 
 export function asImportQuality(value: unknown): Record<string, ImportQualityPerYear> | null {

@@ -157,6 +157,23 @@ export function TaxLatencySection({
   // ergonomic for that case.
   const focusAmountInputOnNextOpenRef = useRef(false)
 
+  useEffect(() => {
+    const reviewTaxLatencies = () => {
+      setIsExpanded(true)
+      setIsEditorOpen(true)
+      focusAmountInputOnNextOpenRef.current = true
+      requestAnimationFrame(() => {
+        const section = document.querySelector<HTMLElement>('[data-tax-latency-section]')
+        if (section) {
+          scrollElementIntoManualLayout(section, { behavior: 'smooth', block: 'center' })
+          section.focus({ preventScroll: true })
+        }
+      })
+    }
+    window.addEventListener('venus:tax-latency-review-required', reviewTaxLatencies)
+    return () => window.removeEventListener('venus:tax-latency-review-required', reviewTaxLatencies)
+  }, [])
+
   const availableLedgers = useMemo(() => {
     const base = fetchedLedgers.length > 0 ? fetchedLedgers : DEFAULT_LEDGER_ACCOUNTS
     return applyGrootboekCountryOverrides(base, countryCode)
@@ -484,7 +501,7 @@ export function TaxLatencySection({
     )
 
     return (
-      <div className="pt-2 space-y-3">
+      <div data-tax-latency-section tabIndex={-1} className="pt-2 space-y-3 outline-none">
         {conflictBanner}
         {candidateCards}
         {itemsList}
@@ -508,7 +525,7 @@ export function TaxLatencySection({
   }
 
   return (
-    <div>
+    <div data-tax-latency-section tabIndex={-1} className="outline-none">
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}

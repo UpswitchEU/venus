@@ -3,6 +3,10 @@ import type { PartialFinancials } from '../lib/bootstrap/types'
 import type { TaxLatencyItem } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
 import { getCurrentFilingYear } from '../utils/fiscalYear'
+import {
+  canonicalizeTaxLatencyWireArray,
+  canonicalTaxLatenciesToStoreItems,
+} from '../utils/taxLatencyWire'
 
 export type ManualBusinessCard = {
   company_name: string
@@ -66,68 +70,16 @@ export function getRecordNumber(value: unknown, key: string): number | undefined
   return typeof recordValue === 'number' && Number.isFinite(recordValue) ? recordValue : undefined
 }
 
-function normalizeTaxLatencyItem(value: unknown): TaxLatencyItem | null {
-  if (!isRecord(value)) return null
-  const id = getRecordString(value, 'id')
-  if (!id) return null
-  const status = getRecordString(value, 'status')
-  const evidenceId = getRecordString(value, 'evidence_id') ?? getRecordString(value, 'evidenceId')
-  const reviewedAt = getRecordString(value, 'reviewed_at') ?? getRecordString(value, 'reviewedAt')
-  const ruleVersion =
-    getRecordString(value, 'rule_version') ?? getRecordString(value, 'ruleVersion')
-  const approvedBy = getRecordString(value, 'approved_by') ?? getRecordString(value, 'approvedBy')
-  const currency = getRecordString(value, 'currency')?.toUpperCase()
-  const fiscalYear = getRecordNumber(value, 'fiscal_year') ?? getRecordNumber(value, 'fiscalYear')
-  const effectiveDate =
-    getRecordString(value, 'effective_date') ?? getRecordString(value, 'effectiveDate')
-  return {
-    id,
-    type: value.type === 'active' ? 'active' : 'passive',
-    accountCode: getRecordString(value, 'accountCode') ?? getRecordString(value, 'account_code'),
-    accountName: getRecordString(value, 'accountName') ?? getRecordString(value, 'account_name'),
-    description: getRecordString(value, 'description') ?? '',
-    temporaryDifference: Math.abs(
-      toFiniteNumber(value.temporaryDifference ?? value.temporary_difference)
-    ),
-    taxRate: Math.min(100, Math.max(0, toFiniteNumber(value.taxRate ?? value.tax_rate, 25))),
-    ...(status ? { status } : {}),
-    ...(evidenceId ? { evidence_id: evidenceId } : {}),
-    ...(reviewedAt ? { reviewed_at: reviewedAt } : {}),
-    ...(ruleVersion ? { rule_version: ruleVersion } : {}),
-    ...(approvedBy ? { approved_by: approvedBy } : {}),
-    ...(currency ? { currency } : {}),
-    ...(fiscalYear != null && Number.isInteger(fiscalYear) ? { fiscal_year: fiscalYear } : {}),
-    ...(effectiveDate ? { effective_date: effectiveDate } : {}),
-  }
-}
-
 export function readTaxLatencyItems(value: unknown): TaxLatencyItem[] | undefined {
   if (!Array.isArray(value)) return undefined
-  const items = value
-    .map((item) => normalizeTaxLatencyItem(item))
-    .filter((item): item is TaxLatencyItem => item !== null)
+  const items = canonicalTaxLatenciesToStoreItems(value)
   return items.length > 0 ? items : undefined
 }
 
 export function toTaxLatencyFormInput(
   item: TaxLatencyItem
 ): NonNullable<ValuationFormData['tax_latencies']>[number] {
-  return {
-    id: item.id,
-    type: item.type,
-    description: item.description,
-    temporary_difference: item.temporaryDifference,
-    tax_rate: item.taxRate,
-    account_code: item.accountCode,
-    ...(item.status ? { status: item.status } : {}),
-    ...(item.evidence_id ? { evidence_id: item.evidence_id } : {}),
-    ...(item.reviewed_at ? { reviewed_at: item.reviewed_at } : {}),
-    ...(item.rule_version ? { rule_version: item.rule_version } : {}),
-    ...(item.approved_by ? { approved_by: item.approved_by } : {}),
-    ...(item.currency ? { currency: item.currency } : {}),
-    ...(item.fiscal_year != null ? { fiscal_year: item.fiscal_year } : {}),
-    ...(item.effective_date ? { effective_date: item.effective_date } : {}),
-  }
+  return canonicalizeTaxLatencyWireArray([item])[0]
 }
 
 function isNormalizationCategory(value: unknown): value is NormalizationItem['category'] {

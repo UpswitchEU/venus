@@ -83,6 +83,27 @@ export function useManualSubmitErrorHandler({
         return
       }
 
+      if (
+        error instanceof ValidationError &&
+        (error.context?.code === 'TAX_LATENCY_SCHEMA_INVALID' ||
+          error.context?.code === 'TAX_LATENCY_FIELD_CONFLICT')
+      ) {
+        toast.error(translate('taxLatencyReviewRequired'), {
+          description: translate('taxLatencyReviewRequiredDesc'),
+          action: {
+            label: translate('review'),
+            onClick: () =>
+              window.dispatchEvent(new CustomEvent('venus:tax-latency-review-required')),
+          },
+        })
+        generalLogger.warn('[ManualValuationWorkspace] Tax-latency review required', {
+          code: error.context.code,
+          correlationId: error.context.correlationId,
+          field: error.field,
+        })
+        return
+      }
+
       // BENCHMARK_CONTRACT_REQUIRED — either Titan's preflight guard caught it
       // (422 when business_type_id is missing) or python's preflight fired and
       // Titan tunneled the code through the 503 wrapper. Render a typed toast

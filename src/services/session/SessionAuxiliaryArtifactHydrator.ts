@@ -16,11 +16,14 @@ import {
 } from '../../utils/importedLedgerTaxLatencies'
 import { generalLogger } from '../../utils/logger'
 import {
+  canonicalTaxLatenciesToStoreItems,
+  TaxLatencyBoundaryError,
+} from '../../utils/taxLatencyWire'
+import {
   asImportedLedgerAnalysis,
   asImportQuality,
   asNormalizationItems,
   asRecord,
-  asTaxLatencyItems,
   type UnknownRecord,
 } from './SessionRestorationCoercion'
 
@@ -187,7 +190,7 @@ function hydrateTaxLatencies(
     }
 
     const rawTL = formData._taxLatencies ?? formData.tax_latencies ?? formData.taxLatencies
-    const taxLatencies = asTaxLatencyItems(rawTL)
+    const taxLatencies = canonicalTaxLatenciesToStoreItems(rawTL)
     if (taxLatencies.length > 0) {
       taxLatStore.setItems(taxLatencies, { source: 'system' })
       generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
@@ -196,7 +199,13 @@ function hydrateTaxLatencies(
     }
   } catch (error) {
     generalLogger.warn('[SessionRestoration] Tax latency hydration failed (non-blocking)', {
-      error: error instanceof Error ? error.message : String(error),
+      error:
+        error instanceof TaxLatencyBoundaryError
+          ? error.boundaryCode
+          : error instanceof Error
+            ? error.message
+            : String(error),
+      issueCount: error instanceof TaxLatencyBoundaryError ? error.issues.length : undefined,
       source: options.source,
     })
   }

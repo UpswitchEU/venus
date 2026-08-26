@@ -92,6 +92,43 @@ describe('ValuationAPI validation handling', () => {
     expect((thrownError as ValidationError).field).toBe('current_year_data.revenue')
   })
 
+  it('preserves unified tax-latency error codes, fields, and correlation IDs', () => {
+    const api = new ValuationAPI()
+    const axiosError = {
+      response: {
+        status: 400,
+        data: {
+          statusCode: 400,
+          message: 'Validation failed',
+          correlationId: 'cid_tax_latency_1',
+          details: { code: 'TAX_LATENCY_FIELD_CONFLICT' },
+          validationErrors: [
+            {
+              field: 'tax_latencies.0.tax_rate',
+              message: 'tax_rate conflicts with legacy alias taxRate',
+              type: 'custom',
+            },
+          ],
+        },
+      },
+    }
+
+    let thrownError: unknown
+    try {
+      handleValuationError(api, axiosError, 'unified valuation')
+    } catch (error) {
+      thrownError = error
+    }
+
+    expect(thrownError).toBeInstanceOf(ValidationError)
+    expect((thrownError as ValidationError).field).toBe('tax_latencies.0.tax_rate')
+    expect((thrownError as ValidationError).message).toContain('tax_rate conflicts')
+    expect((thrownError as ValidationError).context).toMatchObject({
+      code: 'TAX_LATENCY_FIELD_CONFLICT',
+      correlationId: 'cid_tax_latency_1',
+    })
+  })
+
   it('rethrows selected method persistence failures', async () => {
     const api = new ValuationAPI()
     const error = new Error('report not found')

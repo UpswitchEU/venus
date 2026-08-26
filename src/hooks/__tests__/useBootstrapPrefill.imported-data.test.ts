@@ -254,20 +254,21 @@ describe('useBootstrapPrefill imported accounting and fallback surfaces', () => 
     })
   })
 
-  it('hydrates _taxLatencies and _normalizations aliases from session fallback surface', async () => {
+  it('canonicalizes legacy tax_latencies and hydrates normalization aliases from session fallback', async () => {
     useSessionStore.setState({
       session: {
         reportId: 'val_alias_prefill',
         currentView: 'manual',
         dataSource: 'manual',
         sessionData: {
-          _taxLatencies: [
+          tax_latencies: [
             {
               id: 'tl_1',
               type: 'passive',
               description: 'Deferred tax',
-              temporary_difference: 100000,
-              tax_rate: 25,
+              temporaryDifference: 100000,
+              taxRate: 25,
+              accountCode: '168100',
             },
           ],
           _normalizations: [
@@ -307,6 +308,17 @@ describe('useBootstrapPrefill imported accounting and fallback surfaces', () => 
         expect.objectContaining({
           id: 'tl_1',
           type: 'passive',
+          temporaryDifference: 100000,
+          taxRate: 25,
+          accountCode: '168100',
+        }),
+      ])
+      expect(useManualFormStore.getState().formData.tax_latencies).toEqual([
+        expect.objectContaining({
+          id: 'tl_1',
+          temporary_difference: 100000,
+          tax_rate: 25,
+          account_code: '168100',
         }),
       ])
       expect(useNormalizationStore.getState().items).toEqual([

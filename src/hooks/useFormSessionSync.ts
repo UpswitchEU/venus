@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react'
+import { useManualFormStore } from '../store/manual/useManualFormStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../types/valuation'
@@ -40,6 +41,7 @@ import {
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { NameGenerator } from '../utils/nameGenerator'
+import { canonicalizeTaxLatencyWireArray, TaxLatencyBoundaryError } from '../utils/taxLatencyWire'
 import {
   buildCurrentYearData,
   buildForecastYearDataFromYearlyFinancials,
@@ -469,13 +471,39 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
             sessionUpdate[key] = v
           }
         }
-        if (data.tax_latencies !== undefined) {
-          sessionUpdate.tax_latencies = data.tax_latencies
+        const taxLatencySource = taxItems.length > 0 ? taxItems : data.tax_latencies
+        if (taxLatencySource !== undefined) {
+          try {
+            sessionUpdate.tax_latencies = canonicalizeTaxLatencyWireArray(taxLatencySource)
+            const currentErrors = useManualFormStore.getState().validationErrors
+            if (currentErrors.tax_latencies) {
+              const { tax_latencies: _taxLatencyError, ...remainingErrors } = currentErrors
+              useManualFormStore.getState().setValidationErrors(remainingErrors)
+            }
+          } catch (error) {
+            const currentErrors = useManualFormStore.getState().validationErrors
+            useManualFormStore.getState().setValidationErrors({
+              ...currentErrors,
+              tax_latencies:
+                error instanceof TaxLatencyBoundaryError
+                  ? error.message
+                  : 'Stored tax-latency values must be reviewed.',
+            })
+            generalLogger.warn('[useFormSessionSync] Blocking invalid tax-latency autosave', {
+              reportId: currentSession.reportId,
+              code:
+                error instanceof TaxLatencyBoundaryError
+                  ? error.boundaryCode
+                  : 'TAX_LATENCY_UNKNOWN',
+              issueCount: error instanceof TaxLatencyBoundaryError ? error.issues.length : 1,
+            })
+            return
+          }
         }
         if (data.balance_sheet_adjustments !== undefined) {
           sessionUpdate.balance_sheet_adjustments = data.balance_sheet_adjustments
         }
-        sessionUpdate._taxLatencies = useTaxLatencyStore.getState().items
+        sessionUpdate._taxLatencies = taxItems
 
         // Remove undefined values
         Object.keys(sessionUpdate).forEach((key) => {

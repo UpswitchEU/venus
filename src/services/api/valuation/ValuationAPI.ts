@@ -127,7 +127,7 @@ function extractValidationMessage(responseData: unknown, fallback: string): stri
   const response = asRecord(responseData)
   const explicitMessage = asString(response?.message) ?? asString(response?.error) ?? null
 
-  const issues = extractValidationIssues(response?.errors)
+  const issues = extractValidationIssues(response?.validationErrors ?? response?.errors)
   const issueSummary =
     issues.length > 0
       ? issues
@@ -135,7 +135,9 @@ function extractValidationMessage(responseData: unknown, fallback: string): stri
           .join('; ')
       : null
 
-  return explicitMessage || issueSummary || fallback
+  return explicitMessage && explicitMessage.toLowerCase() !== 'validation failed'
+    ? explicitMessage
+    : issueSummary || explicitMessage || fallback
 }
 
 function finalizeValuationCalculateResponse(response: ValuationResponse): ValuationResponse {
@@ -424,17 +426,23 @@ export class ValuationAPI extends HttpClient {
 
     if (status === 400 || status === 422) {
       const message = extractValidationMessage(responseData, 'Invalid valuation data provided.')
-      const field = asString(response?.field) ?? extractValidationIssues(response?.errors)[0]?.field
+      const validationIssues = extractValidationIssues(
+        response?.validationErrors ?? response?.errors
+      )
+      const field = asString(response?.field) ?? validationIssues[0]?.field
 
       const nestedMsg = response?.message
       const nestedMsgRecord = asRecord(nestedMsg)
-      const codeFromBody = asString(nestedMsgRecord?.code) ?? asString(response?.code)
+      const details = asRecord(response?.details)
+      const codeFromBody =
+        asString(nestedMsgRecord?.code) ?? asString(response?.code) ?? asString(details?.code)
 
       throw new ValidationError(message, field, undefined, {
         status,
         code: codeFromBody,
         hint: response?.hint,
-        errors: response?.errors,
+        errors: response?.validationErrors ?? response?.errors,
+        correlationId: asString(response?.correlationId),
       })
     }
 

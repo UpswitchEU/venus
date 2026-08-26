@@ -8,6 +8,7 @@ import {
 } from '@/lib/methods/liquidation_analysis/liquidationInputModel'
 import { calculateLatencyAmount, useTaxLatencyStore } from '../store/useTaxLatencyStore'
 import type { SafeNoteInput, ValuationFormData, ValuationRequest } from '../types/valuation'
+import { canonicalizeTaxLatencyWireArray } from './taxLatencyWire'
 
 type FormDataRecord = Record<string, unknown>
 
@@ -78,7 +79,7 @@ export function applyTaxLatencyBalanceSheetAdjustments(
     Array.isArray(formData.tax_latencies) &&
     formData.tax_latencies.length > 0
   ) {
-    request.tax_latencies = formData.tax_latencies
+    request.tax_latencies = canonicalizeTaxLatencyWireArray(formData.tax_latencies)
   }
 }
 

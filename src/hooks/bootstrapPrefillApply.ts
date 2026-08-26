@@ -34,6 +34,7 @@ import {
 import { SESSION_BUSINESS_CARD_CLEAR_KEYS } from '../utils/optionalSessionPrefillKeys'
 import { formatBootstrapCompanyAddress } from '../utils/registryCompanyDisplay'
 import { hasConflictingRegistryIdentity } from '../utils/registryIdentity'
+import { TaxLatencyBoundaryError } from '../utils/taxLatencyWire'
 import { buildBusinessCard } from './bootstrapPrefillBusinessCard'
 import {
   type BootstrapPrefillPatch,
@@ -601,15 +602,43 @@ function applySessionFallbackPrefill(
     allData.founding_year = Number(foundingYear)
   }
 
-  const mergedTaxLatencies =
-    readTaxLatencyItems(mergedSession.tax_latencies) ??
-    readTaxLatencyItems(mergedSession.taxLatencies) ??
-    readTaxLatencyItems(mergedSession._taxLatencies)
-  if (mergedTaxLatencies && mergedTaxLatencies.length > 0) {
-    if (!Array.isArray(allData.tax_latencies) || allData.tax_latencies.length === 0) {
-      allData.tax_latencies = mergedTaxLatencies.map(toTaxLatencyFormInput)
+  const rawTaxLatencies = [
+    mergedSession.tax_latencies,
+    mergedSession.taxLatencies,
+    mergedSession._taxLatencies,
+  ].find((candidate) => Array.isArray(candidate) && candidate.length > 0)
+  if (rawTaxLatencies) {
+    try {
+      const mergedTaxLatencies = readTaxLatencyItems(rawTaxLatencies)
+      if (mergedTaxLatencies && mergedTaxLatencies.length > 0) {
+        // Always replace the public form surface with the canonical wire shape.
+        // Keeping an already-populated legacy array was the production incident.
+        allData.tax_latencies = mergedTaxLatencies.map(toTaxLatencyFormInput)
+        useTaxLatencyStore.getState().setItems(mergedTaxLatencies, { source: 'system' })
+        const currentErrors = useManualFormStore.getState().validationErrors
+        if (currentErrors.tax_latencies) {
+          const { tax_latencies: _taxLatencyError, ...remainingErrors } = currentErrors
+          useManualFormStore.getState().setValidationErrors(remainingErrors)
+        }
+      }
+    } catch (error) {
+      // Preserve the raw session for review and keep the store empty so a
+      // clamped/defaulted internal value can never hide a boundary conflict.
+      allData.tax_latencies = rawTaxLatencies as ValuationFormData['tax_latencies']
+      useTaxLatencyStore.getState().clear({ source: 'system' })
+      const currentErrors = useManualFormStore.getState().validationErrors
+      useManualFormStore.getState().setValidationErrors({
+        ...currentErrors,
+        tax_latencies:
+          error instanceof TaxLatencyBoundaryError
+            ? error.message
+            : 'Stored tax-latency values must be reviewed.',
+      })
+      logger.warn('Tax-latency bootstrap data requires review', {
+        code: error instanceof TaxLatencyBoundaryError ? error.boundaryCode : 'TAX_LATENCY_UNKNOWN',
+        issueCount: error instanceof TaxLatencyBoundaryError ? error.issues.length : 1,
+      })
     }
-    useTaxLatencyStore.getState().setItems(mergedTaxLatencies)
   }
 
   const mergedNormalizations = readNormalizationItems(mergedSession._normalizations)

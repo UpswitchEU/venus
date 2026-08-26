@@ -665,6 +665,59 @@ describe('buildValuationRequest core registry and financial contract', () => {
     ])
   })
 
+  it('canonicalizes legacy form tax latencies when the store is empty', () => {
+    useTaxLatencyStore.getState().clear()
+
+    const result = buildValuationRequest(
+      makeFormData({
+        tax_latencies: [
+          {
+            id: 'auto_tax_latency_2023_168100_0',
+            type: 'passive',
+            description: 'Deferred tax liability',
+            temporaryDifference: 37_625.28,
+            taxRate: 100,
+            accountCode: '168100',
+          } as never,
+        ],
+      }),
+      []
+    )
+
+    expect(result.tax_latencies).toEqual([
+      expect.objectContaining({
+        temporary_difference: 37_625.28,
+        tax_rate: 100,
+        account_code: '168100',
+      }),
+    ])
+    expect(JSON.stringify(result.tax_latencies)).not.toMatch(
+      /temporaryDifference|taxRate|accountCode/
+    )
+  })
+
+  it('rejects conflicting form aliases instead of silently selecting a tax-latency value', () => {
+    useTaxLatencyStore.getState().clear()
+
+    expect(() =>
+      buildValuationRequest(
+        makeFormData({
+          tax_latencies: [
+            {
+              id: 'tax-conflict',
+              type: 'passive',
+              description: 'Conflict',
+              temporary_difference: 10_000,
+              temporaryDifference: 20_000,
+              tax_rate: 25,
+            } as never,
+          ],
+        }),
+        []
+      )
+    ).toThrowError(expect.objectContaining({ boundaryCode: 'TAX_LATENCY_FIELD_CONFLICT' }))
+  })
+
   it('keeps zero EBITDA as the reported baseline for normalization math', () => {
     const lastFullYear = getCurrentFilingYear()
     const result = buildValuationRequest(
