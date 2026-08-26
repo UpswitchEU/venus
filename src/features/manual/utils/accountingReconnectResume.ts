@@ -394,9 +394,12 @@ function toYearlyFinancial(
     source_kind: row.source_kind,
     source_synced_at: row.source_synced_at,
     quality_state: row.quality_state as YearlyFinancials['quality_state'],
+    correction_id: row.correction_id,
     source_digest: row.source_digest,
     attestation_id: row.attestation_id,
     eligibility_reason: row.eligibility_reason,
+    ...(row._source_reconciled === true ? { _source_reconciled: true as const } : {}),
+    ...(Array.isArray(row.warning_codes) ? { warning_codes: [...row.warning_codes] } : {}),
   }
   const source = row as Record<string, unknown>
   for (const field of FINANCIAL_FIELDS) {

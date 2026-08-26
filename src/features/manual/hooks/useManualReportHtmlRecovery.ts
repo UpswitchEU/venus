@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationResponse, ValuationSession } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
@@ -28,6 +28,7 @@ const HOOK_RECOVERY_RETRY_MS = [0, 5_000, 15_000, 45_000] as const
  */
 export interface UseManualReportHtmlRecoveryResult {
   isRecoveringReportHtml: boolean
+  retryReportHtmlRecovery: () => void
 }
 
 export function useManualReportHtmlRecovery({
@@ -40,6 +41,7 @@ export function useManualReportHtmlRecovery({
   isGenerating,
 }: UseManualReportHtmlRecoveryParams): UseManualReportHtmlRecoveryResult {
   const [isRecoveringReportHtml, setIsRecoveringReportHtml] = useState(false)
+  const [retryNonce, setRetryNonce] = useState(0)
   const passRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlightRef = useRef(false)
@@ -53,6 +55,18 @@ export function useManualReportHtmlRecovery({
     standaloneHtmlReport,
   })
 
+  const retryReportHtmlRecovery = useCallback(() => {
+    if (inFlightRef.current) return
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    passRef.current = 0
+    useSessionStore.getState().setRenderError(null)
+    setIsRecoveringReportHtml(true)
+    setRetryNonce((current) => current + 1)
+  }, [])
+
   useEffect(() => {
     if (isCalculating || isGenerating) {
       passRef.current = 0
@@ -63,6 +77,9 @@ export function useManualReportHtmlRecovery({
   }, [isCalculating, isGenerating])
 
   useEffect(() => {
+    // Explicit retry signal: restarting this effect schedules a fresh pass even
+    // when the report/session inputs themselves did not change.
+    void retryNonce
     const clearTimer = () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current)
@@ -178,7 +195,8 @@ export function useManualReportHtmlRecovery({
     sessionRef,
     resultRef,
     standaloneHtmlReportRef,
+    retryNonce,
   ])
 
-  return { isRecoveringReportHtml }
+  return { isRecoveringReportHtml, retryReportHtmlRecovery }
 }

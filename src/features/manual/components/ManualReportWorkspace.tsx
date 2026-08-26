@@ -33,6 +33,7 @@ export interface ManualReportWorkspaceProps {
   isRecoveringReportHtml?: boolean
   isDeletingCurrentReport?: boolean
   isMethodSwitchRendering: boolean
+  onRetryReportRecovery?: () => void
   onVersionRestore: HistoryPanelProps['onVersionRestore']
   report: ValuationReportData | null
   reportId: string
@@ -73,8 +74,10 @@ function HtmlReportSurface({
 }
 
 function ReportRenderErrorPanel({
+  onRetry,
   variant,
 }: {
+  onRetry?: () => void
   variant: 'payload_too_large' | 'html_recovery_failed'
 }) {
   const t = useTranslations('reportPreview')
@@ -84,6 +87,7 @@ function ReportRenderErrorPanel({
         <ErrorState
           title={t('reportHtmlRecoveryFailed')}
           message={t('reportHtmlRecoveryFailedDesc')}
+          onRetry={onRetry}
         />
       </div>
     )
@@ -146,6 +150,7 @@ export function ManualReportWorkspace({
   isRecoveringReportHtml = false,
   isDeletingCurrentReport = false,
   isMethodSwitchRendering,
+  onRetryReportRecovery,
   onVersionRestore,
   report,
   reportId,
@@ -264,7 +269,10 @@ export function ManualReportWorkspace({
                     exit={{ opacity: 0 }}
                     transition={springDefault}
                   >
-                    <ReportRenderErrorPanel variant="html_recovery_failed" />
+                    <ReportRenderErrorPanel
+                      onRetry={onRetryReportRecovery}
+                      variant="html_recovery_failed"
+                    />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -344,6 +352,20 @@ export function ManualReportWorkspace({
               className="h-full bg-background"
             >
               <ReportRenderErrorPanel variant="payload_too_large" />
+            </motion.div>
+          ) : showHtmlRecoveryFailed ? (
+            <motion.div
+              key="recovery-error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={springDefault}
+              className="h-full bg-background"
+            >
+              <ReportRenderErrorPanel
+                onRetry={onRetryReportRecovery}
+                variant="html_recovery_failed"
+              />
             </motion.div>
           ) : (
             <motion.div

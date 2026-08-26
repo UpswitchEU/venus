@@ -298,39 +298,42 @@ describe('buildValuationRequest normalization integrity guards', () => {
     expect(result.historical_years_data.map((row) => row.year)).toEqual([2021, 2022, 2023])
   })
 
-  it('blocks report generation when imported EBITDA is almost equal to revenue', async () => {
+  it('retains an unusual EBITDA margin and leaves source admission to Titan', async () => {
     const loggerModule = await import('../logger')
     const warnSpy = vi.spyOn(loggerModule.generalLogger, 'warn')
     const lastFullYear = getCurrentFilingYear()
 
-    let capturedError: unknown
-    try {
-      buildValuationRequest(
-        makeFormData({
+    const result = buildValuationRequest(
+      makeFormData({
+        revenue: 198_768.46,
+        ebitda: 197_979.35,
+        current_year_data: {
+          year: lastFullYear,
           revenue: 198_768.46,
           ebitda: 197_979.35,
-          current_year_data: {
-            year: lastFullYear,
-            revenue: 198_768.46,
-            ebitda: 197_979.35,
-          },
-        }),
-        []
-      )
-    } catch (error) {
-      capturedError = error
-    }
+          source_provider: 'silverfin',
+          source_kind: 'live_accounting',
+          quality_state: 'source_warning',
+          source_digest: 'a'.repeat(64),
+          _source_reconciled: true,
+          warning_codes: ['EXTREME_EBITDA_MARGIN'],
+        },
+      }),
+      []
+    )
 
-    expect(capturedError).toBeInstanceOf(ValidationError)
-    expect((capturedError as ValidationError).message).toMatch(/EBITDA is almost equal to revenue/)
-    expect((capturedError as ValidationError).field).toBe('current_year_data.ebitda')
-    expect((capturedError as ValidationError).context).toMatchObject({
-      code: 'FINANCIAL_REVIEW_REQUIRED',
-      fiscalYear: lastFullYear,
+    expect(result.current_year_data).toMatchObject({
+      revenue: 198_768.46,
+      ebitda: 197_979.35,
+      source_provider: 'silverfin',
+      quality_state: 'source_warning',
+      _source_reconciled: true,
+      warning_codes: ['EXTREME_EBITDA_MARGIN'],
     })
 
     const matched = warnSpy.mock.calls.find(
-      ([msg]) => typeof msg === 'string' && msg.includes('Blocking implausible EBITDA margin')
+      ([msg]) =>
+        typeof msg === 'string' && msg.includes('Unusual EBITDA margin retained for source policy')
     )
     expect(matched).toBeDefined()
     const ctx = matched?.[1] as Record<string, unknown> | undefined

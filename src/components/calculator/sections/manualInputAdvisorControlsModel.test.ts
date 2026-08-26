@@ -44,11 +44,31 @@ describe('manual input advisor controls model', () => {
     expect(years).toEqual([2023, 2024, 2025])
   })
 
+  it('uses the live financial cards as canonical and applies the same DCF admission rules', () => {
+    const years = deriveAdvisorWeightingYears({
+      formData: makeFormData({
+        // Deliberately stale request-shaped fields: editing happens in yearlyFinancials.
+        current_year_data: { year: 2025, revenue: 0, ebitda: 0 },
+        historical_years_data: [{ year: 2024, revenue: 0, ebitda: 0 }],
+        yearlyFinancials: [
+          { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+          { year: '2024', revenue: 900_000, ebitda: 100_000 },
+          { year: '2023', revenue: 0, ebitda: 0 },
+          { year: '2022', revenue: 800_000, ebitda: undefined as never },
+          { year: '2026', revenue: 1_100_000, ebitda: 110_000, isForecast: true },
+        ],
+      }),
+      historicalCardRows: [],
+    })
+
+    expect(years).toEqual([2024, 2025])
+  })
+
   it('uses historical card rows as the current year source when current_year_data is missing', () => {
     expect(
       deriveAdvisorWeightingYears({
         formData: makeFormData(),
-        historicalCardRows: [{ year: '2024', revenue: '850,000' }],
+        historicalCardRows: [{ year: '2024', revenue: '850,000', ebitda: 85_000 }],
       })
     ).toEqual([2024])
   })
@@ -100,7 +120,7 @@ describe('manual input advisor controls model', () => {
         business_context: { ev_ebitda_multiple: { median: '6,0' } },
         current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
       }),
-      historicalCardRows: [{ year: 2025, revenue: 1_000_000 }],
+      historicalCardRows: [{ year: 2025, revenue: 1_000_000, ebitda: 100_000 }],
       normalizedData: emptyNormalizedData,
     })
 

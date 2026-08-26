@@ -82,7 +82,7 @@ export function pickDefinedYearDataFields(
   return result
 }
 
-function pickYearSourceMetadata(
+export function pickYearSourceMetadata(
   source: Partial<YearDataInput> | null | undefined
 ): Partial<YearDataInput> {
   if (!source) return {}
@@ -92,6 +92,7 @@ function pickYearSourceMetadata(
     'source_kind',
     'source_synced_at',
     'quality_state',
+    'correction_id',
     'source_digest',
     'attestation_id',
     'eligibility_reason',
@@ -100,6 +101,14 @@ function pickYearSourceMetadata(
     if (typeof value === 'string' || value === null) {
       ;(result as Record<string, unknown>)[field] = value
     }
+  }
+  if (source._source_reconciled === true) {
+    result._source_reconciled = true
+  }
+  if (Array.isArray(source.warning_codes)) {
+    result.warning_codes = source.warning_codes.filter(
+      (code): code is string => typeof code === 'string' && code.trim().length > 0
+    )
   }
   return result
 }

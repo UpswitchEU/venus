@@ -15,11 +15,19 @@ export interface YearlyFinancials {
   source_provider?: string
   source_kind?: string
   source_synced_at?: string | null
-  quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review' | 'advisor_corrected'
+  quality_state?:
+    | 'ready'
+    | 'source_warning'
+    | 'needs_review'
+    | 'blocked'
+    | 'attested_review'
+    | 'advisor_corrected'
   correction_id?: string
   source_digest?: string
   attestation_id?: string
   eligibility_reason?: string
+  _source_reconciled?: true
+  warning_codes?: string[]
   capex?: number
   depreciation?: number
   tax_expense?: number

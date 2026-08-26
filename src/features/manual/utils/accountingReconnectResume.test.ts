@@ -267,10 +267,10 @@ describe('applyValuationSnapshotToReconnectDraft', () => {
     expect(result.filingYearConfirmed).toBe(true)
   })
 
-  it('keeps a complete high-margin live year visible for explicit review', () => {
+  it('keeps a reconciled high-margin live year ready with its warning evidence', () => {
     const result = applyValuationSnapshotToReconnectDraft(draft(), {
       provider: 'silverfin',
-      anchor_year: null,
+      anchor_year: 2024,
       last_successful_sync_at: '2026-08-24T18:00:00.000Z',
       years: [
         {
@@ -279,9 +279,10 @@ describe('applyValuationSnapshotToReconnectDraft', () => {
           ebitda: 95_000,
           source_provider: 'silverfin',
           source_kind: 'live_accounting',
-          quality_state: 'needs_review',
+          quality_state: 'source_warning',
           source_digest: 'digest-2024',
-          eligibility_reason: 'extreme_margin_unattested',
+          _source_reconciled: true,
+          warning_codes: ['EXTREME_EBITDA_MARGIN'],
         },
       ],
       unavailable_years: [],
@@ -290,11 +291,12 @@ describe('applyValuationSnapshotToReconnectDraft', () => {
     expect(result.yearlyFinancials).toContainEqual(
       expect.objectContaining({
         year: '2024',
-        quality_state: 'needs_review',
-        eligibility_reason: 'extreme_margin_unattested',
+        quality_state: 'source_warning',
+        _source_reconciled: true,
+        warning_codes: ['EXTREME_EBITDA_MARGIN'],
       })
     )
-    expect(result.filingYearConfirmed).toBe(false)
+    expect(result.filingYearConfirmed).toBe(true)
   })
 
   it('finds the newest unreviewed extreme-margin year before automatic resume', () => {

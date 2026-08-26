@@ -74,12 +74,11 @@ export function decorateManualValuationRequest(
     out.selected_method = ADAPTIVE_METHOD
   }
 
-  // `use_dcf` is a capability flag, not durable user intent. Omit the legacy
-  // default for plain Adaptive requests so older Titan/IQ deployments also
-  // degrade safely to their market leg. Explicit DCF controls keep the flag.
-  if (out.selected_method === ADAPTIVE_METHOD) {
-    if (hasExplicitDcfIntent(out)) out.use_dcf = true
-    else delete out.use_dcf
+  // `use_dcf` is a capability flag, not durable user intent. Preserve it for
+  // plain Adaptive so a ready DCF leg can participate; durable explicit intent
+  // travels through selected method, weights, FCFF mode or user configuration.
+  if (out.selected_method === ADAPTIVE_METHOD && hasExplicitDcfIntent(out)) {
+    out.use_dcf = true
   }
 
   if (params.identifiers?.reportId) {

@@ -1,9 +1,13 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ManualReportWorkspace } from './ManualReportWorkspace'
 
+const sessionState = vi.hoisted(() => ({
+  renderError: null as null | 'html_recovery_failed' | 'payload_too_large',
+}))
+
 vi.mock('framer-motion', () => ({
-  motion: { div: 'div' },
+  motion: { button: 'button', div: 'div' },
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
@@ -12,8 +16,7 @@ vi.mock('../../../components/calculator', () => ({
 }))
 
 vi.mock('../../../store/useSessionStore', () => ({
-  useSessionStore: (selector: (state: { renderError: null }) => unknown) =>
-    selector({ renderError: null }),
+  useSessionStore: (selector: (state: typeof sessionState) => unknown) => selector(sessionState),
 }))
 
 vi.mock('@/hooks/useSectorMismatchWarning', () => ({
@@ -44,6 +47,10 @@ const report = {
 }
 
 describe('ManualReportWorkspace', () => {
+  beforeEach(() => {
+    sessionState.renderError = null
+  })
+
   it('does not render the KBO/NACE sector mismatch warning in the report panel header', () => {
     render(
       <ManualReportWorkspace
@@ -62,5 +69,29 @@ describe('ManualReportWorkspace', () => {
     expect(screen.getByRole('heading', { name: 'Report ready' })).toBeInTheDocument()
     expect(screen.queryByText(/KBO\/NACE activity suggests/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/forms\.warnings\.sectorMismatch/i)).not.toBeInTheDocument()
+  })
+
+  it('offers one-click report recovery without asking the user to recalculate', () => {
+    const onRetryReportRecovery = vi.fn()
+    sessionState.renderError = 'html_recovery_failed'
+
+    render(
+      <ManualReportWorkspace
+        isCalculating={false}
+        isGenerating={false}
+        isMethodSwitchRendering={false}
+        onRetryReportRecovery={onRetryReportRecovery}
+        onVersionRestore={vi.fn()}
+        report={null}
+        reportId="report-1"
+        rightPanelView="report"
+        translate={(key) => key}
+        translateReport={(key) => key}
+      />
+    )
+
+    expect(screen.getByText('reportHtmlRecoveryFailedDesc')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'tryAgain' }))
+    expect(onRetryReportRecovery).toHaveBeenCalledTimes(1)
   })
 })

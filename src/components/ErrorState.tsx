@@ -10,6 +10,8 @@ interface ErrorStateProps {
   message?: string
   onRetry?: () => void
   onBack?: () => void
+  retryLabel?: string
+  backLabel?: string
   className?: string
   variant?: 'light' | 'dark'
 }
@@ -19,6 +21,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   message,
   onRetry,
   onBack,
+  retryLabel,
+  backLabel,
   className = '',
   variant = 'dark',
 }) => {
@@ -54,19 +58,19 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
               className="flex items-center justify-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
-              {t('goBack')}
+              {backLabel ?? t('goBack')}
             </AuroraButton>
           )}
 
           {onRetry && (
             <AuroraButton
               onClick={onRetry}
-              variant="destructive"
+              variant="primary"
               size="lg"
               className="flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
-              {t('tryAgain')}
+              {retryLabel ?? t('tryAgain')}
             </AuroraButton>
           )}
         </div>

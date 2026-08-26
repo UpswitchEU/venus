@@ -8,7 +8,7 @@ import {
   requireNonNegativeRevenue,
   toFiniteNumber,
 } from './buildValuationRequest.helpers'
-import { deriveNwcChangesForActualYears } from './yearData'
+import { deriveNwcChangesForActualYears, pickYearSourceMetadata } from './yearData'
 
 type DcfInputMode = 'ebitda' | 'fcff_only'
 
@@ -58,6 +58,7 @@ function applyNormalization(
       reported_ebitda: reported,
       ...(normalized !== null ? { normalized_ebitda: normalized } : {}),
       ...pickOptionalYearDataFields(year),
+      ...pickYearSourceMetadata(year),
       ebitda_normalized: normalized !== null,
       ...(year.ebitda_normalization_metadata
         ? { ebitda_normalization_metadata: year.ebitda_normalization_metadata }
@@ -78,6 +79,7 @@ function applyNormalization(
     reported_ebitda: reported,
     ...(normalized !== null ? { normalized_ebitda: normalized } : {}),
     ...pickOptionalYearDataFields(year),
+    ...pickYearSourceMetadata(year),
     ebitda_normalized: normalized !== null,
     ebitda_normalization_metadata: {
       reported_ebitda: reported,
@@ -266,6 +268,7 @@ export function buildValuationRequestYearData(
         }
       : {}),
     ...pickOptionalYearDataFields(args.effectiveCurrentYearData),
+    ...pickYearSourceMetadata(args.effectiveCurrentYearData),
   }
 
   const historicalYearsData = buildHistoricalYearsData({

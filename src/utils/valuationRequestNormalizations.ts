@@ -14,7 +14,6 @@ import { generalLogger } from './logger'
 import { getNormalizationAmountForBase } from './normalizationMath'
 
 export interface BuildValuationRequestNormalizationsParams {
-  companyName: string
   rawNormalizationItems: readonly NormalizationItem[]
   legacyNormalizations: Record<number, EbitdaNormalization>
   allDataYears: number[]
@@ -118,7 +117,6 @@ export function buildCanonicalNormalizationDecisions({
 }
 
 export function buildValuationRequestNormalizations({
-  companyName,
   rawNormalizationItems,
   legacyNormalizations,
   allDataYears,
@@ -142,7 +140,6 @@ export function buildValuationRequestNormalizations({
     generalLogger.warn(
       '[buildValuationRequest] Pending normalizations left unapplied; proceeding with reported EBITDA',
       {
-        business_name: companyName,
         pending_count: pendingNorms.length,
         pending_total_adjustment: visibleAdjustment,
         accepted_count: acceptedNorms.length,
@@ -275,11 +272,10 @@ export function buildValuationRequestNormalizations({
     generalLogger.warn(
       '[buildValuationRequest] Dropped accepted normalizations with no matching year in the data set',
       {
-        business_name: companyName,
         canonical_years: allDataYears,
         orphan_count: orphanItems.length,
         orphan_total_adjustment: orphanTotal,
-        orphans: orphanItems,
+        orphan_years: [...new Set(orphanItems.flatMap((item) => item.targetYears))],
         note:
           'These items targeted year(s) outside current_year_data + historical_years_data ' +
           'and would have been silently lost downstream. Either remove them, or extend the ' +
@@ -332,11 +328,10 @@ export function buildValuationRequestNormalizations({
     generalLogger.warn(
       '[buildValuationRequest] Dropped legacy normalization entries with no matching year in the data set',
       {
-        business_name: companyName,
         canonical_years: allDataYears,
         orphan_count: legacyOrphanYears.length,
         orphan_total_adjustment: legacyOrphanTotal,
-        orphan_years: legacyOrphanYears,
+        orphan_years: legacyOrphanYears.map((item) => item.year),
         note:
           'These legacy form-store entries were keyed by year(s) outside ' +
           'current_year_data + historical_years_data and would have been ' +

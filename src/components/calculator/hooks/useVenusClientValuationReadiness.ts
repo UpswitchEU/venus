@@ -9,7 +9,18 @@ export interface VenusClientValuationReadiness {
     provider: string | null
     synced_at: string | null
     fiscal_years: number[]
+    eligible_fiscal_years?: number[]
   }
+  years?: Array<{
+    fiscal_year: number
+    revenue: number | null
+    ebitda: number | null
+    ebitda_margin: number | null
+    eligible: boolean
+    reason_code?: string
+    period_completeness: 'year_end' | 'partial' | 'unknown'
+    source_digest?: string
+  }>
   issues: Array<{
     code: string
     action: string

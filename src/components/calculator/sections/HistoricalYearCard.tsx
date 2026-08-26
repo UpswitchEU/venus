@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { cn } from '@/design-system/utils'
 import { accountingAPI, parseAccountingApiError } from '@/services/api/accounting'
+import type { ImportQualityPerYear } from '@/store/useImportQualityStore'
 import type { YearlyFinancials } from '../../../types/valuation'
 import { getFilingYearHistoricalOffset } from '../../../utils/fiscalYear'
 import { canRemoveHistoricalYear } from '../../../utils/forecastYears'
@@ -15,6 +16,7 @@ import { FieldHelpTrigger } from '../FieldHelpTrigger'
 import type { ManualInputFieldValidation } from '../utils/manualInputFieldValidation'
 import type { ManualInputNormalizedYear } from '../utils/manualInputNormalizedData'
 import type { UpdateManualYearlyFinancials } from '../utils/manualYearlyFinancialUpdates'
+import { AccountingYearEvidence } from './AccountingYearEvidence'
 import { canOfferSourceBoundHighMarginAttestation } from './highMarginAttestationEligibility'
 import { NbbResetHint } from './NbbResetHint'
 
@@ -42,6 +44,7 @@ interface HistoricalYearCardProps {
   fieldValidation: ManualInputFieldValidation
   financialRows: YearlyFinancials[]
   formatCurrency: (amount: number) => string
+  importQuality?: ImportQualityPerYear
   normalizedYear?: ManualInputNormalizedYear
   onFieldHelpRequest?: (context: FieldHelpContext) => void
   onRemoveForecastYear: (year: string) => void
@@ -73,6 +76,7 @@ export function HistoricalYearCard({
   fieldValidation,
   financialRows,
   formatCurrency,
+  importQuality,
   normalizedYear,
   onFieldHelpRequest,
   onRemoveForecastYear,
@@ -339,13 +343,9 @@ export function HistoricalYearCard({
               <button
                 type="button"
                 onClick={() => onViewAllNormalizations?.()}
-                className="text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/15 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                className="inline-flex min-h-7 items-center rounded bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15"
               >
-                {locale === 'nl'
-                  ? `${normCount} normalisaties te beoordelen`
-                  : locale === 'fr'
-                    ? `${normCount} normalisations à examiner`
-                    : `${normCount} normalizations to review`}
+                {mi('appliedNormalizations', { count: normCount })}
               </button>
             )}
             {yearData.isForecast && (
@@ -373,6 +373,12 @@ export function HistoricalYearCard({
           </div>
         )}
       </div>
+
+      <AccountingYearEvidence
+        formatCurrency={formatCurrency}
+        importQuality={importQuality}
+        yearData={yearData}
+      />
 
       <div className={cn('grid gap-3', 'grid-cols-1 sm:grid-cols-2')}>
         <div>

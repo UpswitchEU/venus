@@ -8,7 +8,8 @@ const api = vi.hoisted(() => ({
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl',
-  useTranslations: () => (key: string) => key,
+  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
+    key === 'appliedNormalizations' ? `${values?.count} normalisaties toegepast` : key,
 }))
 
 vi.mock('@/services/api/accounting', () => ({
@@ -127,5 +128,34 @@ describe('HistoricalYearCard source-bound correction', () => {
     )
 
     expect(screen.queryByText('Broncijfers dossierbreed corrigeren')).not.toBeInTheDocument()
+  })
+
+  it('labels accepted per-year normalizations as applied instead of pending review', () => {
+    render(
+      <HistoricalYearCard
+        baseFilingYearForLabels={2024}
+        fieldValidation={{ errors: {}, warnings: {} }}
+        financialRows={[{ year: '2024', revenue: 1_000, ebitda: 100 }]}
+        formatCurrency={(amount) => String(amount)}
+        normalizedYear={{
+          year: '2024',
+          revenue: 1_000,
+          ebitda: 100,
+          fictiveRentDeduction: 0,
+          normalizationCount: 2,
+          normalizedEbitda: 150,
+          totalAdjustment: 50,
+        }}
+        onRemoveForecastYear={vi.fn()}
+        onRemoveHistoricalYear={vi.fn()}
+        onViewAllNormalizations={vi.fn()}
+        partialYears={[]}
+        updateYearlyFinancials={vi.fn()}
+        yearData={{ year: '2024', revenue: 1_000, ebitda: 100 }}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: '2 normalisaties toegepast' })).toBeInTheDocument()
+    expect(screen.queryByText(/te beoordelen/)).not.toBeInTheDocument()
   })
 })

@@ -145,7 +145,7 @@ export function FinancialHistorySection({
       .filter((issue) => typeof issue.fiscal_year === 'number')
       .map((issue) => [issue.fiscal_year as number, issue])
   )
-  const reviewIssueCount = reviewIssuesByYear.size || readiness?.issues.length || 0
+  const reviewIssueCount = reviewIssuesByYear.size
   const reviewIssueLabel =
     locale === 'nl'
       ? `${reviewIssueCount} ${reviewIssueCount === 1 ? 'boekjaar controleren' : 'boekjaren controleren'}`
@@ -207,6 +207,14 @@ export function FinancialHistorySection({
       ? 'Silverfin'
       : sourceProvider
     : null
+  const sourceYearCount = readiness?.source.fiscal_years.length ?? 0
+  const hasReadinessYearSet =
+    Array.isArray(readiness?.source.eligible_fiscal_years) || Array.isArray(readiness?.years)
+  const eligibleYearCount =
+    readiness?.source.eligible_fiscal_years?.length ??
+    readiness?.years?.filter((year) => year.eligible).length ??
+    0
+  const excludedYearCount = Math.max(0, sourceYearCount - eligibleYearCount)
 
   // BET-315 — financials-step funnel impression (entry → here → submit). Fire
   // once per mount, only when the step is actually shown (past the guard below).
@@ -248,7 +256,16 @@ export function FinancialHistorySection({
               ).format(new Date(sourceSyncedAt))}
             </span>
           ) : null}
-          {readiness?.state === 'review_required' || reviewIssueCount > 0 ? (
+          {sourceYearCount > 0 && hasReadinessYearSet ? (
+            <p className="mt-1 text-foreground/55">
+              {mi('sourceEvidence.yearSetSummary', {
+                source: sourceYearCount,
+                eligible: eligibleYearCount,
+                excluded: excludedYearCount,
+              })}
+            </p>
+          ) : null}
+          {reviewIssueCount > 0 ? (
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-primary/15 pt-2">
               <span className="font-medium text-amber-700 dark:text-amber-300">
                 {reviewIssueLabel}
@@ -317,6 +334,7 @@ export function FinancialHistorySection({
               fieldValidation={fieldValidation}
               financialRows={formData.yearlyFinancials}
               formatCurrency={formatCurrency}
+              importQuality={importQuality?.[String(yearData.year)]}
               normalizedYear={normalizedYear}
               onFieldHelpRequest={onFieldHelpRequest}
               onRemoveForecastYear={(year) =>

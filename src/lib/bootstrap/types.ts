@@ -152,8 +152,11 @@ export interface PartialFinancials {
       source_synced_at?: string | null
       source_digest?: string
       quality_state?: string
+      correction_id?: string
       eligibility_reason?: string
       attestation_id?: string
+      _source_reconciled?: true
+      warning_codes?: string[]
       [key: string]: unknown
     }
   }

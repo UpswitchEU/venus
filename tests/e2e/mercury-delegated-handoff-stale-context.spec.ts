@@ -12,6 +12,22 @@ test.describe('Mercury delegated handoff with stale client context', () => {
   }) => {
     let getClientContextCalls = 0
     let bootstrapRelationshipId: string | null = null
+    const uncaughtPageErrors: string[] = []
+    page.on('pageerror', (error) => uncaughtPageErrors.push(error.message))
+
+    // The report route is protected by edge middleware before client-side API
+    // mocks can run. Seed the same cookie proof a real Mercury handoff carries
+    // so this test exercises the delegated Venus flow instead of the login
+    // redirect on Mercury.
+    const baseUrl = String(test.info().project.use.baseURL ?? 'http://127.0.0.1:3001')
+    await page.context().addCookies([
+      {
+        name: 'upswitch_access_token',
+        value: 'mercury-handoff-e2e-access-token',
+        url: baseUrl,
+        sameSite: 'Lax',
+      },
+    ])
 
     await page.addInitScript(
       ({ staleClientId, accountantId }) => {
@@ -55,6 +71,50 @@ test.describe('Mercury delegated handoff with stale client context', () => {
               role: 'accountant',
             },
           },
+        }),
+      })
+    })
+
+    await page.route('**/api/reports?**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ reports: [] }),
+      })
+    })
+
+    await page.route('**/api/normalization/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      })
+    })
+
+    await page.route('**/api/accountants/clients/**/valuation-readiness', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          state: 'ready',
+          source: {
+            provider: 'silverfin',
+            synced_at: '2026-08-25T12:00:00.000Z',
+            fiscal_years: [2023],
+            eligible_fiscal_years: [2023],
+          },
+          years: [
+            {
+              fiscal_year: 2023,
+              revenue: 1_200_000,
+              ebitda: 180_000,
+              ebitda_margin: 0.15,
+              eligible: true,
+              period_completeness: 'year_end',
+              source_digest: 'sha256:e2e-mercury-handoff-2023',
+            },
+          ],
+          issues: [],
         }),
       })
     })
@@ -120,25 +180,39 @@ test.describe('Mercury delegated handoff with stale client context', () => {
               status: 'active',
             },
             prefill: {
-              sources: [],
+              sources: ['accounting_integration'],
               companyInfo: {
                 companyName: 'Target Client',
                 countryCode: 'BE',
+                businessTypeId: 'manufacturing',
+                businessTypeTitle: 'Manufacturing',
               },
               financials: {
                 revenue: 1_200_000,
                 ebitda: 180_000,
+                dataSource: 'accounting_integration',
+                yearData: {
+                  2023: {
+                    revenue: 1_200_000,
+                    ebitda: 180_000,
+                    source_provider: 'silverfin',
+                    source_kind: 'accounting_integration',
+                    source_digest: 'sha256:e2e-mercury-handoff-2023',
+                    quality_state: 'admitted',
+                    _source_reconciled: true,
+                  },
+                },
               },
               confidence: 0.8,
-              fieldsPopulated: ['company_name', 'revenue', 'ebitda'],
+              fieldsPopulated: ['company_name', 'business_type_id', 'revenue', 'ebitda'],
               fieldsRemaining: [],
             },
             ui: {
               showWelcomeBack: false,
               resumableSession: false,
               suggestedFlow: 'manual',
-              prefilledFieldCount: 3,
-              totalFieldCount: 3,
+              prefilledFieldCount: 4,
+              totalFieldCount: 4,
               showKboVerification: false,
               showAccountantBanner: true,
               sourceApp: 'mercury',
@@ -165,8 +239,12 @@ test.describe('Mercury delegated handoff with stale client context', () => {
     await expect(page.getByText('Loading took too long')).toHaveCount(0)
     await expect(page.getByText('Failed to fetch client context')).toHaveCount(0)
 
-    await expect(page.locator('input[name="company_name"]')).toHaveValue('Target Client', {
-      timeout: 15_000,
-    })
+    await expect(
+      page.getByRole('textbox', { name: 'Bedrijfsnaam of KBO-nummer' })
+    ).toHaveValue('Target Client', { timeout: 15_000 })
+    await expect(page.getByRole('textbox', { name: 'Omzet' })).toHaveValue('1.200.000')
+    await expect(page.getByRole('textbox', { name: 'EBITDA' })).toHaveValue('180.000')
+    await expect(page.getByText('Controleer de broncijfers')).toHaveCount(0)
+    expect(uncaughtPageErrors).toEqual([])
   })
 })

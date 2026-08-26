@@ -113,9 +113,12 @@ export interface ClientValuationFinancialSnapshot {
       source_kind?: string
       source_synced_at?: string | null
       quality_state?: string
+      correction_id?: string
       source_digest?: string
       attestation_id?: string
       eligibility_reason?: string
+      _source_reconciled?: true
+      warning_codes?: string[]
     }
   >
   unavailable_years: Array<{ year: number; reason: string }>

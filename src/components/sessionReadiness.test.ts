@@ -11,9 +11,123 @@ import {
   shouldAllowOptimisticMercuryRender,
   shouldSeedOptimisticMercuryShell,
   shouldWaitForMercuryClientContextBeforeBootstrap,
+  validateMercuryAdvisorPrefillContract,
 } from '../lib/mercury/sessionReadiness'
 
 describe('sessionReadiness', () => {
+  describe('Mercury advisor prefill contract', () => {
+    const validSession = {
+      reportId: 'val_prefilled',
+      currentView: 'manual' as const,
+      dataSource: 'manual' as const,
+      partialData: {},
+      sessionData: {
+        company_name: 'LGS workshop',
+        business_type_id: 'manufacturing',
+        country_code: 'BE',
+        revenue: 1_000_000,
+        ebitda: 120_000,
+        current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 120_000 },
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    it('accepts one complete source-bound advisor year', () => {
+      expect(validateMercuryAdvisorPrefillContract(validSession)).toBeNull()
+    })
+
+    it('accepts canonical accounting year_data and reconciles scalars to the latest year', () => {
+      expect(
+        validateMercuryAdvisorPrefillContract({
+          ...validSession,
+          sessionData: {
+            company_name: 'LGS workshop',
+            business_type_id: 'manufacturing',
+            country_code: 'BE',
+            revenue: 1_000_000,
+            ebitda: 120_000,
+            year_data: {
+              2024: { revenue: 900_000, ebitda: 90_000 },
+              2025: { revenue: 1_000_000, ebitda: 120_000 },
+            },
+          },
+        })
+      ).toBeNull()
+
+      expect(
+        validateMercuryAdvisorPrefillContract({
+          ...validSession,
+          sessionData: {
+            company_name: 'LGS workshop',
+            business_type_id: 'manufacturing',
+            country_code: 'BE',
+            revenue: 900_000,
+            ebitda: 120_000,
+            year_data: {
+              2025: { revenue: 1_000_000, ebitda: 120_000 },
+            },
+          },
+        })
+      ).toMatchObject({ code: 'VALUATION_PREFILL_INCONSISTENT' })
+
+      expect(
+        validateMercuryAdvisorPrefillContract({
+          ...validSession,
+          sessionData: {
+            company_name: 'LGS workshop',
+            business_type_id: 'manufacturing',
+            country_code: 'BE',
+            revenue: '9007199254740993.10',
+            ebitda: '120000.00',
+            year_data: {
+              2025: { revenue: '9007199254740993.1', ebitda: '120000' },
+            },
+          },
+        })
+      ).toBeNull()
+
+      expect(
+        validateMercuryAdvisorPrefillContract({
+          ...validSession,
+          sessionData: {
+            company_name: 'LGS workshop',
+            business_type_id: 'manufacturing',
+            country_code: 'BE',
+            revenue: '9007199254740993.11',
+            ebitda: '120000',
+            year_data: {
+              2025: { revenue: '9007199254740993.10', ebitda: '120000' },
+            },
+          },
+        })
+      ).toMatchObject({ code: 'VALUATION_PREFILL_INCONSISTENT' })
+    })
+
+    it('rejects a delegated session that would render a blank company form', () => {
+      expect(
+        validateMercuryAdvisorPrefillContract({
+          ...validSession,
+          sessionData: { ...validSession.sessionData, company_name: '' },
+        })
+      ).toMatchObject({ code: 'CLIENT_IDENTITY_INCOMPLETE' })
+    })
+
+    it('rejects a delegated session without a complete fiscal year', () => {
+      expect(
+        validateMercuryAdvisorPrefillContract({
+          ...validSession,
+          sessionData: {
+            ...validSession.sessionData,
+            revenue: undefined,
+            ebitda: undefined,
+            current_year_data: { year: 2025, revenue: 1_000_000 },
+          },
+        })
+      ).toMatchObject({ code: 'VALUATION_NOT_READY' })
+    })
+  })
+
   it('keeps existing Mercury reports behind loading until assets are renderable', () => {
     expect(
       canRenderReportSession({

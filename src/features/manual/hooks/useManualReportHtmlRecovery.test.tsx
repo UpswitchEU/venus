@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { backendAPI } from '../../../services/backendApi'
 import { __resetEnsureHtmlStateForTests } from '../../../services/session/SessionHtmlRecovery'
@@ -166,13 +166,55 @@ describe('useManualReportHtmlRecovery', () => {
         })
       )
 
-      for (const delay of [0, 5_000, 15_000, 45_000]) {
-        await vi.advanceTimersByTimeAsync(delay)
-        await Promise.resolve()
-      }
+      await act(async () => {
+        for (const delay of [0, 5_000, 15_000, 45_000]) {
+          await vi.advanceTimersByTimeAsync(delay)
+          await Promise.resolve()
+        }
+      })
 
       expect(useSessionStore.getState().renderError).toBe('html_recovery_failed')
       expect(recoverManualReportHtmlIfNeeded).toHaveBeenCalledTimes(4)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('lets the user retry recovery without recalculating the valuation', async () => {
+    vi.useFakeTimers()
+    try {
+      const reportId = 'val_recovery_hook_manual_retry'
+      vi.mocked(recoverManualReportHtmlIfNeeded).mockResolvedValue({ status: 'failed' })
+
+      const { result } = renderHook(() =>
+        useManualReportHtmlRecovery({
+          reportId,
+          session: baseSession(reportId),
+          result: null,
+          restorationComplete: true,
+          isCalculating: false,
+          isGenerating: false,
+        })
+      )
+
+      await act(async () => {
+        for (const delay of [0, 5_000, 15_000, 45_000]) {
+          await vi.advanceTimersByTimeAsync(delay)
+          await Promise.resolve()
+        }
+      })
+      expect(useSessionStore.getState().renderError).toBe('html_recovery_failed')
+      expect(recoverManualReportHtmlIfNeeded).toHaveBeenCalledTimes(4)
+
+      act(() => {
+        result.current.retryReportHtmlRecovery()
+      })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(useSessionStore.getState().renderError).toBeNull()
+      expect(recoverManualReportHtmlIfNeeded).toHaveBeenCalledTimes(5)
     } finally {
       vi.useRealTimers()
     }

@@ -852,6 +852,23 @@
 			"restore": "Restore session",
 			"startNew": "Start new session"
 		},
+		"advisorHandoff": {
+			"identityIncomplete": {
+				"title": "Complete the company profile",
+				"message": "Your source figures and work remain saved. Add the company name, activity and country in the dossier, then reopen the valuation.",
+				"action": "Complete profile"
+			},
+			"valuationNotReady": {
+				"title": "Review the source figures",
+				"message": "No complete fiscal year with revenue and EBITDA is ready for review yet. Check the financial data in the dossier, then reopen the valuation.",
+				"action": "Review figures"
+			},
+			"prefillInconsistent": {
+				"title": "The dossier was updated",
+				"message": "The financial data changed while the valuation was opening. Return to the dossier and reopen it with the latest source data.",
+				"action": "Return to dossier"
+			}
+		},
 		"businessTypeFetchFailed": "Failed to fetch business type. Please try again later.",
 		"noBusinessTypeForNace": "No business type found for this NACE code. Select manually.",
 		"authentication": {
@@ -1201,6 +1218,9 @@
 			"expert": "Expert mode"
 		},
 		"adaptiveDcfFallbackNotice": "Adaptive will use the market approach; DCF is excluded because {count} of {required} closed fiscal years are available.",
+		"dcfReadinessWarningTitle": "DCF is not available yet ({count}/{required} years)",
+		"dcfReadinessWarningDescription": "Add {missing, plural, one {one more closed fiscal year} other {# more closed fiscal years}} or enter explicit FCFF projections. The DCF calculation remains blocked until then.",
+		"reviewDcfInputs": "Review fiscal years and FCFF inputs",
 		"synthesis": {
 			"lockedTitle": "Locked",
 			"lockedDescription": "Add more valuation methods to unlock the synthesis."
@@ -1365,6 +1385,27 @@
 		"year": "year",
 		"years": "years",
 		"normalizations": "{count, plural, one {normalization} other {normalizations}}",
+		"appliedNormalizations": "{count, plural, one {# normalization applied} other {# normalizations applied}}",
+		"sourceEvidence": {
+			"ariaLabel": "Source evidence for fiscal year {year}",
+			"statusReady": "Source verified",
+			"statusWarning": "Source verified · unusual margin",
+			"statusReview": "Review warning",
+			"statusBlocked": "Not used in valuation",
+			"statusAttested": "Source confirmed",
+			"statusCorrected": "Source correction active",
+			"statusAvailable": "Source evidence available",
+			"providerUnknown": "Accounting source",
+			"yearSetSummary": "{source} source years · {eligible} valuation-ready · {excluded} technically excluded",
+			"periodRange": "Period {start} – {end}",
+			"periodId": "Source period {id}",
+			"syncedAt": "Synced {date}",
+			"coverage": "{value}% of accounts mapped",
+			"sourceValues": "Imported source",
+			"effectiveValues": "Used in calculation",
+			"revenueShort": "Revenue",
+			"ebitdaShort": "EBITDA"
+		},
 		"adjust": "Adjust",
 		"normalize": "Normalize",
 		"reviewAdjustments": "Review adjustments",
@@ -3579,7 +3620,7 @@
 		"renderPayloadTooLarge": "Report is too large to render",
 		"renderPayloadTooLargeDesc": "The valuation completed but the report exceeds the rendering service size limit. The issue has been logged — please contact support.",
 		"reportHtmlRecoveryFailed": "Report preview still loading",
-		"reportHtmlRecoveryFailedDesc": "The report preview is still loading. Refresh the page or recalculate if it does not appear.",
+		"reportHtmlRecoveryFailedDesc": "Your report and inputs are safely stored. Retry restoring the preview; you do not need to recalculate.",
 		"enterpriseBridgeToggle": "Show Enterprise-to-Equity Bridge (Waterfall)",
 		"enterpriseBridgeToggleDescription": "Controls whether the bridge appears in this report preview and saved report settings.",
 		"date": "Date",

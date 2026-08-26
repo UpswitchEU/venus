@@ -1,6 +1,6 @@
 import type { ManualValuationFormData } from '../../../types/valuation'
+import { resolveManualDcfReadiness } from '../../../utils/dcfReadiness'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
-import { isYearRowForecast } from '../../../utils/yearData'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 
 export interface ManualInputAdvisorControlsModel {
@@ -14,36 +14,36 @@ function toPositiveNumber(value: unknown): number | null {
   return parsed !== undefined && parsed > 0 ? parsed : null
 }
 
-function hasPositiveRevenue(row: { revenue?: unknown } | null | undefined): boolean {
-  return toPositiveNumber(row?.revenue) != null
-}
-
 export function deriveAdvisorWeightingYears({
   formData,
   historicalCardRows,
 }: {
   formData: ManualValuationFormData
-  historicalCardRows: Array<{ year: string | number; revenue?: unknown }>
+  historicalCardRows: Array<{
+    year: string | number
+    revenue?: unknown
+    ebitda?: unknown
+    isForecast?: boolean
+    is_forecast?: boolean
+  }>
 }): number[] {
-  const years = new Set<number>()
-  const currentYear = Number(formData.current_year_data?.year ?? historicalCardRows[0]?.year)
-  const currentYearSource =
-    formData.current_year_data ??
-    historicalCardRows.find((row) => Number(row.year) === currentYear) ??
-    null
-
-  if (Number.isFinite(currentYear) && hasPositiveRevenue(currentYearSource)) {
-    years.add(currentYear)
-  }
-
-  for (const yearData of formData.historical_years_data ?? []) {
-    const year = Number(yearData.year)
-    if (!isYearRowForecast(yearData) && Number.isFinite(year) && hasPositiveRevenue(yearData)) {
-      years.add(year)
-    }
-  }
-
-  return Array.from(years).sort((a, b) => a - b)
+  const hasRequestShapedRows = Boolean(
+    formData.current_year_data ||
+      formData.historical_years_data?.length ||
+      formData.forecast_years_data?.length
+  )
+  const liveRows = formData.yearlyFinancials?.length
+    ? formData.yearlyFinancials
+    : !hasRequestShapedRows && historicalCardRows.length
+      ? historicalCardRows
+      : undefined
+  return resolveManualDcfReadiness({
+    yearlyFinancials: liveRows,
+    currentYearData: formData.current_year_data,
+    historicalYearsData: formData.historical_years_data,
+    forecastYearsData: formData.forecast_years_data,
+    dcfInputMode: formData.dcf_input_mode,
+  }).admittedActualYears
 }
 
 export function resolveAdvisorSectorAverageMultiple(businessContext: unknown): number | null {
@@ -98,7 +98,13 @@ export function buildManualInputAdvisorControlsModel({
   normalizedData,
 }: {
   formData: ManualValuationFormData
-  historicalCardRows: Array<{ year: string | number; revenue?: unknown }>
+  historicalCardRows: Array<{
+    year: string | number
+    revenue?: unknown
+    ebitda?: unknown
+    isForecast?: boolean
+    is_forecast?: boolean
+  }>
   normalizedData: ManualInputNormalizedData
 }): ManualInputAdvisorControlsModel {
   return {

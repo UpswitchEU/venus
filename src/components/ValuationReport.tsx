@@ -356,6 +356,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
               stage,
               isLoading,
               error,
+              errorPresentation,
               showOutOfCreditsModal,
               onCloseModal,
               prefilledQuery,
@@ -368,6 +369,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
                 stage={stage}
                 isLoading={isLoading}
                 error={error}
+                errorPresentation={errorPresentation}
                 prefilledQuery={prefilledQuery}
                 autoSend={autoSend}
                 onComplete={handleValuationComplete}

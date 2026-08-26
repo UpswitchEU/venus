@@ -362,7 +362,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
     expect(result.user_configured_dcf).toBe(true)
   })
 
-  it('omits the default DCF capability flag when Adaptive is already selected', () => {
+  it('keeps DCF available as a candidate when Adaptive is selected', () => {
     const filingYear = getCurrentFilingYear()
     const result = buildValuationRequest(
       makeFormData({
@@ -378,7 +378,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
     )
 
     expect(result.selected_method).toBe('upswitch_adaptive')
-    expect(result.use_dcf).toBeUndefined()
+    expect(result.use_dcf).toBe(true)
     expect(result.use_multiples).toBe(true)
   })
 

@@ -58,7 +58,7 @@ describe('decorateManualValuationRequest', () => {
     expect(request.use_dcf).toBe(true)
   })
 
-  it('omits the legacy DCF capability flag for plain Adaptive requests', () => {
+  it('preserves the DCF candidate flag for plain Adaptive requests', () => {
     const base = baseRequest()
     base.use_dcf = true
 
@@ -71,7 +71,7 @@ describe('decorateManualValuationRequest', () => {
     })
 
     expect(request.selected_method).toBe('upswitch_adaptive')
-    expect(request.use_dcf).toBeUndefined()
+    expect(request.use_dcf).toBe(true)
   })
 
   it('omits optional fields when absent or blank', () => {

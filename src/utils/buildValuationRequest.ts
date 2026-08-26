@@ -50,9 +50,9 @@ import {
 
 type FormDataRecord = ValuationFormData & Record<string, unknown>
 
-const MAX_AUTO_ACCEPTED_EBITDA_MARGIN = 0.9
+const UNUSUAL_EBITDA_MARGIN = 0.9
 
-function assertPlausibleImportedEbitdaMargin({
+function logUnusualEbitdaMargin({
   fiscalYear,
   revenue,
   ebitda,
@@ -63,24 +63,14 @@ function assertPlausibleImportedEbitdaMargin({
 }): void {
   if (revenue <= 0 || ebitda < 0) return
   const margin = ebitda / revenue
-  if (margin < MAX_AUTO_ACCEPTED_EBITDA_MARGIN) return
+  if (margin < UNUSUAL_EBITDA_MARGIN) return
 
-  generalLogger.warn('[buildValuationRequest] Blocking implausible EBITDA margin', {
+  generalLogger.warn('[buildValuationRequest] Unusual EBITDA margin retained for source policy', {
     fiscal_year: fiscalYear,
     margin_basis_points: Math.round(margin * 10_000),
-    threshold_basis_points: Math.round(MAX_AUTO_ACCEPTED_EBITDA_MARGIN * 10_000),
-    note: 'This usually means imported expense accounts were dropped or sign-mapped incorrectly. Re-import and review the source financials before generating a valuation report.',
+    threshold_basis_points: Math.round(UNUSUAL_EBITDA_MARGIN * 10_000),
+    note: 'Margin alone is not a blocker. Titan remains authoritative for source quality, reconciliation and valuation admission.',
   })
-  throw new ValidationError(
-    'EBITDA is almost equal to revenue. Review the imported expenses before generating the valuation report.',
-    'current_year_data.ebitda',
-    ebitda,
-    {
-      code: 'FINANCIAL_REVIEW_REQUIRED',
-      fiscalYear,
-      marginBasisPoints: Math.round(margin * 10_000),
-    }
-  )
 }
 
 /**
@@ -208,10 +198,9 @@ export function buildValuationRequest(
     generalLogger.warn(
       '[buildValuationRequest] Using populated current_year_data over stale top-level zero financials',
       {
-        business_name: companyName,
         fiscal_year: currentFiscalYear,
-        revenue: currentYearFinancials.revenueInput,
-        ebitda: currentYearFinancials.ebitdaInput,
+        has_revenue: toFiniteNumber(currentYearFinancials.revenueInput) !== null,
+        has_ebitda: toFiniteNumber(currentYearFinancials.ebitdaInput) !== null,
         note: 'Top-level revenue/EBITDA were still zero while the accounting-imported current-year row was populated.',
       }
     )
@@ -231,11 +220,11 @@ export function buildValuationRequest(
   if (rawEbitda === null) {
     generalLogger.warn(
       '[buildValuationRequest] EBITDA is missing or non-numeric — using 0. Ensure the form validates EBITDA before submission.',
-      { business_name: companyName, industry }
+      { industry }
     )
   }
   const ebitda = rawEbitda ?? 0
-  assertPlausibleImportedEbitdaMargin({
+  logUnusualEbitdaMargin({
     fiscalYear: currentFiscalYear,
     revenue,
     ebitda,
@@ -282,7 +271,6 @@ export function buildValuationRequest(
   })
 
   const normByYear = buildValuationRequestNormalizations({
-    companyName,
     rawNormalizationItems,
     legacyNormalizations,
     allDataYears,
@@ -568,11 +556,10 @@ export function buildValuationRequest(
     number_of_employees: numberOfEmployees,
     number_of_owners: numberOfOwners,
     recurring_revenue_percentage: recurringRevenuePercentage,
-    ...(formData.use_dcf !== undefined
-      ? { use_dcf: formData.use_dcf }
-      : formData.selected_method === 'upswitch_adaptive'
-        ? {}
-        : { use_dcf: true }),
+    // Capability, not intent: Adaptive may evaluate DCF when the admitted
+    // evidence is sufficient. Titan/ValuationIQ decide readiness and safely
+    // exclude this leg when it is not; explicit intent travels separately.
+    use_dcf: formData.use_dcf ?? true,
     use_multiples: formData.use_multiples ?? true,
     ...(formData.selected_method && { selected_method: formData.selected_method }),
     ...(formData.user_weights && { user_weights: formData.user_weights }),

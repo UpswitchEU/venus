@@ -1,9 +1,15 @@
 'use client'
 
 import { usePathname, useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
 import React, { useCallback, useEffect, useRef } from 'react'
 import { buildStaleReportRecoveryUrl } from '../features/manual/utils/deleteValuationEntry'
+import {
+  buildManualMercuryReturnFromBrowser,
+  performManualMercuryNavigation,
+} from '../features/manual/utils/manualMercuryNavigate'
+import { buildManualMercuryClientUrl } from '../features/manual/utils/manualMercuryNavigation'
 import { trackPaywallShown } from '../lib/analytics'
 import { useAuthStore } from '../lib/auth'
 import { useBootstrapSafe } from '../lib/bootstrap'
@@ -14,10 +20,12 @@ import {
   hasAssetsInSession,
   isDelegatedMercuryAccountantHandoff,
   shouldSeedOptimisticMercuryShell,
+  validateMercuryAdvisorPrefillContract,
 } from '../lib/mercury/sessionReadiness'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
+import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 import { useSessionManagerTimeouts } from './useSessionManagerTimeouts'
 import { useValuationSessionLoader } from './useValuationSessionLoader'
@@ -60,6 +68,12 @@ interface ValuationSessionManagerProps {
     stage: Stage
     isLoading: boolean
     error: string | null
+    errorPresentation: {
+      title: string
+      message: string
+      backLabel: string
+      allowRetry: boolean
+    } | null
     showOutOfCreditsModal: boolean
     onCloseModal: () => void
     prefilledQuery: string | null
@@ -82,6 +96,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const searchParams = useSearchParams()
     const pathname = usePathname()
     const router = useTransitionRouter()
+    const tAdvisorHandoff = useTranslations('errors.advisorHandoff')
 
     // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
     const isFromMercury = searchParams?.get('source') === 'mercury'
@@ -438,6 +453,38 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       status,
     })
 
+    const advisorPrefillIssue =
+      bootstrapComplete &&
+      isDelegatedAccountantHandoff &&
+      stage === 'data-entry' &&
+      session?.reportId === reportId &&
+      !isBootstrapping
+        ? validateMercuryAdvisorPrefillContract(session)
+        : null
+    const resolvedStage: Stage = advisorPrefillIssue ? 'error' : stage
+    const advisorErrorPresentation = advisorPrefillIssue
+      ? advisorPrefillIssue.code === 'CLIENT_IDENTITY_INCOMPLETE'
+        ? {
+            title: tAdvisorHandoff('identityIncomplete.title'),
+            message: tAdvisorHandoff('identityIncomplete.message'),
+            backLabel: tAdvisorHandoff('identityIncomplete.action'),
+            allowRetry: false,
+          }
+        : advisorPrefillIssue.code === 'VALUATION_NOT_READY'
+          ? {
+              title: tAdvisorHandoff('valuationNotReady.title'),
+              message: tAdvisorHandoff('valuationNotReady.message'),
+              backLabel: tAdvisorHandoff('valuationNotReady.action'),
+              allowRetry: false,
+            }
+          : {
+              title: tAdvisorHandoff('prefillInconsistent.title'),
+              message: tAdvisorHandoff('prefillInconsistent.message'),
+              backLabel: tAdvisorHandoff('prefillInconsistent.action'),
+              allowRetry: false,
+            }
+      : null
+
     const { handleRetry } = useValuationSessionLoader({
       bootstrapComplete,
       bootstrapError: bootstrap?.bootstrapError,
@@ -460,16 +507,61 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       urlPrefilledQuery,
     })
 
-    // Start over: Clear and navigate home
+    // Return a delegated advisor to the exact dossier recovery surface. Do not
+    // clear the Venus session: source evidence and edits must survive the round-trip.
     const handleStartOver = useCallback(() => {
+      if (isFromMercury) {
+        const locale = pathname?.match(/^\/(en|nl|fr)(?:\/|$)/)?.[1] || 'en'
+        if (advisorPrefillIssue && clientIdParam) {
+          const clientUrl = buildManualMercuryClientUrl({
+            mercuryUrl: getMercuryUrl(),
+            locale,
+            clientContextId: clientIdParam,
+          })
+          const targetUrl =
+            advisorPrefillIssue.code === 'CLIENT_IDENTITY_INCOMPLETE'
+              ? `${clientUrl}/profile`
+              : advisorPrefillIssue.code === 'VALUATION_NOT_READY'
+                ? `${clientUrl}/profile#financial-data`
+                : clientUrl
+          performManualMercuryNavigation({
+            targetUrl,
+            postEngineCloseOnEmbedFailure: true,
+          })
+          return
+        }
+
+        const targetUrl = buildManualMercuryReturnFromBrowser({
+          currentLocale: locale,
+          clientContextId: clientIdParam,
+          hasCompletedValuation: sessionHasAssets,
+          reportId,
+        })
+        performManualMercuryNavigation({
+          targetUrl,
+          postEngineCloseOnEmbedFailure: true,
+        })
+        return
+      }
+
       generalLogger.info('[SessionManager] Starting over', { reportId })
       clearSession()
       router.push('/')
-    }, [reportId, clearSession, router])
+    }, [
+      advisorPrefillIssue,
+      clientIdParam,
+      clearSession,
+      isFromMercury,
+      pathname,
+      reportId,
+      router,
+      sessionHasAssets,
+    ])
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
-    const rawEffectiveError =
-      error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
+    const rawEffectiveError = advisorErrorPresentation
+      ? advisorErrorPresentation.message
+      : error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
     const effectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
 
     // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session
@@ -508,9 +600,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       <>
         {children({
           session,
-          stage,
+          stage: resolvedStage,
           isLoading,
           error: effectiveError,
+          errorPresentation: advisorErrorPresentation,
           showOutOfCreditsModal: false, // TODO: Re-implement if needed
           onCloseModal: () => undefined, // No-op
           prefilledQuery,

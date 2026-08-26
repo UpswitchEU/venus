@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Info, Lock } from 'lucide-react'
+import { Info, Lock, TriangleAlert } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
@@ -9,6 +9,11 @@ import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLay
 import type { GetBonusSectionsSaasSignals } from '../../../constants/methodFieldConfig'
 import type { MethodWeightsDataPlan } from '../../../types/methodDataPlan'
 import type { ManualValuationFormData, ValuationMethodResult } from '../../../types/valuation'
+import {
+  explicitlyRequestsDcf,
+  REQUIRED_DCF_ACTUAL_YEARS,
+  resolveManualDcfReadiness,
+} from '../../../utils/dcfReadiness'
 import type { ManualInputAdaptiveHeaderSteps } from '../utils/manualInputAdaptiveSteps'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 import { AdaptiveSections } from './AdaptiveSections'
@@ -49,6 +54,7 @@ interface ManualInputMethodSectionsProps {
   methodDataPlan?: MethodWeightsDataPlan | null
   normalizedData: ManualInputNormalizedData
   onApplyDcfProjectionAutofill: () => void
+  onReviewDcfInputs?: () => void
   onSynthesisJustificationChange?: (justification: string) => void
   onSynthesisPaywall?: () => void
   onSynthesisWeightsChange?: (weights: Record<string, number>) => void
@@ -85,6 +91,7 @@ export function ManualInputMethodSections({
   methodDataPlan,
   normalizedData,
   onApplyDcfProjectionAutofill,
+  onReviewDcfInputs,
   onSynthesisJustificationChange,
   onSynthesisPaywall,
   onSynthesisWeightsChange,
@@ -125,17 +132,33 @@ export function ManualInputMethodSections({
       }),
     [formData, historicalCardRows, normalizedData]
   )
-  const hasExplicitDcfIntent = Boolean(
-    formData.user_configured_dcf ||
-      formData.dcf_input_mode === 'fcff_only' ||
-      Object.entries(formData.user_weights ?? {}).some(
-        ([method, weight]) => method.toLowerCase().includes('dcf') && Number(weight) > 0
-      )
+  const dcfReadiness = useMemo(
+    () =>
+      resolveManualDcfReadiness({
+        yearlyFinancials: formData.yearlyFinancials,
+        currentYearData: formData.current_year_data,
+        historicalYearsData: formData.historical_years_data,
+        forecastYearsData: formData.forecast_years_data,
+        dcfInputMode: formData.dcf_input_mode,
+      }),
+    [formData]
   )
+  const hasExplicitDcfIntent = explicitlyRequestsDcf({
+    selectedMethod: effectiveMethod,
+    selectedMethods: activeValuationMethods,
+    userConfiguredDcf: formData.user_configured_dcf,
+    dcfInputMode: formData.dcf_input_mode,
+    exitMultiple: formData.dcf_exit_multiple,
+    discountingConvention: formData.dcf_discounting_convention,
+    taxShieldProjectionCount: formData.dcf_tax_shield_projections?.length,
+    userWeights: formData.user_weights,
+  })
   const showAdaptiveDcfFallbackNotice =
     activeValuationMethods.includes('upswitch_adaptive') &&
     !hasExplicitDcfIntent &&
-    advisorWeightingYears.length < 3
+    dcfReadiness.admittedActualYears.length > 0 &&
+    !dcfReadiness.ready
+  const showExplicitDcfReadinessWarning = hasExplicitDcfIntent && !dcfReadiness.ready
 
   useEffect(() => {
     const nextCount = synthesisMethods.length
@@ -230,15 +253,46 @@ export function ManualInputMethodSections({
         {showAdaptiveDcfFallbackNotice && (
           <div
             role="status"
+            aria-live="polite"
             className="flex items-start gap-2 rounded-lg border border-sky-500/20 bg-sky-500/[0.06] px-3 py-2 text-xs text-foreground/65"
           >
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-600" />
             <span>
               {mi('adaptiveDcfFallbackNotice', {
-                count: advisorWeightingYears.length,
-                required: 3,
+                count: dcfReadiness.admittedActualYears.length,
+                required: REQUIRED_DCF_ACTUAL_YEARS,
               })}
             </span>
+          </div>
+        )}
+        {showExplicitDcfReadinessWarning && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/[0.07] px-3 py-2.5 text-xs text-foreground/70"
+          >
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <div className="min-w-0 space-y-1.5">
+              <p className="font-medium text-foreground/80">
+                {mi('dcfReadinessWarningTitle', {
+                  count: dcfReadiness.admittedActualYears.length,
+                  required: REQUIRED_DCF_ACTUAL_YEARS,
+                })}
+              </p>
+              <p>
+                {mi('dcfReadinessWarningDescription', {
+                  missing: dcfReadiness.missingActualYears,
+                })}
+              </p>
+              {onReviewDcfInputs && (
+                <button
+                  type="button"
+                  onClick={onReviewDcfInputs}
+                  className="rounded-md border border-amber-500/25 bg-background/70 px-2.5 py-1 font-medium text-foreground/75 transition-colors hover:border-amber-500/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2"
+                >
+                  {mi('reviewDcfInputs')}
+                </button>
+              )}
+            </div>
           </div>
         )}
         <AdaptiveSections

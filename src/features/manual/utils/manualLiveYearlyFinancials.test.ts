@@ -131,6 +131,9 @@ describe('manualLiveYearlyFinancials', () => {
               source_digest: 'b'.repeat(64),
               quality_state: 'attested_review',
               attestation_id: 'attestation-1',
+              correction_id: 'correction-1',
+              _source_reconciled: true,
+              warning_codes: ['EXTREME_EBITDA_MARGIN'],
             },
           ],
         },
@@ -144,6 +147,9 @@ describe('manualLiveYearlyFinancials', () => {
         source_digest: 'b'.repeat(64),
         quality_state: 'attested_review',
         attestation_id: 'attestation-1',
+        correction_id: 'correction-1',
+        _source_reconciled: true,
+        warning_codes: ['EXTREME_EBITDA_MARGIN'],
       }),
     ])
   })

@@ -1,5 +1,5 @@
 import { isVenturePathMethodKey } from '@/lib/methods'
-import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
+import { explicitlyRequestsDcf, resolveManualDcfReadiness } from '@/utils/dcfReadiness'
 import {
   getLatestCompleteYearlyFinancial,
   type YearlyFinancialLike,
@@ -42,70 +42,11 @@ export interface ManualSubmitValidationData {
   > | null
   user_configured_dcf?: boolean | null
   dcf_input_mode?: string | null
+  dcf_exit_multiple?: unknown
+  dcf_discounting_convention?: string | null
+  dcf_tax_shield_projections?: unknown[] | null
   user_weights?: Record<string, number> | null
   methodology?: string | null
-}
-
-const REQUIRED_DCF_ACTUAL_YEARS = 3
-
-function hasPositiveDcfWeight(weights?: Record<string, number> | null): boolean {
-  return Object.entries(weights ?? {}).some(
-    ([method, rawWeight]) =>
-      method.toLowerCase().includes('dcf') &&
-      Number.isFinite(Number(rawWeight)) &&
-      Number(rawWeight) > 0
-  )
-}
-
-function hasExplicitDcfIntent(
-  data: ManualSubmitValidationData,
-  effectiveMethod: string | null | undefined
-): boolean {
-  return Boolean(
-    String(effectiveMethod ?? '').toLowerCase() === 'dcf' ||
-      data.user_configured_dcf ||
-      data.dcf_input_mode === 'fcff_only' ||
-      hasPositiveDcfWeight(data.user_weights) ||
-      String(data.methodology ?? '').toUpperCase() === 'DCF'
-  )
-}
-
-function resolveDcfAdmission(data: ManualSubmitValidationData): {
-  actualYears: number[]
-  hasExplicitFcffProjections: boolean
-} {
-  const actualYears = new Set<number>()
-  let basisYear = 0
-
-  for (const row of data.yearlyFinancials ?? []) {
-    if (row.isForecast || row.is_forecast) continue
-    const year = Number(row.year)
-    if (Number.isInteger(year)) basisYear = Math.max(basisYear, year)
-    const revenue = parseFlexibleNumber(row.revenue)
-    const ebitda = parseFlexibleNumber(row.ebitda)
-    if (!Number.isInteger(year) || revenue === undefined || revenue <= 0 || ebitda === undefined) {
-      continue
-    }
-    actualYears.add(year)
-  }
-
-  const hasExplicitFcffProjections =
-    data.dcf_input_mode === 'fcff_only' &&
-    (data.yearlyFinancials ?? []).some((row) => {
-      const year = Number(row.year)
-      const freeCashFlow = parseFlexibleNumber(row.free_cash_flow)
-      return (
-        Boolean(row.isForecast || row.is_forecast) &&
-        Number.isInteger(year) &&
-        year > basisYear &&
-        freeCashFlow !== undefined
-      )
-    })
-
-  return {
-    actualYears: [...actualYears].sort((left, right) => left - right),
-    hasExplicitFcffProjections,
-  }
 }
 
 function hasResolvedBusinessType(
@@ -148,12 +89,23 @@ export function getManualSubmitValidationIssue(
     return 'financialDataIncomplete'
   }
 
-  if (hasExplicitDcfIntent(data, effectiveMethod)) {
-    const admission = resolveDcfAdmission(data)
-    if (
-      admission.actualYears.length < REQUIRED_DCF_ACTUAL_YEARS &&
-      !admission.hasExplicitFcffProjections
-    ) {
+  if (
+    explicitlyRequestsDcf({
+      selectedMethod: effectiveMethod,
+      userConfiguredDcf: data.user_configured_dcf,
+      dcfInputMode: data.dcf_input_mode,
+      exitMultiple: data.dcf_exit_multiple,
+      discountingConvention: data.dcf_discounting_convention,
+      taxShieldProjectionCount: data.dcf_tax_shield_projections?.length,
+      userWeights: data.user_weights,
+      methodology: data.methodology,
+    })
+  ) {
+    const readiness = resolveManualDcfReadiness({
+      yearlyFinancials: data.yearlyFinancials,
+      dcfInputMode: data.dcf_input_mode,
+    })
+    if (!readiness.ready) {
       return 'dcfNotReady'
     }
   }

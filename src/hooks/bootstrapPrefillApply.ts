@@ -343,9 +343,18 @@ function applyFinancialPrefill(
     source_kind?: string
     source_synced_at?: string | null
     source_digest?: string
-    quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review'
+    quality_state?:
+      | 'ready'
+      | 'source_warning'
+      | 'needs_review'
+      | 'blocked'
+      | 'attested_review'
+      | 'advisor_corrected'
+    correction_id?: string
     eligibility_reason?: string
     attestation_id?: string
+    _source_reconciled?: true
+    warning_codes?: string[]
   }> = []
   if (financials.yearData && Object.keys(financials.yearData).length > 0) {
     Object.entries(financials.yearData).forEach(([yearStr, data]) => {
@@ -370,15 +379,22 @@ function applyFinancialPrefill(
             ? { source_synced_at: data.source_synced_at }
             : {}),
           ...(typeof data.source_digest === 'string' ? { source_digest: data.source_digest } : {}),
-          ...(['ready', 'needs_review', 'blocked', 'attested_review'].includes(
-            String(data.quality_state)
-          )
+          ...([
+            'ready',
+            'source_warning',
+            'needs_review',
+            'blocked',
+            'attested_review',
+            'advisor_corrected',
+          ].includes(String(data.quality_state))
             ? {
                 quality_state: data.quality_state as
                   | 'ready'
+                  | 'source_warning'
                   | 'needs_review'
                   | 'blocked'
-                  | 'attested_review',
+                  | 'attested_review'
+                  | 'advisor_corrected',
               }
             : {}),
           ...(typeof data.eligibility_reason === 'string'
@@ -386,6 +402,15 @@ function applyFinancialPrefill(
             : {}),
           ...(typeof data.attestation_id === 'string'
             ? { attestation_id: data.attestation_id }
+            : {}),
+          ...(typeof data.correction_id === 'string' ? { correction_id: data.correction_id } : {}),
+          ...(data._source_reconciled === true ? { _source_reconciled: true as const } : {}),
+          ...(Array.isArray(data.warning_codes)
+            ? {
+                warning_codes: data.warning_codes.filter(
+                  (code): code is string => typeof code === 'string' && code.trim().length > 0
+                ),
+              }
             : {}),
         })
       }

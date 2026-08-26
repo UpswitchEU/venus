@@ -20,6 +20,7 @@ import {
   isAccountantTierRole,
 } from '@/constants/accountantPlanMethods'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
+import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 
 // Round-4 audit: `METHOD_LABEL_KEYS` was imported here to localise the
 // BelgianSmeAuditPanel title. Panel moved to the report; import dropped.
@@ -627,6 +628,15 @@ export function ManualInputPanel({
               methodDataPlan={methodDataPlan}
               normalizedData={normalizedData}
               onApplyDcfProjectionAutofill={handleApplyDcfProjectionAutofill}
+              onReviewDcfInputs={() => {
+                const financialsSection = financialsStepRef.current
+                if (financialsSection) {
+                  scrollElementIntoManualLayout(financialsSection, {
+                    behavior: 'smooth',
+                    block: 'start',
+                  })
+                }
+              }}
               onSynthesisJustificationChange={onSynthesisJustificationChange}
               onSynthesisPaywall={onSynthesisPaywall}
               onSynthesisWeightsChange={onSynthesisWeightsChange}

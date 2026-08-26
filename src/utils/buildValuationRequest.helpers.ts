@@ -347,11 +347,9 @@ export function resolveCurrentYearFromHistoricalBackstop(args: {
   }
 
   generalLogger.warn('[buildValuationRequest] Promoted latest historical row to current year', {
-    business_name: args.formData.company_name,
     stale_current_year: current?.year ?? args.normalizedCurrentYear,
     promoted_year: latestHistorical.year,
-    revenue: latestHistorical.revenue,
-    ebitda: latestHistorical.ebitda,
+    source_digest: latestHistorical.source_digest,
     note: 'A placeholder current-year row would have produced a zero basis year. Using the latest imported actual year instead.',
   })
 

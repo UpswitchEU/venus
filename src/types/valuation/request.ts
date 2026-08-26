@@ -51,11 +51,20 @@ export interface YearDataInput {
   source_provider?: string
   source_kind?: string
   source_synced_at?: string | null
-  quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review' | 'advisor_corrected'
+  quality_state?:
+    | 'ready'
+    | 'source_warning'
+    | 'needs_review'
+    | 'blocked'
+    | 'attested_review'
+    | 'advisor_corrected'
   correction_id?: string
   source_digest?: string
   attestation_id?: string
   eligibility_reason?: string
+  /** Titan-issued proof that an unusual source margin passed technical admission. */
+  _source_reconciled?: true
+  warning_codes?: string[]
   /** Source-reported EBITDA before any accepted normalization decision. */
   reported_ebitda?: number
   /** EBITDA after accepted/verified normalizations; never a proposed scenario. */

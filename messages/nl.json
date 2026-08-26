@@ -852,6 +852,23 @@
 			"restore": "Sessie herstellen",
 			"startNew": "Nieuwe sessie starten"
 		},
+		"advisorHandoff": {
+			"identityIncomplete": {
+				"title": "Vul het bedrijfsprofiel aan",
+				"message": "Uw broncijfers en werk blijven bewaard. Vul eerst de bedrijfsnaam, activiteit en het land aan in het dossier en open daarna de schatting opnieuw.",
+				"action": "Profiel aanvullen"
+			},
+			"valuationNotReady": {
+				"title": "Controleer de broncijfers",
+				"message": "Er is nog geen volledig boekjaar met omzet en EBITDA klaar voor controle. Bekijk de financiële gegevens in het dossier en open daarna de schatting opnieuw.",
+				"action": "Cijfers controleren"
+			},
+			"prefillInconsistent": {
+				"title": "Het dossier werd intussen bijgewerkt",
+				"message": "De financiële gegevens veranderden tijdens het openen. Ga terug naar het dossier en open de schatting opnieuw met de nieuwste brongegevens.",
+				"action": "Terug naar dossier"
+			}
+		},
 		"businessTypeFetchFailed": "Bedrijfstype ophalen mislukt. Probeer het later opnieuw.",
 		"noBusinessTypeForNace": "Geen bedrijfstype gevonden voor dit NACE-code. Selecteer handmatig.",
 		"authentication": {
@@ -1201,6 +1218,9 @@
 			"expert": "Expertmodus"
 		},
 		"adaptiveDcfFallbackNotice": "Adaptive gebruikt de marktbenadering; DCF wordt niet opgenomen omdat {count} van {required} afgesloten boekjaren beschikbaar zijn.",
+		"dcfReadinessWarningTitle": "DCF nog niet beschikbaar ({count}/{required} boekjaren)",
+		"dcfReadinessWarningDescription": "Voeg {missing, plural, one {nog één afgesloten boekjaar} other {nog # afgesloten boekjaren}} toe of vul expliciete FCFF-projecties in. Tot dan blijft de DCF-berekening geblokkeerd.",
+		"reviewDcfInputs": "Naar boekjaren en FCFF-inputs",
 		"synthesis": {
 			"lockedTitle": "Vergrendeld",
 			"lockedDescription": "Voeg meer waarderingsmethodes toe om de synthese te ontgrendelen."
@@ -1365,6 +1385,27 @@
 		"year": "jaar",
 		"years": "jaren",
 		"normalizations": "{count, plural, one {normalisatie} other {normalisaties}}",
+		"appliedNormalizations": "{count, plural, one {# normalisatie toegepast} other {# normalisaties toegepast}}",
+		"sourceEvidence": {
+			"ariaLabel": "Bronbewijs voor boekjaar {year}",
+			"statusReady": "Bron gecontroleerd",
+			"statusWarning": "Bron gecontroleerd · ongebruikelijke marge",
+			"statusReview": "Waarschuwing controleren",
+			"statusBlocked": "Niet gebruikt in waardering",
+			"statusAttested": "Bron bevestigd",
+			"statusCorrected": "Broncorrectie actief",
+			"statusAvailable": "Bronbewijs beschikbaar",
+			"providerUnknown": "Accountingbron",
+			"yearSetSummary": "{source} bronjaren · {eligible} waarderingsklaar · {excluded} technisch uitgesloten",
+			"periodRange": "Periode {start} – {end}",
+			"periodId": "Bronperiode {id}",
+			"syncedAt": "Gesynchroniseerd {date}",
+			"coverage": "{value}% rekeningen gekoppeld",
+			"sourceValues": "Geïmporteerde bron",
+			"effectiveValues": "Gebruikt in berekening",
+			"revenueShort": "Omzet",
+			"ebitdaShort": "EBITDA"
+		},
 		"adjust": "Aanpassen",
 		"normalize": "Normaliseren",
 		"reviewAdjustments": "Aanpassingen bekijken",
@@ -3579,7 +3620,7 @@
 		"renderPayloadTooLarge": "Rapport is te groot om weer te geven",
 		"renderPayloadTooLargeDesc": "De waardering is voltooid, maar het rapport overschrijdt de groottelimiet van onze rendering-service. Het probleem is gelogd — neem contact op met support.",
 		"reportHtmlRecoveryFailed": "Rapportvoorbeeld laadt nog",
-		"reportHtmlRecoveryFailedDesc": "Het rapportvoorbeeld laadt nog. Vernieuw de pagina of bereken opnieuw als het niet verschijnt.",
+		"reportHtmlRecoveryFailedDesc": "Uw rapport en invoer zijn veilig opgeslagen. Probeer het rapportvoorbeeld opnieuw te herstellen; opnieuw berekenen is niet nodig.",
 		"enterpriseBridgeToggle": "Toon Enterprise-to-Equity Bridge (Waterfall)",
 		"enterpriseBridgeToggleDescription": "Bepaalt of de bridge verschijnt in deze rapportpreview en opgeslagen rapportinstellingen.",
 		"date": "Datum",

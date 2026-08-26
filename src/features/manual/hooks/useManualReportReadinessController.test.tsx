@@ -107,6 +107,7 @@ describe('useManualReportReadinessController', () => {
     })
     useManualReportHtmlRecoveryMock.mockReturnValue({
       isRecoveringReportHtml: false,
+      retryReportHtmlRecovery: vi.fn(),
     })
     usePdfStalenessLifecycleMock.mockReturnValue({
       pdfStale: false,

@@ -227,6 +227,23 @@ describe('getManualSubmitValidationIssue', () => {
     ).toBe('dcfNotReady')
   })
 
+  it('blocks advisor-entered DCF assumptions with fewer than three actual years', () => {
+    expect(
+      getManualSubmitValidationIssue(
+        {
+          companyName: 'Acme',
+          businessType: 'Consulting',
+          dcf_exit_multiple: 4.5,
+          yearlyFinancials: [
+            { year: '2025', revenue: 1_000_000, ebitda: 100_000 },
+            { year: '2024', revenue: 900_000, ebitda: 90_000 },
+          ],
+        },
+        'upswitch_adaptive'
+      )
+    ).toBe('dcfNotReady')
+  })
+
   it('allows explicit FCFF projections with fewer than three actual years', () => {
     expect(
       getManualSubmitValidationIssue(

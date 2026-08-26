@@ -92,7 +92,7 @@ export function useManualReportReadinessController({
     setResult,
   })
 
-  const { isRecoveringReportHtml } = useManualReportHtmlRecovery({
+  const { isRecoveringReportHtml, retryReportHtmlRecovery } = useManualReportHtmlRecovery({
     reportId,
     session,
     result,
@@ -141,6 +141,7 @@ export function useManualReportReadinessController({
     retryReportMethodHydration,
     showFiscalReferenceForOmni,
     isRecoveringReportHtml,
+    retryReportHtmlRecovery,
     pdfStale,
     pdfWaitTimedOut,
     pdfPollErrorCount,

@@ -852,6 +852,23 @@
 			"restore": "Session de restauration",
 			"startNew": "Démarrer une nouvelle session"
 		},
+		"advisorHandoff": {
+			"identityIncomplete": {
+				"title": "Complétez le profil de l’entreprise",
+				"message": "Vos chiffres sources et votre travail restent enregistrés. Ajoutez le nom, l’activité et le pays dans le dossier, puis rouvrez la valorisation.",
+				"action": "Compléter le profil"
+			},
+			"valuationNotReady": {
+				"title": "Vérifiez les chiffres sources",
+				"message": "Aucun exercice complet avec chiffre d’affaires et EBITDA n’est encore prêt à être vérifié. Contrôlez les données financières dans le dossier, puis rouvrez la valorisation.",
+				"action": "Vérifier les chiffres"
+			},
+			"prefillInconsistent": {
+				"title": "Le dossier a été mis à jour",
+				"message": "Les données financières ont changé pendant l’ouverture. Revenez au dossier et rouvrez la valorisation avec les dernières données sources.",
+				"action": "Revenir au dossier"
+			}
+		},
 		"businessTypeFetchFailed": "Échec de la récupération du type d'entreprise. Veuillez réessayer plus tard.",
 		"noBusinessTypeForNace": "Aucun type d'entreprise trouvé pour ce code NACE. Sélectionnez manuellement.",
 		"authentication": {
@@ -1201,6 +1218,9 @@
 			"expert": "Mode expert"
 		},
 		"adaptiveDcfFallbackNotice": "Adaptive utilisera l'approche de marché ; le DCF est exclu car {count} exercices clôturés sur {required} sont disponibles.",
+		"dcfReadinessWarningTitle": "DCF pas encore disponible ({count}/{required} exercices)",
+		"dcfReadinessWarningDescription": "Ajoutez {missing, plural, one {encore un exercice clôturé} other {encore # exercices clôturés}} ou saisissez des projections FCFF explicites. Le calcul DCF reste bloqué jusque-là.",
+		"reviewDcfInputs": "Vérifier les exercices et les données FCFF",
 		"synthesis": {
 			"lockedTitle": "Verrouillé",
 			"lockedDescription": "Ajoutez plus de méthodes de valorisation pour débloquer la synthèse."
@@ -1365,6 +1385,27 @@
 		"year": "année",
 		"years": "années",
 		"normalizations": "{count, plural, one {normalisation} other {normalisations}}",
+		"appliedNormalizations": "{count, plural, one {# normalisation appliquée} other {# normalisations appliquées}}",
+		"sourceEvidence": {
+			"ariaLabel": "Preuve source pour l’exercice {year}",
+			"statusReady": "Source vérifiée",
+			"statusWarning": "Source vérifiée · marge inhabituelle",
+			"statusReview": "Avertissement à vérifier",
+			"statusBlocked": "Non utilisé dans l’évaluation",
+			"statusAttested": "Source confirmée",
+			"statusCorrected": "Correction de source active",
+			"statusAvailable": "Preuve source disponible",
+			"providerUnknown": "Source comptable",
+			"yearSetSummary": "{source} exercices source · {eligible} prêts pour l’évaluation · {excluded} exclus techniquement",
+			"periodRange": "Période {start} – {end}",
+			"periodId": "Période source {id}",
+			"syncedAt": "Synchronisé {date}",
+			"coverage": "{value}% des comptes rapprochés",
+			"sourceValues": "Source importée",
+			"effectiveValues": "Utilisé dans le calcul",
+			"revenueShort": "Revenus",
+			"ebitdaShort": "EBITDA"
+		},
 		"adjust": "Ajuster",
 		"normalize": "Normaliser",
 		"reviewAdjustments": "Examiner les ajustements",
@@ -3579,7 +3620,7 @@
 		"renderPayloadTooLarge": "Le rapport est trop volumineux pour être affiché",
 		"renderPayloadTooLargeDesc": "L'évaluation est terminée mais le rapport dépasse la limite de taille du service de rendu. Le problème a été enregistré. Veuillez contacter l'assistance.",
 		"reportHtmlRecoveryFailed": "L'aperçu du rapport est toujours en cours de chargement",
-		"reportHtmlRecoveryFailedDesc": "L'aperçu du rapport est toujours en cours de chargement. Actualisez la page ou recalculez si elle n'apparaît pas.",
+		"reportHtmlRecoveryFailedDesc": "Votre rapport et vos données sont enregistrés. Réessayez de restaurer l’aperçu ; aucun nouveau calcul n’est nécessaire.",
 		"enterpriseBridgeToggle": "Afficher le pont entreprise-équité (cascade)",
 		"enterpriseBridgeToggleDescription": "Contrôle si le pont apparaît dans cet aperçu du rapport et dans les paramètres de rapport enregistrés.",
 		"date": "Date",

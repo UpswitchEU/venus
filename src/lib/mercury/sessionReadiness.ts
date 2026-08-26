@@ -192,6 +192,117 @@ export function hasAssetsInSession(session: SessionLike | null | undefined): boo
   return !!(htmlReport || session.valuationResult || sd.valuation_result || sd.valuationResult)
 }
 
+export type MercuryAdvisorPrefillContractIssue = {
+  code: 'CLIENT_IDENTITY_INCOMPLETE' | 'VALUATION_PREFILL_INCONSISTENT' | 'VALUATION_NOT_READY'
+  message: string
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function canonicalDecimal(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null
+  if (typeof value === 'number' && !Number.isFinite(value)) return null
+  const raw = String(value).trim()
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(raw)) return null
+
+  const negative = raw.startsWith('-')
+  const unsigned = raw.replace(/^[+-]/, '')
+  const [rawWhole, rawFraction = ''] = unsigned.split('.')
+  const whole = rawWhole.replace(/^0+(?=\d)/, '') || '0'
+  const fraction = rawFraction.replace(/0+$/, '')
+  const magnitude = fraction ? `${whole}.${fraction}` : whole
+  return magnitude === '0' ? '0' : `${negative ? '-' : ''}${magnitude}`
+}
+
+function nonEmptyString(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function operatingPair(row: Record<string, unknown> | null) {
+  if (!row) return null
+  const revenue = canonicalDecimal(row.revenue)
+  const ebitda = canonicalDecimal(row.ebitda)
+  return revenue !== null && revenue !== '0' && !revenue.startsWith('-') && ebitda !== null
+    ? { revenue, ebitda }
+    : null
+}
+
+function operatingPairsFromYearData(value: unknown): Array<{ revenue: string; ebitda: string }> {
+  const yearData = record(value)
+  if (!yearData) return []
+
+  return Object.entries(yearData)
+    .sort(([left], [right]) => {
+      const leftYear = Number(left)
+      const rightYear = Number(right)
+      if (!Number.isFinite(leftYear) || !Number.isFinite(rightYear)) return 0
+      return rightYear - leftYear
+    })
+    .map(([, row]) => operatingPair(record(row)))
+    .filter((pair): pair is { revenue: string; ebitda: string } => pair !== null)
+}
+
+/** A delegated Mercury session may render only after its identity and at least
+ * one complete year survived the cross-app bootstrap. Completed reports are
+ * exempt because their immutable report assets are the authoritative surface. */
+export function validateMercuryAdvisorPrefillContract(
+  session: ValuationSession | null | undefined
+): MercuryAdvisorPrefillContractIssue | null {
+  if (!session || hasAssetsInSession(session)) return null
+  const sessionData = record(session.sessionData) ?? {}
+  const partialData = record(session.partialData) ?? {}
+  const value = (key: string) => sessionData[key] ?? partialData[key]
+
+  if (
+    !nonEmptyString(value('company_name')) ||
+    !nonEmptyString(value('business_type_id')) ||
+    !nonEmptyString(value('country_code'))
+  ) {
+    return {
+      code: 'CLIENT_IDENTITY_INCOMPLETE',
+      message:
+        'The advisor handoff is missing the company name, business type or country. Return to the dossier and complete the company profile.',
+    }
+  }
+
+  const current = record(value('current_year_data'))
+  const historical = Array.isArray(value('historical_years_data'))
+    ? (value('historical_years_data') as unknown[]).map(record).filter(Boolean)
+    : []
+  const currentPair = operatingPair(current)
+  const yearDataPairs = operatingPairsFromYearData(value('year_data') ?? value('yearData'))
+  const inspectablePair =
+    currentPair ?? yearDataPairs[0] ?? historical.map(operatingPair).find(Boolean)
+  if (!inspectablePair) {
+    return {
+      code: 'VALUATION_NOT_READY',
+      message:
+        'The advisor handoff contains no complete fiscal year with revenue and EBITDA. Return to the dossier and review the financial figures.',
+    }
+  }
+
+  const scalarRevenue = canonicalDecimal(value('revenue'))
+  const scalarEbitda = canonicalDecimal(value('ebitda'))
+  const scalarComparisonPair = currentPair ?? yearDataPairs[0]
+  if (
+    scalarComparisonPair &&
+    ((scalarRevenue !== null && scalarRevenue !== scalarComparisonPair.revenue) ||
+      (scalarEbitda !== null && scalarEbitda !== scalarComparisonPair.ebitda))
+  ) {
+    return {
+      code: 'VALUATION_PREFILL_INCONSISTENT',
+      message:
+        'The advisor prefill changed during the handoff. Return to the dossier, refresh it and open the report again.',
+    }
+  }
+
+  return null
+}
+
 export function shouldAllowOptimisticMercuryRender(params: {
   isFromMercury: boolean
   isBootstrapping: boolean

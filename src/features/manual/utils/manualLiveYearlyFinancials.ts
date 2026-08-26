@@ -19,10 +19,19 @@ export interface ManualLiveYearlyFinancial {
   source_provider?: string
   source_kind?: string
   source_synced_at?: string | null
-  quality_state?: 'ready' | 'needs_review' | 'blocked' | 'attested_review'
+  quality_state?:
+    | 'ready'
+    | 'source_warning'
+    | 'needs_review'
+    | 'blocked'
+    | 'attested_review'
+    | 'advisor_corrected'
+  correction_id?: string
   source_digest?: string
   attestation_id?: string
   eligibility_reason?: string
+  _source_reconciled?: true
+  warning_codes?: string[]
   isForecast?: boolean
 }
 
@@ -66,9 +75,18 @@ function toLiveYear(row: Record<string, unknown>, isForecast = false): ManualLiv
     source_kind: stringValue('source_kind'),
     source_synced_at: stringValue('source_synced_at'),
     quality_state: stringValue('quality_state') as ManualLiveYearlyFinancial['quality_state'],
+    correction_id: stringValue('correction_id'),
     source_digest: stringValue('source_digest'),
     attestation_id: stringValue('attestation_id'),
     eligibility_reason: stringValue('eligibility_reason'),
+    ...(row._source_reconciled === true ? { _source_reconciled: true as const } : {}),
+    ...(Array.isArray(row.warning_codes)
+      ? {
+          warning_codes: row.warning_codes.filter(
+            (code): code is string => typeof code === 'string' && code.trim().length > 0
+          ),
+        }
+      : {}),
     ...(isForecast ? { isForecast: true } : {}),
   }
 }

@@ -37,6 +37,13 @@ interface ValuationFlowSelectorProps {
   isLoading: boolean
   /** Error message if session initialization failed */
   error: string | null
+  /** Context-aware, localized recovery for fail-closed Mercury handoffs. */
+  errorPresentation?: {
+    title: string
+    message: string
+    backLabel: string
+    allowRetry: boolean
+  } | null
   /** Prefilled query for conversational flow */
   prefilledQuery: string | null
   /** Whether to auto-send prefilled query */
@@ -166,6 +173,7 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
     stage,
     isLoading,
     error,
+    errorPresentation,
     prefilledQuery,
     autoSend,
     onComplete,
@@ -207,10 +215,11 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       return (
         <div className="flex items-center justify-center h-full p-4">
           <ErrorState
-            title={tErrors('session.title')}
-            message={error ?? undefined}
-            onRetry={onRetry}
+            title={errorPresentation?.title ?? tErrors('session.title')}
+            message={errorPresentation?.message ?? error ?? undefined}
+            onRetry={errorPresentation?.allowRetry === false ? undefined : onRetry}
             onBack={onStartOver ?? (!onRetry ? () => window.location.reload() : undefined)}
+            backLabel={errorPresentation?.backLabel}
           />
         </div>
       )
