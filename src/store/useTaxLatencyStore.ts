@@ -6,7 +6,8 @@
  *   Active latency (vordering)  → adds to equity value
  *   Passive latency (verplichting) → subtracts from equity value
  *
- * Persistence: auto-syncs to session JSONB via `_taxLatencies` key (debounced 300ms).
+ * Persistence: auto-syncs canonical `tax_latencies` plus the UI-only
+ * `_taxLatencies` representation to session JSONB (debounced 300ms).
  *
  * @module store/useTaxLatencyStore
  */
@@ -23,6 +24,12 @@ import {
   writeBrowserRecoveryValue,
 } from '../utils/browserRecoveryStorage'
 import { generalLogger } from '../utils/logger'
+import {
+  canonicalizeTaxLatencyWireArray,
+  canonicalTaxLatenciesToStoreItems,
+  TaxLatencyBoundaryError,
+} from '../utils/taxLatencyWire'
+import { useManualFormStore } from './manual/useManualFormStore'
 import { SessionJsonbAutosaveCoordinator } from './sessionJsonbAutosaveCoordinator'
 import { useSessionStore } from './useSessionStore'
 
@@ -291,7 +298,7 @@ export function recoverPendingTaxLatencies(reportId: string): TaxLatencyItem[] |
   )
   if (!items) return null
 
-  const normalized = normalizeTaxLatencyItems(items)
+  const normalized = canonicalTaxLatenciesToStoreItems(items)
   if (normalized.length > 0) {
     clearLocalStorage(reportId)
     return normalized
@@ -477,18 +484,53 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
         if (!session || session.reportId !== reportId) return
 
         const { items } = get()
-        await updateSessionData({ _taxLatencies: items })
+        let canonicalTaxLatencies: ReturnType<typeof canonicalizeTaxLatencyWireArray>
+        try {
+          canonicalTaxLatencies = canonicalizeTaxLatencyWireArray(items)
+        } catch (error) {
+          const currentErrors = useManualFormStore.getState().validationErrors
+          useManualFormStore.getState().setValidationErrors({
+            ...currentErrors,
+            tax_latencies:
+              error instanceof TaxLatencyBoundaryError
+                ? error.message
+                : 'Stored tax-latency values must be reviewed.',
+          })
+          generalLogger.warn('[TaxLatencyStore] Blocking invalid tax-latency autosave', {
+            reportId: reportId.substring(0, 12),
+            code:
+              error instanceof TaxLatencyBoundaryError ? error.boundaryCode : 'TAX_LATENCY_UNKNOWN',
+            issueCount: error instanceof TaxLatencyBoundaryError ? error.issues.length : 1,
+          })
+          throw error
+        }
+
+        await updateSessionData({
+          tax_latencies: canonicalTaxLatencies,
+          _taxLatencies: items,
+        })
         await saveSession('autosave')
-        generalLogger.debug('[TaxLatencyStore] Persisted to session', {
+        const currentErrors = useManualFormStore.getState().validationErrors
+        if (currentErrors.tax_latencies) {
+          const { tax_latencies: _taxLatencyError, ...remainingErrors } = currentErrors
+          useManualFormStore.getState().setValidationErrors(remainingErrors)
+        }
+        generalLogger.debug('[TaxLatencyStore] Persisted canonical session data', {
           reportId: reportId.substring(0, 12),
           count: items.length,
         })
       },
 
       loadFromSession: (sessionData) => {
-        if (!sessionData?._taxLatencies) return
-        const stored = normalizeTaxLatencyItems(sessionData._taxLatencies)
-        if (stored.length > 0) {
+        if (!sessionData) return
+        const rawTaxLatencies =
+          sessionData.tax_latencies ?? sessionData.taxLatencies ?? sessionData._taxLatencies
+        if (rawTaxLatencies === undefined || rawTaxLatencies === null) return
+        try {
+          const stored = canonicalTaxLatenciesToStoreItems(
+            rawTaxLatencies,
+            sessionData._taxLatencies
+          )
           set(
             (state) => ({
               items: stored,
@@ -500,6 +542,34 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
           )
           generalLogger.debug('[TaxLatencyStore] Loaded from session data', {
             count: stored.length,
+          })
+          const currentErrors = useManualFormStore.getState().validationErrors
+          if (currentErrors.tax_latencies) {
+            const { tax_latencies: _taxLatencyError, ...remainingErrors } = currentErrors
+            useManualFormStore.getState().setValidationErrors(remainingErrors)
+          }
+        } catch (error) {
+          set(
+            (state) => ({
+              items: [],
+              _lastMutationSource: 'system',
+              _mutationSeq: state._mutationSeq + 1,
+            }),
+            false,
+            'loadFromSessionInvalid'
+          )
+          const currentErrors = useManualFormStore.getState().validationErrors
+          useManualFormStore.getState().setValidationErrors({
+            ...currentErrors,
+            tax_latencies:
+              error instanceof TaxLatencyBoundaryError
+                ? error.message
+                : 'Stored tax-latency values must be reviewed.',
+          })
+          generalLogger.warn('[TaxLatencyStore] Session tax latencies require review', {
+            code:
+              error instanceof TaxLatencyBoundaryError ? error.boundaryCode : 'TAX_LATENCY_UNKNOWN',
+            issueCount: error instanceof TaxLatencyBoundaryError ? error.issues.length : 1,
           })
         }
       },

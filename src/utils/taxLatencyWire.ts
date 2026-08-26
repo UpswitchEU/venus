@@ -277,21 +277,41 @@ export function canonicalizeTaxLatencyWireArray(value: unknown): TaxLatencyInput
   return canonical
 }
 
-export function canonicalTaxLatenciesToStoreItems(value: unknown): TaxLatencyItem[] {
-  return canonicalizeTaxLatencyWireArray(value).map((item, index) => ({
-    id: item.id ?? `tax_latency_${index}_${item.account_code ?? 'item'}`,
-    type: item.type,
-    description: item.description,
-    temporaryDifference: item.temporary_difference,
-    taxRate: item.tax_rate,
-    ...(item.account_code ? { accountCode: item.account_code } : {}),
-    ...(item.status ? { status: item.status } : {}),
-    ...(item.evidence_id ? { evidence_id: item.evidence_id } : {}),
-    ...(item.reviewed_at ? { reviewed_at: item.reviewed_at } : {}),
-    ...(item.rule_version ? { rule_version: item.rule_version } : {}),
-    ...(item.approved_by ? { approved_by: item.approved_by } : {}),
-    ...(item.currency ? { currency: item.currency } : {}),
-    ...(item.fiscal_year !== undefined ? { fiscal_year: item.fiscal_year } : {}),
-    ...(item.effective_date ? { effective_date: item.effective_date } : {}),
-  }))
+export function canonicalTaxLatenciesToStoreItems(
+  value: unknown,
+  uiMetadataValue?: unknown
+): TaxLatencyItem[] {
+  const rawItems = Array.isArray(value) ? value : []
+  const uiMetadataItems = Array.isArray(uiMetadataValue) ? uiMetadataValue : []
+  return canonicalizeTaxLatencyWireArray(value).map((item, index) => {
+    const rawItem = isRecord(rawItems[index]) ? rawItems[index] : {}
+    const uiMetadataItem =
+      uiMetadataItems.find(
+        (candidate) => isRecord(candidate) && item.id !== undefined && candidate.id === item.id
+      ) ?? uiMetadataItems[index]
+    const metadataRecord = isRecord(uiMetadataItem) ? uiMetadataItem : rawItem
+    const accountName =
+      optionalString(metadataRecord, 'accountName') ??
+      optionalString(metadataRecord, 'account_name') ??
+      optionalString(rawItem, 'accountName') ??
+      optionalString(rawItem, 'account_name')
+
+    return {
+      id: item.id ?? `tax_latency_${index}_${item.account_code ?? 'item'}`,
+      type: item.type,
+      description: item.description,
+      temporaryDifference: item.temporary_difference,
+      taxRate: item.tax_rate,
+      ...(item.account_code ? { accountCode: item.account_code } : {}),
+      ...(accountName ? { accountName } : {}),
+      ...(item.status ? { status: item.status } : {}),
+      ...(item.evidence_id ? { evidence_id: item.evidence_id } : {}),
+      ...(item.reviewed_at ? { reviewed_at: item.reviewed_at } : {}),
+      ...(item.rule_version ? { rule_version: item.rule_version } : {}),
+      ...(item.approved_by ? { approved_by: item.approved_by } : {}),
+      ...(item.currency ? { currency: item.currency } : {}),
+      ...(item.fiscal_year !== undefined ? { fiscal_year: item.fiscal_year } : {}),
+      ...(item.effective_date ? { effective_date: item.effective_date } : {}),
+    }
+  })
 }

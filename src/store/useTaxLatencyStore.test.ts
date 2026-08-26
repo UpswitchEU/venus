@@ -1,5 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { type TaxLatencyCandidate, useTaxLatencyStore } from './useTaxLatencyStore'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { writeBrowserRecoveryValue } from '../utils/browserRecoveryStorage'
+import { TaxLatencyBoundaryError } from '../utils/taxLatencyWire'
+import { useManualFormStore } from './manual/useManualFormStore'
+import { useSessionStore } from './useSessionStore'
+import {
+  recoverPendingTaxLatencies,
+  type TaxLatencyCandidate,
+  useTaxLatencyStore,
+} from './useTaxLatencyStore'
 
 function candidate(overrides: Partial<TaxLatencyCandidate>): TaxLatencyCandidate {
   return {
@@ -20,6 +28,13 @@ function candidate(overrides: Partial<TaxLatencyCandidate>): TaxLatencyCandidate
 describe('useTaxLatencyStore.setCandidates auto-promotion (zero-draft)', () => {
   beforeEach(() => {
     useTaxLatencyStore.getState().clear()
+    useManualFormStore.setState({ validationErrors: {} })
+    useSessionStore.setState({
+      session: null,
+      status: 'idle',
+      restorationComplete: false,
+    })
+    window.localStorage.clear()
   })
 
   it('promotes a fully-specified autoApply candidate (MAR 168 deferred tax) to an item', () => {
@@ -216,5 +231,215 @@ describe('useTaxLatencyStore.setCandidates auto-promotion (zero-draft)', () => {
     expect(edited).not.toHaveProperty('reviewed_at')
     expect(edited).not.toHaveProperty('rule_version')
     expect(edited).not.toHaveProperty('approved_by')
+  })
+})
+
+describe('useTaxLatencyStore session boundary', () => {
+  beforeEach(() => {
+    useTaxLatencyStore.getState().clear({ source: 'system' })
+    useManualFormStore.setState({ validationErrors: {} })
+    useSessionStore.setState({
+      session: null,
+      status: 'idle',
+      restorationComplete: false,
+    })
+    window.localStorage.clear()
+  })
+
+  it('autosaves canonical public rows while retaining camelCase UI rows', async () => {
+    const updateSessionData = vi.fn().mockResolvedValue(undefined)
+    const saveSession = vi.fn().mockResolvedValue(undefined)
+    useSessionStore.setState({
+      session: {
+        reportId: 'val_tax_latency_autosave',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sessionData: {},
+        partialData: {},
+      },
+      status: 'loaded',
+      restorationComplete: true,
+      updateSessionData,
+      saveSession,
+    })
+    useTaxLatencyStore.getState().setItems(
+      [
+        {
+          id: 'tax-autosave-1',
+          type: 'passive',
+          accountCode: '168000',
+          accountName: 'Deferred taxes',
+          description: 'Deferred tax provision',
+          temporaryDifference: 25_000,
+          taxRate: 25,
+          status: 'accepted',
+          evidence_id: 'evidence-1',
+        },
+      ],
+      { source: 'system' }
+    )
+
+    await useTaxLatencyStore.getState().persistToSession('val_tax_latency_autosave')
+
+    expect(updateSessionData).toHaveBeenCalledWith({
+      tax_latencies: [
+        {
+          id: 'tax-autosave-1',
+          type: 'passive',
+          description: 'Deferred tax provision',
+          temporary_difference: 25_000,
+          tax_rate: 25,
+          account_code: '168000',
+          status: 'accepted',
+          evidence_id: 'evidence-1',
+        },
+      ],
+      _taxLatencies: [
+        expect.objectContaining({
+          id: 'tax-autosave-1',
+          accountCode: '168000',
+          accountName: 'Deferred taxes',
+          temporaryDifference: 25_000,
+          taxRate: 25,
+        }),
+      ],
+    })
+    expect(saveSession).toHaveBeenCalledWith('autosave')
+  })
+
+  it('does not mislabel a session transport failure as a tax-latency validation error', async () => {
+    const updateSessionData = vi.fn().mockRejectedValue(new Error('Session transport failed'))
+    const saveSession = vi.fn().mockResolvedValue(undefined)
+    useSessionStore.setState({
+      session: {
+        reportId: 'val_tax_latency_transport',
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sessionData: {},
+        partialData: {},
+      },
+      status: 'loaded',
+      restorationComplete: true,
+      updateSessionData,
+      saveSession,
+    })
+    useTaxLatencyStore.getState().setItems([
+      {
+        id: 'tax-transport-1',
+        type: 'passive',
+        description: 'Valid row',
+        temporaryDifference: 1_000,
+        taxRate: 25,
+      },
+    ])
+
+    await expect(
+      useTaxLatencyStore.getState().persistToSession('val_tax_latency_transport')
+    ).rejects.toThrow('Session transport failed')
+
+    expect(saveSession).not.toHaveBeenCalled()
+    expect(useManualFormStore.getState().validationErrors.tax_latencies).toBeUndefined()
+  })
+
+  it('validates legacy restoration through the shared adapter and preserves UI metadata', () => {
+    useTaxLatencyStore.getState().loadFromSession({
+      tax_latencies: [
+        {
+          id: 'tax-restore-1',
+          type: 'active',
+          account_code: '490000',
+          description: 'Recoverable tax difference',
+          temporary_difference: 8_000,
+          tax_rate: 20,
+        },
+      ],
+      _taxLatencies: [
+        {
+          id: 'tax-restore-1',
+          type: 'active',
+          accountCode: '490000',
+          accountName: 'Deferred tax asset',
+          description: 'Recoverable tax difference',
+          temporaryDifference: 8_000,
+          taxRate: 20,
+        },
+      ],
+    })
+
+    expect(useTaxLatencyStore.getState().items).toEqual([
+      {
+        id: 'tax-restore-1',
+        type: 'active',
+        accountCode: '490000',
+        accountName: 'Deferred tax asset',
+        description: 'Recoverable tax difference',
+        temporaryDifference: 8_000,
+        taxRate: 20,
+      },
+    ])
+    expect(useManualFormStore.getState().validationErrors.tax_latencies).toBeUndefined()
+  })
+
+  it('blocks conflicting public restoration without falling back to a legacy array', () => {
+    const rawSession = {
+      tax_latencies: [
+        {
+          id: 'tax-conflict-1',
+          type: 'passive',
+          description: 'Conflicting row',
+          temporary_difference: 10_000,
+          temporaryDifference: 12_000,
+          tax_rate: 25,
+          taxRate: 25,
+        },
+      ],
+      _taxLatencies: [
+        {
+          id: 'tax-conflict-1',
+          type: 'passive',
+          description: 'Conflicting row',
+          temporaryDifference: 12_000,
+          taxRate: 25,
+        },
+      ],
+    }
+    const preservedRaw = structuredClone(rawSession)
+    useTaxLatencyStore.getState().setItems([
+      {
+        id: 'stale-item',
+        type: 'active',
+        description: 'Must be cleared',
+        temporaryDifference: 1,
+        taxRate: 1,
+      },
+    ])
+
+    useTaxLatencyStore.getState().loadFromSession(rawSession)
+
+    expect(rawSession).toEqual(preservedRaw)
+    expect(useTaxLatencyStore.getState().items).toEqual([])
+    expect(useManualFormStore.getState().validationErrors.tax_latencies).toContain('conflict')
+  })
+
+  it('preserves an invalid browser recovery buffer for explicit review', () => {
+    const key = '_taxlat_pending_val_tax_latency_invalid_recovery'
+    writeBrowserRecoveryValue(key, [
+      {
+        id: 'tax-invalid-recovery-1',
+        type: 'passive',
+        description: 'Invalid recovered row',
+        temporaryDifference: 'not-a-number',
+        taxRate: 25,
+      },
+    ])
+
+    expect(() => recoverPendingTaxLatencies('val_tax_latency_invalid_recovery')).toThrow(
+      TaxLatencyBoundaryError
+    )
+    expect(window.localStorage.getItem(key)).not.toBeNull()
   })
 })

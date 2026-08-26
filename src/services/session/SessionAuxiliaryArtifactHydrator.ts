@@ -1,3 +1,4 @@
+import { useManualFormStore } from '../../store/manual/useManualFormStore'
 import { type ImportQualityPerYear, useImportQualityStore } from '../../store/useImportQualityStore'
 import {
   recoverPendingNormalizations,
@@ -189,8 +190,8 @@ function hydrateTaxLatencies(
       return { restoredEbitdaNormalizations: false, stopped: false }
     }
 
-    const rawTL = formData._taxLatencies ?? formData.tax_latencies ?? formData.taxLatencies
-    const taxLatencies = canonicalTaxLatenciesToStoreItems(rawTL)
+    const rawTL = formData.tax_latencies ?? formData.taxLatencies ?? formData._taxLatencies
+    const taxLatencies = canonicalTaxLatenciesToStoreItems(rawTL, formData._taxLatencies)
     if (taxLatencies.length > 0) {
       taxLatStore.setItems(taxLatencies, { source: 'system' })
       generalLogger.info('[SessionRestoration] Tax latencies hydrated from session metadata', {
@@ -198,6 +199,15 @@ function hydrateTaxLatencies(
       })
     }
   } catch (error) {
+    useTaxLatencyStore.getState().clear({ source: 'system' })
+    const currentErrors = useManualFormStore.getState().validationErrors
+    useManualFormStore.getState().setValidationErrors({
+      ...currentErrors,
+      tax_latencies:
+        error instanceof TaxLatencyBoundaryError
+          ? error.message
+          : 'Stored tax-latency values must be reviewed.',
+    })
     generalLogger.warn('[SessionRestoration] Tax latency hydration failed (non-blocking)', {
       error:
         error instanceof TaxLatencyBoundaryError
