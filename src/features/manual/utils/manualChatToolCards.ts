@@ -201,7 +201,6 @@ function cardWithGeneratedId(
     return {
       ...card,
       status: 'pending',
-      multiple: 5.2,
     }
   }
 

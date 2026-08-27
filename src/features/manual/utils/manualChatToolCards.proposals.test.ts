@@ -21,7 +21,7 @@ describe('manualChatToolCards proposal stream parsing', () => {
         },
         createId
       )?.normalisationSuggestions?.[0]
-    ).toMatchObject({ id: 'id-1', status: 'pending', multiple: 5.2 })
+    ).toMatchObject({ id: 'id-1', status: 'pending' })
 
     expect(
       parseManualChatStreamToolResult(

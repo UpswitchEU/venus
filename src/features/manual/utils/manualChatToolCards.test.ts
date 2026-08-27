@@ -27,8 +27,8 @@ describe('manualChatToolCards core parsing', () => {
     expect(cards.normalisationSuggestions?.[0]).toMatchObject({
       id: 'id-1',
       status: 'pending',
-      multiple: 5.2,
     })
+    expect(cards.normalisationSuggestions?.[0]).not.toHaveProperty('multiple')
     expect(cards.valuationDefaultsPreviews?.[0]).toMatchObject({ id: 'id-2' })
     expect(cards.buyerReadyCards?.[0]).toMatchObject({ id: 'id-3' })
   })
@@ -76,9 +76,9 @@ describe('manualChatToolCards core parsing', () => {
     expect(cards.normalisationSuggestions?.[0]).toMatchObject({
       id: 'id-1',
       status: 'pending',
-      multiple: 5.2,
       category: 'rent',
     })
+    expect(cards.normalisationSuggestions?.[0]).not.toHaveProperty('multiple')
     expect(cards.valuationRunRequests?.[0]).toMatchObject({ id: 'id-2', reason: 'missing' })
   })
 })
