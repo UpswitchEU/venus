@@ -336,12 +336,6 @@ export function generateContextAwareLocalResponse(request: AIChatRequest): AICha
   const content = request.message.toLowerCase()
   const intent = resolveAssistantIntent(request.message, request.assistantIntent)
 
-  const calcImpact = (ebitdaDelta: number, m = 5.2) => ({
-    ebitdaDelta,
-    valuationDelta: Math.round(ebitdaDelta * m),
-    multiple: m,
-  })
-
   if (
     content.includes('eigenaarssalaris') ||
     content.includes('salaris') ||
@@ -370,7 +364,6 @@ export function generateContextAwareLocalResponse(request: AIChatRequest): AICha
           grootboekCode: '620',
           source: 'ai',
           confidence: 'high',
-          impact: calcImpact(60000),
         },
       ],
       fallback: true,
@@ -397,7 +390,6 @@ export function generateContextAwareLocalResponse(request: AIChatRequest): AICha
           grootboekCode: '610',
           source: 'ai',
           confidence: 'medium',
-          impact: calcImpact(24000),
         },
       ],
       fallback: true,

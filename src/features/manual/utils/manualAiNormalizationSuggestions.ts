@@ -39,7 +39,6 @@ interface BuildManualImportedNormalizationSuggestionsParams {
   suggestions: readonly unknown[]
   source: ManualNormalizationImportSource
   filingYear: number
-  multiple?: number
 }
 
 const FRONTEND_NORMALIZATION_CATEGORIES = new Set<NormalizationItem['category']>([
@@ -109,7 +108,6 @@ export function buildManualImportedNormalizationSuggestions({
   suggestions,
   source,
   filingYear,
-  multiple = 5.2,
 }: BuildManualImportedNormalizationSuggestionsParams): {
   items: NormalizationItem[]
   reviewSuggestions: SuggestedNormalisation[]
@@ -150,7 +148,6 @@ export function buildManualImportedNormalizationSuggestions({
       reason: suggestion.reason,
       sourceRef: suggestion.sourceRef,
       status: suggestion.status,
-      multiple,
     })),
   }
 }

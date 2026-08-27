@@ -358,9 +358,7 @@ export function MessageBubble({
         {message.normalisationSuggestions && message.normalisationSuggestions.length > 0 && (
           <div className="mt-3 pt-3 border-t border-foreground/[0.08] space-y-3">
             {message.normalisationSuggestions.map((suggestion) => {
-              const valuationImpact =
-                suggestion.valuationImpact ||
-                Math.round(suggestion.amount * (suggestion.multiple || 5.2))
+              const valuationImpact = suggestion.valuationImpact
               const isPending = suggestion.status === 'pending'
               const isAccepted = suggestion.status === 'accepted'
 
@@ -380,11 +378,18 @@ export function MessageBubble({
                   {suggestion.reason && (
                     <p className="text-foreground/55 text-xs mt-0.5">{suggestion.reason}</p>
                   )}
-                  {isPending && (
+                  {isPending && valuationImpact != null && Number.isFinite(valuationImpact) && (
                     <p className="text-foreground/55 text-xs mt-1 font-mono">
                       {ca('impactEbitdaToValue', {
                         ebitda: Math.round(suggestion.amount).toLocaleString(currencyLocale),
                         value: Math.round(valuationImpact).toLocaleString(currencyLocale),
+                      })}
+                    </p>
+                  )}
+                  {isPending && (valuationImpact == null || !Number.isFinite(valuationImpact)) && (
+                    <p className="text-foreground/55 text-xs mt-1 font-mono">
+                      {ca('impactEbitdaOnly', {
+                        ebitda: Math.round(suggestion.amount).toLocaleString(currencyLocale),
                       })}
                     </p>
                   )}

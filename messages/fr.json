@@ -2590,6 +2590,7 @@
 		"normalizeSuggestion": "Voulez-vous normaliser {description} ?",
 		"impact": "Impact",
 		"impactEbitdaToValue": "+€{ebitda} EBITDA → +€{value} valeur",
+		"impactEbitdaOnly": "+€{ebitda} d’ajustement EBITDA ; ValuationIQ recalcule la valeur",
 		"reject": "Rejeter",
 		"accept": "Accepter",
 		"quickActionsTitle": "Actions rapides",

@@ -247,7 +247,6 @@ describe('manualAiNormalizationSuggestions', () => {
         reason: 'Above market salary',
         sourceRef: 'Exact Online',
         status: 'pending',
-        multiple: 5.2,
       },
     ])
   })
@@ -257,7 +256,6 @@ describe('manualAiNormalizationSuggestions', () => {
       source: 'yuki',
       filingYear: 2026,
       suggestions: [{ ledgerName: 'Unknown row', category: 'not-valid', amount: 'nope' }],
-      multiple: 4.8,
     })
 
     expect(result.items[0]).toMatchObject({
@@ -274,6 +272,7 @@ describe('manualAiNormalizationSuggestions', () => {
       applyAllYears: false,
       year: 2026,
     })
-    expect(result.chatSuggestions[0]).toMatchObject({ id: 'yuki-1', multiple: 4.8 })
+    expect(result.chatSuggestions[0]).toMatchObject({ id: 'yuki-1' })
+    expect(result.chatSuggestions[0]).not.toHaveProperty('multiple')
   })
 })
