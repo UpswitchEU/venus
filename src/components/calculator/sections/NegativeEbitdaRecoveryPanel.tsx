@@ -11,7 +11,6 @@ import {
   trackRecoveryDcfStarted,
   trackRecoveryResolutionViewed,
   trackRecoveryScenarioUpdated,
-  trackRecoveryVerificationSubmitted,
 } from '@/lib/analytics'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type {
@@ -206,7 +205,7 @@ export function NegativeEbitdaRecoveryPanel({
         startYear: latestYear + 1,
         revenue: latestRevenue,
         reportedEbitda,
-        verificationIntent: 'owner_attestation',
+        verificationIntent: 'automated_guardrails',
         openingCash: typeof latestActual?.cash === 'number' ? latestActual.cash : 0,
         wacc: typeof formData.dcf_wacc_pct === 'number' ? formData.dcf_wacc_pct / 100 : undefined,
         terminalGrowthRate:
@@ -693,40 +692,7 @@ export function NegativeEbitdaRecoveryPanel({
             <div className="mt-5 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
               <div className="flex items-start gap-3">
                 <ShieldCheck className="mt-0.5 h-5 w-5 text-neutral-700" />
-                <label className="flex gap-3 text-sm leading-6 text-neutral-700">
-                  <input
-                    type="checkbox"
-                    checked={draft.verification_intent.accepted}
-                    onChange={(event) => {
-                      const accepted = event.target.checked
-                      setDraft({
-                        ...draft,
-                        verification_intent: {
-                          intent: 'owner_attestation',
-                          accepted,
-                        },
-                      })
-                      if (accepted) {
-                        trackRecoveryVerificationSubmitted({
-                          ...analyticsContext,
-                          evidenceCompleteness: compileRecoveryInputsDraft({
-                            ...draft,
-                            verification_intent: {
-                              intent: 'owner_attestation',
-                              accepted: true,
-                            },
-                          }).inputs
-                            ? 'complete'
-                            : 'incomplete',
-                          conversionStage: 'verification',
-                          advisorReviewState: 'not_requested',
-                        })
-                      }
-                    }}
-                    className="mt-1 h-4 w-4 rounded border-neutral-300 accent-[#C95F3B]"
-                  />
-                  <span>{c.attestOwner}</span>
-                </label>
+                <p className="text-sm leading-6 text-neutral-700">{c.automaticReview}</p>
               </div>
               <div
                 className={`mt-4 rounded-lg px-3 py-2 text-sm ${

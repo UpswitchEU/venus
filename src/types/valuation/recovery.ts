@@ -69,7 +69,7 @@ export interface RecoveryFundingCommitmentInput {
   evidence_references: string[]
 }
 
-/** Client-owned recovery contract. Titan replaces intent with an authenticated receipt. */
+/** Client-owned recovery contract. Titan seals it to the canonical case revision. */
 export interface RecoveryInputs {
   schema_version: 'recovery_inputs.v1'
   scenarios: [RecoveryScenarioInput, RecoveryScenarioInput, RecoveryScenarioInput]
@@ -84,7 +84,7 @@ export interface RecoveryInputs {
     evidence_references: string[]
   }
   verification_intent: {
-    intent: 'owner_attestation' | 'advisor_review'
+    intent: 'automated_guardrails' | 'owner_attestation' | 'advisor_review'
     accepted: boolean
   }
 }

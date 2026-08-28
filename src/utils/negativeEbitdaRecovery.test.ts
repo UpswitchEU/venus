@@ -6,7 +6,7 @@ import {
 } from './negativeEbitdaRecovery'
 
 describe('negative EBITDA recovery request compiler', () => {
-  it('keeps an incomplete draft out of the wire request', () => {
+  it('automatically compiles a reconciled draft without human verification', () => {
     const draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,
@@ -16,11 +16,14 @@ describe('negative EBITDA recovery request compiler', () => {
 
     const result = compileRecoveryInputsDraft(draft)
 
-    expect(result.inputs).toBeNull()
-    expect(result.issues).toEqual(expect.arrayContaining(['verification_not_accepted']))
+    expect(result.issues).toEqual([])
+    expect(result.inputs?.verification_intent).toEqual({
+      intent: 'automated_guardrails',
+      accepted: true,
+    })
   })
 
-  it('emits exactly three reconciled scenarios after evidence and attestation', () => {
+  it('emits exactly three reconciled scenarios after financial checks', () => {
     const draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,

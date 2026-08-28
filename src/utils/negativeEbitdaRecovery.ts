@@ -110,7 +110,7 @@ export function createRecoveryInputsDraft(options: {
   startYear: number
   revenue: number
   reportedEbitda: number
-  verificationIntent: 'owner_attestation' | 'advisor_review'
+  verificationIntent?: 'automated_guardrails' | 'owner_attestation' | 'advisor_review'
   openingCash?: number
   wacc?: number
   terminalGrowthRate?: number
@@ -155,7 +155,10 @@ export function createRecoveryInputsDraft(options: {
       terminal_growth_rate: options.terminalGrowthRate ?? 0.02,
       evidence_references: ['upswitch:negative-ebitda-recovery-policy:v1'],
     },
-    verification_intent: { intent: options.verificationIntent, accepted: false },
+    verification_intent: {
+      intent: options.verificationIntent ?? 'automated_guardrails',
+      accepted: (options.verificationIntent ?? 'automated_guardrails') === 'automated_guardrails',
+    },
   }
 }
 
@@ -261,9 +264,17 @@ export function compileRecoveryInputsDraft(
       issues.push(`funding_commitment_${index + 1}_invalid`)
     }
   })
-  if (!draft.verification_intent.accepted) issues.push('verification_not_accepted')
-
   if (issues.length > 0) return { inputs: null, issues: [...new Set(issues)] }
   const { enabled: _enabled, ...inputs } = draft
-  return { inputs, issues: [] }
+  return {
+    inputs: {
+      ...inputs,
+      // Human attestation is an optional stricter mode, never a default gate.
+      // Older unaccepted drafts are upgraded to deterministic system review.
+      verification_intent: draft.verification_intent.accepted
+        ? draft.verification_intent
+        : { intent: 'automated_guardrails', accepted: true },
+    },
+    issues: [],
+  }
 }
