@@ -63,6 +63,16 @@ describe('generateContextAwareLocalResponse', () => {
     },
   }
 
+  it('never invents a valuation impact for offline normalization suggestions', () => {
+    const response = generateContextAwareLocalResponse({
+      ...base,
+      message: 'Normaliseer eigenaarssalaris',
+    })
+
+    expect(response.fieldUpdates).toHaveLength(1)
+    expect(response.fieldUpdates?.[0]).not.toHaveProperty('impact')
+  })
+
   it('does not return generic normalization command pills for explain EBITDA', () => {
     const res = generateContextAwareLocalResponse(base)
     expect(res.fallback).toBe(true)
