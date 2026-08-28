@@ -308,10 +308,10 @@ describe('manualMercuryNavigation', () => {
 
   it('returns completed owner-company valuations with refresh and report markers', () => {
     const url = buildManualExitClientViewTarget({
-      mercuryUrl: 'https://mercury.test/',
+      mercuryUrl: 'https://www.upswitch.app/',
       currentLocale: 'nl',
       returnUrl:
-        'https://mercury.test/nl/business/companies/4dfdd27d-e756-4227-8db2-3d2e247553b6',
+        'https://www.upswitch.app/nl/business/companies/4dfdd27d-e756-4227-8db2-3d2e247553b6',
       sourceApp: 'owner_workspace_startup_valuation',
       hasCompletedValuation: true,
       reportId: 'report-owner',
