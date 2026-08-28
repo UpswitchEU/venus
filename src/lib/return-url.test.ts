@@ -68,6 +68,17 @@ describe('applyMercuryCelebrationQuery', () => {
     }
   })
 
+  it('sets from=valuation on owner company workspaces in every supported locale', () => {
+    for (const locale of ['en', 'nl', 'fr']) {
+      const url = applyMercuryCelebrationQuery(
+        `https://upswitch.app/${locale}/business/companies/4dfdd27d-e756-4227-8db2-3d2e247553b6`,
+        true
+      )
+      expect(url).toContain('from=valuation')
+      expect(url).not.toContain('from=venus')
+    }
+  })
+
   it('overwrites a stale from=venus with from=valuation on celebration to retire the codename', () => {
     const u = applyMercuryCelebrationQuery(
       'https://upswitch.app/nl/advisor/clients/abc?from=venus',
@@ -139,6 +150,14 @@ describe('applyMercuryReportIdQuery', () => {
       'report-abc'
     )
     expect(url).toContain('reportId=report-abc')
+  })
+
+  it('appends reportId on owner company workspace URLs', () => {
+    const url = applyMercuryReportIdQuery(
+      'https://upswitch.app/nl/business/companies/4dfdd27d-e756-4227-8db2-3d2e247553b6?from=valuation',
+      'report-owner'
+    )
+    expect(url).toContain('reportId=report-owner')
   })
 
   it('ignores empty report ids and non-client paths', () => {

@@ -306,6 +306,21 @@ describe('manualMercuryNavigation', () => {
     expect(url).not.toContain('/advisor/')
   })
 
+  it('returns completed owner-company valuations with refresh and report markers', () => {
+    const url = buildManualExitClientViewTarget({
+      mercuryUrl: 'https://mercury.test/',
+      currentLocale: 'nl',
+      returnUrl:
+        'https://mercury.test/nl/business/companies/4dfdd27d-e756-4227-8db2-3d2e247553b6',
+      sourceApp: 'owner_workspace_startup_valuation',
+      hasCompletedValuation: true,
+      reportId: 'report-owner',
+    })
+    expect(url).toContain('/nl/business/companies/4dfdd27d-e756-4227-8db2-3d2e247553b6')
+    expect(url).toContain('from=valuation')
+    expect(url).toContain('reportId=report-owner')
+  })
+
   it('builds continue-to-listing fallback for sellers without return_url', () => {
     const url = buildManualContinueToListingUrl({
       mercuryUrl: 'https://mercury.test/',

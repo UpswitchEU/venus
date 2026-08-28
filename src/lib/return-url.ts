@@ -154,11 +154,9 @@ export const MERCURY_REPORT_ID_QUERY_KEY = 'reportId'
  *   valuation for one specific client. We mark these so Mercury can show
  *   the "added to client card" celebration.
  *
- * - `/business/dashboard` is the self-managed seller (PLG) dashboard — the
- *   ONLY destination the seller flow ever returns to. Marking it lets the
- *   Mercury seller dashboard invalidate its `client/context` query and
- *   surface a "valuation added to your business card" celebration without
- *   waiting for the 60-second `staleTime` to elapse.
+ * - `/business/dashboard` and `/business/companies/<id>` are self-managed
+ *   owner destinations. Marking them lets Mercury invalidate the exact
+ *   company value state and surface a completed-valuation confirmation.
  *
  * Generic accountant `dashboard` fallbacks are intentionally NOT marked —
  * they are reached when no specific client context exists, so a celebration
@@ -167,12 +165,17 @@ export const MERCURY_REPORT_ID_QUERY_KEY = 'reportId'
 function shouldCarryCelebrationMarker(pathname: string): boolean {
   if (pathname.includes('/advisor/clients/')) return true
   if (pathname.includes('/accountant/clients/')) return true
-  // Match `/<locale>/business/dashboard` and any sub-route the seller
-  // dashboard might mount in the future. The locale-prefix is left as-is
-  // because `getSafeMercuryReturnUrl` always re-stamps the path with the
-  // explicit locale before this helper runs.
-  if (/\/(?:en|nl)\/business\/dashboard(?:\/|$)/.test(pathname)) return true
+  if (/\/(?:en|nl|fr)\/business\/dashboard(?:\/|$)/.test(pathname)) return true
+  if (/\/(?:en|nl|fr)\/business\/companies\/[^/]+(?:\/|$)/.test(pathname)) return true
   return false
+}
+
+function isCompanyScopedMercuryReturnPath(pathname: string): boolean {
+  return (
+    pathname.includes('/advisor/clients/') ||
+    pathname.includes('/accountant/clients/') ||
+    /\/(?:en|nl|fr)\/business\/companies\/[^/]+(?:\/|$)/.test(pathname)
+  )
 }
 
 /**
@@ -247,7 +250,7 @@ export function applyMercuryReportIdQuery(
   if (!trimmed) return urlString
   try {
     const u = new URL(urlString)
-    if (!u.pathname.includes('/advisor/clients/') && !u.pathname.includes('/accountant/clients/')) {
+    if (!isCompanyScopedMercuryReturnPath(u.pathname)) {
       return urlString
     }
     u.searchParams.set(MERCURY_REPORT_ID_QUERY_KEY, trimmed)
