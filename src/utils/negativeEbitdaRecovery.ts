@@ -12,8 +12,6 @@ export interface RecoveryDraftCompilation {
   issues: string[]
 }
 
-const REVIEW_EVIDENCE_PREFIX = 'venus:reviewed-recovery-assumption'
-
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -178,23 +176,6 @@ export function createRecoveryInputsDraft(options: {
 export function reviewRecoveryInputsDraft(draft: RecoveryInputsDraft): RecoveryInputsDraft {
   return {
     ...draft,
-    scenarios: draft.scenarios.map((scenario) => ({
-      ...scenario,
-      forecast_years: scenario.forecast_years.map((row) => ({
-        ...row,
-        evidence_references:
-          row.evidence_references.length > 0
-            ? row.evidence_references
-            : [`${REVIEW_EVIDENCE_PREFIX}:${scenario.key}:${row.year}`],
-      })),
-    })) as RecoveryInputsDraft['scenarios'],
-    funding_plan: {
-      ...draft.funding_plan,
-      evidence_references:
-        (draft.funding_plan.evidence_references?.length ?? 0) > 0
-          ? draft.funding_plan.evidence_references
-          : [`${REVIEW_EVIDENCE_PREFIX}:funding-plan`],
-    },
     verification_intent: { intent: 'automated_guardrails', accepted: true },
     review_state: { schema_version: 'recovery_draft_review.v1', reviewed: true },
   }

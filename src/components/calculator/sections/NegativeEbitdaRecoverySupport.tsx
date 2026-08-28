@@ -80,6 +80,19 @@ export function RecoveryFundingAndAssumptions({
               }
             />
           </div>
+          <TextField
+            label={c.evidence}
+            value={draft.funding_plan.evidence_references.join(', ')}
+            onChange={(value) =>
+              setDraft({
+                ...draft,
+                funding_plan: {
+                  ...draft.funding_plan,
+                  evidence_references: parseRecoveryEvidence(value),
+                },
+              })
+            }
+          />
           {draft.funding_plan.commitments.map((commitment, index) => (
             <div
               key={`${commitment.available_year}-${index}`}

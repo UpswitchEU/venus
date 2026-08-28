@@ -670,6 +670,18 @@ export function NegativeEbitdaRecoveryPanel({
                             </div>
                           </>
                         )}
+                        <div className="sm:col-span-2 lg:col-span-4">
+                          <TextField
+                            label={c.evidence}
+                            value={row.evidence_references.join(', ')}
+                            onChange={(value) =>
+                              updateScenario(scenarioKey, (scenario) => {
+                                scenario.forecast_years[rowIndex].evidence_references =
+                                  parseRecoveryEvidence(value)
+                              })
+                            }
+                          />
+                        </div>
                       </div>
                       <p
                         className={`mt-2 text-xs font-medium ${

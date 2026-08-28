@@ -6,6 +6,18 @@ import {
   reviewRecoveryInputsDraft,
 } from './negativeEbitdaRecovery'
 
+function evidenceBackedDraft(
+  draft: ReturnType<typeof createRecoveryInputsDraft>
+): ReturnType<typeof createRecoveryInputsDraft> {
+  draft.scenarios.forEach((scenario) =>
+    scenario.forecast_years.forEach((row) => {
+      row.evidence_references = [`management-plan:${scenario.key}:${row.year}`]
+    })
+  )
+  draft.funding_plan.evidence_references = ['cash-runway:management-plan']
+  return draft
+}
+
 describe('negative EBITDA recovery request compiler', () => {
   it('keeps generated scaffolding UI-only until the complete plan is confirmed', () => {
     const draft = createRecoveryInputsDraft({
@@ -20,7 +32,13 @@ describe('negative EBITDA recovery request compiler', () => {
       issues: expect.arrayContaining(['recovery_plan_review_required']),
     })
 
-    const result = compileRecoveryInputsDraft(reviewRecoveryInputsDraft(draft))
+    const reviewedSuggestion = compileRecoveryInputsDraft(reviewRecoveryInputsDraft(draft))
+    expect(reviewedSuggestion.inputs).toBeNull()
+    expect(reviewedSuggestion.issues).toEqual(
+      expect.arrayContaining(['downside_2027_forecast_evidence_required'])
+    )
+
+    const result = compileRecoveryInputsDraft(reviewRecoveryInputsDraft(evidenceBackedDraft(draft)))
 
     expect(result.issues).toEqual([])
     expect(result.inputs?.verification_intent).toEqual({
@@ -37,7 +55,7 @@ describe('negative EBITDA recovery request compiler', () => {
       verificationIntent: 'owner_attestation',
     })
     draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
-    draft = reviewRecoveryInputsDraft(draft)
+    draft = reviewRecoveryInputsDraft(evidenceBackedDraft(draft))
 
     const result = compileRecoveryInputsDraft(draft)
 
@@ -62,7 +80,7 @@ describe('negative EBITDA recovery request compiler', () => {
       verificationIntent: 'advisor_review',
     })
     draft.governed_assumptions.evidence_references = ['advisor-wacc-file']
-    draft = reviewRecoveryInputsDraft(draft)
+    draft = reviewRecoveryInputsDraft(evidenceBackedDraft(draft))
     draft.scenarios[1].forecast_years[0].operating_driver = {
       model_type: 'units_price',
       units: 10,
@@ -119,7 +137,7 @@ describe('negative EBITDA recovery request compiler', () => {
       verificationIntent: 'owner_attestation',
     })
     draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
-    draft = reviewRecoveryInputsDraft(draft)
+    draft = reviewRecoveryInputsDraft(evidenceBackedDraft(draft))
     draft.scenarios[1].forecast_years[0].operating_driver = {
       model_type: 'arr_retention_expansion',
       opening_arr: 1_000_000,
@@ -139,7 +157,7 @@ describe('negative EBITDA recovery request compiler', () => {
       verificationIntent: 'owner_attestation',
     })
     draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
-    draft = reviewRecoveryInputsDraft(draft)
+    draft = reviewRecoveryInputsDraft(evidenceBackedDraft(draft))
     draft.scenarios[0].forecast_years[0].operating_driver = {
       model_type: 'attested_custom',
       model_name: 'Owner-attested pipeline model',
