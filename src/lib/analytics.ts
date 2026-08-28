@@ -178,6 +178,7 @@ export interface RecoveryAnalyticsContext {
   evidenceCompleteness?: 'incomplete' | 'complete'
   conversionStage?: string
   advisorReviewState?: 'not_requested' | 'requested' | 'completed'
+  resolutionHash?: string
 }
 
 function recoveryAnalyticsParams(context: RecoveryAnalyticsContext) {
@@ -191,7 +192,24 @@ function recoveryAnalyticsParams(context: RecoveryAnalyticsContext) {
       : {}),
     ...(context.conversionStage ? { conversion_stage: context.conversionStage } : {}),
     ...(context.advisorReviewState ? { advisor_review_state: context.advisorReviewState } : {}),
+    ...(context.resolutionHash && /^[0-9a-f]{64}$/.test(context.resolutionHash)
+      ? { resolution_hash: context.resolutionHash }
+      : {}),
   }
+}
+
+function trackRecoveryResultOnce(event: string, context: RecoveryAnalyticsContext): void {
+  const hash = context.resolutionHash
+  if (hash && /^[0-9a-f]{64}$/.test(hash) && typeof window !== 'undefined') {
+    try {
+      const key = `upswitch:recovery-result-event:${event}:${hash}`
+      if (window.sessionStorage.getItem(key) === '1') return
+      window.sessionStorage.setItem(key, '1')
+    } catch {
+      // Storage may be disabled; analytics must never block the valuation UI.
+    }
+  }
+  trackEvent(event, recoveryAnalyticsParams(context))
 }
 
 /** Privacy-safe recovery funnel events. Monetary scenario values are deliberately excluded. */
@@ -212,11 +230,11 @@ export function trackNormalizationBridgeCompleted(context: RecoveryAnalyticsCont
 }
 
 export function trackRecoveryDcfCompleted(context: RecoveryAnalyticsContext): void {
-  trackEvent('recovery_dcf_completed', recoveryAnalyticsParams(context))
+  trackRecoveryResultOnce('recovery_dcf_completed', context)
 }
 
 export function trackRecoveryDcfBlocked(context: RecoveryAnalyticsContext): void {
-  trackEvent('recovery_dcf_blocked', recoveryAnalyticsParams(context))
+  trackRecoveryResultOnce('recovery_dcf_blocked', context)
 }
 
 export function trackRecoveryVerificationSubmitted(context: RecoveryAnalyticsContext): void {
@@ -224,7 +242,7 @@ export function trackRecoveryVerificationSubmitted(context: RecoveryAnalyticsCon
 }
 
 export function trackRecoveryResolutionViewed(context: RecoveryAnalyticsContext): void {
-  trackEvent('negative_ebitda_method_resolved', recoveryAnalyticsParams(context))
+  trackRecoveryResultOnce('negative_ebitda_method_resolved', context)
 }
 
 // ── Normalizations ───────────────────────────────────────────────────

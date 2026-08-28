@@ -10,6 +10,8 @@ export const NEGATIVE_EBITDA_RECOVERY_COPY = {
     normalization: 'Controleer normalisaties',
     start: 'Bouw herstelplanning',
     scenarios: 'Scenario’s',
+    generatedSuggestion:
+      'Automatisch gegenereerd startscenario, uitsluitend voor de interface. Het wordt pas een waarderingsinput nadat u het volledige plan bevestigt en Titan de automatische controles verzegelt.',
     funding: 'Financiering',
     assumptions: 'Aannames',
     verification: 'Automatische controles',
@@ -59,13 +61,11 @@ export const NEGATIVE_EBITDA_RECOVERY_COPY = {
     wacc: 'WACC %',
     growth: 'Terminale groei %',
     assumptionEvidence: 'Bron voor WACC en terminale aannames',
-    attestOwner:
-      'Ik bevestig dat deze planning mijn actuele, oprecht haalbare herstelplan weerspiegelt.',
-    attestAdvisor:
-      'Ik bevestig dat ik deze planning professioneel heb beoordeeld en de bronnen heb gecontroleerd.',
     automaticReview:
       'Titan verzegelt deze planning automatisch aan de waarderingscase. ValuationIQ voert daarna reconciliatie-, runway-, financierings-, FCFF- en terminale controles uit; er is geen menselijke goedkeuring nodig.',
     ready: 'Alle automatische controles zijn klaar',
+    reviewPlan: 'Bevestig het volledige plan',
+    reviewed: 'Plan bevestigd en klaar voor automatische controles',
     missing: 'Nog vereist',
     result: 'Herstelbeoordeling',
     noRange: 'Nog geen verdedigbare waarderingsrange vastgesteld',
@@ -93,6 +93,8 @@ export const NEGATIVE_EBITDA_RECOVERY_COPY = {
     normalization: 'Review normalizations',
     start: 'Build recovery plan',
     scenarios: 'Scenarios',
+    generatedSuggestion:
+      'Automatically generated starting scenario for the interface only. It becomes a valuation input only after you confirm the complete plan and Titan seals the automated checks.',
     funding: 'Funding',
     assumptions: 'Assumptions',
     verification: 'Automatic checks',
@@ -142,12 +144,11 @@ export const NEGATIVE_EBITDA_RECOVERY_COPY = {
     wacc: 'WACC %',
     growth: 'Terminal growth %',
     assumptionEvidence: 'Source for WACC and terminal assumptions',
-    attestOwner: 'I confirm this schedule reflects my current, genuinely achievable recovery plan.',
-    attestAdvisor:
-      'I confirm that I professionally reviewed this schedule and checked its evidence.',
     automaticReview:
       'Titan automatically seals this schedule to the valuation case. ValuationIQ then runs reconciliation, runway, funding, FCFF and terminal checks; no human approval is required.',
     ready: 'All automatic checks are ready',
+    reviewPlan: 'Confirm the complete plan',
+    reviewed: 'Plan confirmed and ready for automatic checks',
     missing: 'Still required',
     result: 'Recovery assessment',
     noRange: 'No defensible valuation range established yet',
@@ -175,6 +176,8 @@ export const NEGATIVE_EBITDA_RECOVERY_COPY = {
     normalization: 'Vérifier les normalisations',
     start: 'Construire le plan de redressement',
     scenarios: 'Scénarios',
+    generatedSuggestion:
+      'Scénario de départ généré automatiquement pour l’interface uniquement. Il ne devient une donnée de valorisation qu’après confirmation du plan complet et scellement des contrôles automatiques par Titan.',
     funding: 'Financement',
     assumptions: 'Hypothèses',
     verification: 'Contrôles automatiques',
@@ -224,11 +227,11 @@ export const NEGATIVE_EBITDA_RECOVERY_COPY = {
     wacc: 'WACC %',
     growth: 'Croissance terminale %',
     assumptionEvidence: 'Source du WACC et des hypothèses terminales',
-    attestOwner: 'Je confirme que ce plan reflète un redressement actuel et réellement réalisable.',
-    attestAdvisor: 'Je confirme avoir examiné ce plan professionnellement et vérifié ses preuves.',
     automaticReview:
       'Titan scelle automatiquement ce plan au dossier de valorisation. ValuationIQ exécute ensuite les contrôles de rapprochement, de trésorerie, de financement, de FCFF et de valeur terminale ; aucune approbation humaine n’est requise.',
     ready: 'Tous les contrôles automatiques sont prêts',
+    reviewPlan: 'Confirmer le plan complet',
+    reviewed: 'Plan confirmé et prêt pour les contrôles automatiques',
     missing: 'Encore requis',
     result: 'Évaluation du redressement',
     noRange: 'Aucune fourchette de valorisation défendable établie à ce stade',

@@ -21,7 +21,7 @@ import {
   parseAccountingApiError,
   pickConnectedVenusBatchImportStatus,
 } from '@/services/api/accounting'
-import type { ManualValuationFormData, YearDataInput, YearlyFinancials } from '@/types/valuation'
+import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
 import { getCurrentFilingYear } from '@/utils/fiscalYear'
 import { mergeImportedLedgerAnalysisIntoBusinessContext } from '@/utils/mergeImportedLedgerAnalysisIntoBusinessContext'
 import {
@@ -378,27 +378,6 @@ export function useManualAccountingImportController({
         }
         merged.sort((a, b) => Number(b.year) - Number(a.year))
 
-        const forecastFromBatch = batch.forecast_years_data
-        let nextForecast: YearDataInput[] | undefined
-        if (forecastFromBatch && forecastFromBatch.length > 0) {
-          const completeForecast = forecastFromBatch
-            .filter(
-              (row) =>
-                row.revenue != null &&
-                row.ebitda != null &&
-                Number.isFinite(Number(row.revenue)) &&
-                Number.isFinite(Number(row.ebitda))
-            )
-            .map((row) => ({
-              year: row.year,
-              revenue: Number(row.revenue),
-              ebitda: Number(row.ebitda),
-              capex: row.capex,
-              is_forecast: row.is_forecast ?? true,
-            }))
-          if (completeForecast.length > 0) nextForecast = completeForecast
-        }
-
         const prevBusinessContext =
           prev.business_context && typeof prev.business_context === 'object'
             ? (prev.business_context as Record<string, unknown>)
@@ -412,7 +391,10 @@ export function useManualAccountingImportController({
         return {
           ...prev,
           yearlyFinancials: merged,
-          ...(nextForecast != null ? { forecast_years_data: nextForecast } : {}),
+          // Connector budgets are evidence candidates, never valuation inputs.
+          // Preserve any private forecast already authored in Venus and ignore
+          // forecast rows returned by older Titan deployments.
+          forecast_years_data: prev.forecast_years_data,
           business_context: mergedContext as ManualValuationFormData['business_context'],
         }
       })
@@ -431,19 +413,7 @@ export function useManualAccountingImportController({
         const baseDescription = messages.batchSuccessDescription(qualityScore)
         const skippedDescription =
           skippedYears > 0 ? messages.incompleteYearsSkippedDescription(skippedYears) : ''
-        const forecastExtra =
-          provider === 'bizzcontrol'
-            ? messages.bizzcontrolForecastImportedDescription
-            : provider === 'octopus'
-              ? messages.octopusForecastImportedDescription
-              : ''
-        const providerDescription =
-          (provider === 'bizzcontrol' || provider === 'octopus') &&
-          batch.forecast_years_data &&
-          batch.forecast_years_data.length > 0
-            ? `${baseDescription} ${forecastExtra}`
-            : baseDescription
-        const description = [providerDescription, skippedDescription].filter(Boolean).join(' ')
+        const description = [baseDescription, skippedDescription].filter(Boolean).join(' ')
         toast.success(
           messages.batchSuccessTitle({
             years: mappedYears,

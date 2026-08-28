@@ -77,6 +77,7 @@ export interface RecoveryInputs {
     opening_cash: number
     minimum_cash: number
     commitments: RecoveryFundingCommitmentInput[]
+    evidence_references: string[]
   }
   governed_assumptions: {
     wacc: number
@@ -92,6 +93,10 @@ export interface RecoveryInputs {
 /** UI-only state. It persists with manual sessions but never crosses the API boundary. */
 export interface RecoveryInputsDraft extends RecoveryInputs {
   enabled: boolean
+  review_state: {
+    schema_version: 'recovery_draft_review.v1'
+    reviewed: boolean
+  }
 }
 
 export interface OperatingTrajectory {
@@ -145,6 +150,22 @@ export interface NegativeEbitdaResolution {
     | 'adjusted_nav'
     | 'orderly_liquidation'
     | null
+  methodFamily:
+    | 'normalized_earnings'
+    | 'recovery_dcf'
+    | 'revenue_or_arr'
+    | 'asset_floor'
+    | 'distress_or_liquidation'
+    | 'insufficient_recovery_evidence'
+  primaryCause:
+    | 'temporary_investment'
+    | 'owner_compensation_distortion'
+    | 'product_development_investment'
+    | 'recent_customer_loss'
+    | 'underutilization'
+    | 'one_off_restructuring'
+    | 'structurally_unprofitable_model'
+    | 'insufficient_evidence'
   crossCheckMethods: string[]
   breakEvenYear: number | null
   fundingGap: ApiNumeric | null

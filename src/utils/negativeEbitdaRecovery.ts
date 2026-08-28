@@ -12,6 +12,8 @@ export interface RecoveryDraftCompilation {
   issues: string[]
 }
 
+const REVIEW_EVIDENCE_PREFIX = 'venus:reviewed-recovery-assumption'
+
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -149,6 +151,7 @@ export function createRecoveryInputsDraft(options: {
       opening_cash: Math.max(0, options.openingCash ?? 0),
       minimum_cash: 0,
       commitments: [],
+      evidence_references: [],
     },
     governed_assumptions: {
       wacc: options.wacc ?? 0.12,
@@ -157,8 +160,43 @@ export function createRecoveryInputsDraft(options: {
     },
     verification_intent: {
       intent: options.verificationIntent ?? 'automated_guardrails',
-      accepted: (options.verificationIntent ?? 'automated_guardrails') === 'automated_guardrails',
+      accepted: false,
     },
+    review_state: {
+      schema_version: 'recovery_draft_review.v1',
+      reviewed: false,
+    },
+  }
+}
+
+/**
+ * One-click, role-independent confirmation of the complete operating plan.
+ * This is not an owner/advisor verification receipt: it records that generated
+ * UI scaffolding was actively adopted as a private assumption set. Titan still
+ * performs and signs the authoritative automated guardrail review.
+ */
+export function reviewRecoveryInputsDraft(draft: RecoveryInputsDraft): RecoveryInputsDraft {
+  return {
+    ...draft,
+    scenarios: draft.scenarios.map((scenario) => ({
+      ...scenario,
+      forecast_years: scenario.forecast_years.map((row) => ({
+        ...row,
+        evidence_references:
+          row.evidence_references.length > 0
+            ? row.evidence_references
+            : [`${REVIEW_EVIDENCE_PREFIX}:${scenario.key}:${row.year}`],
+      })),
+    })) as RecoveryInputsDraft['scenarios'],
+    funding_plan: {
+      ...draft.funding_plan,
+      evidence_references:
+        (draft.funding_plan.evidence_references?.length ?? 0) > 0
+          ? draft.funding_plan.evidence_references
+          : [`${REVIEW_EVIDENCE_PREFIX}:funding-plan`],
+    },
+    verification_intent: { intent: 'automated_guardrails', accepted: true },
+    review_state: { schema_version: 'recovery_draft_review.v1', reviewed: true },
   }
 }
 
@@ -167,6 +205,11 @@ export function compileRecoveryInputsDraft(
 ): RecoveryDraftCompilation {
   const issues: string[] = []
   if (!draft?.enabled) return { inputs: null, issues: ['recovery_not_enabled'] }
+  if (draft.review_state?.schema_version !== 'recovery_draft_review.v1') {
+    issues.push('recovery_review_state_invalid')
+  } else if (!draft.review_state.reviewed) {
+    issues.push('recovery_plan_review_required')
+  }
   if (draft.schema_version !== 'recovery_inputs.v1') issues.push('invalid_schema_version')
   if (draft.scenarios.length !== 3) issues.push('three_scenarios_required')
 
@@ -226,6 +269,9 @@ export function compileRecoveryInputsDraft(
       ) {
         issues.push(`${scenario.key}_${row.year}_custom_driver_evidence_required`)
       }
+      if (row.evidence_references.length === 0) {
+        issues.push(`${scenario.key}_${row.year}_forecast_evidence_required`)
+      }
     })
     if (
       (scenario.wacc_override !== undefined || scenario.terminal_growth_override !== undefined) &&
@@ -254,6 +300,9 @@ export function compileRecoveryInputsDraft(
   ) {
     issues.push('funding_cash_invalid')
   }
+  if ((draft.funding_plan.evidence_references?.length ?? 0) === 0) {
+    issues.push('funding_plan_evidence_required')
+  }
   draft.funding_plan.commitments.forEach((commitment, index) => {
     if (
       !finite(commitment.amount) ||
@@ -265,16 +314,16 @@ export function compileRecoveryInputsDraft(
     }
   })
   if (issues.length > 0) return { inputs: null, issues: [...new Set(issues)] }
-  const { enabled: _enabled, ...inputs } = draft
+  if (
+    draft.verification_intent.intent !== 'automated_guardrails' ||
+    draft.verification_intent.accepted !== true
+  ) {
+    issues.push('automated_guardrail_review_required')
+  }
+  if (issues.length > 0) return { inputs: null, issues: [...new Set(issues)] }
+  const { enabled: _enabled, review_state: _reviewState, ...inputs } = draft
   return {
-    inputs: {
-      ...inputs,
-      // Human attestation is an optional stricter mode, never a default gate.
-      // Older unaccepted drafts are upgraded to deterministic system review.
-      verification_intent: draft.verification_intent.accepted
-        ? draft.verification_intent
-        : { intent: 'automated_guardrails', accepted: true },
-    },
+    inputs,
     issues: [],
   }
 }

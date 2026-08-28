@@ -23,6 +23,7 @@ import {
   compileRecoveryInputsDraft,
   createRecoveryInputsDraft,
   recoveryDriverRevenue,
+  reviewRecoveryInputsDraft,
 } from '@/utils/negativeEbitdaRecovery'
 import {
   Metric,
@@ -142,6 +143,7 @@ export function NegativeEbitdaRecoveryPanel({
       chosenMethod: resolution.primaryMethod ?? 'none',
       trajectory: resolution.operatingTrajectory.direction,
       conversionStage: 'result',
+      resolutionHash: resolution.resolutionSnapshotHash,
     })
     if (resolution.primaryMethod === 'recovery_dcf') {
       trackRecoveryDcfCompleted({
@@ -149,6 +151,7 @@ export function NegativeEbitdaRecoveryPanel({
         chosenMethod: resolution.primaryMethod,
         trajectory: resolution.operatingTrajectory.direction,
         conversionStage: 'result',
+        resolutionHash: resolution.resolutionSnapshotHash,
       })
     } else if (resolution.candidateMethodAudit.dcf?.accepted === false) {
       trackRecoveryDcfBlocked({
@@ -156,6 +159,7 @@ export function NegativeEbitdaRecoveryPanel({
         chosenMethod: resolution.primaryMethod ?? 'none',
         trajectory: resolution.operatingTrajectory.direction,
         conversionStage: 'result',
+        resolutionHash: resolution.resolutionSnapshotHash,
       })
     }
   }, [analyticsContext, resolution])
@@ -163,7 +167,19 @@ export function NegativeEbitdaRecoveryPanel({
   const setDraft = (next: RecoveryInputsDraft) => {
     setFormData((previous) => ({
       ...previous,
-      recovery_inputs_draft: next,
+      recovery_inputs_draft: {
+        ...next,
+        review_state: { schema_version: 'recovery_draft_review.v1', reviewed: false },
+        verification_intent: { intent: 'automated_guardrails', accepted: false },
+      },
+      recovery_inputs: undefined,
+    }))
+  }
+  const confirmRecoveryPlan = () => {
+    if (!draft) return
+    setFormData((previous) => ({
+      ...previous,
+      recovery_inputs_draft: reviewRecoveryInputsDraft(draft),
       recovery_inputs: undefined,
     }))
   }
@@ -306,6 +322,9 @@ export function NegativeEbitdaRecoveryPanel({
 
           {step === 'scenarios' && selectedScenario && (
             <div className="mt-5">
+              <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
+                {c.generatedSuggestion}
+              </p>
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div className="flex gap-2" role="tablist" aria-label={c.scenarios}>
                   {draft.scenarios.map((scenario) => (
@@ -694,6 +713,16 @@ export function NegativeEbitdaRecoveryPanel({
                 <ShieldCheck className="mt-0.5 h-5 w-5 text-neutral-700" />
                 <p className="text-sm leading-6 text-neutral-700">{c.automaticReview}</p>
               </div>
+              {!draft.review_state?.reviewed && (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={confirmRecoveryPlan}
+                  className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg bg-neutral-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShieldCheck className="h-4 w-4" /> {c.reviewPlan}
+                </button>
+              )}
               <div
                 className={`mt-4 rounded-lg px-3 py-2 text-sm ${
                   compilation.inputs
@@ -702,7 +731,7 @@ export function NegativeEbitdaRecoveryPanel({
                 }`}
               >
                 {compilation.inputs
-                  ? c.ready
+                  ? c.reviewed
                   : `${c.missing}: ${compilation.issues.slice(0, 5).join(', ')}`}
               </div>
             </div>

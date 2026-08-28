@@ -3,10 +3,11 @@ import {
   compileRecoveryInputsDraft,
   createRecoveryInputsDraft,
   recoveryDriverRevenue,
+  reviewRecoveryInputsDraft,
 } from './negativeEbitdaRecovery'
 
 describe('negative EBITDA recovery request compiler', () => {
-  it('automatically compiles a reconciled draft without human verification', () => {
+  it('keeps generated scaffolding UI-only until the complete plan is confirmed', () => {
     const draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,
@@ -14,7 +15,12 @@ describe('negative EBITDA recovery request compiler', () => {
       verificationIntent: 'owner_attestation',
     })
 
-    const result = compileRecoveryInputsDraft(draft)
+    expect(compileRecoveryInputsDraft(draft)).toMatchObject({
+      inputs: null,
+      issues: expect.arrayContaining(['recovery_plan_review_required']),
+    })
+
+    const result = compileRecoveryInputsDraft(reviewRecoveryInputsDraft(draft))
 
     expect(result.issues).toEqual([])
     expect(result.inputs?.verification_intent).toEqual({
@@ -24,14 +30,14 @@ describe('negative EBITDA recovery request compiler', () => {
   })
 
   it('emits exactly three reconciled scenarios after financial checks', () => {
-    const draft = createRecoveryInputsDraft({
+    let draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,
       reportedEbitda: -100_000,
       verificationIntent: 'owner_attestation',
     })
     draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
-    draft.verification_intent.accepted = true
+    draft = reviewRecoveryInputsDraft(draft)
 
     const result = compileRecoveryInputsDraft(draft)
 
@@ -49,14 +55,14 @@ describe('negative EBITDA recovery request compiler', () => {
   })
 
   it('blocks a driver total that does not reconcile to schedule revenue', () => {
-    const draft = createRecoveryInputsDraft({
+    let draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,
       reportedEbitda: -100_000,
       verificationIntent: 'advisor_review',
     })
     draft.governed_assumptions.evidence_references = ['advisor-wacc-file']
-    draft.verification_intent.accepted = true
+    draft = reviewRecoveryInputsDraft(draft)
     draft.scenarios[1].forecast_years[0].operating_driver = {
       model_type: 'units_price',
       units: 10,
@@ -106,14 +112,14 @@ describe('negative EBITDA recovery request compiler', () => {
   })
 
   it('blocks out-of-range model drivers before the request reaches Titan', () => {
-    const draft = createRecoveryInputsDraft({
+    let draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,
       reportedEbitda: -100_000,
       verificationIntent: 'owner_attestation',
     })
     draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
-    draft.verification_intent.accepted = true
+    draft = reviewRecoveryInputsDraft(draft)
     draft.scenarios[1].forecast_years[0].operating_driver = {
       model_type: 'arr_retention_expansion',
       opening_arr: 1_000_000,
@@ -126,14 +132,14 @@ describe('negative EBITDA recovery request compiler', () => {
   })
 
   it('lets an owner submit an evidence-backed custom driver', () => {
-    const draft = createRecoveryInputsDraft({
+    let draft = createRecoveryInputsDraft({
       startYear: 2027,
       revenue: 1_000_000,
       reportedEbitda: -100_000,
       verificationIntent: 'owner_attestation',
     })
     draft.governed_assumptions.evidence_references = ['sector-wacc-2026']
-    draft.verification_intent.accepted = true
+    draft = reviewRecoveryInputsDraft(draft)
     draft.scenarios[0].forecast_years[0].operating_driver = {
       model_type: 'attested_custom',
       model_name: 'Owner-attested pipeline model',
