@@ -9,7 +9,6 @@ import {
   buildManualMercuryReturnFromBrowser,
   performManualMercuryNavigation,
 } from '../features/manual/utils/manualMercuryNavigate'
-import { buildManualMercuryClientUrl } from '../features/manual/utils/manualMercuryNavigation'
 import { trackPaywallShown } from '../lib/analytics'
 import { useAuthStore } from '../lib/auth'
 import { useBootstrapSafe } from '../lib/bootstrap'
@@ -25,7 +24,6 @@ import {
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
-import { getMercuryUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 import { useSessionManagerTimeouts } from './useSessionManagerTimeouts'
 import { useValuationSessionLoader } from './useValuationSessionLoader'
@@ -96,7 +94,6 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const searchParams = useSearchParams()
     const pathname = usePathname()
     const router = useTransitionRouter()
-    const tAdvisorHandoff = useTranslations('errors.advisorHandoff')
 
     // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
     const isFromMercury = searchParams?.get('source') === 'mercury'
@@ -453,7 +450,14 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       status,
     })
 
-    const advisorPrefillIssue =
+    // Advisor handoff findings are ADVISORY (2026-09-10): a delegated session
+    // whose prefill lacks the company name, business type, country or a complete
+    // fiscal year still opens on the data-entry form. The form itself collects
+    // every one of those inputs and `manualSubmitValidation` refuses to
+    // calculate until they are present, so a blocking "Complete the company
+    // profile" screen only ever sent advisors back to a dossier that could not
+    // supply them (connector-imported clients rarely carry a business type).
+    const advisorPrefillAdvisory =
       bootstrapComplete &&
       isDelegatedAccountantHandoff &&
       stage === 'data-entry' &&
@@ -461,29 +465,16 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       !isBootstrapping
         ? validateMercuryAdvisorPrefillContract(session)
         : null
-    const resolvedStage: Stage = advisorPrefillIssue ? 'error' : stage
-    const advisorErrorPresentation = advisorPrefillIssue
-      ? advisorPrefillIssue.code === 'CLIENT_IDENTITY_INCOMPLETE'
-        ? {
-            title: tAdvisorHandoff('identityIncomplete.title'),
-            message: tAdvisorHandoff('identityIncomplete.message'),
-            backLabel: tAdvisorHandoff('identityIncomplete.action'),
-            allowRetry: false,
-          }
-        : advisorPrefillIssue.code === 'VALUATION_NOT_READY'
-          ? {
-              title: tAdvisorHandoff('valuationNotReady.title'),
-              message: tAdvisorHandoff('valuationNotReady.message'),
-              backLabel: tAdvisorHandoff('valuationNotReady.action'),
-              allowRetry: false,
-            }
-          : {
-              title: tAdvisorHandoff('prefillInconsistent.title'),
-              message: tAdvisorHandoff('prefillInconsistent.message'),
-              backLabel: tAdvisorHandoff('prefillInconsistent.action'),
-              allowRetry: false,
-            }
-      : null
+    const advisorPrefillAdvisoryCode = advisorPrefillAdvisory?.code ?? null
+    useEffect(() => {
+      if (!advisorPrefillAdvisoryCode) return
+      generalLogger.info('[SessionManager] Advisor handoff advisory (non-blocking)', {
+        reportId: reportId?.substring(0, 30),
+        code: advisorPrefillAdvisoryCode,
+      })
+    }, [advisorPrefillAdvisoryCode, reportId])
+    const resolvedStage: Stage = stage
+    const advisorErrorPresentation = null
 
     const { handleRetry } = useValuationSessionLoader({
       bootstrapComplete,
@@ -512,25 +503,6 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const handleStartOver = useCallback(() => {
       if (isFromMercury) {
         const locale = pathname?.match(/^\/(en|nl|fr)(?:\/|$)/)?.[1] || 'en'
-        if (advisorPrefillIssue && clientIdParam) {
-          const clientUrl = buildManualMercuryClientUrl({
-            mercuryUrl: getMercuryUrl(),
-            locale,
-            clientContextId: clientIdParam,
-          })
-          const targetUrl =
-            advisorPrefillIssue.code === 'CLIENT_IDENTITY_INCOMPLETE'
-              ? `${clientUrl}/profile`
-              : advisorPrefillIssue.code === 'VALUATION_NOT_READY'
-                ? `${clientUrl}/profile#financial-data`
-                : clientUrl
-          performManualMercuryNavigation({
-            targetUrl,
-            postEngineCloseOnEmbedFailure: true,
-          })
-          return
-        }
-
         const targetUrl = buildManualMercuryReturnFromBrowser({
           currentLocale: locale,
           clientContextId: clientIdParam,
@@ -547,21 +519,11 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       generalLogger.info('[SessionManager] Starting over', { reportId })
       clearSession()
       router.push('/')
-    }, [
-      advisorPrefillIssue,
-      clientIdParam,
-      clearSession,
-      isFromMercury,
-      pathname,
-      reportId,
-      router,
-      sessionHasAssets,
-    ])
+    }, [clientIdParam, clearSession, isFromMercury, pathname, reportId, router, sessionHasAssets])
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
-    const rawEffectiveError = advisorErrorPresentation
-      ? advisorErrorPresentation.message
-      : error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
+    const rawEffectiveError =
+      error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
     const effectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
 
     // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session
