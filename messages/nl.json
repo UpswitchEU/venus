@@ -2288,6 +2288,8 @@
 		"companyNameMissingDesc": "Vul een bedrijfsnaam in of zoek via KBO.",
 		"businessTypeMissing": "Bedrijfstype ontbreekt",
 		"businessTypeMissingDesc": "Selecteer een bedrijfstype om verder te gaan.",
+		"startProposalSkipped": "Startvoorstel niet aangemaakt",
+		"startProposalSkippedDesc": "Controleer de cijfers en klik op Berekenen wanneer het past.",
 		"financialDataIncomplete": "Financiële gegevens onvolledig",
 		"financialDataIncompleteDesc": "Vul minstens 1 jaar met omzet én EBITDA in.",
 		"dcfNotReady": "DCF-gegevens onvolledig",

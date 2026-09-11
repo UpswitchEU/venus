@@ -2286,6 +2286,8 @@
 		"companyNameMissingDesc": "Enter a company name or search via KBO.",
 		"businessTypeMissing": "Business type missing",
 		"businessTypeMissingDesc": "Select a business type to continue.",
+		"startProposalSkipped": "Starting proposal not generated",
+		"startProposalSkippedDesc": "Review the figures, then press Calculate when you are ready.",
 		"financialDataIncomplete": "Financial data incomplete",
 		"financialDataIncompleteDesc": "Enter at least 1 year with revenue and EBITDA.",
 		"dcfNotReady": "DCF data incomplete",

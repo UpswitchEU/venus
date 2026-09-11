@@ -46,11 +46,14 @@ import {
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
+import { useAdvisorFormInteraction } from '../hooks/useAdvisorFormInteraction'
+import type { ValuationRunTrigger } from '../hooks/useResultToReportBridge'
 import {
   ACCOUNTING_RECONNECT_STATUS_EVENT,
   type RecoveryPhase,
   readAccountingReconnectIntentSummary,
 } from '../utils/accountingReconnectResume'
+import { MANUAL_SUBMIT_VALIDATION_TOAST_KEYS } from '../utils/manualSubmitValidation'
 import { AccountingReconnectRecovery } from './AccountingReconnectRecovery'
 import { ManualLayoutChrome } from './ManualLayoutChrome'
 import { ManualLayoutSessionGate } from './ManualLayoutSessionGate'
@@ -373,6 +376,16 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     setIsDirty,
     updateFormData,
   })
+  // True once a real person has typed or picked something on this page. Read by
+  // the one-shot Mercury start intent so it drops itself rather than firing
+  // while the advisor is mid-edit. Event-based on purpose: the panel's
+  // onFormDataChange ALSO fires from a mount effect to push prefill, so it is
+  // not an interaction signal.
+  const hasAdvisorEditedForm = useAdvisorFormInteraction()
+  // Who started the run behind the latest result. Intent-started runs skip the
+  // background PDF in useResultToReportBridge. Assigned in exactly one place,
+  // at submit time, inside useManualSubmitController.
+  const valuationRunTriggerRef = React.useRef<ValuationRunTrigger | null>(null)
   useFormSessionSync({
     reportId: resolvedReportId || reportId || undefined,
     formData: formStoreData,
@@ -430,6 +443,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     setShowFullscreenModal,
     generatePdf,
     isPdfGenerating,
+    runTriggerRef: valuationRunTriggerRef,
   })
   const {
     handleSelectMethodWithOverride,
@@ -516,6 +530,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     onAccountingReconnectRecovered: handleAccountingReconnectRecovered,
     isAccountingReconnectRequired: accountingReconnectContext !== null,
     restorationComplete,
+    runTriggerRef: valuationRunTriggerRef,
     startProposalVersionLabelRef,
   })
   const hasAnyNormalization = normalizationItems.some((n) => n.status === 'accepted')
@@ -800,7 +815,16 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     buildSubmitData: buildLiveValuationSubmitData,
     effectiveMethod: preSelectedMethod ?? selectedMethod,
     hasExistingValuation: Boolean(result),
+    hasUserInteracted: hasAdvisorEditedForm,
     intent: initialValuationIntent,
+    onAutomaticStartSkipped: (_reason, issue) => {
+      const issueTitle = issue ? t(MANUAL_SUBMIT_VALIDATION_TOAST_KEYS[issue].title) : null
+      toast.info(t('startProposalSkipped'), {
+        description: issueTitle
+          ? `${issueTitle}. ${t('startProposalSkippedDesc')}`
+          : t('startProposalSkippedDesc'),
+      })
+    },
     isAccountantMode,
     isCalculating,
     isGenerating,

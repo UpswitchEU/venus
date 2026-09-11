@@ -41,6 +41,7 @@ import { useManualCalculationCompletion } from './useManualCalculationCompletion
 import { useManualCalculationExecution } from './useManualCalculationExecution'
 import { useManualSubmitErrorHandler } from './useManualSubmitErrorHandler'
 import { useManualSubmitRunGuard } from './useManualSubmitRunGuard'
+import { resolveValuationRunTrigger, type ValuationRunTrigger } from './useResultToReportBridge'
 
 type ManualSubmitTranslate = (
   key: string,
@@ -86,6 +87,15 @@ export interface UseManualSubmitControllerParams {
   onAccountingReconnectRecovered?: () => void
   isAccountingReconnectRequired?: boolean
   restorationComplete: boolean
+  /**
+   * Set on every run to who started it, derived from
+   * `startProposalVersionLabelRef` — the marker the Mercury one-shot intent
+   * already sets around its own submit. Assigning it here rather than at the
+   * call sites keeps it correct for all entry points: retries, the
+   * recalculate-confirmation callbacks, agent-approved runs and the reconnect
+   * resume all reach the engine through `handleManualSubmit`.
+   */
+  runTriggerRef?: MutableRefObject<ValuationRunTrigger | null>
   startProposalVersionLabelRef: MutableRefObject<string | null>
 }
 
@@ -136,6 +146,7 @@ export function useManualSubmitController({
   onAccountingReconnectRecovered,
   isAccountingReconnectRequired = false,
   restorationComplete,
+  runTriggerRef,
   startProposalVersionLabelRef,
 }: UseManualSubmitControllerParams): UseManualSubmitControllerResult {
   const lastSubmittedDataRef = useRef<ValuationFormData | null>(null)
@@ -188,6 +199,9 @@ export function useManualSubmitController({
 
   const handleManualSubmit = useCallback(
     async (data: ValuationFormData) => {
+      if (runTriggerRef) {
+        runTriggerRef.current = resolveValuationRunTrigger(startProposalVersionLabelRef.current)
+      }
       if (isAccountingReconnectRequired && !reconnectResumeBypassRef.current) {
         toast.warning('Reconnect accounting before calculating again.')
         return false
@@ -369,6 +383,8 @@ export function useManualSubmitController({
       synthesisSelection,
       translate,
       translatePreparer,
+      runTriggerRef,
+      startProposalVersionLabelRef,
       trySetCalculating,
       updateFormData,
       warnIfSubmitSynthesisSkipped,

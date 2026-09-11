@@ -13,6 +13,7 @@ import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { clearReportsDeleting, markReportsDeleting } from '../utils/manualReportDeleteGuard'
 import {
+  resolveValuationRunTrigger,
   type UseResultToReportBridgeParams,
   useResultToReportBridge,
 } from './useResultToReportBridge'
@@ -50,6 +51,16 @@ function makeParams(
     ...override,
   }
 }
+
+describe('resolveValuationRunTrigger', () => {
+  it('marks only a start-proposal-labelled run as intent-started', () => {
+    expect(resolveValuationRunTrigger('v1 – Startvoorstel')).toBe('intent')
+  })
+
+  it.each([null, undefined, ''])('treats %p as the advisor calculating', (label) => {
+    expect(resolveValuationRunTrigger(label)).toBe('user')
+  })
+})
 
 describe('useResultToReportBridge', () => {
   beforeEach(() => {
@@ -137,6 +148,19 @@ describe('useResultToReportBridge', () => {
       })
       renderHook(() => useResultToReportBridge(params))
       expect(params.generatePdf).toHaveBeenCalledTimes(1)
+    })
+
+    it('does NOT call generatePdf for a run started by the Mercury one-shot intent', async () => {
+      const generatePdf = vi.fn().mockResolvedValue(undefined)
+      const params = makeParams({
+        generatePdf,
+        runTriggerRef: { current: 'intent' },
+        result: makeResult({ pdf_url: null } as Partial<ValuationResponse>),
+      })
+      renderHook(() => useResultToReportBridge(params))
+      await waitFor(() => expect(params.setReport).toHaveBeenCalled())
+      expect(generatePdf).not.toHaveBeenCalled()
+      expect(params.setRightPanelView).toHaveBeenCalledWith('preview')
     })
 
     it('does NOT call generatePdf when PDF is fresh', () => {

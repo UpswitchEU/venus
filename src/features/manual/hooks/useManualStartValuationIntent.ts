@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
 import type { ValuationFormData } from '../../../components/calculator'
 import { generalLogger } from '../../../utils/logger'
-import { getManualSubmitValidationIssue } from '../utils/manualSubmitValidation'
+import {
+  getManualSubmitValidationIssue,
+  type ManualSubmitValidationIssue,
+} from '../utils/manualSubmitValidation'
 
 export const START_VALUATION_INTENT = 'start_valuation' as const
 export const START_VALUATION_RESERVATION_TTL_MS = 5 * 60 * 1000
@@ -65,11 +68,23 @@ export function urlWithoutStartValuationIntent(href: string): string {
   return `${url.pathname}${url.search}${url.hash}`
 }
 
+export type StartValuationIntentSkipReason = 'form_invalid' | 'user_interacted'
+
 export interface UseManualStartValuationIntentParams {
   accountantCustomerId?: string | null
   buildSubmitData: () => ValuationFormData
   effectiveMethod?: string | null
   hasExistingValuation: boolean
+  /**
+   * True once the advisor has edited the form on this page. A pending intent is
+   * dropped at that point: the advisor is working, not waiting for us.
+   */
+  hasUserInteracted?: () => boolean
+  /** Called once when a pending intent is dropped instead of started. */
+  onAutomaticStartSkipped?: (
+    reason: StartValuationIntentSkipReason,
+    issue: ManualSubmitValidationIssue | null
+  ) => void
   intent?: typeof START_VALUATION_INTENT
   isAccountantMode: boolean
   isCalculating: boolean
@@ -80,16 +95,26 @@ export interface UseManualStartValuationIntentParams {
   restorationComplete: boolean
 }
 
-/** Consume Mercury's explicit CTA once, after delegated identity and prefill are ready. */
+/**
+ * Consume Mercury's explicit CTA once, after delegated identity and prefill are ready.
+ *
+ * One-shot means exactly that: on the first render where the delegated context
+ * and prefill are ready, the intent either starts the calculation or is dropped.
+ * It must never stay armed while the advisor edits — this effect re-runs on
+ * every form change, so an armed intent would fire on the first edit that makes
+ * the form valid, generating a report the advisor did not ask for.
+ */
 export function useManualStartValuationIntent({
   accountantCustomerId,
   buildSubmitData,
   effectiveMethod,
   hasExistingValuation,
+  hasUserInteracted,
   intent,
   isAccountantMode,
   isCalculating,
   isGenerating,
+  onAutomaticStartSkipped,
   onStart,
   reportId,
   restorationComplete,
@@ -128,8 +153,31 @@ export function useManualStartValuationIntent({
     // after a short lease so a fresh explicit CTA can recover safely.
     if (storedIntentState) removeStartValuationIntentState(storageKey)
 
+    const dropIntent = (
+      reason: StartValuationIntentSkipReason,
+      issue: ManualSubmitValidationIssue | null
+    ) => {
+      consumedReportIdRef.current = reportId
+      stripIntentFromAddress()
+      generalLogger.info('[start-valuation-intent] automatic start skipped', {
+        reportId,
+        reason,
+        validationIssue: issue,
+      })
+      onAutomaticStartSkipped?.(reason, issue)
+    }
+
+    if (hasUserInteracted?.()) {
+      dropIntent('user_interacted', null)
+      return
+    }
+
     const submitData = buildSubmitData()
-    if (getManualSubmitValidationIssue(submitData, effectiveMethod)) return
+    const validationIssue = getManualSubmitValidationIssue(submitData, effectiveMethod)
+    if (validationIssue) {
+      dropIntent('form_invalid', validationIssue)
+      return
+    }
 
     consumedReportIdRef.current = reportId
     writeStartValuationIntentState(storageKey, startValuationReservation(Date.now()))
@@ -164,10 +212,12 @@ export function useManualStartValuationIntent({
     buildSubmitData,
     effectiveMethod,
     hasExistingValuation,
+    hasUserInteracted,
     intent,
     isAccountantMode,
     isCalculating,
     isGenerating,
+    onAutomaticStartSkipped,
     onStart,
     reportId,
     restorationComplete,

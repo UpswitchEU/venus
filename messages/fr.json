@@ -2288,6 +2288,8 @@
 		"companyNameMissingDesc": "Entrez un nom d'entreprise ou effectuez une recherche via KBO.",
 		"businessTypeMissing": "Type d'entreprise manquant",
 		"businessTypeMissingDesc": "Sélectionnez un type d'entreprise pour continuer.",
+		"startProposalSkipped": "Proposition initiale non générée",
+		"startProposalSkippedDesc": "Vérifiez les chiffres, puis cliquez sur Calculer quand vous êtes prêt.",
 		"financialDataIncomplete": "Données financières incomplètes",
 		"financialDataIncompleteDesc": "Entrez au moins 1 an avec les revenus et l'EBITDA.",
 		"dcfNotReady": "Données DCF incomplètes",

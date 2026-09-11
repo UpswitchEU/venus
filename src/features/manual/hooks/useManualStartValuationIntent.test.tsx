@@ -250,6 +250,78 @@ describe('useManualStartValuationIntent', () => {
     expect(window.location.search).toBe('?source=mercury')
   })
 
+  it('drops the intent when the form is invalid on arrival and stays inert once it becomes valid', async () => {
+    const onStart = vi.fn().mockResolvedValue(true)
+    const onAutomaticStartSkipped = vi.fn()
+    const invalidData = { ...readyData, businessType: '' } as ValuationFormData
+    const { rerender } = renderHook(
+      (props: { data: ValuationFormData }) =>
+        useManualStartValuationIntent({
+          accountantCustomerId: 'client-1',
+          buildSubmitData: () => props.data,
+          effectiveMethod: 'upswitch_adaptive',
+          hasExistingValuation: false,
+          intent: 'start_valuation',
+          isAccountantMode: true,
+          isCalculating: false,
+          isGenerating: false,
+          onAutomaticStartSkipped,
+          onStart,
+          reportId: 'val_1_demo',
+          restorationComplete: true,
+        }),
+      { initialProps: { data: invalidData } }
+    )
+
+    await waitFor(() => expect(onAutomaticStartSkipped).toHaveBeenCalledTimes(1))
+    expect(onAutomaticStartSkipped).toHaveBeenCalledWith('form_invalid', 'businessTypeMissing')
+    expect(window.location.search).toBe('?source=mercury')
+    expect(onStart).not.toHaveBeenCalled()
+
+    // The advisor fixes the form: the (dropped) intent must not fire now.
+    await act(async () => rerender({ data: readyData }))
+    await act(async () => rerender({ data: readyData }))
+    expect(onStart).not.toHaveBeenCalled()
+    expect(onAutomaticStartSkipped).toHaveBeenCalledTimes(1)
+    // Nothing persisted as complete: a fresh explicit CTA can try again.
+    expect(window.sessionStorage.getItem(startValuationIntentStorageKey('val_1_demo'))).toBeNull()
+  })
+
+  it('drops the intent once the advisor has started editing before the gates open', async () => {
+    const onStart = vi.fn().mockResolvedValue(true)
+    const onAutomaticStartSkipped = vi.fn()
+    let interacted = false
+    const { rerender } = renderHook(
+      (props: { ready: boolean }) =>
+        useManualStartValuationIntent({
+          accountantCustomerId: props.ready ? 'client-1' : null,
+          buildSubmitData: () => readyData,
+          effectiveMethod: 'upswitch_adaptive',
+          hasExistingValuation: false,
+          hasUserInteracted: () => interacted,
+          intent: 'start_valuation',
+          isAccountantMode: true,
+          isCalculating: false,
+          isGenerating: false,
+          onAutomaticStartSkipped,
+          onStart,
+          reportId: 'val_1_demo',
+          restorationComplete: props.ready,
+        }),
+      { initialProps: { ready: false } }
+    )
+
+    expect(onStart).not.toHaveBeenCalled()
+    interacted = true
+    await act(async () => rerender({ ready: true }))
+
+    await waitFor(() =>
+      expect(onAutomaticStartSkipped).toHaveBeenCalledWith('user_interacted', null)
+    )
+    expect(onStart).not.toHaveBeenCalled()
+    expect(window.location.search).toBe('?source=mercury')
+  })
+
   it('removes only the one-shot intent from the current URL', () => {
     expect(
       urlWithoutStartValuationIntent(

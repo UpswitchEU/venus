@@ -25,6 +25,9 @@
  *      generated a PDF manually this session — preserved verbatim per
  *      Phase 4c.2 product call.** 402 paywall errors are swallowed;
  *      other PDF-gen errors are logged but not surfaced (background gen).
+ *      Exception: a run started by Mercury's one-shot intent (not by the
+ *      advisor) never triggers a background PDF — the advisor has not
+ *      reviewed the figures yet, and the PDF is regenerated on demand.
  *
  * Errors thrown by the mapper are caught and logged with reportId +
  * valuationId context, then swallowed — the panel keeps rendering the
@@ -51,9 +54,30 @@ import {
 } from '../utils/mapValuationResultToReport'
 import { useLatestRef } from './useNavigationCancellation'
 
+/** Who started the calculation that produced the latest `result`. */
+export type ValuationRunTrigger = 'user' | 'intent'
+
+/**
+ * A run is intent-started exactly when Mercury's one-shot start intent is
+ * driving it, which `handleStartProposal` marks by setting the start-proposal
+ * version label around its submit. Every other path — the Calculate button,
+ * retries, recalculate confirmations, agent-approved runs, the reconnect
+ * resume — is the advisor acting, so it counts as `user`.
+ */
+export function resolveValuationRunTrigger(
+  startProposalVersionLabel: string | null | undefined
+): ValuationRunTrigger {
+  return startProposalVersionLabel ? 'intent' : 'user'
+}
+
 export interface UseResultToReportBridgeParams {
   /** Latest API response. `null`/`undefined` ⇒ the effect no-ops. */
   result: ValuationResponse | null | undefined
+  /**
+   * Trigger of the run that produced `result`. `'intent'` (Mercury's one-shot
+   * start) suppresses the background PDF; anything else preserves behaviour.
+   */
+  runTriggerRef?: MutableRefObject<ValuationRunTrigger | null>
   /** Session HTML fallback for self-heal before result.html_report catches up. */
   sessionHtmlReport?: string | null
   /** Results-store HTML fallback when not yet merged into result. */
@@ -124,6 +148,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     setShowFullscreenModal,
     generatePdf,
     isPdfGenerating = false,
+    runTriggerRef,
   } = params
 
   const generatePdfRef = useLatestRef(generatePdf)
@@ -199,6 +224,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
         mappedReport.htmlReport &&
         canDownloadPdf &&
         !isPdfGenerationInFlight &&
+        runTriggerRef?.current !== 'intent' &&
         isPdfLikelyStaleVenus(mappedReport)
       ) {
         const pdfFingerprint = resultPdfTriggerFingerprint(result)
@@ -238,6 +264,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     selectedMethod,
     canDownloadPdf,
     isPdfGenerationInFlight,
+    runTriggerRef,
     onCompleteRef,
     setDraftStatusRef,
     setLastSavedRef,
