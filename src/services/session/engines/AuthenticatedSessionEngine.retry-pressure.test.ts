@@ -11,9 +11,10 @@ const sessionServiceMocks = getSessionServiceMocks()
 describe('AuthenticatedSessionEngine retry and pool pressure policy', () => {
   beforeEach(() => {
     resetAuthenticatedSessionEngineHarness()
+    sessionServiceMocks.saveSession.mockReset()
   })
 
-  it('retries transient auth-service save outages before surfacing failure', async () => {
+  it('leaves transient auth retries to SessionAPI and supports an explicit save retry', async () => {
     vi.useFakeTimers()
 
     try {
@@ -55,13 +56,16 @@ describe('AuthenticatedSessionEngine retry and pool pressure policy', () => {
         partialData: {},
       })
 
-      const savePromise = engine.saveSession('autosave')
+      const savePromise = expect(engine.saveSession('autosave')).rejects.toThrow(
+        'Authentication service temporarily unavailable'
+      )
       await vi.advanceTimersByTimeAsync(750)
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
 
       await vi.advanceTimersByTimeAsync(1000)
       await savePromise
-
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+      await engine.saveSession('user')
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
       expect(engine.getSession()?.updatedAt).toEqual(updatedSession.updatedAt)
     } finally {
@@ -101,7 +105,7 @@ describe('AuthenticatedSessionEngine retry and pool pressure policy', () => {
     }
   })
 
-  it('retries client-aborted 499 save failures before surfacing failure', async () => {
+  it('does not multiply SessionAPI retries after a client-aborted save', async () => {
     vi.useFakeTimers()
 
     try {
@@ -133,13 +137,14 @@ describe('AuthenticatedSessionEngine retry and pool pressure policy', () => {
         partialData: {},
       })
 
-      const savePromise = engine.saveSession('autosave')
+      const savePromise = expect(engine.saveSession('autosave')).rejects.toThrow('status code 499')
       await vi.advanceTimersByTimeAsync(750)
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
 
       await vi.advanceTimersByTimeAsync(1000)
       await savePromise
-
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+      await engine.saveSession('user')
       expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(2)
       expect(engine.getSession()?.updatedAt).toEqual(updatedSession.updatedAt)
     } finally {

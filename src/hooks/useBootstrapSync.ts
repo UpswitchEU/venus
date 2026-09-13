@@ -283,7 +283,7 @@ export function useBootstrapSync(): {
  */
 function syncEngine(state: SessionBootstrapState): void {
   try {
-    useSessionStore.getState().setEngine(state.identity)
+    useSessionStore.getState().setEngine(state.identity, state.report.reportId)
     logger.debug('Session engine set from bootstrap sync', {
       identityType: state.identity.type,
     })

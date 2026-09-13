@@ -313,11 +313,14 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
    * report. A stale save queue from a previous report or lifecycle is ignored.
    */
   async saveSession(reason: AuthenticatedSessionSaveReason = 'autosave'): Promise<void> {
+    const lifecycleAtRequest = this.sessionLifecycleVersion
     // If we're loading, wait for it to complete first
     if (this.loadingPromise) {
       generalLogger.debug('[AuthenticatedSessionEngine] Waiting for load to complete before saving')
       await this.loadingPromise
     }
+
+    if (lifecycleAtRequest !== this.sessionLifecycleVersion) return
 
     if (!this.currentSession) {
       generalLogger.debug('[AuthenticatedSessionEngine] Skipping save - no current session', {
@@ -376,9 +379,17 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     }
   }
 
-  private async waitForAutosavePatchGate(): Promise<boolean> {
+  cancelPendingSaves(): void {
+    this.sessionLifecycleVersion += 1
+    this.savePending = false
+  }
+
+  private async waitForAutosavePatchGate(
+    reportId: string,
+    lifecycleVersion: number
+  ): Promise<boolean> {
     return awaitSessionPoolPressureGate({
-      shouldContinue: () => !!this.currentSession,
+      shouldContinue: () => this.isActiveSaveQueue(reportId, lifecycleVersion),
       onWait: (waitMs) => {
         generalLogger.debug('[AuthenticatedSessionEngine] Waiting for autosave patch gate', {
           reportId: this.currentSession?.reportId,
@@ -410,7 +421,7 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
       }
 
       if (nextReason === 'autosave') {
-        const ready = await this.waitForAutosavePatchGate()
+        const ready = await this.waitForAutosavePatchGate(queueReportId, queueLifecycleVersion)
         if (!ready) {
           return
         }
@@ -454,12 +465,8 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
   /**
    * Execute the actual save operation (internal)
    *
-   * Includes retry with backoff (max 2 attempts) for transient network errors.
-   * Validation errors (4xx) are NOT retried.
-   *
-   * Cross-app contract sentinel: the delegated executor still records
-   * pool-pressure via recordSessionPoolPressureFromHttpError and gates retries
-   * through isRetryableSessionSaveError.
+   * SessionAPI owns the single bounded transport retry policy. The delegated
+   * executor records pool pressure via recordSessionPoolPressureFromHttpError.
    */
   private async executeSave(
     reason: AuthenticatedSessionSaveReason,

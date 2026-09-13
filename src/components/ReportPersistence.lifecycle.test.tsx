@@ -102,6 +102,7 @@ describe('calculation → save → UUID → refresh with the real session manage
       status: 'loaded',
       errorMessage: null,
       hasUnsavedChanges: false,
+      saveErrorMessage: null,
       session: {
         reportId: sessionKey,
         currentView: 'manual',
@@ -303,5 +304,30 @@ describe('calculation → save → UUID → refresh with the real session manage
     expect(save).toHaveBeenCalledTimes(2)
     expect(pendingReportAssetSaves.size).toBe(0)
     expect(failedReportAssetSave(uuid)).toBeUndefined()
+  })
+
+  it('retries a failed draft save without reloading the report or discarding edits', async () => {
+    useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'lifecycle-advisor' })
+    const save = vi
+      .spyOn(useSessionStore.getState().engine!, 'saveSession')
+      .mockRejectedValueOnce(new Error('Service Unavailable (503)'))
+      .mockResolvedValueOnce(undefined)
+    render(<Lifecycle />)
+    const note = await screen.findByLabelText('Report note')
+    fireEvent.change(note, { target: { value: 'keep unsaved draft' } })
+    await act(async () => {
+      await useSessionStore
+        .getState()
+        .saveSession('autosave')
+        .catch(() => undefined)
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Service Unavailable (503)')
+    fireEvent.click(screen.getByRole('button', { name: /tryAgain/i }))
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(state.refresh).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Report note')).toBe(note)
+    expect(note).toHaveValue('keep unsaved draft')
+    expect(state.mounts).toBe(1)
   })
 })

@@ -174,6 +174,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const isLoading = status === 'loading'
     const isInitializing = status === 'idle' || status === 'loading'
     const error = useSessionStore((state) => state.errorMessage)
+    const sessionSaveError = useSessionStore((state) => state.saveErrorMessage)
     const loadSession = useSessionStore((state) => state.loadSession)
     const clearSession = useSessionStore((state) => state.clearSession)
 
@@ -506,10 +507,15 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         // Re-send the failed asset payload. This never invokes the calculator,
         // version creation, or billing; failure remains in the inline state.
         await reportAssetService.retryFailedSave(reportId).catch(() => undefined)
+      } else if (sessionSaveError) {
+        await useSessionStore
+          .getState()
+          .saveSession('user')
+          .catch(() => undefined)
       } else {
         await retrySessionLoad()
       }
-    }, [assetSaveFailure, reportId, retrySessionLoad])
+    }, [assetSaveFailure, reportId, retrySessionLoad, sessionSaveError])
 
     // Return a delegated advisor to the exact dossier recovery surface. Do not
     // clear the Venus session: source evidence and edits must survive the round-trip.
@@ -535,7 +541,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     }, [clientIdParam, clearSession, isFromMercury, pathname, reportId, router, sessionHasAssets])
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
-    const rawEffectiveError = assetSaveFailure?.error || error || bootstrap?.bootstrapError || null
+    const rawEffectiveError =
+      assetSaveFailure?.error || sessionSaveError || error || bootstrap?.bootstrapError || null
     const effectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
 
     // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session

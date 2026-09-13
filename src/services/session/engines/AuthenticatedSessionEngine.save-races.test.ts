@@ -13,11 +13,36 @@ describe('AuthenticatedSessionEngine save races', () => {
     resetAuthenticatedSessionEngineHarness()
   })
 
+  it('cancels an autosave queued before a client switch while retaining the draft', async () => {
+    vi.useFakeTimers()
+    try {
+      const engine = new AuthenticatedSessionEngine()
+      engine.hydrateSession({ reportId: 'val_queued_client', sessionData: { revenue: 1450000 } })
+      const saving = engine.saveSession('autosave')
+      engine.cancelPendingSaves()
+      await vi.advanceTimersByTimeAsync(750)
+      await saving
+      expect(sessionServiceMocks.saveSession).not.toHaveBeenCalled()
+      expect(engine.getSession()?.sessionData.revenue).toBe(1450000)
+      sessionServiceMocks.saveSession.mockResolvedValue(engine.getSession())
+      await engine.saveSession('user')
+      expect(sessionServiceMocks.saveSession).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 
   it('promotes the engine identity and ignores an earlier draft save response', async () => {
     const engine = new AuthenticatedSessionEngine()
-    const draft = { reportId: 'val_promotion_race', currentView: 'manual' as const, dataSource: 'manual' as const,
-      createdAt: new Date(), updatedAt: new Date(), sessionData: { note: 'keep edit' }, partialData: {} }
+    const draft = {
+      reportId: 'val_promotion_race',
+      currentView: 'manual' as const,
+      dataSource: 'manual' as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      sessionData: { note: 'keep edit' },
+      partialData: {},
+    }
     engine.updateSession(draft)
     const oldSave = deferred<typeof draft>()
     sessionServiceMocks.saveSession.mockReturnValueOnce(oldSave.promise)

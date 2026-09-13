@@ -1,6 +1,8 @@
 import type { StateCreator } from 'zustand'
 import { storeLogger } from '../utils/logger'
 import type { SessionStore } from './useSessionStore'
+import { watchReportAccessScope } from '../utils/reportAccessScope'
+import { isSameReportIdentity } from '../utils/reportIdentityPromotion'
 import { deriveMarkSavedState } from './useSessionStore.dirtyState'
 import {
   asSessionDataRecord,
@@ -33,8 +35,14 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
 
     const hadUnsavedChangesBeforeSave = state.hasUnsavedChanges
     const saveStartDirtyVersion = state.dirtyVersion
+    const access = watchReportAccessScope()
+    const isCurrent = () =>
+      access.isCurrent() &&
+      get().engine === state.engine &&
+      get().engineRevision === state.engineRevision &&
+      isSameReportIdentity(get().session?.reportId, state.session?.reportId)
 
-    set({ isSaving: true, errorMessage: null })
+    set({ isSaving: true, errorMessage: null, saveErrorMessage: null })
 
     try {
       storeLogger.debug('[Session] Saving session', {
@@ -44,6 +52,7 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
       })
 
       await state.engine.saveSession(reason)
+      if (!isCurrent()) return
 
       const savedSession = state.engine.getSession()
       if (savedSession) {
@@ -75,19 +84,21 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
 
       set((current) => deriveMarkSavedState(current, saveStartDirtyVersion))
     } catch (error) {
+      if (!isCurrent()) return
       const message = error instanceof Error ? error.message : 'Failed to save session'
 
       if (isNonCriticalSaveFailureMessage(message)) {
-        storeLogger.warn('[Session] Non-critical save error (will retry automatically)', {
+        storeLogger.warn('[Session] Background save failed; keeping the report available', {
           reportId: state.session.reportId,
           error: message,
           reason,
-          note: 'Rate limit or network error - update will be retried on next change',
+          note: 'Retry the save from the inline error or after the next edit',
         })
 
         set({
           isSaving: false,
           errorMessage: null,
+          saveErrorMessage: message,
         })
         return
       }
@@ -101,9 +112,12 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
       set({
         isSaving: false,
         errorMessage: message,
+        saveErrorMessage: message,
       })
 
       throw error
+    } finally {
+      access.dispose()
     }
   }
 }

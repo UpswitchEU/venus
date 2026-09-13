@@ -50,6 +50,9 @@ export interface ISessionEngine {
    */
   saveSession(reason?: 'user' | 'autosave' | 'system'): Promise<void>
 
+  /** Cancel queued persistence and ignore old responses while retaining the local draft. */
+  cancelPendingSaves?(): void
+
   /**
    * Clear session
    * Clears backend + local state

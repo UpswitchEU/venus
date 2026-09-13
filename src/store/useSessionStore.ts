@@ -18,7 +18,7 @@ import type { RestorationProgress } from '../hooks/useRestorationProgress'
 import type { IdentityState } from '../lib/bootstrap/types'
 import type { DelegatedMercuryHandoffSignals } from '../lib/mercury/sessionReadiness'
 import type { ISessionEngine, SessionDataRecord } from '../services/session/SessionEngine'
-import { createSessionEngine } from '../services/session/SessionEngineFactory'
+import { createSessionEngine, releaseSessionEngine } from '../services/session/SessionEngineFactory'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
 import { deriveMarkSavedState, deriveMarkUnsavedState } from './useSessionStore.dirtyState'
@@ -36,6 +36,15 @@ import {
   getOptimisticMercuryShellRefusalReason,
 } from './useSessionStore.optimisticShell'
 import { createSaveSessionAction } from './useSessionStore.saveSession'
+
+const engineDraftStates = new WeakMap<
+  ISessionEngine,
+  {
+    hasUnsavedChanges: boolean
+    dirtyVersion: number
+    restorationComplete: boolean
+  }
+>()
 
 // Source-contract sentinel: "loadSession blocked — engine not initialized" is enforced
 // in `useSessionStore.loadSession.ts`, while this shell preserves the public store boundary.
@@ -55,6 +64,9 @@ export type SessionStatus = 'idle' | 'loading' | 'loaded' | 'error'
 export type SessionRenderError = 'payload_too_large' | 'html_recovery_failed'
 
 export interface SessionStore {
+  saveErrorMessage: string | null
+  /** Invalidates callbacks even when navigation returns to the same engine. */
+  engineRevision: number
   // Core state (explicit state machine)
   session: ValuationSession | null
   status: SessionStatus
@@ -92,7 +104,7 @@ export interface SessionStore {
 
   // Actions
   setRenderError: (renderError: SessionRenderError | null) => void
-  setEngine: (identity: IdentityState) => void
+  setEngine: (identity: IdentityState, reportId?: string) => void
   cancelActiveLoad: (reportId?: string) => void
   loadSession: (
     reportId: string,
@@ -182,6 +194,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   // Save state
   isSaving: false,
+  saveErrorMessage: null,
+  engineRevision: 0,
   lastSaved: null,
   hasUnsavedChanges: false,
   dirtyVersion: 0,
@@ -198,9 +212,37 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
    * Set engine based on identity
    * Called from BootstrapProvider when identity is resolved
    */
-  setEngine: (identity: IdentityState) => {
-    const engine = createSessionEngine(identity)
-    const existingSession = get().session
+  setEngine: (identity: IdentityState, reportId?: string) => {
+    const engine = createSessionEngine(identity, reportId)
+    const current = get()
+    const previousEngine = current.engine
+    if (previousEngine && previousEngine !== engine) {
+      previousEngine.cancelPendingSaves?.()
+      engineDraftStates.set(previousEngine, {
+        hasUnsavedChanges: current.hasUnsavedChanges,
+        dirtyVersion: current.dirtyVersion,
+        restorationComplete: current.restorationComplete,
+      })
+      if (!current.hasUnsavedChanges && !current.isSaving) releaseSessionEngine(previousEngine)
+      invalidateActiveLoads()
+      const session = engine.getSession()
+      set({
+        engine,
+        engineRevision: current.engineRevision + 1,
+        session,
+        status: session ? 'loaded' : 'idle',
+        errorMessage: null,
+        renderError: null,
+        isSaving: false,
+        saveErrorMessage: null,
+        hasUnsavedChanges: false,
+        dirtyVersion: 0,
+        restorationComplete: false,
+        ...engineDraftStates.get(engine),
+      })
+      return
+    }
+    const existingSession = current.session
 
     if (existingSession) {
       engine.hydrateSession(existingSession)
@@ -521,6 +563,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       errorMessage: null,
       renderError: null,
       isSaving: false,
+      saveErrorMessage: null,
+      engineRevision: get().engineRevision + 1,
       lastSaved: null,
       hasUnsavedChanges: false,
       dirtyVersion: 0,
