@@ -7,6 +7,7 @@
  * @module utils/sessionCacheManager
  */
 
+import { reportAccessScope } from './reportAccessScope'
 import type { ValuationSession } from '../types/valuation'
 import { createContextLogger } from './logger'
 import { sanitizeSessionData, validateSessionData } from './sessionValidation'
@@ -90,7 +91,7 @@ export class SessionCacheManager {
    * Cache key for report
    */
   private getCacheKey(reportId: string): string {
-    return `${CACHE_PREFIX}${reportId}`
+    return `${CACHE_PREFIX}${reportAccessScope()}:${reportId}`
   }
 
   private stripSessionForStorage(session: ValuationSession): ValuationSession {

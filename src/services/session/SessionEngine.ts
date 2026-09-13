@@ -41,6 +41,9 @@ export interface ISessionEngine {
    */
   hydrateSession(updates: Partial<ValuationSession>): void
 
+  /** Adopt a UUID only after a successful server save confirms the alias. */
+  promoteReportIdentity?(previousId: string, reportId: string): void
+
   /**
    * Save session to backend
    * Backend persistence (auto-save or explicit user action)

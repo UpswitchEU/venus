@@ -189,6 +189,13 @@ export class AuthenticatedSessionEngine implements ISessionEngine {
     this.localMutationVersion += 1
   }
 
+  promoteReportIdentity(previousId: string, reportId: string): void {
+    if (this.currentSession?.reportId !== previousId) return
+    this.requestedReportId = reportId
+    this.currentSession = { ...this.currentSession, reportId }
+    this.sessionLifecycleVersion += 1
+  }
+
   hydrateSession(updates: Partial<ValuationSession>): void {
     if (!this.currentSession) {
       const initialSession = createAuthenticatedSessionFromUpdate(

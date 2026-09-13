@@ -523,7 +523,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
     const rawEffectiveError =
-      error || (bootstrap?.bootstrapError && stage === 'error' ? bootstrap.bootstrapError : null)
+      error || bootstrap?.bootstrapError || null
     const effectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
 
     // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session
@@ -531,7 +531,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     useEffect(() => {
       if (typeof window === 'undefined') return
       if (isBootstrapping || !bootstrapComplete) return
-      if (!bootstrapMismatch || !effectiveError) return
+      if (!bootstrapMismatch || !effectiveError || sessionHasAssets) return
       if (status !== 'error') return
       if (showCreditError || paywallData) return
       if (staleRecoveryAttemptedRef.current) return
@@ -548,6 +548,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       isBootstrapping,
       bootstrapComplete,
       bootstrapMismatch,
+      sessionHasAssets,
       effectiveError,
       status,
       pathname,
@@ -563,7 +564,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         {children({
           session,
           stage: resolvedStage,
-          isLoading,
+          isLoading: isLoading && !(session?.reportId === reportId && sessionHasAssets),
           error: effectiveError,
           errorPresentation: advisorErrorPresentation,
           showOutOfCreditsModal: false, // TODO: Re-implement if needed

@@ -3,6 +3,7 @@ import {
   BOOTSTRAP_TIMEOUT_USER_MESSAGE,
   SESSION_NOT_READY_USER_MESSAGE,
 } from '../lib/bootstrap/bootstrapUserMessages'
+import { hasAssetsInSession } from '../lib/mercury/sessionReadiness'
 import { SessionRestorationService } from '../services/session/SessionRestorationService'
 import { sessionService } from '../services/session/SessionService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
@@ -262,6 +263,9 @@ export function useValuationSessionLoader({
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
+        const live = useSessionStore.getState()
+        if (!isMounted || (live.session && live.session.reportId !== reportId)) return
+        if (live.session?.reportId === reportId && hasAssetsInSession(live.session)) return
         generalLogger.warn('[SessionManager] Session load timeout, resetting state', { reportId })
         useSessionStore.getState().cancelActiveLoad(reportId)
         useSessionStore.setState({
@@ -280,7 +284,7 @@ export function useValuationSessionLoader({
           loadingInitiatedRef.current = null
         }
 
-        if (!isMounted) {
+        if (!isMounted || (useSessionStore.getState().session && useSessionStore.getState().session?.reportId !== reportId)) {
           generalLogger.debug('[SessionManager] Load completed after unmount, ignoring', {
             reportId,
           })
@@ -311,7 +315,7 @@ export function useValuationSessionLoader({
           loadingInitiatedRef.current = null
         }
 
-        if (!isMounted) {
+        if (!isMounted || (useSessionStore.getState().session && useSessionStore.getState().session?.reportId !== reportId)) {
           generalLogger.debug('[SessionManager] Load failed after unmount, ignoring', {
             reportId,
           })

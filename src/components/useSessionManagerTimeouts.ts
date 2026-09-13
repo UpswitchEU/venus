@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../lib/auth'
+import { hasAssetsInSession } from '../lib/mercury/sessionReadiness'
 import { useSessionStore } from '../store/useSessionStore'
 import { generalLogger } from '../utils/logger'
 import type { Stage } from './ValuationSessionManager.stage'
@@ -59,6 +60,10 @@ export function useSessionManagerTimeouts({
     if (stage !== 'loading') return
 
     const maxLoadingTimer = setTimeout(() => {
+      const current = useSessionStore.getState()
+      if (current.session?.reportId && current.session.reportId !== reportId) return
+      if (current.session?.reportId === reportId && (current.status === 'loaded' || hasAssetsInSession(current.session))) return
+      current.cancelActiveLoad(reportId)
       const snapshot = loadingTimeoutSnapshotRef.current
       generalLogger.error('[SessionManager] Max loading time exceeded', {
         reportId,

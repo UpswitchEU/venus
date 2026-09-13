@@ -1,9 +1,13 @@
 import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
 import type { BootstrapContext, SessionBootstrapState } from './types'
+import type { ValuationSession } from '../../types/valuation'
+import { reportAccessScope } from '../../utils/reportAccessScope'
 
 let bootstrapCompletedGlobally = false
 let lastGlobalResult: SessionBootstrapState | null = null
 let lastGlobalContextKey: string | null = null
+let lastGlobalContext: BootstrapContext | null = null
+let lastGlobalAccessScope: string | null = null
 
 export function hasScopedGlobalBootstrapResult(): boolean {
   return bootstrapCompletedGlobally
@@ -17,6 +21,8 @@ export function clearScopedGlobalBootstrapResult(): void {
   bootstrapCompletedGlobally = false
   lastGlobalResult = null
   lastGlobalContextKey = null
+  lastGlobalContext = null
+  lastGlobalAccessScope = null
 }
 
 export function getScopedGlobalBootstrapResult(
@@ -26,6 +32,7 @@ export function getScopedGlobalBootstrapResult(
   const requestedReportKey = getBootstrapReportCacheKey(context?.reportId)
   if (
     !bootstrapCompletedGlobally ||
+    lastGlobalAccessScope !== reportAccessScope() ||
     lastGlobalContextKey !== requestedContextKey ||
     !lastGlobalResult
   ) {
@@ -58,4 +65,27 @@ export function rememberScopedGlobalBootstrapResult(
   bootstrapCompletedGlobally = true
   lastGlobalResult = result
   lastGlobalContextKey = requestedContextKey
+  lastGlobalContext = context ? { ...context } : null
+  lastGlobalAccessScope = reportAccessScope()
+}
+
+/** Carry the already-authorized bootstrap across Titan's session-key → UUID promotion. */
+export function promoteScopedBootstrapReport(previousId: string, session: ValuationSession): void {
+  if (!lastGlobalResult || !lastGlobalContext || lastGlobalAccessScope !== reportAccessScope()) return
+  if (![previousId, session.reportId].includes(lastGlobalResult.report.reportId)) return
+  const result: SessionBootstrapState = {
+    ...lastGlobalResult,
+    report: {
+      ...lastGlobalResult.report,
+      reportId: session.reportId,
+      mode: 'existing',
+      status: 'completed',
+      hasExistingData: true,
+      hasValuationResult: true,
+      reportReady: session.reportReady,
+    },
+    // The session store already owns the new result; an older package must not overwrite it.
+    valuationPackage: undefined,
+  }
+  rememberScopedGlobalBootstrapResult({ ...lastGlobalContext, reportId: session.reportId }, result)
 }

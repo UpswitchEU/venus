@@ -21,13 +21,23 @@ import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '
 import type { ValuationResponse } from '../../types/valuation'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
-import { promoteSavedReportIdentity } from '../../utils/reportIdentityPromotion'
+import { promoteSavedReportIdentity, resolveSavedReportIdentity, rememberSavedReportAlias } from '../../utils/reportIdentityPromotion'
+import { reportAccessScope } from '../../utils/reportAccessScope'
+import { getCanonicalReportAlias } from '../../utils/reportIdentityPromotion'
 
 const logger = createContextLogger('ReportAssetService')
 
 // Coordinates saveSession with saveReportAssets so a session reload cannot race
 // an in-flight asset write for the same report.
 export const pendingReportAssetSaves = new Map<string, Promise<void>>()
+
+export function reportAssetSaveKey(reportId: string): string {
+  return `${reportAccessScope()}:${getCanonicalReportAlias(reportId) ?? reportId}`
+}
+
+export function pendingReportAssetSave(reportId: string): Promise<void> | undefined {
+  return pendingReportAssetSaves.get(reportAssetSaveKey(reportId))
+}
 
 type ReportAssets = {
   sessionData?: Record<string, unknown>
@@ -100,7 +110,9 @@ export class ReportAssetService {
    */
   async saveReportAssets(reportId: string, assets: ReportAssets): Promise<void> {
     const assetsSnapshot = snapshotReportAssets(assets)
-    const previousSave = pendingReportAssetSaves.get(reportId)
+    const accessScope = reportAccessScope()
+    const queueKey = reportAssetSaveKey(reportId)
+    const previousSave = pendingReportAssetSave(reportId)
     if (previousSave) {
       logger.info('[ReportAssetService] Queueing report asset save behind pending save', {
         reportId,
@@ -110,14 +122,17 @@ export class ReportAssetService {
 
     const savePromise = (previousSave ?? Promise.resolve())
       .catch(() => undefined)
-      .then(() => this._saveReportAssetsInternal(reportId, assetsSnapshot))
-    pendingReportAssetSaves.set(reportId, savePromise)
+      .then(() => {
+        if (reportAccessScope() !== accessScope) throw new Error('Report save cancelled: client context changed')
+        return this._saveReportAssetsInternal(reportId, assetsSnapshot)
+      })
+    pendingReportAssetSaves.set(queueKey, savePromise)
 
     try {
       await savePromise
     } finally {
-      if (pendingReportAssetSaves.get(reportId) === savePromise) {
-        pendingReportAssetSaves.delete(reportId)
+      if (pendingReportAssetSaves.get(queueKey) === savePromise) {
+        pendingReportAssetSaves.delete(queueKey)
       }
     }
   }
@@ -127,6 +142,7 @@ export class ReportAssetService {
     assets: ReportAssets
   ): Promise<void> {
     const startTime = performance.now()
+    const accessScope = reportAccessScope()
 
     try {
       logger.info('Saving complete report package', {
@@ -189,7 +205,7 @@ export class ReportAssetService {
         name: assets.name,
       })
       const putResultDuration = performance.now() - putResultStartTime
-      const identity = promoteSavedReportIdentity({
+      const identity = resolveSavedReportIdentity({
         previousId: reportId,
         response: saveResponse,
         valuationResult: assets.valuationResult,
@@ -210,131 +226,54 @@ export class ReportAssetService {
         timestamp: new Date().toISOString(),
       })
 
-      // Trigger the optional asset-save callback for toast notification.
-      try {
-        const { useSessionStore } = await import('../../store/useSessionStore')
-        const state = useSessionStore.getState()
-        if (state.onAssetSaveSuccess) {
-          state.onAssetSaveSuccess()
-        }
-      } catch (callbackError) {
-        // Don't fail the save if callback fails
-        logger.warn('[ReportAssetService] Failed to trigger asset save success callback', {
-          reportId,
-          error: callbackError instanceof Error ? callbackError.message : String(callbackError),
-        })
-      }
+      const { useSessionStore } = await import('../../store/useSessionStore')
+      const isStillTarget = () =>
+        reportAccessScope() === accessScope &&
+        [reportId, canonicalReportId].includes(useSessionStore.getState().session?.reportId ?? '')
+      if (!isStillTarget()) return
 
-      // Update cache with fresh data so refresh loads the completed valuation immediately.
-      try {
+      const { globalSessionCache } = await import('../../utils/sessionCacheManager')
+      const { promoteScopedBootstrapReport } = await import('../../lib/bootstrap/BootstrapProviderCache')
+      if (!isStillTarget()) return
+      const current = useSessionStore.getState()
+      const previousSession = current.session!
+      const authoritative = saveResponse.session
+      const savedSession = {
+        ...previousSession,
+        ...authoritative,
+        reportId: canonicalReportId,
+        sessionData: { ...authoritative?.sessionData, ...previousSession.sessionData },
+        valuationResult: authoritative?.valuationResult ?? assets.valuationResult ?? previousSession.valuationResult,
+        htmlReport: authoritative?.htmlReport || assets.htmlReport || previousSession.htmlReport,
+        reportReady: saveResponse.reportReady ?? authoritative?.reportReady ?? false,
+      }
+      // Commit all render state before navigation is observable. Missing read-back
+      // assets never erase the result already returned by the calculation.
+      globalSessionCache.set(canonicalReportId, savedSession)
+      if (canonicalReportId !== reportId) globalSessionCache.set(reportId, savedSession)
+      rememberSavedReportAlias({ previousId: reportId, response: saveResponse })
+      useSessionStore.getState().commitSavedReport(reportId, savedSession)
+      promoteScopedBootstrapReport(reportId, savedSession)
+      // Expose both confirmed aliases to the same queue before navigation can
+      // enqueue another write under the UUID.
+      const oldQueueKey = `${accessScope}:${getCanonicalReportAlias(reportId) ?? reportId}`
+      const canonicalQueueKey = `${accessScope}:${canonicalReportId}`
+      const pending = pendingReportAssetSaves.get(oldQueueKey)
+      if (pending && oldQueueKey !== canonicalQueueKey) {
+        pendingReportAssetSaves.set(canonicalQueueKey, pending)
+        void pending.finally(() => {
+          if (pendingReportAssetSaves.get(canonicalQueueKey) === pending) pendingReportAssetSaves.delete(canonicalQueueKey)
+        }).catch(() => undefined)
+      }
+      promoteSavedReportIdentity({ previousId: reportId, response: saveResponse, valuationResult: assets.valuationResult })
+      current.onAssetSaveSuccess?.()
+      // Recovery is background-only; a committed report does not need another
+      // mandatory read on the same database connection that just completed its save.
+      if (!savedSession.reportReady) {
         const { sessionService } = await import('../session/SessionService')
-        const { globalSessionCache } = await import('../../utils/sessionCacheManager')
-        const { useSessionStore } = await import('../../store/useSessionStore')
-        const authoritativeSession = saveResponse.session
-
-        logger.info('[ReportAssetService] Starting cache update after report save', {
-          reportId,
-          hasHtmlReport: !!assets.htmlReport,
-          hasAuthoritativeSession: !!authoritativeSession,
-          reportReady: saveResponse.reportReady ?? authoritativeSession?.reportReady ?? null,
-        })
-
-        // Resilience: never invalidate the cache *before* we have a replacement
-        // in hand. The save succeeded — the page is on a valid reportId that
-        // shouldn't briefly look stateless.
-        //
-        // History: Titan used to occasionally return PUT /result with `session`
-        // omitted (e.g. the rpt_<uuid> session-key UUID-cast regression in
-        // SessionService.findOne). When we cleared the cache unconditionally
-        // here and the follow-up loadSession also degraded, the page lost all
-        // session state and the bootstrap fallback minted a fresh
-        // `val_<timestamp>_v<rand>` reportId. The browser then polled
-        // `/reports/by-session/<new-val-id>` forever and the skeleton never
-        // resolved.
-        if (authoritativeSession) {
-          const canonicalSession = {
-            ...authoritativeSession,
-            reportId: canonicalReportId,
-          }
-          globalSessionCache.set(canonicalReportId, canonicalSession)
-          if (canonicalReportId !== reportId) {
-            globalSessionCache.set(reportId, canonicalSession)
-          }
-          useSessionStore.getState().hydrateSession(canonicalSession)
-        }
-
-        const needsImmediateReload =
-          !authoritativeSession ||
-          authoritativeSession.reportReady === false ||
-          saveResponse.reportReady === false
-
-        if (!needsImmediateReload) {
-          sessionService.revalidateSessionInBackground(canonicalReportId)
-          logger.info(
-            '[ReportAssetService] Cache updated from authoritative PUT /result response',
-            {
-              reportId,
-              hasValuationResult: !!authoritativeSession.valuationResult,
-              hasHtmlReport: !!authoritativeSession.htmlReport,
-              hasSessionData: !!authoritativeSession.sessionData,
-            }
-          )
-        } else {
-          const reloadStartTime = performance.now()
-          // loadSession is cache-first; force a fresh fetch by removing the
-          // stale entry first. We restore it below if the reload succeeds,
-          // and leave the previous (pre-save) cache intact if the reload
-          // fails so the page can keep rendering the same reportId.
-          const preSaveCache =
-            globalSessionCache.get(canonicalReportId) ?? globalSessionCache.get(reportId)
-          globalSessionCache.remove(canonicalReportId)
-          let freshSession = await sessionService.loadSession(canonicalReportId)
-
-          if (freshSession && freshSession.reportReady === false) {
-            logger.warn(
-              '[ReportAssetService] Immediate reload still not report-ready, retrying once',
-              {
-                reportId,
-              }
-            )
-            freshSession = await sessionService.loadSession(canonicalReportId)
-          }
-
-          if (freshSession) {
-            const canonicalFreshSession = { ...freshSession, reportId: canonicalReportId }
-            globalSessionCache.set(canonicalReportId, canonicalFreshSession)
-            useSessionStore.getState().hydrateSession(canonicalFreshSession)
-            logger.info('[ReportAssetService] Cache updated from immediate post-save reload', {
-              reportId,
-              reloadDuration_ms: (performance.now() - reloadStartTime).toFixed(2),
-              hasValuationResult: !!freshSession.valuationResult,
-              hasHtmlReport: !!freshSession.htmlReport,
-              reportReady: freshSession.reportReady ?? null,
-            })
-          } else {
-            // Reload failed — restore the pre-save cache so the page keeps
-            // its session state and we don't trigger the bootstrap fallback
-            // that mints a fresh `val_<timestamp>_v<rand>` reportId.
-            if (preSaveCache) {
-              globalSessionCache.set(canonicalReportId, preSaveCache)
-            }
-            logger.error(
-              '[ReportAssetService] Failed to reload session after report save - restored pre-save cache',
-              { reportId, hadPreSaveCache: !!preSaveCache }
-            )
-          }
-        }
-      } catch (cacheError) {
-        // Don't fail the entire save operation if cache update fails
-        logger.error(
-          '[ReportAssetService] Failed to update cache after report save - exception thrown',
-          {
-            reportId,
-            error: getErrorMessage(cacheError),
-            stack: cacheError instanceof Error ? cacheError.stack : undefined,
-          }
-        )
+        if (isStillTarget()) sessionService.revalidateSessionInBackground(canonicalReportId)
       }
+
     } catch (error) {
       const duration = performance.now() - startTime
 

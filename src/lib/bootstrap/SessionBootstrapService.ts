@@ -12,6 +12,7 @@
  * @module lib/bootstrap/SessionBootstrapService
  */
 
+import { reportAccessScope } from '../../utils/reportAccessScope'
 import { getIdentifierType, isUuid } from '../../utils/identifiers'
 import { getInitTraceId } from '../auth'
 import { syncBootstrapClientContext } from './BootstrapClientContextSync'
@@ -96,6 +97,7 @@ export class SessionBootstrapService {
   // This survives component remounts because the service is a module-level singleton.
   private static readonly RESULT_CACHE_TTL_MS = 10_000
   private lastSuccessfulResult: SessionBootstrapState | null = null
+  private lastSuccessfulAccessScope: string | null = null
   private lastSuccessfulAt = 0
   private lastSuccessfulCacheKey: string | null = null
 
@@ -113,6 +115,7 @@ export class SessionBootstrapService {
     result: SessionBootstrapState,
     cacheKey: string
   ): SessionBootstrapState {
+    this.lastSuccessfulAccessScope = reportAccessScope()
     this.lastSuccessfulResult = result
     this.lastSuccessfulAt = Date.now()
     this.lastSuccessfulCacheKey = cacheKey
@@ -226,6 +229,7 @@ export class SessionBootstrapService {
    * Used by BootstrapProvider to avoid re-triggering bootstrap after remounts.
    */
   hasCompletedFor(contextOrReportId: BootstrapContext | string | undefined): boolean {
+    if (this.lastSuccessfulAccessScope !== reportAccessScope()) return false
     return hasCompletedBootstrapFor({
       contextOrReportId,
       lastSuccessfulAt: this.lastSuccessfulAt,
@@ -242,6 +246,7 @@ export class SessionBootstrapService {
    * to allow a forced re-fetch.
    */
   clearCache(): void {
+    this.lastSuccessfulAccessScope = null
     this.lastSuccessfulResult = null
     this.lastSuccessfulAt = 0
     this.lastSuccessfulCacheKey = null
@@ -271,6 +276,7 @@ export class SessionBootstrapService {
    * so a rapid SPA navigation cannot hydrate another report's payload.
    */
   getCachedResult(contextOrReportId?: BootstrapContext | string): SessionBootstrapState | null {
+    if (this.lastSuccessfulAccessScope !== reportAccessScope()) return null
     return getScopedBootstrapCachedResult({
       contextOrReportId,
       lastSuccessfulAt: this.lastSuccessfulAt,
@@ -341,7 +347,7 @@ export class SessionBootstrapService {
       }
     }
 
-    const titanCacheKey = buildTitanBootstrapCacheKey(cacheKey)
+    const titanCacheKey = `${reportAccessScope()}:${buildTitanBootstrapCacheKey(cacheKey)}`
 
     // Guard 3: Dedup in-flight request (only while delegated gate still matches the URL)
     const inflight = this.bootstrapPromiseCache.get(titanCacheKey)
@@ -440,6 +446,7 @@ export class SessionBootstrapService {
       })
 
       // Make request (proxy handles 401 refresh; no client-side retry on 401).
+      const requestScope = reportAccessScope()
       const { data, responseStatus } = await fetchTitanBootstrapPayloadWithStructuredRetry({
         bootstrapAbortControllers: this.bootstrapAbortControllers,
         getCancellationEpoch: () => this.bootstrapCancellationEpoch,
@@ -450,6 +457,8 @@ export class SessionBootstrapService {
         traceId,
         startTime,
       })
+
+      if (reportAccessScope() !== requestScope) throw new Error('Bootstrap cancelled: client context changed')
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
       if (hints.hasClientToken) {

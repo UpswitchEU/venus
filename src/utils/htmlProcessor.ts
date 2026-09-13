@@ -424,6 +424,7 @@ export class HTMLProcessor {
     }) as unknown as DocumentFragment
 
     fragment.appendChild(ownerDocument.importNode(sanitizedNodes, true))
+    fragment.querySelectorAll('.report-assurance-banner--start-proposal').forEach((banner) => banner.remove())
     return fragment
   }
 

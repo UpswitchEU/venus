@@ -39,8 +39,8 @@ export async function saveValuationSession(
   const startTime = performance.now()
 
   try {
-    const { pendingReportAssetSaves } = await import('../report/ReportAssetService')
-    const pendingSave = pendingReportAssetSaves.get(reportId)
+    const { pendingReportAssetSave } = await import('../report/ReportAssetService')
+    const pendingSave = pendingReportAssetSave(reportId)
     if (pendingSave) {
       logger.debug('Waiting for pending asset save before reloading session', {
         reportId,
@@ -171,75 +171,21 @@ export async function saveValuationSession(
           : 0,
       })
     } else {
-      logger.debug('Backend did not return session data, reloading session', { reportId })
-      globalSessionCache.remove(reportId)
-
-      let reloadedSession: ValuationSession | null = null
-      const maxRetries = 5
-      const initialDelay = 200
-      const maxDelay = 2000
-
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        if (attempt > 0) {
-          const delay = Math.min(initialDelay * Math.pow(2, attempt - 1), maxDelay)
-          const jitter = delay * 0.2 * (Math.random() - 0.5)
-          const finalDelay = Math.max(0, delay + jitter)
-
-          logger.debug(`Waiting ${finalDelay.toFixed(0)}ms before retry attempt ${attempt + 1}`, {
-            reportId,
-            baseDelay: delay,
-            jitter: jitter.toFixed(0),
-          })
-
-          await new Promise((resolve) => setTimeout(resolve, finalDelay))
-        }
-
-        reloadedSession = await loadSession(reportId)
-        if (reloadedSession) {
-          logger.debug('Session reloaded successfully after save', {
-            reportId,
-            attempt: attempt + 1,
-            totalRetries: maxRetries,
-          })
-          break
-        }
-
-        logger.debug(`Reload attempt ${attempt + 1}/${maxRetries} failed, retrying...`, {
-          reportId,
-        })
-      }
-
-      if (!reloadedSession) {
-        logger.warn('Failed to reload session after save, creating minimal session object', {
-          reportId,
-          retriesAttempted: maxRetries,
-        })
+      // A successful lightweight PATCH need not read the database again. Preserve
+      // the last report and local edits while applying the acknowledged fields.
+      const liveSession = useSessionStore.getState().session
+      if (liveSession?.reportId === reportId) {
         mergedSession = {
-          reportId,
-          currentView: (currentView as 'manual' | 'conversational') || 'manual',
-          dataSource: (currentView === 'conversational' ? 'conversational' : 'manual') as
-            | 'manual'
-            | 'conversational'
-            | 'mixed',
-          sessionData: sessionData || {},
-          partialData: {},
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          valuationResult: undefined,
-          htmlContent: undefined,
-          isComplete: false,
-          stage: 1,
-          status: 'draft',
+          ...liveSession,
+          sessionData: { ...liveSession.sessionData, ...sessionData },
+          currentView,
           ...(name !== undefined && { name }),
-        } as unknown as ValuationSession
-      } else {
-        mergedSession = reloadedSession
-        if (name !== undefined && mergedSession.name === undefined) {
-          mergedSession = {
-            ...mergedSession,
-            name,
-          }
+          updatedAt: new Date(),
         }
+      } else {
+        const reloaded = await loadSession(reportId)
+        if (!reloaded) throw new Error('Saved session could not be retrieved')
+        mergedSession = reloaded
       }
     }
 

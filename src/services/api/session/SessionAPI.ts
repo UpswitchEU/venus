@@ -63,7 +63,6 @@ import {
   SESSION_PATCH_TIMEOUT_MS as DEFAULT_SESSION_PATCH_TIMEOUT_MS,
   patchValuationSessionWithTransientRetry,
 } from './SessionApiPatchRetry'
-import { retryRateLimitedSessionPatch } from './SessionApiRateLimitRecovery'
 import {
   SESSION_DELETION_TOMBSTONE_TTL_MS,
   SessionDeletionTombstoneStore,
@@ -322,22 +321,6 @@ export class SessionAPI extends HttpClient {
       return normalizeUpdateSessionResponse(response)
     } catch (error) {
       const axiosError = toAxiosLikeError(error)
-
-      // ✅ WORLD-CLASS FIX: Handle 429 rate limit with exponential backoff
-      if (axiosError.response?.status === 429) {
-        try {
-          return await retryRateLimitedSessionPatch({
-            isCriticalUpdate: isCriticalSessionUpdate(updates),
-            patchSession: () =>
-              this.patchValuationSessionWithTransientRetry(reportId, patchBody, options),
-            reportId,
-            updateKeys: Object.keys(updates.updates || {}),
-          })
-        } catch (retryError) {
-          // Critical update failed - re-throw
-          this.handleSessionError(retryError, 'update session')
-        }
-      }
 
       if (axiosError.response?.status === 404) {
         return recoverMissingSessionUpdate({

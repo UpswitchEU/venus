@@ -1,9 +1,11 @@
 import type { DelegatedMercuryHandoffSignals } from '../lib/mercury/sessionReadiness'
 import {
   canRenderReportSession,
+  hasAssetsInSession,
   shouldAllowOptimisticMercuryRender,
 } from '../lib/mercury/sessionReadiness'
 import type { ValuationSession } from '../types/valuation'
+import { isSameReportIdentity } from '../utils/reportIdentityPromotion'
 
 export type Stage = 'loading' | 'data-entry' | 'processing' | 'flow-selection' | 'error'
 
@@ -34,6 +36,8 @@ export function resolveValuationSessionStage({
   status: string
   urlIndicatesExisting: boolean
 }): Stage {
+  // A background refresh must never unmount a report that is already usable.
+  if (isSameReportIdentity(session?.reportId, reportId) && hasAssetsInSession(session)) return 'data-entry'
   if (
     !isLoading &&
     !isInitializing &&

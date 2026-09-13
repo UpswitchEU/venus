@@ -139,6 +139,7 @@ export interface SessionStore {
    * commit so the loaded state is internally consistent.
    */
   hydrateSessionAndComplete: (updates: Partial<ValuationSession>) => void
+  commitSavedReport: (previousId: string, session: ValuationSession) => void
 
   // Restoration actions
   setRestorationComplete: (value: boolean) => void
@@ -263,6 +264,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       reportId: builtSession.reportId.substring(0, 30),
       identityType: identity.type,
     })
+  },
+
+  commitSavedReport: (previousId, session) => {
+    const current = get()
+    if (![previousId, session.reportId].includes(current.session?.reportId ?? '')) return
+    invalidateActiveLoads(previousId)
+    current.engine?.promoteReportIdentity?.(previousId, session.reportId)
+    current.engine?.hydrateSession(session)
+    set({ session, status: 'loaded', errorMessage: null, renderError: null })
   },
 
   hydrateSessionAndComplete: (updates: Partial<ValuationSession>) => {

@@ -15,7 +15,7 @@ import { useTranslations } from 'next-intl'
 import React, { lazy, Suspense, useMemo } from 'react'
 import { AuroraButton, GlassCard } from '@/design-system'
 import { generalLogger } from '@/utils/logger'
-import { useSessionStore } from '../store/useSessionStore'
+import { hasAssetsInSession } from '../lib/mercury/sessionReadiness'
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
 import { CalculatorShellSkeleton } from './calculator'
 import { ErrorState } from './ErrorState'
@@ -211,7 +211,8 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       return <CalculatorShellSkeleton />
     }
 
-    if (stage === 'error' || error) {
+    const hasUsableReport = session?.reportId === reportId && hasAssetsInSession(session)
+    if (stage === 'error' || (error && !hasUsableReport)) {
       return (
         <div className="flex items-center justify-center h-full p-4">
           <ErrorState
@@ -237,10 +238,16 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       const flowType = 'manual' as const
 
       return (
-        <div className="relative h-full w-full">
+        <div className="relative h-full w-full flex flex-col">
+          {error && hasUsableReport ? (
+            <div role="alert" className="flex shrink-0 items-center justify-between gap-3 border-b border-warning/30 bg-warning/10 px-4 py-2 text-sm">
+              <span>{error}</span>
+              {onRetry ? <AuroraButton variant="ghost" size="sm" onClick={onRetry}>{tErrors('errorState.tryAgain')}</AuroraButton> : null}
+            </div>
+          ) : null}
           {/* Render unified flow component based on session view */}
           {/* Smooth fade-in when skeleton transitions to content (smoother Mercury→Venus feel) */}
-          <div key={flowKey} className="absolute inset-0 aurora-fade-in">
+          <div key={flowKey} className="relative min-h-0 flex-1 aurora-fade-in">
             <Suspense
               fallback={null}
               // ✅ WORLD CLASS: Remove Suspense fallback - loading handled upstream by ValuationSessionManager

@@ -7,15 +7,12 @@ import {
   type AuthenticatedSessionSaveReason,
   shouldSkipAutosavePayload,
 } from './AuthenticatedSessionConcurrencyModel'
-import { isRetryableSessionSaveError } from './AuthenticatedSessionSaveErrorPolicy'
 import {
   autosavePayloadFingerprint,
   buildAuthenticatedSessionSavePayload,
   mergeQueuedLocalSession,
 } from './AuthenticatedSessionSavePayload'
 
-const MAX_SESSION_SAVE_ATTEMPTS = 2
-const SESSION_SAVE_BACKOFF_MS = [1000, 3000]
 
 export interface AuthenticatedSessionSaveExecutorState {
   currentSession: ValuationSession | null
@@ -41,9 +38,6 @@ export interface AuthenticatedSessionSaveExecutorOptions {
   sleepMs?: (delayMs: number) => Promise<void>
 }
 
-const defaultSleepMs = (delayMs: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, delayMs))
-
 export async function executeAuthenticatedSessionSave({
   reason,
   queueReportId,
@@ -54,11 +48,11 @@ export async function executeAuthenticatedSessionSave({
   normalizeReportId,
   setLastPersistedSaveFingerprint,
   saveSession = sessionService.saveSession.bind(sessionService),
-  sleepMs = defaultSleepMs,
 }: AuthenticatedSessionSaveExecutorOptions): Promise<number> {
   if (!getState().currentSession) return getState().localMutationVersion
 
-  for (let attempt = 0; attempt < MAX_SESSION_SAVE_ATTEMPTS; attempt++) {
+  // SessionAPI owns the sole transport retry budget.
+  {
     if (!isActiveSaveQueue(queueReportId, queueLifecycleVersion)) {
       return getState().localMutationVersion
     }
@@ -115,18 +109,10 @@ export async function executeAuthenticatedSessionSave({
         normalizeReportId()
 
         const afterMerge = getState()
-        if (attempt > 0) {
-          generalLogger.info('[AuthenticatedSessionEngine] Session saved after retry', {
-            reportId: afterMerge.currentSession?.reportId ?? reportIdAtSend,
-            reason,
-            attempt: attempt + 1,
-          })
-        } else {
-          generalLogger.debug('[AuthenticatedSessionEngine] Session saved to backend', {
-            reportId: afterMerge.currentSession?.reportId ?? reportIdAtSend,
-            reason,
-          })
-        }
+        generalLogger.debug('[AuthenticatedSessionEngine] Session saved to backend', {
+          reportId: afterMerge.currentSession?.reportId ?? reportIdAtSend,
+          reason,
+        })
       }
 
       setLastPersistedSaveFingerprint(payloadFingerprint)
@@ -145,31 +131,12 @@ export async function executeAuthenticatedSessionSave({
         return latestState.localMutationVersion
       }
 
-      const latestState = getState()
-      const isRetryableError = isRetryableSessionSaveError(error)
-      const isLastAttempt = attempt >= MAX_SESSION_SAVE_ATTEMPTS - 1
-
-      if (!isRetryableError || isLastAttempt) {
-        generalLogger.error('[AuthenticatedSessionEngine] Failed to save session', {
-          reportId: latestState.currentSession?.reportId,
-          reason,
-          attempt: attempt + 1,
-          isRetryableError,
-          error: error instanceof Error ? error.message : String(error),
-        })
-        throw error
-      }
-
-      generalLogger.warn('[AuthenticatedSessionEngine] Transient save error, retrying', {
-        reportId: latestState.currentSession?.reportId,
-        attempt: attempt + 1,
-        backoffMs: SESSION_SAVE_BACKOFF_MS[attempt],
+      generalLogger.error('[AuthenticatedSessionEngine] Failed to save session', {
+        reportId: getState().currentSession?.reportId,
+        reason,
         error: error instanceof Error ? error.message : String(error),
       })
-
-      await sleepMs(SESSION_SAVE_BACKOFF_MS[attempt])
+      throw error
     }
   }
-
-  return getState().localMutationVersion
 }

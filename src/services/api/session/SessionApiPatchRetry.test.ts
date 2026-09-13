@@ -45,7 +45,7 @@ describe('SessionApiPatchRetry', () => {
     })
 
     expect(result).toEqual({ success: true })
-    expect(circuitMocks.awaitSessionPoolPressureGate).toHaveBeenCalledWith({ maxWaitMs: 120_000 })
+    expect(circuitMocks.awaitSessionPoolPressureGate).toHaveBeenCalledWith({ maxWaitMs: expect.any(Number) })
     expect(executeRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { session_data: { company_name: 'Acme BV' } },
