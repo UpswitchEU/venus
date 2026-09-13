@@ -6,6 +6,7 @@ export function deepEqual(objA: unknown, objB: unknown): boolean {
   if (typeof objA !== 'object' || objA === null || typeof objB !== 'object' || objB === null) {
     return false
   }
+  if (Array.isArray(objA) !== Array.isArray(objB)) return false
 
   const recordA = objA as Record<string, unknown>
   const recordB = objB as Record<string, unknown>

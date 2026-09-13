@@ -29,6 +29,7 @@ import {
   resolveCurrentYearFinancialBasis,
 } from '../utils/currentYearFinancialBasis'
 import { debounceWithFlush } from '../utils/debounce'
+import { deepEqual } from '../utils/deepEqual'
 import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
@@ -533,8 +534,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         // does not carry. Never write when the actual outgoing patch is equal.
         const persistedFields = (currentSession.sessionData ?? {}) as Record<string, unknown>
         if (
-          Object.entries(sessionUpdate).every(
-            ([key, value]) => JSON.stringify(value) === JSON.stringify(persistedFields[key])
+          Object.entries(sessionUpdate).every(([key, value]) =>
+            deepEqual(value, persistedFields[key])
           )
         )
           return

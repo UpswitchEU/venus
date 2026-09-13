@@ -20,5 +20,9 @@ describe('deepEqual', () => {
   it('distinguishes objects from null and primitives', () => {
     expect(deepEqual(null, {})).toBe(false)
     expect(deepEqual(1, '1')).toBe(false)
+    expect(deepEqual([], {})).toBe(false)
+    expect(deepEqual([1], { 0: 1 })).toBe(false)
+    expect(deepEqual([1, 2], [2, 1])).toBe(false)
+    expect(deepEqual({ revenue: 100, year: 2025 }, { year: 2025, revenue: 100 })).toBe(true)
   })
 })

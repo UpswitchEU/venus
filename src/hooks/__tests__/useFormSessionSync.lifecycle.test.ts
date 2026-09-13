@@ -115,7 +115,7 @@ describe('form autosave lifecycle', () => {
     expect(saveSession).toHaveBeenCalledTimes(1)
   })
 
-  it('does not send a PATCH when normalized writable fields already match', async () => {
+  it('does not send a PATCH when PostgreSQL returns matching fields in another key order', async () => {
     renderHook(() => useFormSessionSync({ reportId: 'report-a', formData }))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600)
@@ -123,7 +123,10 @@ describe('form autosave lifecycle', () => {
     const payload = updateSessionData.mock.calls[0][0]
     updateSessionData.mockClear()
     saveSession.mockClear()
-    setSession('report-b', { ...payload, current_year_data: { ...payload.current_year_data } })
+    setSession('report-b', {
+      ...payload,
+      current_year_data: Object.fromEntries(Object.entries(payload.current_year_data).reverse()),
+    })
     renderHook(() => useFormSessionSync({ reportId: 'report-b', formData }))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600)
