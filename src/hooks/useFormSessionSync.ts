@@ -41,6 +41,7 @@ import {
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { NameGenerator } from '../utils/nameGenerator'
+import { reportAccessScope, watchReportAccessScope } from '../utils/reportAccessScope'
 import { canonicalizeTaxLatencyWireArray, TaxLatencyBoundaryError } from '../utils/taxLatencyWire'
 import {
   buildCurrentYearData,
@@ -333,6 +334,13 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
   const deferRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reportIdRef = useRef(reportId)
   reportIdRef.current = reportId
+  const syncTarget = `${reportAccessScope()}:${reportId ?? ''}`
+  const syncTargetRef = useRef(syncTarget)
+  const syncGeneration = useRef(0)
+  if (syncTargetRef.current !== syncTarget) {
+    syncTargetRef.current = syncTarget
+    syncGeneration.current += 1
+  }
   const formDataRef = useRef(formData)
   formDataRef.current = formData
   const isDataEqual = useCallback(
@@ -346,7 +354,12 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
   // This prevents the component from re-rendering when session updates
   // Uses debounceWithFlush for page unload - flush() saves pending changes before tab close
   const debouncedSyncToSession = useCallback(
-    debounceWithFlush(async (data: typeof formData) => {
+    debounceWithFlush(async (data: typeof formData, target: string, generation: number) => {
+      const matchesTarget = () =>
+        target === syncTargetRef.current &&
+        generation === syncGeneration.current &&
+        target === `${reportAccessScope()}:${reportIdRef.current ?? ''}`
+      if (!matchesTarget()) return
       // Guard: don't sync while restoration is in progress to avoid overwriting restored data
       if (!useSessionStore.getState().restorationComplete) {
         return
@@ -374,7 +387,9 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           if (deferRetryTimerRef.current) clearTimeout(deferRetryTimerRef.current)
           deferRetryTimerRef.current = setTimeout(() => {
             deferRetryTimerRef.current = null
-            void debouncedSyncToSession(formDataRef.current)
+            if (matchesTarget()) {
+              void debouncedSyncToSession(formDataRef.current, target, generation)
+            }
           }, deferRemainingMs + 25)
         }
         return
@@ -401,6 +416,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         return
       }
 
+      const access = watchReportAccessScope()
+      const isCurrent = () => matchesTarget() && access.isCurrent()
       try {
         // Convert ValuationFormData to Partial<ValuationRequest> for session
         // ✅ FIX: Include ALL form fields for complete persistence
@@ -512,6 +529,16 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           }
         })
 
+        // Hydration may enrich the form with defaults that the comparator
+        // does not carry. Never write when the actual outgoing patch is equal.
+        const persistedFields = (currentSession.sessionData ?? {}) as Record<string, unknown>
+        if (
+          Object.entries(sessionUpdate).every(
+            ([key, value]) => JSON.stringify(value) === JSON.stringify(persistedFields[key])
+          )
+        )
+          return
+
         // ✅ LOGGING: Verify historical data is synced
         const histForLog = sessionUpdate.historical_years_data
         if (Array.isArray(histForLog)) {
@@ -532,6 +559,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
 
         // ✅ FIX: Update local store first
         await updateSessionData(sessionUpdate as Parameters<typeof updateSessionData>[0])
+        if (!isCurrent()) return
 
         // ✅ NEW: Auto-update valuation name when company_name changes
         // This ensures name is updated immediately as user types
@@ -589,6 +617,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         }
       } catch (err) {
         generalLogger.warn('Failed to sync form data to session', { error: err })
+      } finally {
+        access.dispose()
       }
     }, 500),
     [] // Stable debounced fn — reads reportId via reportIdRef, session via getState()
@@ -609,19 +639,20 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           sourceApp: getMercurySourceApp(),
         })
       }
-      debouncedSyncToSession(formData)
+      debouncedSyncToSession(formData, syncTarget, syncGeneration.current)
     }
-  }, [formData, debouncedSyncToSession, reportId])
+  }, [formData, debouncedSyncToSession, reportId, syncTarget])
 
   useEffect(() => {
     void reportId
     return () => {
+      syncGeneration.current += 1
       if (deferRetryTimerRef.current) {
         clearTimeout(deferRetryTimerRef.current)
         deferRetryTimerRef.current = null
       }
     }
-  }, [reportId])
+  }, [syncTarget])
 
   // Flush pending debounced sync on page unload and tab hide to prevent data loss.
   // NOTE: We do NOT flush in cleanup — that can race with unmount and cause async work after
