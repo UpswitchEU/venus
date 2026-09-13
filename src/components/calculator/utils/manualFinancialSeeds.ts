@@ -7,6 +7,7 @@ import type {
 } from '../../../types/valuation'
 import { getCurrentFilingYear, isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
+import { getReportedFinancialEbitda } from '../../../utils/normalizationMath'
 import {
   getHistoricalYearRange,
   type YearlyFinancialLike,
@@ -181,7 +182,7 @@ const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
       ? { ...(existing as unknown as Record<string, unknown>) }
       : { year: yearStr, revenue: 0, ebitda: 0 }
     const revenue = parseFlexibleNumber(src.revenue)
-    const ebitda = parseFlexibleNumber(src.ebitda)
+    const ebitda = getReportedFinancialEbitda(src)
     baseRow.year = yearStr
     baseRow.revenue = revenue ?? existing?.revenue ?? 0
     baseRow.ebitda = ebitda ?? existing?.ebitda ?? 0

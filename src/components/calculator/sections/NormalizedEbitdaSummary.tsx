@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
-import { hasExplicitNumericValue as hasExplicitFinancialValue } from '../../../utils/yearlyFinancials'
+import { isCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
 import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedData'
 
 interface NormalizedEbitdaSummaryProps {
@@ -38,20 +38,17 @@ export function NormalizedEbitdaSummary({
   const hasAdjustments = normalizedData.years.some(
     (year) => year.totalAdjustment !== 0 || (year.fictiveRentDeduction ?? 0) > 0
   )
-  // Reconcile the header adjustment with the per-year detail card: only count
-  // years that carry a REAL EBITDA figure (explicit and non-zero, non-forecast).
-  // An empty base row (ebitda = 0) would otherwise dilute the average — e.g. a
-  // single €20.906 adjustment shown as +€10.453 because a phantom 0-row doubled
-  // the denominator.
-  const yearsWithEbitda = normalizedData.years.filter(
-    (year) =>
-      !year.isForecast && hasExplicitFinancialValue(year.ebitda) && Number(year.ebitda) !== 0
-  )
+  // Use the same recency weights and complete years as the headline EBITDA.
+  const yearsWithEbitda = normalizedData.years
+    .filter((year) => !year.isForecast && isCompleteYearlyFinancial(year))
+    .sort((a, b) => Number(a.year) - Number(b.year))
   const adjustmentSum = yearsWithEbitda.reduce(
-    (sum, year) => sum + (Number.isFinite(year.totalAdjustment) ? year.totalAdjustment : 0),
+    (sum, year, index) =>
+      sum + (Number.isFinite(year.totalAdjustment) ? year.totalAdjustment : 0) * (index + 1),
     0
   )
-  const averageAdjustment = yearsWithEbitda.length > 0 ? adjustmentSum / yearsWithEbitda.length : 0
+  const totalWeight = (yearsWithEbitda.length * (yearsWithEbitda.length + 1)) / 2
+  const averageAdjustment = totalWeight > 0 ? adjustmentSum / totalWeight : 0
   const safeAverageAdjustment = Number.isFinite(averageAdjustment) ? averageAdjustment : 0
   const hasManualAdjustment = normalizedData.years.some((year) => year.totalAdjustment !== 0)
   const normalizationStatusLabel =

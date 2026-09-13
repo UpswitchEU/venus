@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NormalizationItem } from '../UnifiedNormalizationModal'
+import { getSeedYearlyFinancials } from './manualFinancialSeeds'
 import { buildManualInputNormalizedData } from './manualInputNormalizedData'
 
 function item(overrides: Partial<NormalizationItem>): NormalizationItem {
@@ -56,4 +57,37 @@ describe('buildManualInputNormalizedData', () => {
     expect(result.years[0].normalizedEbitda).toBe(176_000)
     expect(result.averageNormalizedEbitda).toBe(176_000)
   })
+})
+
+it('restores reported EBITDA before applying an accepted imported adjustment once', () => {
+  const current = {
+    year: 2025,
+    revenue: 1_450_000,
+    ebitda: 491_500,
+    reported_ebitda: 335_000,
+    ebitda_normalized: true,
+  }
+  const yearlyFinancials = getSeedYearlyFinancials(
+    {
+      current_year_data: current,
+      yearlyFinancials: [
+        { year: '2025', revenue: 1_450_000, ebitda: 335_000 },
+        { year: '2021', revenue: 750_000, ebitda: 125_000 },
+      ],
+    },
+    new Date('2026-09-13')
+  )
+  const result = buildManualInputNormalizedData({
+    yearlyFinancials,
+    excludeRealEstate: false,
+    estimatedMarketRent: undefined,
+    normalizationItems: [
+      item({ year: 2025, adjustment: 156_500 }),
+      item({ year: 2021, adjustment: 97_500, status: 'pending' }),
+    ],
+  })
+  expect(yearlyFinancials[0].ebitda).toBe(335_000)
+  expect(result.years[0].normalizedEbitda).toBe(491_500)
+  expect(result.averageNormalizedEbitda).toBeCloseTo(369_333.333333)
+  expect(current.ebitda).toBe(491_500)
 })

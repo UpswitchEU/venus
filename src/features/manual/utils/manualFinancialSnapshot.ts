@@ -1,4 +1,5 @@
 import type { ValuationRequest, YearDataInput } from '@/types/valuation'
+import { getReportedFinancialEbitda } from '@/utils/normalizationMath'
 import { yearlyFinancialRowHasNonPlaceholderData } from '@/utils/yearlyFinancials'
 
 export interface SubmittedFinancialYear {
@@ -28,7 +29,7 @@ function toSnapshotYear(row: YearDataInput, isForecast = false): SubmittedFinanc
   return {
     year: String(row.year),
     revenue: row.revenue,
-    ebitda: row.ebitda,
+    ebitda: getReportedFinancialEbitda(row) ?? row.ebitda,
     capex: row.capex,
     nwc_change: row.nwc_change,
     ...(isForecast ? { isForecast: true } : {}),
@@ -55,7 +56,7 @@ export function buildSubmittedFinancialSnapshot(
 
   return {
     revenue: current?.revenue ?? request.revenue,
-    ebitda: current?.ebitda ?? request.ebitda,
+    ebitda: current ? getReportedFinancialEbitda(current) : request.ebitda,
     yearlyFinancials,
   }
 }

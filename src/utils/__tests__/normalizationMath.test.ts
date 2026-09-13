@@ -6,6 +6,7 @@ import {
   findAcceptedAutoNormalizationCapBreaches,
   getNormalizationAmountForBase,
   getReportedEbitdaBaseline,
+  getReportedFinancialEbitda,
   normalizationItemTouchesYear,
   removeNormalizationsForRemovedFiscalYear,
   summarizeAcceptedNormalizations,
@@ -341,4 +342,23 @@ describe('normalizationMath', () => {
 
     expect(out).toEqual([])
   })
+})
+
+it('keeps an advisor edit when old normalization metadata accompanies it', () => {
+  expect(
+    getReportedFinancialEbitda({
+      ebitda: 350_000,
+      normalized_ebitda: 491_500,
+      reported_ebitda: 335_000,
+      ebitda_normalized: true,
+    })
+  ).toBe(350_000)
+  expect(
+    getReportedFinancialEbitda({
+      ebitda: 491_500,
+      normalized_ebitda: 491_500,
+      reported_ebitda: 335_000,
+      ebitda_normalized: true,
+    })
+  ).toBe(335_000)
 })

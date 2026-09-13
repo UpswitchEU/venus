@@ -27,6 +27,7 @@ const normalizedData = {
     {
       year: 2025,
       ebitda: 190_109,
+      revenue: 1_000_000,
       isForecast: false,
       fictiveRentDeduction: 0,
       normalizationCount: 2,

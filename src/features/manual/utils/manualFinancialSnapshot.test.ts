@@ -76,3 +76,18 @@ describe('buildSubmittedFinancialSnapshot', () => {
     })
   })
 })
+
+it('snapshots reported figures from a normalized engine request', () => {
+  const snapshot = buildSubmittedFinancialSnapshot({
+    current_year_data: {
+      year: 2025,
+      revenue: 1_450_000,
+      ebitda: 491_500,
+      reported_ebitda: 335_000,
+      ebitda_normalized: true,
+    },
+    historical_years_data: [{ year: 2021, revenue: 750_000, ebitda: 125_000 }],
+  })
+  expect(snapshot.ebitda).toBe(335_000)
+  expect(snapshot.yearlyFinancials[0].ebitda).toBe(335_000)
+})

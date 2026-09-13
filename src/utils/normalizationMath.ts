@@ -365,3 +365,28 @@ export function findAcceptedAutoNormalizationCapBreaches(options: {
     .filter((row) => row.autoAddback > row.capAmount)
     .sort((a, b) => b.year - a.year)
 }
+
+/** Engine year inputs may already include accepted add-backs; editable rows use reported EBITDA. */
+export function getReportedFinancialEbitda(row: {
+  ebitda?: unknown
+  ebitda_normalized?: unknown
+  reported_ebitda?: unknown
+  normalized_ebitda?: unknown
+  ebitda_normalization_metadata?: unknown
+}): number | undefined {
+  if (row.ebitda_normalized === true) {
+    const metadata = row.ebitda_normalization_metadata as
+      | { reported_ebitda?: unknown; normalized_ebitda?: unknown }
+      | undefined
+    const normalized = row.normalized_ebitda ?? metadata?.normalized_ebitda
+    if (normalized != null && row.ebitda != null && Number(row.ebitda) !== Number(normalized)) {
+      return getFirstFiniteNumber(row.ebitda)
+    }
+    return getFirstFiniteNumber(
+      ...[row.reported_ebitda, metadata?.reported_ebitda, row.ebitda].filter(
+        (value) => value != null && value !== ''
+      )
+    )
+  }
+  return row.ebitda == null || row.ebitda === '' ? undefined : getFirstFiniteNumber(row.ebitda)
+}
