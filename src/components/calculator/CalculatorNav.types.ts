@@ -15,6 +15,7 @@ export interface ValuationVersion {
   askPrice: number
   timestamp: Date
   isActive?: boolean
+  pricesPending?: boolean
 }
 
 export interface DownloadHistoryItem {

@@ -153,13 +153,21 @@ export function CalculatorNavValuationSummary({
                                   )}
                                 </div>
                                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                  <span className="font-mono text-xs font-semibold leading-none tracking-normal text-foreground/80 tabular-nums">
-                                    {formatPrice(version.askPrice)}
-                                  </span>
-                                  <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
-                                    {formatPrice(version.priceRange.min)}–
-                                    {formatPrice(version.priceRange.max)}
-                                  </span>
+                                  {version.pricesPending ? (
+                                    <span className="text-xs text-foreground/50">
+                                      {t('versions.actions.view')}
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <span className="font-mono text-xs font-semibold leading-none tracking-normal text-foreground/80 tabular-nums">
+                                        {formatPrice(version.askPrice)}
+                                      </span>
+                                      <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
+                                        {formatPrice(version.priceRange.min)}–
+                                        {formatPrice(version.priceRange.max)}
+                                      </span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </button>
