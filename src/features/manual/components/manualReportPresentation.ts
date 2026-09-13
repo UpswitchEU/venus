@@ -166,8 +166,21 @@ export function deriveManualReportPresentation(
   const methodDetails = asRecord(methodData?.details)
   const multiplesValuation = asRecord(r.multiples_valuation)
 
+  // Compatibility for saved reports whose API method card predates the final
+  // missing-balance bridge. Read the published report decision, never reprice.
+  const usePublishedAdaptive =
+    methodKey === 'upswitch_adaptive' &&
+    reportContext.is_adaptive_multiples_only === true &&
+    reportContext.equity_value_assumed_equal_ev_due_to_missing_balance === true &&
+    reportContext.has_weighted_synthesis !== true &&
+    !resultHasWeightedSynthesisSignal(r)
+
   const methodValueRaw =
-    methodData?.value ?? r.equity_value_mid ?? r.valuation_midpoint ?? details.equity_value_mid
+    (usePublishedAdaptive ? positiveFiniteNumber(reportContext.equity_value) : null) ??
+    methodData?.value ??
+    r.equity_value_mid ??
+    r.valuation_midpoint ??
+    details.equity_value_mid
 
   const synthesisHeadline = resultHasWeightedSynthesisSignal(r)
     ? readSynthesisHeadlineFromResult(r)
@@ -176,12 +189,14 @@ export function deriveManualReportPresentation(
 
   const valuationLowRaw =
     synthesisRange.low ??
+    (usePublishedAdaptive ? positiveFiniteNumber(reportContext.equity_value_low) : null) ??
     methodDetails.equity_range_low ??
     r.equity_value_low ??
     r.valuation_min ??
     details.equity_value_low
   const valuationHighRaw =
     synthesisRange.high ??
+    (usePublishedAdaptive ? positiveFiniteNumber(reportContext.equity_value_high) : null) ??
     methodDetails.equity_range_high ??
     r.equity_value_high ??
     r.valuation_max ??
@@ -208,14 +223,8 @@ export function deriveManualReportPresentation(
 
   return {
     valuation,
-    valuationLow:
-      valuationLowRaw != null
-        ? coalesceFiniteNumber(valuationLowRaw)
-        : undefined,
-    valuationHigh:
-      valuationHighRaw != null
-        ? coalesceFiniteNumber(valuationHighRaw)
-        : undefined,
+    valuationLow: valuationLowRaw != null ? coalesceFiniteNumber(valuationLowRaw) : undefined,
+    valuationHigh: valuationHighRaw != null ? coalesceFiniteNumber(valuationHighRaw) : undefined,
     multiple: multipleRaw != null ? coalesceFiniteNumber(multipleRaw) : undefined,
     multipleRange:
       multipleLowRaw != null && multipleHighRaw != null
@@ -244,7 +253,16 @@ export function deriveNavPricesForVersionNav(
   const valuationLow = presentation.valuationLow
   const valuationHigh = presentation.valuationHigh
   const valuation = presentation.valuation
-  const askingRaw = r.recommended_asking_price ?? details.recommended_asking_price
+  const context = asRecord(r.report_context ?? details.report_context)
+  const publishedAsking =
+    (!selectedMethod || selectedMethod === 'upswitch_adaptive') &&
+    context.is_adaptive_multiples_only === true &&
+    (context.recommended_asking_price_buffer_suppressed === true ||
+      context.recommended_asking_price_realigned === true)
+      ? positiveFiniteNumber(context.recommended_asking_price)
+      : null
+  const askingRaw =
+    publishedAsking ?? r.recommended_asking_price ?? details.recommended_asking_price
   const askingFinite =
     askingRaw != null && Number.isFinite(Number(askingRaw)) && Number(askingRaw) > 0
       ? Number(askingRaw)
@@ -253,14 +271,8 @@ export function deriveNavPricesForVersionNav(
   const askPrice = askingFinite ?? (valuation > 0 ? valuation : (rangeMidpoint ?? valuation))
   return {
     priceRange: {
-      min:
-        valuationLow != null && Number.isFinite(valuationLow)
-          ? valuationLow
-          : valuation,
-      max:
-        valuationHigh != null && Number.isFinite(valuationHigh)
-          ? valuationHigh
-          : valuation,
+      min: valuationLow != null && Number.isFinite(valuationLow) ? valuationLow : valuation,
+      max: valuationHigh != null && Number.isFinite(valuationHigh) ? valuationHigh : valuation,
     },
     askPrice,
   }

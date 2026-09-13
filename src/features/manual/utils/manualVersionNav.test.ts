@@ -49,6 +49,8 @@ describe('manualVersionNav', () => {
           valuationResult: {
             weighted_valuation: {
               blended_equity_value: 567_771,
+              valuation_range_low: 453_502,
+              valuation_range_high: 616_744,
               contributions: [
                 { method_key: 'dcf', equity_value: 616_744, weight: 0.7 },
                 { method_key: 'ebitda_multiple', equity_value: 453_502, weight: 0.3 },

@@ -3,6 +3,21 @@
 import { describe, expect, it } from 'vitest'
 import { buildManualRestoredFinancialSnapshot } from './manualRestoredFinancialSnapshot'
 
+it('uses the reported basis for restored dirty-state snapshots', () => {
+  const restored = buildManualRestoredFinancialSnapshot({
+    current_year_data: {
+      year: 2025,
+      revenue: 1450000,
+      ebitda: 491500,
+      ebitda_normalized: true,
+      normalized_ebitda: 491500,
+      reported_ebitda: 335000,
+    },
+  })
+  expect(restored?.ebitda).toBe(335000)
+  expect(restored?.yearlyFinancials[0].ebitda).toBe(335000)
+})
+
 describe('manualRestoredFinancialSnapshot', () => {
   it('builds a restored dirty-state baseline from current, historical, and forecast rows', () => {
     expect(

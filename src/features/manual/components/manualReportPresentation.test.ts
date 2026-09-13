@@ -9,6 +9,40 @@ import {
 } from './manualReportPresentation'
 
 describe('deriveManualReportPresentation', () => {
+  it('reads the final published adaptive values from legacy report context', () => {
+    const result = {
+      equity_value_mid: '1218800',
+      recommended_asking_price: '1280012.00255',
+      valuation_results: {
+        upswitch_adaptive: {
+          available: true,
+          value: '1066440.425',
+          details: { equity_range_low: 797697.44, equity_range_high: 1335183.41 },
+        },
+        ebitda_multiple: { available: true, value: 1280105.63, details: {} },
+      },
+      report_context: {
+        is_adaptive_multiples_only: true,
+        equity_value_assumed_equal_ev_due_to_missing_balance: true,
+        has_weighted_synthesis: false,
+        equity_value: 1218800,
+        equity_value_low: 950057,
+        equity_value_high: 1487543,
+        recommended_asking_price: 1218800,
+        recommended_asking_price_buffer_suppressed: true,
+      },
+    } as unknown as ValuationResponse
+    expect(deriveManualReportPresentation(result, 'upswitch_adaptive')).toMatchObject({
+      valuation: 1218800,
+      valuationLow: 950057,
+      valuationHigh: 1487543,
+    })
+    expect(deriveNavPricesForVersionNav(result, 'upswitch_adaptive')).toEqual({
+      askPrice: 1218800,
+      priceRange: { min: 950057, max: 1487543 },
+    })
+    expect(deriveManualReportPresentation(result, 'ebitda_multiple').valuation).toBe(1280105.63)
+  })
   it('resolves omzet_multiple from revenue_multiple-only map in presentation', () => {
     const result: any = {
       selected_valuation_method: 'omzet_multiple',

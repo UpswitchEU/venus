@@ -4,6 +4,31 @@ import { describe, expect, it } from 'vitest'
 import { buildManualLiveYearlyFinancials } from './manualLiveYearlyFinancials'
 
 describe('manualLiveYearlyFinancials', () => {
+  it('restores reported EBITDA from normalized engine rows while preserving advisor edits', () => {
+    const row = {
+      year: 2025,
+      revenue: 1450000,
+      ebitda: 491500,
+      ebitda_normalized: true,
+      normalized_ebitda: 491500,
+      reported_ebitda: 335000,
+    }
+    expect(
+      buildManualLiveYearlyFinancials({ formData: { current_year_data: row } })[0].ebitda
+    ).toBe(335000)
+    expect(
+      buildManualLiveYearlyFinancials({
+        formData: { current_year_data: { ...row, ebitda: 350000 } },
+      })[0].ebitda
+    ).toBe(350000)
+    expect(
+      buildManualLiveYearlyFinancials({
+        latestYearlyFinancials: [{ year: '2025', revenue: 1450000, ebitda: 360000 }],
+        formData: { current_year_data: row },
+      })[0].ebitda
+    ).toBe(360000)
+    expect(row.ebitda).toBe(491500)
+  })
   it('prefers latest yearly financial rows and sorts them descending', () => {
     expect(
       buildManualLiveYearlyFinancials({

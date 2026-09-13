@@ -14,7 +14,7 @@ describe('useSynthesisReportHeadlineSync', () => {
     } as Parameters<typeof useManualResultsStore.setState>[0])
   })
 
-  it('updates report valuation when live synthesis blend changes', () => {
+  it('uses the persisted synthesis instead of recalculating it from local weights', () => {
     const setReport = vi.fn()
     const result = {
       weighted_valuation: { blended_equity_value: 500_000 },
@@ -49,11 +49,11 @@ describe('useSynthesisReportHeadlineSync', () => {
     expect(setReport).toHaveBeenCalled()
     const updater = setReport.mock.calls[0][0] as (prev: ValuationReportData) => ValuationReportData
     const next = updater(report)
-    expect(next.valuation).toBe(567_771)
-    expect(next.recommendedAskingPrice).toBe(567_771)
+    expect(next.valuation).toBe(500_000)
+    expect(next.recommendedAskingPrice).toBe(500_000)
   })
 
-  it('syncs recommendedAskingPrice from live blend without server weighted_valuation', () => {
+  it('retains the saved asking price until the server supplies a weighted valuation', () => {
     const setReport = vi.fn()
     const result = {
       valuation_results: {
@@ -82,13 +82,7 @@ describe('useSynthesisReportHeadlineSync', () => {
       })
     )
 
-    const updater = setReport.mock.calls[0][0] as (prev: ValuationReportData) => ValuationReportData
-    const next = updater({
-      valuation: 384_000,
-      recommendedAskingPrice: 384_000,
-    } as ValuationReportData)
-    expect(next.valuation).toBe(567_771)
-    expect(next.recommendedAskingPrice).toBe(567_771)
+    expect(setReport).not.toHaveBeenCalled()
   })
 
   it('uses persisted weighted_valuation when store has no live blend weights', () => {
@@ -186,7 +180,11 @@ describe('useSynthesisReportHeadlineSync', () => {
       useSynthesisReportHeadlineSync({
         result: {
           valuation_results: {
-            upswitch_adaptive: { available: true, value: 100, details: {} },
+            upswitch_adaptive: {
+              available: true,
+              value: 100,
+              details: { equity_range_low: 80, equity_range_high: 120 },
+            },
           },
         } as ValuationResponse,
         report: {

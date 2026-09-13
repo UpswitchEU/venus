@@ -1,4 +1,5 @@
 import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
+import { getReportedFinancialEbitda } from '@/utils/normalizationMath'
 import type { SubmittedFinancialSnapshot, SubmittedFinancialYear } from './manualFinancialSnapshot'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -30,7 +31,7 @@ function toSubmittedYear(row: Record<string, unknown>, isForecast = false): Subm
   return {
     year: String(row.year),
     revenue: readNumber(row.revenue),
-    ebitda: readNumber(row.ebitda),
+    ebitda: getReportedFinancialEbitda(row) ?? readNumber(row.ebitda),
     capex: readOptionalNumber(row.capex),
     nwc_change: readOptionalNumber(row.nwc_change),
     ...(isForecast ? { isForecast: true } : {}),
@@ -75,7 +76,7 @@ export function buildManualRestoredFinancialSnapshot(
         : readOptionalNumber(formRecord.revenue),
     ebitda:
       currentYearData && 'ebitda' in currentYearData
-        ? readNumber(currentYearData.ebitda)
+        ? (getReportedFinancialEbitda(currentYearData) ?? readNumber(currentYearData.ebitda))
         : readOptionalNumber(formRecord.ebitda),
     yearlyFinancials,
   }

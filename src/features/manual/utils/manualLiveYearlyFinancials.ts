@@ -1,4 +1,5 @@
 import { coalesceFiniteNumber } from '@/lib/omniPreview'
+import { getReportedFinancialEbitda } from '@/utils/normalizationMath'
 
 export interface ManualLiveYearlyFinancial {
   year: string
@@ -58,7 +59,7 @@ function toLiveYear(row: Record<string, unknown>, isForecast = false): ManualLiv
   return {
     year: String(row.year),
     revenue: coalesceFiniteNumber(row.revenue),
-    ebitda: coalesceFiniteNumber(row.ebitda),
+    ebitda: getReportedFinancialEbitda(row) ?? coalesceFiniteNumber(row.ebitda),
     capex: readFiniteOptional(row.capex),
     depreciation: readFiniteOptional(row.depreciation),
     tax_expense: readFiniteOptional(row.tax_expense),

@@ -1,5 +1,6 @@
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
 import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
+import { parseFlexibleNumber } from './isFiniteNumeric'
 
 /** Whether an accepted normalization item applies to a given year. Single source of truth. */
 export function appliesToYear(item: NormalizationItem, year: number): boolean {
@@ -379,14 +380,16 @@ export function getReportedFinancialEbitda(row: {
       | { reported_ebitda?: unknown; normalized_ebitda?: unknown }
       | undefined
     const normalized = row.normalized_ebitda ?? metadata?.normalized_ebitda
-    if (normalized != null && row.ebitda != null && Number(row.ebitda) !== Number(normalized)) {
-      return getFirstFiniteNumber(row.ebitda)
+    if (
+      normalized != null &&
+      row.ebitda != null &&
+      parseFlexibleNumber(row.ebitda) !== parseFlexibleNumber(normalized)
+    ) {
+      return parseFlexibleNumber(row.ebitda)
     }
-    return getFirstFiniteNumber(
-      ...[row.reported_ebitda, metadata?.reported_ebitda, row.ebitda].filter(
-        (value) => value != null && value !== ''
-      )
-    )
+    return [row.reported_ebitda, metadata?.reported_ebitda, row.ebitda]
+      .map(parseFlexibleNumber)
+      .find((value) => value !== undefined)
   }
-  return row.ebitda == null || row.ebitda === '' ? undefined : getFirstFiniteNumber(row.ebitda)
+  return parseFlexibleNumber(row.ebitda)
 }
