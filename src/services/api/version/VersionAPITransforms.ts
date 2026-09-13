@@ -138,13 +138,17 @@ export function transformVersionFromBackend(backendVersion: unknown): ValuationV
 
   return {
     id: asString(backend.id, `version-${versionNumber}`),
-    reportId: asString(backend.report_id, asString(backend.reportId)),
+    reportId: asString(
+      backend.report_id,
+      asString(backend.reportId, asString(backend.valuation_id))
+    ),
     versionNumber,
     versionLabel: asString(backend.version_label, `Version ${versionNumber}`),
     createdAt: asDate(backend.created_at),
     createdBy: asNullableString(backend.created_by) ?? asNullableString(backend.createdBy),
     formData: asValuationRequest(formData),
     valuationResult: asValuationResponse(valuationResult),
+    ...(versionData._summary === true ? { isSummary: true } : {}),
     htmlReport:
       getFirstRenderableReportHtml(
         asNullableString(backend.htmlReport),

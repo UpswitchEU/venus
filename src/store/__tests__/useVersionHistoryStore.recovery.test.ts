@@ -98,4 +98,38 @@ describe('version history refresh recovery with the real store', () => {
     await useVersionHistoryStore.getState().fetchVersions('report-a')
     expect(useVersionHistoryStore.getState().activeVersions['report-a']).toBe(1)
   })
+
+  it('coalesces matching summary reads while keeping a concurrent full read and its result', async () => {
+    let finishFull!: (value: any) => void
+    let finishSummary!: (value: any) => void
+    const list = vi.spyOn(VersionAPI.prototype, 'listVersions').mockImplementation(
+      (_id, options) =>
+        new Promise((resolve) => {
+          if (options?.summaryOnly) finishSummary = resolve
+          else finishFull = resolve
+        })
+    )
+    const store = useVersionHistoryStore.getState()
+    const fullRequest = store.fetchVersions('report-a')
+    const summaryRequest = store.fetchVersions('report-a', { summaryOnly: true })
+    const duplicate = store.fetchVersions('report-a', { summaryOnly: true })
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2))
+    const full = {
+      ...original,
+      valuationResult: { equity_value_mid: 500, html_report: 'full report' },
+      htmlReport: 'full report',
+    }
+    finishFull({ ...response, versions: [full] })
+    await fullRequest
+    expect(useVersionHistoryStore.getState().syncStatus['report-a'].isSyncing).toBe(true)
+    finishSummary({
+      ...response,
+      versions: [{ ...original, isSummary: true, valuationResult: { equity_value_mid: 500 } }],
+    })
+    await Promise.all([summaryRequest, duplicate])
+    expect(useVersionHistoryStore.getState().versions['report-a'][0].valuationResult).toBe(
+      full.valuationResult
+    )
+    expect(useVersionHistoryStore.getState().syncStatus['report-a'].isSyncing).toBe(false)
+  })
 })

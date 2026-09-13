@@ -30,6 +30,42 @@ function version(overrides: Partial<ValuationVersion>): ValuationVersion {
 }
 
 describe('versionHistoryModel', () => {
+  it('preserves a loaded immutable snapshot when a background summary arrives', () => {
+    const full = version({
+      valuationResult: { equity_value_mid: 500, html_report: 'full report' } as never,
+      htmlReport: 'full report',
+      formData: { revenue: 900 } as never,
+    })
+    const summary = version({
+      isSummary: true,
+      versionLabel: 'Updated label',
+      valuationResult: { equity_value_mid: 500 } as never,
+    })
+    const [merged] = mergeBackendVersionsByNumber({
+      localVersions: [full],
+      backendVersions: [summary],
+    })
+    expect(merged.valuationResult).toBe(full.valuationResult)
+    expect(merged.formData).toBe(full.formData)
+    expect(merged.htmlReport).toBe('full report')
+    expect(merged.versionLabel).toBe('Updated label')
+    expect(merged.isSummary).toBe(false)
+  })
+
+  it('replaces a local placeholder when the confirmed version has a different identity', () => {
+    const full = version({
+      id: 'local-placeholder',
+      valuationResult: { equity_value_mid: 1 } as never,
+    })
+    const summary = version({
+      id: 'confirmed',
+      isSummary: true,
+      valuationResult: { equity_value_mid: 2 } as never,
+    })
+    expect(
+      mergeBackendVersionsByNumber({ localVersions: [full], backendVersions: [summary] })[0]
+    ).toEqual(summary)
+  })
   it('deduplicates versions by number using date-like timestamps', () => {
     const older = version({
       id: 'older',

@@ -108,7 +108,7 @@ export interface VersionHistoryStore {
   > // Keyed by reportId
 
   // Actions
-  fetchVersions: (reportId: string) => Promise<void>
+  fetchVersions: (reportId: string, options?: { summaryOnly?: boolean }) => Promise<void>
   createVersion: (request: CreateVersionRequest) => Promise<ValuationVersion>
   updateVersion: (
     reportId: string,
@@ -153,8 +153,8 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
        * - Handles conflicts gracefully
        * - Shows sync status
        */
-      fetchVersions: async (reportId: string) => {
-        const fetchKey = `${reportAccessScope()}:${reportId}`
+      fetchVersions: async (reportId: string, options?: { summaryOnly?: boolean }) => {
+        const fetchKey = `${reportAccessScope()}:${reportId}:${options?.summaryOnly ? 'summary' : 'full'}`
         const pending = pendingVersionFetches.get(fetchKey)
         if (pending?.isCurrent()) return pending.promise
         const access = watchReportAccessScope()
@@ -246,12 +246,12 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
 
           const fetchWithRetry = async (): Promise<VersionListResponse> => {
             try {
-              return await versionAPI.listVersions(reportId)
+              return await versionAPI.listVersions(reportId, options)
             } catch (_firstError) {
               versionLogger.info('Retrying version fetch after 1s', { reportId })
               await new Promise((r) => setTimeout(r, 1000))
               if (!access.isCurrent()) throw _firstError
-              return await versionAPI.listVersions(reportId)
+              return await versionAPI.listVersions(reportId, options)
             }
           }
 
@@ -279,7 +279,10 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
               ...state.syncStatus,
               [reportId]: {
                 ...state.syncStatus[reportId],
-                isSyncing: !!pendingVersionFetches.get(`${scopePrefix}${reportId}`)?.isCurrent(),
+                isSyncing: Array.from(pendingVersionFetches.entries()).some(
+                  ([key, pending]) =>
+                    key.startsWith(`${scopePrefix}${reportId}:`) && pending.isCurrent()
+                ),
               },
             },
           }))

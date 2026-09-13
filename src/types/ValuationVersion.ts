@@ -37,6 +37,7 @@ export interface ValuationVersion {
   formData: ValuationRequest // Input data used for calculation
   valuationResult: ValuationResponse | null // Calculation result
   htmlReport: string | null // Generated HTML report
+  isSummary?: boolean // Navigation data; fetch the immutable snapshot before rendering/restoring.
 
   // Changes from previous version (for audit and comparison)
   changesSummary: VersionChanges
@@ -225,6 +226,7 @@ export interface UpdateVersionRequest {
  * Options for filtering version history.
  */
 export interface VersionFilterOptions {
+  summaryOnly?: boolean
   // Filter by tags
   tags?: string[]
 

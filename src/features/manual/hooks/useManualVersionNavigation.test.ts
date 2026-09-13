@@ -49,8 +49,24 @@ describe('historical report navigation', () => {
 
   it('hydrates cached metadata in the background and never labels it as zero', () => {
     const { result } = renderHook(() => useManualVersionNavigation(params()))
-    expect(useVersionHistoryStore.getState().fetchVersions).toHaveBeenCalledWith('report-a')
+    expect(useVersionHistoryStore.getState().fetchVersions).toHaveBeenCalledWith('report-a', {
+      summaryOnly: true,
+    })
     expect(result.current.versionHistoryForNav[0].pricesPending).toBe(true)
+  })
+
+  it('fetches the full immutable report before selecting a navigation summary', async () => {
+    useVersionHistoryStore.setState({
+      versions: { 'report-a': [{ ...version(1, true), isSummary: true }] },
+    })
+    const read = vi.spyOn(VersionAPI.prototype, 'getVersion').mockResolvedValue(version(1, true))
+    const p = params()
+    const { result } = renderHook(() => useManualVersionNavigation(p))
+    await act(async () => {
+      await result.current.handleSelectVersion('v1')
+    })
+    expect(read).toHaveBeenCalledWith('report-a', 1)
+    expect(p.setResult).toHaveBeenCalledWith(expect.objectContaining({ html_report: html }))
   })
 
   it('loads a historical report once before selecting it and retains URL context', async () => {

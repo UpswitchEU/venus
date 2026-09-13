@@ -9,6 +9,20 @@ import {
 } from './VersionAPITransforms'
 
 describe('VersionAPITransforms', () => {
+  it('marks navigation summaries and retains the confirmed report relationship', () => {
+    const result = transformVersionFromBackend({
+      id: 'v4',
+      valuation_id: 'report-1',
+      version_number: 4,
+      version_data: { _summary: true, valuationResult: { equity_value_mid: 1218800 } },
+    })
+    expect(result).toMatchObject({
+      isSummary: true,
+      reportId: 'report-1',
+      versionNumber: 4,
+      htmlReport: null,
+    })
+  })
   it('builds the backend create payload without leaking frontend field names', () => {
     const payload = buildCreateVersionBackendRequest({
       reportId: 'report-1',

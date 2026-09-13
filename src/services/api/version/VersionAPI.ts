@@ -80,6 +80,7 @@ export class VersionAPI {
       if (options?.offset) params.append('offset', options.offset.toString())
       if (options?.tags) params.append('tags', options.tags.join(','))
       if (options?.pinnedOnly) params.append('pinned', 'true')
+      if (options?.summaryOnly) params.append('summary', 'true')
 
       const query = params.toString()
       const url = `/api/v2/valuations/sessions/${reportId}/versions${query ? `?${query}` : ''}`

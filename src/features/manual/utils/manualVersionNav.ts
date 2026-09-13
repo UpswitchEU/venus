@@ -123,7 +123,9 @@ export function buildManualVersionHistoryForNav({
       askPrice: prices.askPrice,
       timestamp: version.createdAt,
       isActive: isCurrentVersion,
-      ...(!hasUsableNavPrices(prices) && !version.valuationResult ? { pricesPending: true } : {}),
+      ...(!hasUsableNavPrices(prices) && (!version.valuationResult || version.isSummary)
+        ? { pricesPending: true }
+        : {}),
     }
   })
 }

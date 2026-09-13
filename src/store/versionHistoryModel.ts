@@ -46,7 +46,25 @@ export function mergeBackendVersionsByNumber({
     versionMap.set(version.versionNumber, version)
   })
   backendVersions.forEach((version) => {
-    versionMap.set(version.versionNumber, version)
+    const existing = versionMap.get(version.versionNumber)
+    // A background summary must not replace an already loaded immutable report.
+    versionMap.set(
+      version.versionNumber,
+      version.isSummary &&
+        existing?.id === version.id &&
+        !existing.isSummary &&
+        existing.valuationResult
+        ? {
+            ...version,
+            formData: existing.formData,
+            valuationResult: existing.valuationResult,
+            htmlReport: existing.htmlReport,
+            normalization_data: existing.normalization_data,
+            tax_latency_data: existing.tax_latency_data,
+            isSummary: false,
+          }
+        : version
+    )
   })
 
   return Array.from(versionMap.values()).sort((a, b) => a.versionNumber - b.versionNumber)

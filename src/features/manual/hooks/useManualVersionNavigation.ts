@@ -85,7 +85,7 @@ export function useManualVersionNavigation({
       const entries = store.versions[versionLookupId] ?? []
       const lastSync = store.syncStatus[versionLookupId]?.lastSyncedAt ?? 0
       if (entries.some((v) => !v.valuationResult) || Date.now() - lastSync > 30000) {
-        void store.fetchVersions(versionLookupId)
+        void store.fetchVersions(versionLookupId, { summaryOnly: true })
       }
     }
     refresh()
@@ -135,7 +135,7 @@ export function useManualVersionNavigation({
             version?.htmlReport
           )
           const loaded =
-            version?.valuationResult && cachedHtml
+            version?.valuationResult && !version.isSummary && cachedHtml
               ? version
               : await new VersionAPI().getVersion(versionLookupId, versionNumber)
           if (!isCurrent()) return
@@ -143,7 +143,12 @@ export function useManualVersionNavigation({
             loaded?.valuationResult?.html_report,
             loaded?.htmlReport
           )
-          if (!loaded?.valuationResult || !html || loaded.versionNumber !== versionNumber) {
+          if (
+            !loaded?.valuationResult ||
+            loaded.isSummary ||
+            !html ||
+            loaded.versionNumber !== versionNumber
+          ) {
             throw new Error('Version report unavailable')
           }
           useVersionHistoryStore.setState((state) => ({

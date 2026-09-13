@@ -1,0 +1,522 @@
+[
+  {
+    "version_number": 1,
+    "form_data": {
+      "selected_method": "upswitch_adaptive",
+      "selected_valuation_method": null
+    },
+    "valuation_result": {
+      "valuation_max": "1753841.77668",
+      "valuation_min": "1047822.40332",
+      "report_context": {
+        "equity_value": 1400832,
+        "equity_value_low": 1047822,
+        "equity_value_high": 1753842,
+        "has_weighted_synthesis": false,
+        "synthesis_blended_value": null,
+        "recommended_asking_price": 1400832,
+        "is_adaptive_multiples_only": false,
+        "recommended_asking_price_realigned": false,
+        "recommended_asking_price_buffer_suppressed": true,
+        "equity_value_assumed_equal_ev_due_to_missing_balance": true
+      },
+      "equity_value_low": "1047822.40332",
+      "equity_value_mid": "1400832.09",
+      "equity_value_high": "1753841.77668",
+      "valuation_results": {
+        "dcf": {
+          "value": "4410357.1",
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": true,
+          "multiple_used": null
+        },
+        "fiscal_4x": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "adjusted_nav": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "arr_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "sde_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "omzet_multiple": {
+          "value": "1692150.0",
+          "details": {
+            "equity_range_low": 1198606.25,
+            "equity_range_high": 2256200
+          },
+          "available": true,
+          "multiple_used": "1.167"
+        },
+        "ebitda_multiple": {
+          "value": "1280105.63",
+          "details": {
+            "equity_range_low": 969776.99,
+            "equity_range_high": 1745598.58
+          },
+          "available": true,
+          "multiple_used": "3.466"
+        },
+        "real_estate_yield": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "startup_valuation": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "upswitch_adaptive": {
+          "value": "1400832.09",
+          "details": {
+            "equity_range_low": 1047822.4,
+            "equity_range_high": 1753841.78
+          },
+          "available": true,
+          "multiple_used": "3.3"
+        },
+        "liquidation_analysis": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        }
+      },
+      "valuation_midpoint": "1400832.09",
+      "weighted_valuation": null,
+      "recommended_asking_price": "1120000"
+    }
+  },
+  {
+    "version_number": 2,
+    "form_data": {
+      "selected_method": "upswitch_adaptive",
+      "selected_valuation_method": null
+    },
+    "valuation_result": {
+      "valuation_max": "1487543",
+      "valuation_min": "950057",
+      "report_context": {
+        "equity_value": 1218800,
+        "equity_value_low": 950057,
+        "equity_value_high": 1487543,
+        "has_weighted_synthesis": false,
+        "synthesis_blended_value": null,
+        "recommended_asking_price": 1218800,
+        "is_adaptive_multiples_only": true,
+        "recommended_asking_price_realigned": true,
+        "recommended_asking_price_buffer_suppressed": true,
+        "equity_value_assumed_equal_ev_due_to_missing_balance": true
+      },
+      "equity_value_low": "950057",
+      "equity_value_mid": "1218800",
+      "equity_value_high": "1487543",
+      "valuation_results": {
+        "dcf": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "fiscal_4x": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "adjusted_nav": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "arr_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "sde_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "omzet_multiple": {
+          "value": "1692150.0",
+          "details": {
+            "equity_range_low": 1198606.25,
+            "equity_range_high": 2256200
+          },
+          "available": true,
+          "multiple_used": "1.167"
+        },
+        "ebitda_multiple": {
+          "value": "1280105.63",
+          "details": {
+            "equity_range_low": 969776.99,
+            "equity_range_high": 1745598.58
+          },
+          "available": true,
+          "multiple_used": "3.466"
+        },
+        "real_estate_yield": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "startup_valuation": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "upswitch_adaptive": {
+          "value": "1066440.4250",
+          "details": {
+            "equity_range_low": 797697.44,
+            "equity_range_high": 1335183.41
+          },
+          "available": true,
+          "multiple_used": "3.3"
+        },
+        "liquidation_analysis": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        }
+      },
+      "valuation_midpoint": "1218800",
+      "weighted_valuation": null,
+      "recommended_asking_price": "1280012.002550541990172911743"
+    }
+  },
+  {
+    "version_number": 3,
+    "form_data": {
+      "selected_method": "upswitch_adaptive",
+      "selected_valuation_method": null
+    },
+    "valuation_result": {
+      "valuation_max": "1487543",
+      "valuation_min": "950057",
+      "report_context": {
+        "equity_value": 1218800,
+        "equity_value_low": 950057,
+        "equity_value_high": 1487543,
+        "has_weighted_synthesis": false,
+        "synthesis_blended_value": null,
+        "recommended_asking_price": 1218800,
+        "is_adaptive_multiples_only": true,
+        "recommended_asking_price_realigned": true,
+        "recommended_asking_price_buffer_suppressed": true,
+        "equity_value_assumed_equal_ev_due_to_missing_balance": true
+      },
+      "equity_value_low": "950057",
+      "equity_value_mid": "1218800",
+      "equity_value_high": "1487543",
+      "valuation_results": {
+        "dcf": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "fiscal_4x": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "adjusted_nav": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "arr_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "sde_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "omzet_multiple": {
+          "value": "1692150.0",
+          "details": {
+            "equity_range_low": 1198606.25,
+            "equity_range_high": 2256200
+          },
+          "available": true,
+          "multiple_used": "1.167"
+        },
+        "ebitda_multiple": {
+          "value": "1280105.63",
+          "details": {
+            "equity_range_low": 969776.99,
+            "equity_range_high": 1745598.58
+          },
+          "available": true,
+          "multiple_used": "3.466"
+        },
+        "real_estate_yield": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "startup_valuation": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "upswitch_adaptive": {
+          "value": "1066440.4250",
+          "details": {
+            "equity_range_low": 797697.44,
+            "equity_range_high": 1335183.41
+          },
+          "available": true,
+          "multiple_used": "3.3"
+        },
+        "liquidation_analysis": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        }
+      },
+      "valuation_midpoint": "1218800",
+      "weighted_valuation": null,
+      "recommended_asking_price": "1280012.002550541990172911743"
+    }
+  },
+  {
+    "version_number": 4,
+    "form_data": {
+      "selected_method": "upswitch_adaptive",
+      "selected_valuation_method": null
+    },
+    "valuation_result": {
+      "valuation_max": "1487543",
+      "valuation_min": "950057",
+      "report_context": {
+        "equity_value": 1218800,
+        "equity_value_low": 950057,
+        "equity_value_high": 1487543,
+        "has_weighted_synthesis": false,
+        "synthesis_blended_value": null,
+        "recommended_asking_price": 1218800,
+        "is_adaptive_multiples_only": true,
+        "recommended_asking_price_realigned": true,
+        "recommended_asking_price_buffer_suppressed": true,
+        "equity_value_assumed_equal_ev_due_to_missing_balance": true
+      },
+      "equity_value_low": "950057",
+      "equity_value_mid": "1218800",
+      "equity_value_high": "1487543",
+      "valuation_results": {
+        "dcf": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "fiscal_4x": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "adjusted_nav": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "arr_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "sde_multiple": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "omzet_multiple": {
+          "value": "1692150.0",
+          "details": {
+            "equity_range_low": 1198606.25,
+            "equity_range_high": 2256200
+          },
+          "available": true,
+          "multiple_used": "1.167"
+        },
+        "ebitda_multiple": {
+          "value": "1280105.63",
+          "details": {
+            "equity_range_low": 969776.99,
+            "equity_range_high": 1745598.58
+          },
+          "available": true,
+          "multiple_used": "3.466"
+        },
+        "real_estate_yield": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "startup_valuation": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        },
+        "upswitch_adaptive": {
+          "value": "1218800.0",
+          "details": {
+            "equity_range_low": "950057.0",
+            "equity_range_high": "1487543.0"
+          },
+          "available": true,
+          "multiple_used": "3.3"
+        },
+        "liquidation_analysis": {
+          "value": null,
+          "details": {
+            "equity_range_low": null,
+            "equity_range_high": null
+          },
+          "available": false,
+          "multiple_used": null
+        }
+      },
+      "valuation_midpoint": "1218800",
+      "weighted_valuation": null,
+      "recommended_asking_price": "1218800.0"
+    }
+  }
+]
