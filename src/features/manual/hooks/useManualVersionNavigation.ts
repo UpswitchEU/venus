@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ValuationReportData } from '../../../components/calculator'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type { ValuationResponse } from '../../../types/valuation'
@@ -47,6 +47,9 @@ export function useManualVersionNavigation({
   const versions = useVersionHistoryStore((s) => s.versions[versionLookupId] || [])
   const activeVersionNumber = useVersionHistoryStore((s) => s.activeVersions[versionLookupId])
   const [selectedVersionId, setSelectedVersionId] = useState<string>('current')
+  useEffect(() => {
+    setSelectedVersionId('current')
+  }, [versionLookupId])
 
   const versionHistoryForNav = useMemo(() => {
     return buildManualVersionHistoryForNav({
@@ -83,10 +86,18 @@ export function useManualVersionNavigation({
           ),
         }
         setResult(enrichedResult)
+        useVersionHistoryStore.getState().setActiveVersion(versionLookupId, version.versionNumber)
         showVersionLoadedToast(version.versionLabel)
       }
     },
-    [onVersionHistoryLocked, planFeatures, setResult, showVersionLoadedToast, versions]
+    [
+      onVersionHistoryLocked,
+      planFeatures,
+      setResult,
+      showVersionLoadedToast,
+      versions,
+      versionLookupId,
+    ]
   )
 
   return {

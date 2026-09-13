@@ -2,8 +2,14 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
 import { useSessionStore } from '../store/useSessionStore'
+import { useManualResultsStore } from '../store/manual/useManualResultsStore'
+import { useClientContext } from '../stores/clientContext'
 import { SessionAPI } from '../services/api/session/SessionAPI'
-import { reportAssetService, pendingReportAssetSaves } from '../services/report/ReportAssetService'
+import {
+  reportAssetService,
+  pendingReportAssetSaves,
+  failedReportAssetSave,
+} from '../services/report/ReportAssetService'
 import {
   clearScopedGlobalBootstrapResult,
   getScopedGlobalBootstrapResult,
@@ -72,6 +78,8 @@ describe('calculation → save → UUID → refresh with the real session manage
     state.mounts = 0
     state.refresh.mockReset().mockResolvedValue(undefined)
     pendingReportAssetSaves.clear()
+    useClientContext.setState({ isActingAsClient: false, relationshipId: null })
+    useManualResultsStore.setState({ result: null, htmlReport: null })
     window.localStorage.clear()
     clearScopedGlobalBootstrapResult()
     state.bootstrap = {
@@ -200,5 +208,100 @@ describe('calculation → save → UUID → refresh with the real session manage
     resolveSave({ success: true, reportId: uuid, sessionKey, reportReady: true })
     await saving
     expect(useSessionStore.getState().session).toBe(next)
+  })
+
+  it('does not hydrate an old save after a client switch away and back', async () => {
+    let resolveSave!: (value: any) => void
+    const save = vi.spyOn(SessionAPI.prototype, 'saveValuationResult').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        })
+    )
+    const previous = useSessionStore.getState().session
+    const saving = reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    useClientContext.setState({ isActingAsClient: true, relationshipId: 'client-b' })
+    useClientContext.setState({ isActingAsClient: false, relationshipId: null })
+    resolveSave({ success: true, reportId: uuid, sessionKey, reportReady: true })
+    await saving
+    expect(useSessionStore.getState().session).toBe(previous)
+    expect(getScopedGlobalBootstrapResult(context)?.report.reportId).toBe(sessionKey)
+    expect(pendingReportAssetSaves.size).toBe(0)
+  })
+
+  it('cancels a queued save when client context changes, even if it changes back', async () => {
+    let resolveSave!: (value: any) => void
+    const save = vi.spyOn(SessionAPI.prototype, 'saveValuationResult').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        })
+    )
+    const first = reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    const queued = reportAssetService.saveReportAssets(sessionKey, { name: 'queued edit' })
+    const rejected = expect(queued).rejects.toThrow('client context changed')
+    useClientContext.setState({ isActingAsClient: true, relationshipId: 'client-b' })
+    useClientContext.setState({ isActingAsClient: false, relationshipId: null })
+    resolveSave({ success: true, reportId: uuid, sessionKey, reportReady: true })
+    await first
+    await rejected
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(failedReportAssetSave(sessionKey)).toBeUndefined()
+    expect(pendingReportAssetSaves.size).toBe(0)
+  })
+
+  it.each([
+    'success',
+    'failure',
+  ])('ignores %s for a save after another version result is selected', async (outcome) => {
+    let resolveSave!: (value: any) => void
+    let rejectSave!: (error: Error) => void
+    const save = vi.spyOn(SessionAPI.prototype, 'saveValuationResult').mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          resolveSave = resolve
+          rejectSave = reject
+        })
+    )
+    const saving = reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
+    const settled = saving.catch(() => undefined)
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    const selected = { equity_value_mid: 1218800, html_report: html } as any
+    useManualResultsStore.getState().setResult(selected)
+    const versionSession = { ...useSessionStore.getState().session!, valuationResult: selected }
+    useSessionStore.setState({ session: versionSession })
+    if (outcome === 'success')
+      resolveSave({ success: true, reportId: uuid, sessionKey, reportReady: true })
+    else rejectSave(new Error('obsolete save failed'))
+    await settled
+    expect(useSessionStore.getState().session).toBe(versionSession)
+    expect(useManualResultsStore.getState().result?.equity_value_mid).toBe(1218800)
+    expect(failedReportAssetSave(sessionKey)).toBeUndefined()
+  })
+
+  it('coalesces repeated Try Again actions into one pending save request', async () => {
+    let resolveRetry!: (value: any) => void
+    const save = vi
+      .spyOn(SessionAPI.prototype, 'saveValuationResult')
+      .mockRejectedValueOnce(new Error('transient save error'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRetry = resolve
+          })
+      )
+    await expect(
+      reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
+    ).rejects.toThrow()
+    const first = reportAssetService.retryFailedSave(sessionKey)
+    const second = reportAssetService.retryFailedSave(sessionKey)
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    resolveRetry({ success: true, reportId: uuid, sessionKey, reportReady: true })
+    await Promise.all([first, second])
+    expect(save).toHaveBeenCalledTimes(2)
+    expect(pendingReportAssetSaves.size).toBe(0)
+    expect(failedReportAssetSave(uuid)).toBeUndefined()
   })
 })

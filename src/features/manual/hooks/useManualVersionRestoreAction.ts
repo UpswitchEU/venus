@@ -1,9 +1,12 @@
-import { type Dispatch, type SetStateAction, useCallback } from 'react'
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { NormalizationItem, RightPanelView } from '../../../components/calculator'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
+import { useManualFormStore } from '../../../store/manual/useManualFormStore'
+import { pendingReportAssetSave } from '../../../services/report/ReportAssetService'
+import { reportAccessScope, watchReportAccessScope } from '../../../utils/reportAccessScope'
 import { generalLogger } from '../../../utils/logger'
 import {
   buildManualVersionRestorePlan,
@@ -42,44 +45,76 @@ export function useManualVersionRestoreAction({
   translate,
   updateFormData,
 }: UseManualVersionRestoreActionParams): UseManualVersionRestoreActionResult {
+  const pendingRef = useRef<{ target: string; promise: Promise<void> } | null>(null)
+  const attemptRef = useRef<{ key: string; id: string } | null>(null)
+  const targetRef = useRef('')
+  const revisionRef = useRef(0)
+  const target = `${reportAccessScope()}:${resolvedReportId || reportId}`
+  if (targetRef.current !== target) {
+    targetRef.current = target
+    revisionRef.current += 1
+  }
+  useEffect(
+    () => () => {
+      revisionRef.current += 1
+    },
+    []
+  )
   const handleVersionRestore = useCallback(
-    async (version: unknown) => {
-      try {
-        const restorePlan = buildManualVersionRestorePlan(version)
-        if (!restorePlan) return
-
-        const { versionNumber } = restorePlan
-        const idForApi = resolvedReportId || reportId
-
-        notifyBackendVersionRestore(idForApi, versionNumber)
-
-        if (restorePlan.formData) {
-          updateFormData(restorePlan.formData as Partial<ValuationFormData>)
+    (version: unknown) => {
+      if (pendingRef.current?.target === targetRef.current) return pendingRef.current.promise
+      const plan = buildManualVersionRestorePlan(version)
+      const idForApi = resolvedReportId || reportId
+      if (!plan?.versionNumber || !idForApi) return Promise.resolve()
+      const access = watchReportAccessScope()
+      const revision = revisionRef.current
+      const stillCurrent = () => access.isCurrent() && revisionRef.current === revision
+      const key = `${reportAccessScope()}:${idForApi}:${plan.versionNumber}`
+      if (attemptRef.current?.key !== key) attemptRef.current = { key, id: crypto.randomUUID() }
+      const attempt = attemptRef.current
+      const initialForm = useManualFormStore.getState().formData
+      const operation = (async () => {
+        try {
+          // An earlier result write must finish before restoration can commit.
+          await pendingReportAssetSave(idForApi)
+          if (!stillCurrent()) return
+          const { VersionAPI } = await import('../../../services/api/version/VersionAPI')
+          if (!stillCurrent()) return
+          const restored = await new VersionAPI().restoreVersion(idForApi, plan.versionNumber!, {
+            idempotencyKey: attempt.id,
+            timeout: 30_000,
+          })
+          if (!restored) throw new Error('Version restoration was not confirmed')
+          if (!stillCurrent()) return
+          attemptRef.current = null
+          const committedPlan = buildManualVersionRestorePlan(restored) ?? plan
+          // Preserve edits made while the restore request was in flight.
+          if (useManualFormStore.getState().formData === initialForm && committedPlan.formData) {
+            updateFormData(committedPlan.formData as Partial<ValuationFormData>)
+            normalizationActions.setItems(committedPlan.normalizations)
+            restoreTaxLatencySnapshot(committedPlan)
+          }
+          if (committedPlan.valuationResult) setResult(committedPlan.valuationResult)
+          useVersionHistoryStore.getState().setActiveVersion(idForApi, restored.versionNumber)
+          setRightPanelView('preview')
+          toast.success(translate('versionRestored', { version: restored.versionNumber }))
+          // History refresh cannot turn a committed restoration into a failure.
+          void useVersionHistoryStore.getState().fetchVersions(idForApi)
+        } catch (error) {
+          if (!stillCurrent()) return
+          generalLogger.warn('[ManualValuationWorkspace] Version restore failed', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+          toast.error(translate('versionRestoreFailed'))
+        } finally {
+          access.dispose()
         }
-
-        if (restorePlan.valuationResult) {
-          setResult(restorePlan.valuationResult)
-        }
-
-        if (restorePlan.normalizations.length > 0) {
-          normalizationActions.setItems(restorePlan.normalizations)
-        }
-
-        restoreTaxLatencySnapshot(restorePlan)
-
-        if (idForApi && versionNumber) {
-          useVersionHistoryStore.getState().setActiveVersion(idForApi, versionNumber)
-          await useVersionHistoryStore.getState().fetchVersions(idForApi)
-        }
-
-        setRightPanelView('preview')
-        toast.success(translate('versionRestored', { version: versionNumber ?? '' }))
-      } catch (error) {
-        generalLogger.warn('[ManualValuationWorkspace] Version restore failed', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-        toast.error(translate('versionRestoreFailed'))
-      }
+      })()
+      pendingRef.current = { target: targetRef.current, promise: operation }
+      void operation.finally(() => {
+        if (pendingRef.current?.promise === operation) pendingRef.current = null
+      })
+      return operation
     },
     [
       normalizationActions,
@@ -93,25 +128,6 @@ export function useManualVersionRestoreAction({
   )
 
   return { handleVersionRestore }
-}
-
-function notifyBackendVersionRestore(reportId?: string | null, versionNumber?: number) {
-  if (!reportId || !versionNumber) return
-
-  import('../../../services/api/version/VersionAPI')
-    .then(({ VersionAPI }) => {
-      const api = new VersionAPI()
-      api.restoreVersion(reportId, versionNumber).catch(() => {
-        generalLogger.warn(
-          '[ManualValuationWorkspace] Backend restore notification failed (non-blocking)'
-        )
-      })
-    })
-    .catch((err: unknown) => {
-      generalLogger.warn('[ManualValuationWorkspace] VersionAPI import failed', {
-        error: err instanceof Error ? err.message : String(err),
-      })
-    })
 }
 
 function restoreTaxLatencySnapshot(

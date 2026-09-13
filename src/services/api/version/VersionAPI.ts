@@ -135,14 +135,9 @@ export class VersionAPI {
         error: error instanceof Error ? error.message : 'Unknown error',
       })
 
-      // Graceful fallback - return empty versions
-      return {
-        reportId,
-        versions: [],
-        totalVersions: 0,
-        activeVersion: 1,
-        hasMore: false,
-      }
+      // The store owns recovery. An empty success would erase usable history
+      // and reset the selected version when the database is only unavailable.
+      throw error
     }
   }
 
@@ -317,7 +312,7 @@ export class VersionAPI {
         {
           method: 'POST',
           url: `/api/v2/valuations/sessions/${reportId}/versions/${versionNumber}/restore`,
-          headers: {},
+          headers: options?.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {},
         },
         options
       )

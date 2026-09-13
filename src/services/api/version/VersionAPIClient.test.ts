@@ -4,6 +4,7 @@ import { VersionAPIClient } from './VersionAPIClient'
 describe('VersionAPIClient', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('maps Titan version session routes to the same-origin browser proxy', () => {
@@ -96,5 +97,32 @@ describe('VersionAPIClient', () => {
     ).rejects.toThrow('API request failed: Service unavailable')
 
     expect(removeEventListener).toHaveBeenCalledWith('abort', addEventListener.mock.calls[0]?.[1])
+  })
+
+  it('keeps the deadline active while reading a stalled response body', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url, init) => ({
+        ok: true,
+        json: () =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener('abort', () => reject(new Error('body timed out')), {
+              once: true,
+            })
+          }),
+      }))
+    )
+    const request = new VersionAPIClient({ useProxy: true }).request(
+      {
+        method: 'GET',
+        url: '/api/v2/valuations/sessions/report-1/versions',
+      },
+      { timeout: 1000 }
+    )
+    const rejected = expect(request).rejects.toThrow('body timed out')
+    await vi.advanceTimersByTimeAsync(1000)
+    await rejected
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

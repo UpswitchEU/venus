@@ -30,11 +30,13 @@ async function proxyToTitan(
   searchParams?: string
 ): Promise<NextResponse> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const isRestore = method === 'POST' && pathSegments.at(-1) === 'restore'
+  const timeout = setTimeout(() => controller.abort(), isRestore ? 25_000 : TIMEOUT_MS)
 
   try {
     const cookieHeader = request.headers.get('cookie') || ''
     const authHeader = request.headers.get('authorization') || ''
+    const idempotencyKey = request.headers.get('idempotency-key')
     const pathStr =
       pathSegments.length > 0
         ? '/' + pathSegments.map((segment) => encodeURIComponent(segment)).join('/')
@@ -47,6 +49,7 @@ async function proxyToTitan(
         'Content-Type': 'application/json',
         ...(cookieHeader && { Cookie: cookieHeader }),
         ...(authHeader && { Authorization: authHeader }),
+        ...(idempotencyKey && { 'Idempotency-Key': idempotencyKey }),
       },
       signal: controller.signal,
     }

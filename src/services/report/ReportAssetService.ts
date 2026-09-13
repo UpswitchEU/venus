@@ -26,7 +26,8 @@ import {
   resolveSavedReportIdentity,
   rememberSavedReportAlias,
 } from '../../utils/reportIdentityPromotion'
-import { reportAccessScope } from '../../utils/reportAccessScope'
+import { reportAccessScope, watchReportAccessScope } from '../../utils/reportAccessScope'
+import { getManualResultsSnapshot } from '../../store/manualResultsSnapshot'
 import { getCanonicalReportAlias } from '../../utils/reportIdentityPromotion'
 
 const logger = createContextLogger('ReportAssetService')
@@ -131,6 +132,10 @@ export class ReportAssetService {
   async saveReportAssets(reportId: string, assets: ReportAssets): Promise<void> {
     const assetsSnapshot = snapshotReportAssets(assets)
     const accessScope = reportAccessScope()
+    const access = watchReportAccessScope()
+    const displayedResult = getManualResultsSnapshot()?.valuationResult
+    const canUpdateView = () =>
+      access.isCurrent() && getManualResultsSnapshot()?.valuationResult === displayedResult
     const queueKey = reportAssetSaveKey(reportId)
     const previousSave = pendingReportAssetSave(reportId)
     if (previousSave) {
@@ -143,9 +148,13 @@ export class ReportAssetService {
     const savePromise = (previousSave ?? Promise.resolve())
       .catch(() => undefined)
       .then(() => {
-        if (reportAccessScope() !== accessScope)
-          throw new Error('Report save cancelled: client context changed')
-        return this._saveReportAssetsInternal(reportId, assetsSnapshot)
+        if (!access.isCurrent()) throw new Error('Report save cancelled: client context changed')
+        return this._saveReportAssetsInternal(
+          reportId,
+          assetsSnapshot,
+          access.isCurrent,
+          canUpdateView
+        )
       })
     pendingReportAssetSaves.set(queueKey, savePromise)
 
@@ -155,15 +164,13 @@ export class ReportAssetService {
       failedAssetSaves.delete(`${accessScope}:${getCanonicalReportAlias(reportId) ?? reportId}`)
       notifySaveState()
     } catch (error) {
-      if (
-        reportAccessScope() === accessScope &&
-        pendingReportAssetSaves.get(queueKey) === savePromise
-      ) {
+      if (canUpdateView() && pendingReportAssetSaves.get(queueKey) === savePromise) {
         failedAssetSaves.set(queueKey, { assets: assetsSnapshot, error: getErrorMessage(error) })
         notifySaveState()
       }
       throw error
     } finally {
+      access.dispose()
       if (pendingReportAssetSaves.get(queueKey) === savePromise) {
         pendingReportAssetSaves.delete(queueKey)
       }
@@ -171,11 +178,18 @@ export class ReportAssetService {
   }
 
   async retryFailedSave(reportId: string): Promise<void> {
+    const pending = pendingReportAssetSave(reportId)
+    if (pending) return pending
     const failed = failedReportAssetSave(reportId)
     if (failed) await this.saveReportAssets(reportId, failed.assets)
   }
 
-  private async _saveReportAssetsInternal(reportId: string, assets: ReportAssets): Promise<void> {
+  private async _saveReportAssetsInternal(
+    reportId: string,
+    assets: ReportAssets,
+    canSave: () => boolean = () => true,
+    canUpdateView: () => boolean = () => true
+  ): Promise<void> {
     const startTime = performance.now()
     const accessScope = reportAccessScope()
 
@@ -232,6 +246,9 @@ export class ReportAssetService {
       }
 
       // Save complete package to backend in single API call
+      // Dynamic imports yield: re-check immediately before transport so a new
+      // client context can never be attached to an old client's queued payload.
+      if (!canSave()) throw new Error('Report save cancelled: client context changed')
       const putResultStartTime = performance.now()
       const saveResponse = await sessionAPI.saveValuationResult(reportId, {
         sessionData: sessionDataWithContext,
@@ -263,6 +280,7 @@ export class ReportAssetService {
 
       const { useSessionStore } = await import('../../store/useSessionStore')
       const isStillTarget = () =>
+        canUpdateView() &&
         reportAccessScope() === accessScope &&
         [reportId, canonicalReportId].includes(useSessionStore.getState().session?.reportId ?? '')
       if (!isStillTarget()) return

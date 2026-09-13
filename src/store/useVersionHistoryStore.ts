@@ -19,6 +19,7 @@ import type {
   VersionListResponse,
 } from '../types/ValuationVersion'
 import { createContextLogger } from '../utils/logger'
+import { reportAccessScope, watchReportAccessScope } from '../utils/reportAccessScope'
 import {
   applyCreatedBackendVersion,
   buildLocalFallbackVersionCreation,
@@ -84,6 +85,10 @@ function createQuotaSafeStorage(): StateStorage {
 
 // ✅ FIX: Track pending version creations to prevent duplicates
 const pendingVersionCreations = new Set<string>()
+const pendingVersionFetches = new Map<
+  string,
+  { promise: Promise<void>; isCurrent: () => boolean }
+>()
 
 export interface VersionHistoryStore {
   // State
@@ -149,102 +154,128 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
        * - Shows sync status
        */
       fetchVersions: async (reportId: string) => {
-        set({ loading: true, error: null })
+        const fetchKey = `${reportAccessScope()}:${reportId}`
+        const pending = pendingVersionFetches.get(fetchKey)
+        if (pending?.isCurrent()) return pending.promise
+        const access = watchReportAccessScope()
+        const operation = Promise.resolve().then(async () => {
+          if (!access.isCurrent()) return
+          set({ loading: true, error: null })
 
-        // Update sync status
-        set((state) => ({
-          syncStatus: {
-            ...state.syncStatus,
-            [reportId]: {
-              ...state.syncStatus[reportId],
-              isSyncing: true,
-              syncError: null,
-            },
-          },
-        }))
-
-        const applyBackendResponse = (response: VersionListResponse) => {
-          const existingLocalVersions = get().versions[reportId] || []
-          const deduplicatedVersions = mergeBackendVersionsByNumber({
-            localVersions: existingLocalVersions,
-            backendVersions: response.versions,
-          })
-
+          // Update sync status
           set((state) => ({
-            versions: {
-              ...state.versions,
-              [reportId]: deduplicatedVersions,
-            },
-            activeVersions: {
-              ...state.activeVersions,
-              [reportId]: response.activeVersion,
-            },
-            loading: false,
             syncStatus: {
               ...state.syncStatus,
               [reportId]: {
-                lastSyncedAt: Date.now(),
-                isSyncing: false,
+                ...state.syncStatus[reportId],
+                isSyncing: true,
                 syncError: null,
               },
             },
           }))
 
-          versionLogger.info('Versions loaded from backend', {
-            reportId,
-            count: response.versions.length,
-            deduplicatedCount: deduplicatedVersions.length,
-            hadLocalVersions: existingLocalVersions.length > 0,
-          })
-        }
+          const applyBackendResponse = (response: VersionListResponse) => {
+            if (!access.isCurrent()) return
+            const existingLocalVersions = get().versions[reportId] || []
+            const deduplicatedVersions = mergeBackendVersionsByNumber({
+              localVersions: existingLocalVersions,
+              backendVersions: response.versions,
+            })
 
-        const fallbackToLocal = (error: unknown) => {
-          const localVersions = get().versions[reportId] || []
-          const deduplicatedLocalVersions = deduplicateVersionsByNumber(localVersions)
-
-          const errorMessage = error instanceof Error ? error.message : String(error)
-          versionLogger.warn('Backend unavailable, using local versions', {
-            reportId,
-            count: localVersions.length,
-            deduplicatedCount: deduplicatedLocalVersions.length,
-            error: errorMessage,
-          })
-
-          set((state) => ({
-            versions: {
-              ...state.versions,
-              [reportId]: deduplicatedLocalVersions,
-            },
-            loading: false,
-            syncStatus: {
-              ...state.syncStatus,
-              [reportId]: {
-                lastSyncedAt: state.syncStatus[reportId]?.lastSyncedAt || null,
-                isSyncing: false,
-                syncError: errorMessage,
+            set((state) => ({
+              versions: {
+                ...state.versions,
+                [reportId]: deduplicatedVersions,
               },
-            },
-          }))
-        }
+              activeVersions: {
+                ...state.activeVersions,
+                [reportId]: deduplicatedVersions.some(
+                  (version) => version.versionNumber === state.activeVersions[reportId]
+                )
+                  ? state.activeVersions[reportId]
+                  : response.activeVersion,
+              },
+              loading: false,
+              syncStatus: {
+                ...state.syncStatus,
+                [reportId]: {
+                  lastSyncedAt: Date.now(),
+                  isSyncing: false,
+                  syncError: null,
+                },
+              },
+            }))
 
-        const fetchWithRetry = async (): Promise<VersionListResponse> => {
-          try {
-            return await versionAPI.listVersions(reportId)
-          } catch (_firstError) {
-            versionLogger.info('Retrying version fetch after 1s', { reportId })
-            await new Promise((r) => setTimeout(r, 1000))
-            return await versionAPI.listVersions(reportId)
+            versionLogger.info('Versions loaded from backend', {
+              reportId,
+              count: response.versions.length,
+              deduplicatedCount: deduplicatedVersions.length,
+              hadLocalVersions: existingLocalVersions.length > 0,
+            })
           }
-        }
 
+          const fallbackToLocal = (error: unknown) => {
+            if (!access.isCurrent()) return
+            const localVersions = get().versions[reportId] || []
+            const deduplicatedLocalVersions = deduplicateVersionsByNumber(localVersions)
+
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            versionLogger.warn('Backend unavailable, using local versions', {
+              reportId,
+              count: localVersions.length,
+              deduplicatedCount: deduplicatedLocalVersions.length,
+              error: errorMessage,
+            })
+
+            set((state) => ({
+              versions: {
+                ...state.versions,
+                [reportId]: deduplicatedLocalVersions,
+              },
+              loading: false,
+              syncStatus: {
+                ...state.syncStatus,
+                [reportId]: {
+                  lastSyncedAt: state.syncStatus[reportId]?.lastSyncedAt || null,
+                  isSyncing: false,
+                  syncError: errorMessage,
+                },
+              },
+            }))
+          }
+
+          const fetchWithRetry = async (): Promise<VersionListResponse> => {
+            try {
+              return await versionAPI.listVersions(reportId)
+            } catch (_firstError) {
+              versionLogger.info('Retrying version fetch after 1s', { reportId })
+              await new Promise((r) => setTimeout(r, 1000))
+              if (!access.isCurrent()) throw _firstError
+              return await versionAPI.listVersions(reportId)
+            }
+          }
+
+          try {
+            versionLogger.info('Fetching versions', { reportId })
+            const response = await fetchWithRetry()
+            applyBackendResponse(response)
+          } catch (error) {
+            fallbackToLocal(error)
+          }
+        })
+        pendingVersionFetches.set(fetchKey, { promise: operation, isCurrent: access.isCurrent })
         try {
-          versionLogger.info('Fetching versions', { reportId })
-          const response = await fetchWithRetry()
-          applyBackendResponse(response)
-        } catch (error) {
-          fallbackToLocal(error)
+          await operation
         } finally {
-          set({ loading: false })
+          access.dispose()
+          if (pendingVersionFetches.get(fetchKey)?.promise === operation)
+            pendingVersionFetches.delete(fetchKey)
+          const scopePrefix = `${reportAccessScope()}:`
+          set({
+            loading: Array.from(pendingVersionFetches.entries()).some(
+              ([key, pending]) => key.startsWith(scopePrefix) && pending.isCurrent()
+            ),
+          })
         }
       },
 

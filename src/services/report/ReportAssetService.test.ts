@@ -75,8 +75,8 @@ describe('ReportAssetService asset save queue', () => {
     await expect(second).resolves.toBeUndefined()
 
     expect(internalSave).toHaveBeenCalledTimes(2)
-    expect(internalSave).toHaveBeenNthCalledWith(2, 'report-1', { name: 'second' })
-    expect(pendingReportAssetSaves.has('report-1')).toBe(false)
+    expect(internalSave.mock.calls[1].slice(0, 2)).toEqual(['report-1', { name: 'second' }])
+    expect(pendingReportAssetSaves.size).toBe(0)
   })
 
   it('snapshots queued assets so caller mutations cannot change an in-flight save', async () => {
@@ -119,7 +119,9 @@ describe('ReportAssetService asset save queue', () => {
         sessionData: { company_name: 'Snapshot Co', nested: { revenue: 100 } },
         valuationResult: expect.objectContaining({ html_report: '<html>Original</html>' }),
         htmlReport: '<html>Original</html>',
-      })
+      }),
+      expect.any(Function),
+      expect.any(Function)
     )
   })
 })

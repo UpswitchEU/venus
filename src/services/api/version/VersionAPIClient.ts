@@ -5,6 +5,7 @@ const VERSION_API_TIMEOUT_MS = 10_000
 export interface APIRequestConfig {
   signal?: AbortSignal
   timeout?: number
+  idempotencyKey?: string
 }
 
 export interface VersionAPIRequest {
@@ -67,7 +68,8 @@ export class VersionAPIClient {
         throw new Error(`API request failed: ${response.statusText}`)
       }
 
-      return response.json()
+      // Reading a large version body is part of the operation deadline too.
+      return await response.json()
     } finally {
       clearTimeout(timeoutId)
       options?.signal?.removeEventListener('abort', abortFromCaller)

@@ -10,3 +10,21 @@ export function reportAccessScope(): string {
     client.isActingAsClient ? (client.relationshipId ?? null) : null,
   ])
 }
+
+/** Invalidate work even if the user switches away and back before it completes. */
+export function watchReportAccessScope() {
+  const scope = reportAccessScope()
+  let invalidated = false
+  const check = () => {
+    if (reportAccessScope() !== scope) invalidated = true
+  }
+  const unsubscribeAuth = useAuthStore.subscribe(check)
+  const unsubscribeClient = useClientContext.subscribe(check)
+  return {
+    isCurrent: () => !invalidated && reportAccessScope() === scope,
+    dispose: () => {
+      unsubscribeAuth()
+      unsubscribeClient()
+    },
+  }
+}
