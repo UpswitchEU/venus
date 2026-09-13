@@ -271,11 +271,18 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
           if (pendingVersionFetches.get(fetchKey)?.promise === operation)
             pendingVersionFetches.delete(fetchKey)
           const scopePrefix = `${reportAccessScope()}:`
-          set({
+          set((state) => ({
             loading: Array.from(pendingVersionFetches.entries()).some(
               ([key, pending]) => key.startsWith(scopePrefix) && pending.isCurrent()
             ),
-          })
+            syncStatus: {
+              ...state.syncStatus,
+              [reportId]: {
+                ...state.syncStatus[reportId],
+                isSyncing: !!pendingVersionFetches.get(`${scopePrefix}${reportId}`)?.isCurrent(),
+              },
+            },
+          }))
         }
       },
 

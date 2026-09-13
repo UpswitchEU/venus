@@ -85,6 +85,7 @@ describe('version history refresh recovery with the real store', () => {
     expect(useVersionHistoryStore.getState().versions['report-a']).toEqual([original])
     expect(useVersionHistoryStore.getState().activeVersions['report-a']).toBe(1)
     expect(useVersionHistoryStore.getState().loading).toBe(false)
+    expect(useVersionHistoryStore.getState().syncStatus['report-a'].isSyncing).toBe(false)
   })
 
   it('keeps an existing historical selection through a successful background refresh', async () => {
