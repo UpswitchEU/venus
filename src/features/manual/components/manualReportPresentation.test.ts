@@ -9,6 +9,21 @@ import {
 } from './manualReportPresentation'
 
 describe('deriveManualReportPresentation', () => {
+  it('uses the published suppressed asking buffer in an original mixed-method report', () => {
+    const result = {
+      equity_value_mid: '1400832.09',
+      equity_value_low: 1000000,
+      equity_value_high: 1800000,
+      recommended_asking_price: '1120000',
+      report_context: {
+        is_adaptive_multiples_only: false,
+        recommended_asking_price: 1400832,
+        recommended_asking_price_buffer_suppressed: true,
+      },
+    } as unknown as ValuationResponse
+    expect(deriveNavPricesForVersionNav(result, 'upswitch_adaptive').askPrice).toBe(1400832)
+    expect(deriveNavPricesForVersionNav(result, 'ebitda_multiple').askPrice).toBe(1120000)
+  })
   it('reads the final published adaptive values from legacy report context', () => {
     const result = {
       equity_value_mid: '1218800',

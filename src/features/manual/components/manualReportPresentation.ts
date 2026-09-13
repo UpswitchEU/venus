@@ -256,7 +256,6 @@ export function deriveNavPricesForVersionNav(
   const context = asRecord(r.report_context ?? details.report_context)
   const publishedAsking =
     (!selectedMethod || selectedMethod === 'upswitch_adaptive') &&
-    context.is_adaptive_multiples_only === true &&
     (context.recommended_asking_price_buffer_suppressed === true ||
       context.recommended_asking_price_realigned === true)
       ? positiveFiniteNumber(context.recommended_asking_price)

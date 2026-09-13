@@ -411,6 +411,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   useManualSessionPersistenceLifecycles({ reportId, resolvedReportId })
   const { handleSelectVersion, selectedVersionId, versionHistoryForNav } =
     useManualVersionNavigation({
+      initialVersion,
       currentValuationSummary: navValuationSummary,
       currentVersionLabel: t('currentVersion'),
       onVersionHistoryLocked: () => openStarterPaywall('version_history'),

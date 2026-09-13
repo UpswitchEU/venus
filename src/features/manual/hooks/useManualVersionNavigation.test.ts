@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { createElement, StrictMode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 import { VersionAPI } from '../../../services/api/version/VersionAPI'
@@ -141,6 +142,71 @@ describe('historical report navigation', () => {
       finish(version(1, true))
       await first
     })
+    expect(p.setResult).not.toHaveBeenCalled()
+  })
+
+  it('hydrates an explicit version link even before history arrives', async () => {
+    useVersionHistoryStore.setState({ versions: {}, activeVersions: {} })
+    const read = vi.spyOn(VersionAPI.prototype, 'getVersion').mockResolvedValue(version(1, true))
+    const p = { ...params(), initialVersion: 1 }
+    const { result } = renderHook(() => useManualVersionNavigation(p))
+    await waitFor(() =>
+      expect(p.setResult).toHaveBeenCalledWith(
+        expect.objectContaining({ equity_value_mid: 100000 })
+      )
+    )
+    expect(read).toHaveBeenCalledWith('report-a', 1)
+    expect(result.current.selectedVersionId).toBe('v1')
+    expect(window.location.search).toContain('version=1')
+    expect(p.showVersionLoadedToast).not.toHaveBeenCalled()
+  })
+
+  it('restores a cached explicit version after refresh instead of the latest report', async () => {
+    const p = { ...params(), initialVersion: 2 }
+    const read = vi.spyOn(VersionAPI.prototype, 'getVersion')
+    const { result } = renderHook(() => useManualVersionNavigation(p))
+    await waitFor(() => expect(result.current.selectedVersionId).toBe('v2'))
+    expect(p.setResult).toHaveBeenCalledWith(expect.objectContaining({ equity_value_mid: 200000 }))
+    expect(read).not.toHaveBeenCalled()
+  })
+
+  it('does not let an initial version request undo a newer user selection', async () => {
+    let finish!: (value: ValuationVersion) => void
+    vi.spyOn(VersionAPI.prototype, 'getVersion').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const p = { ...params(), initialVersion: 1 }
+    const { result } = renderHook(() => useManualVersionNavigation(p))
+    await waitFor(() => expect(finish).toBeTypeOf('function'))
+    await act(async () => {
+      await result.current.handleSelectVersion('v2')
+    })
+    await act(async () => {
+      finish(version(1, true))
+    })
+    expect(p.setResult).toHaveBeenCalledTimes(1)
+    expect(result.current.selectedVersionId).toBe('v2')
+    expect(window.location.search).toContain('version=2')
+  })
+
+  it('loads explicit links through StrictMode effect replay', async () => {
+    const p = { ...params(), initialVersion: 1 }
+    vi.spyOn(VersionAPI.prototype, 'getVersion').mockResolvedValue(version(1, true))
+    const { result } = renderHook(() => useManualVersionNavigation(p), {
+      wrapper: ({ children }) => createElement(StrictMode, null, children),
+    })
+    await waitFor(() => expect(result.current.selectedVersionId).toBe('v1'))
+    expect(p.setResult).toHaveBeenCalledTimes(1)
+  })
+
+  it('retains the mounted report when a direct version is unavailable', async () => {
+    const p = { ...params(), initialVersion: 99 }
+    vi.spyOn(VersionAPI.prototype, 'getVersion').mockResolvedValue(null)
+    renderHook(() => useManualVersionNavigation(p))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('common.states.loadFailed'))
     expect(p.setResult).not.toHaveBeenCalled()
   })
 })

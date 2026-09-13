@@ -14,6 +14,7 @@ interface VersionControlFeatures {
 }
 
 export interface UseManualVersionNavigationParams {
+  initialVersion?: number
   currentValuationSummary?: {
     priceRange: { min: number; max: number }
     askPrice: number
@@ -36,6 +37,7 @@ export interface UseManualVersionNavigationResult {
 }
 
 export function useManualVersionNavigation({
+  initialVersion,
   currentValuationSummary,
   currentVersionLabel,
   onVersionHistoryLocked,
@@ -53,11 +55,13 @@ export function useManualVersionNavigation({
   const target = `${scope}:${versionLookupId}`
   const targetRef = useRef(target)
   const sequence = useRef(0)
-  const pending = useRef<{ id: string; promise: Promise<void> } | null>(null)
+  const pending = useRef<{ number: number; promise: Promise<void> } | null>(null)
+  const initialSelection = useRef<string | null>(null)
   if (targetRef.current !== target) {
     targetRef.current = target
     sequence.current += 1
     pending.current = null
+    initialSelection.current = null
   }
   const versions = useVersionHistoryStore((s) => s.versions[versionLookupId] || [])
   const activeVersionNumber = useVersionHistoryStore((s) => s.activeVersions[versionLookupId])
@@ -66,6 +70,8 @@ export function useManualVersionNavigation({
     setSelectedVersionId('current')
     return () => {
       sequence.current += 1
+      pending.current = null
+      initialSelection.current = null
     }
   }, [target])
   const hasReport = !!report
@@ -109,50 +115,55 @@ export function useManualVersionNavigation({
     versions,
   ])
 
-  const handleSelectVersion = useCallback(
-    (id: string) => {
-      if (planFeatures && !planFeatures.version_control && id !== 'current') {
+  const loadVersion = useCallback(
+    (versionNumber: number, notify = true) => {
+      if (planFeatures && !planFeatures.version_control) {
         onVersionHistoryLocked()
         return
       }
-      const version = versions.find((v) => v.id === id)
-      if (!version) return
-      if (pending.current?.id === id) return pending.current.promise
+      const version = versions.find((v) => v.versionNumber === versionNumber)
+      if (pending.current?.number === versionNumber) return pending.current.promise
       const revision = ++sequence.current
       const access = watchReportAccessScope()
       const isCurrent = () =>
         access.isCurrent() && revision === sequence.current && targetRef.current === target
       const operation = Promise.resolve().then(async () => {
         try {
+          if (!isCurrent()) return
           const cachedHtml = getFirstRenderableReportHtml(
-            version.valuationResult?.html_report,
-            version.htmlReport
+            version?.valuationResult?.html_report,
+            version?.htmlReport
           )
           const loaded =
-            version.valuationResult && cachedHtml
+            version?.valuationResult && cachedHtml
               ? version
-              : await new VersionAPI().getVersion(versionLookupId, version.versionNumber)
+              : await new VersionAPI().getVersion(versionLookupId, versionNumber)
           if (!isCurrent()) return
           const html = getFirstRenderableReportHtml(
             loaded?.valuationResult?.html_report,
             loaded?.htmlReport
           )
-          if (!loaded?.valuationResult || !html) throw new Error('Version report unavailable')
+          if (!loaded?.valuationResult || !html || loaded.versionNumber !== versionNumber) {
+            throw new Error('Version report unavailable')
+          }
           useVersionHistoryStore.setState((state) => ({
             versions: {
               ...state.versions,
-              [versionLookupId]: (state.versions[versionLookupId] ?? []).map((v) =>
-                v.id === loaded.id ? loaded : v
-              ),
+              [versionLookupId]: [
+                ...(state.versions[versionLookupId] ?? []).filter(
+                  (v) => v.versionNumber !== loaded.versionNumber
+                ),
+                loaded,
+              ].sort((a, b) => a.versionNumber - b.versionNumber),
             },
           }))
           setResult({ ...loaded.valuationResult, html_report: html })
-          setSelectedVersionId(id)
+          setSelectedVersionId(loaded.id)
           useVersionHistoryStore.getState().setActiveVersion(versionLookupId, loaded.versionNumber)
           const url = new URL(window.location.href)
           url.searchParams.set('version', String(loaded.versionNumber))
           window.history.replaceState(window.history.state, '', url)
-          showVersionLoadedToast(loaded.versionLabel)
+          if (notify) showVersionLoadedToast(loaded.versionLabel)
         } catch {
           if (isCurrent()) toast.error(t('common.states.loadFailed'))
         } finally {
@@ -160,7 +171,7 @@ export function useManualVersionNavigation({
           if (pending.current?.promise === operation) pending.current = null
         }
       })
-      pending.current = { id, promise: operation }
+      pending.current = { number: versionNumber, promise: operation }
       return operation
     },
     [
@@ -174,6 +185,24 @@ export function useManualVersionNavigation({
       t,
     ]
   )
+
+  const handleSelectVersion = useCallback(
+    (id: string) => {
+      const version = versions.find((v) => v.id === id)
+      if (version) return loadVersion(version.versionNumber)
+    },
+    [loadVersion, versions]
+  )
+
+  useEffect(() => {
+    if (!hasReport || !Number.isInteger(initialVersion) || (initialVersion ?? 0) < 1) return
+    const key = `${target}:${initialVersion}`
+    if (initialSelection.current === key) return
+    initialSelection.current = key
+    // Bootstrap supplies the latest committed report. Explicit version links
+    // must hydrate their own snapshot, including after a full page refresh.
+    void loadVersion(initialVersion!, false)
+  }, [hasReport, initialVersion, loadVersion, target])
 
   return {
     handleSelectVersion,
