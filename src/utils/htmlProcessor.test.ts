@@ -10,6 +10,20 @@ vi.mock('./logger', () => ({
 }))
 
 describe('HTMLProcessor', () => {
+
+  it.each(['Starting proposal based on available figures', 'Startvoorstel op basis van beschikbare cijfers', 'Proposition initiale basée sur les chiffres disponibles'])(
+    'removes only the legacy proposal banner: %s', (copy) => {
+      const fragment = HTMLProcessor.sanitizeToFragment(`<section><div class="report-assurance-banner report-assurance-banner--start-proposal"><h3>${copy}</h3><p>Review figures</p></div><p data-certification="draft">Certification metadata</p><aside>Methodology limitations</aside></section>`, document)
+      const root = document.createElement('div')
+      root.appendChild(fragment)
+      const sanitized = root.innerHTML
+      expect(sanitized).not.toContain(copy)
+      expect(sanitized).not.toContain('report-assurance-banner--start-proposal')
+      expect(sanitized).toContain('Certification metadata')
+      expect(sanitized).toContain('Methodology limitations')
+    }
+  )
+
   it('removes executable HTML from report content', () => {
     const sanitized = HTMLProcessor.sanitize(
       '<section><img src="x" onerror="alert(1)"><script>alert(1)</script><p>Safe</p></section>'

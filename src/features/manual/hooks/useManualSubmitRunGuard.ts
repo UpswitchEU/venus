@@ -1,3 +1,5 @@
+import { isSameReportIdentity } from '../../../utils/reportIdentityPromotion'
+import { reportAccessScope } from '../../../utils/reportAccessScope'
 import { useCallback, useRef } from 'react'
 import { useIsMountedRef, useLatestRef } from './useNavigationCancellation'
 
@@ -37,8 +39,9 @@ export function createManualSubmitRun({
   isLatestRun,
   endLoading,
 }: CreateManualSubmitRunParams): ManualSubmitRun {
-  const isCurrent = () => isMounted() && isLatestRun(id)
-  const isStillTarget = () => isCurrent() && getCurrentLookupId() === startLookupId
+  const scope = reportAccessScope()
+  const isCurrent = () => isMounted() && isLatestRun(id) && reportAccessScope() === scope
+  const isStillTarget = () => isCurrent() && (getCurrentLookupId() === startLookupId || isSameReportIdentity(getCurrentLookupId(), startLookupId))
 
   return {
     id,

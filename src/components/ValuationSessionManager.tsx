@@ -1,5 +1,7 @@
 'use client'
 
+import { useReportAssetSaveFailure } from '../hooks/useReportAssetSaveFailure'
+import { reportAssetService } from '../services/report/ReportAssetService'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
@@ -476,7 +478,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     const resolvedStage: Stage = stage
     const advisorErrorPresentation = null
 
-    const { handleRetry } = useValuationSessionLoader({
+    const assetSaveFailure = useReportAssetSaveFailure(reportId)
+    const { handleRetry: retrySessionLoad } = useValuationSessionLoader({
       bootstrapComplete,
       bootstrapError: bootstrap?.bootstrapError,
       bootstrapHasExistingSession,
@@ -497,6 +500,16 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       sessionHasAssets,
       urlPrefilledQuery,
     })
+
+    const handleRetry = useCallback(async () => {
+      if (assetSaveFailure && reportId) {
+        // Re-send the failed asset payload. This never invokes the calculator,
+        // version creation, or billing; failure remains in the inline state.
+        await reportAssetService.retryFailedSave(reportId).catch(() => undefined)
+      } else {
+        await retrySessionLoad()
+      }
+    }, [assetSaveFailure, reportId, retrySessionLoad])
 
     // Return a delegated advisor to the exact dossier recovery surface. Do not
     // clear the Venus session: source evidence and edits must survive the round-trip.
@@ -522,8 +535,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     }, [clientIdParam, clearSession, isFromMercury, pathname, reportId, router, sessionHasAssets])
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
-    const rawEffectiveError =
-      error || bootstrap?.bootstrapError || null
+    const rawEffectiveError = assetSaveFailure?.error || error || bootstrap?.bootstrapError || null
     const effectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
 
     // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session

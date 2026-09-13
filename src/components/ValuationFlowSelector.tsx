@@ -240,9 +240,16 @@ export const ValuationFlowSelector: React.FC<ValuationFlowSelectorProps> = React
       return (
         <div className="relative h-full w-full flex flex-col">
           {error && hasUsableReport ? (
-            <div role="alert" className="flex shrink-0 items-center justify-between gap-3 border-b border-warning/30 bg-warning/10 px-4 py-2 text-sm">
+            <div
+              role="alert"
+              className="flex shrink-0 items-center justify-between gap-3 border-b border-warning/30 bg-warning/10 px-4 py-2 text-sm"
+            >
               <span>{error}</span>
-              {onRetry ? <AuroraButton variant="ghost" size="sm" onClick={onRetry}>{tErrors('errorState.tryAgain')}</AuroraButton> : null}
+              {onRetry ? (
+                <AuroraButton variant="ghost" size="sm" onClick={onRetry}>
+                  {tErrors('errorState.tryAgain')}
+                </AuroraButton>
+              ) : null}
             </div>
           ) : null}
           {/* Render unified flow component based on session view */}

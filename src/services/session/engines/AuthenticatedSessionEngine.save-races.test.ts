@@ -13,6 +13,26 @@ describe('AuthenticatedSessionEngine save races', () => {
     resetAuthenticatedSessionEngineHarness()
   })
 
+
+  it('promotes the engine identity and ignores an earlier draft save response', async () => {
+    const engine = new AuthenticatedSessionEngine()
+    const draft = { reportId: 'val_promotion_race', currentView: 'manual' as const, dataSource: 'manual' as const,
+      createdAt: new Date(), updatedAt: new Date(), sessionData: { note: 'keep edit' }, partialData: {} }
+    engine.updateSession(draft)
+    const oldSave = deferred<typeof draft>()
+    sessionServiceMocks.saveSession.mockReturnValueOnce(oldSave.promise)
+    const saving = engine.saveSession('user')
+    await Promise.resolve()
+    const uuid = 'e6308cd8-2dbd-4283-988d-7071cfcd9403'
+    engine.promoteReportIdentity(draft.reportId, uuid)
+    engine.hydrateSession({ reportId: uuid, htmlReport: '<article>Saved report</article>' })
+    oldSave.resolve({ ...draft, sessionData: { note: 'stale response' } })
+    await saving
+    expect(engine.getSession()?.reportId).toBe(uuid)
+    expect(engine.getSession()?.sessionData.note).toBe('keep edit')
+    expect(engine.getSession()?.htmlReport).toContain('Saved report')
+  })
+
   it('does not resurrect a cleared session when an in-flight save resolves', async () => {
     const createdAt = new Date('2026-06-04T09:10:00.000Z')
     const save = deferred<{

@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react'
 import { useSessionStore } from '../store/useSessionStore'
 import { SessionAPI } from '../services/api/session/SessionAPI'
 import { reportAssetService, pendingReportAssetSaves } from '../services/report/ReportAssetService'
-import { clearScopedGlobalBootstrapResult, getScopedGlobalBootstrapResult, rememberScopedGlobalBootstrapResult } from '../lib/bootstrap/BootstrapProviderCache'
+import {
+  clearScopedGlobalBootstrapResult,
+  getScopedGlobalBootstrapResult,
+  rememberScopedGlobalBootstrapResult,
+} from '../lib/bootstrap/BootstrapProviderCache'
 import { DEFAULT_BOOTSTRAP_STATE } from '../lib/bootstrap/types'
 import { REPORT_IDENTITY_PROMOTED_EVENT } from '../utils/reportIdentityPromotion'
 import type { ValuationSession } from '../types/valuation'
@@ -12,20 +16,41 @@ import { ValuationSessionManager } from './ValuationSessionManager'
 import { ValuationFlowSelector } from './ValuationFlowSelector'
 
 const state = vi.hoisted(() => ({ bootstrap: null as any, mounts: 0, refresh: vi.fn() }))
-vi.mock('../lib/bootstrap', async (original) => ({ ...await original<typeof import('../lib/bootstrap')>(), useBootstrapSafe: () => state.bootstrap }))
-vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams('flow=manual'), usePathname: () => '/en/reports/test' }))
-vi.mock('next-view-transitions', () => ({ useTransitionRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }))
+vi.mock('../lib/bootstrap', async (original) => ({
+  ...(await original<typeof import('../lib/bootstrap')>()),
+  useBootstrapSafe: () => state.bootstrap,
+}))
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams('flow=manual'),
+  usePathname: () => '/en/reports/test',
+}))
+vi.mock('next-view-transitions', () => ({
+  useTransitionRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}))
 vi.mock('../features/valuation/components/ValuationFlow', () => ({
   ValuationFlow: () => {
-    useEffect(() => { state.mounts++ }, [])
-    return <article><p>Generated valuation</p><input aria-label="Report note" defaultValue="original" /></article>
+    useEffect(() => {
+      state.mounts++
+    }, [])
+    return (
+      <article>
+        <p>Generated valuation</p>
+        <input aria-label="Report note" defaultValue="original" />
+      </article>
+    )
   },
 }))
 
 const sessionKey = 'val_1789304239522_lifecycle'
 const uuid = 'e6308cd8-2dbd-4283-988d-7071cfcd9403'
 const html = `<html><body><article>${'Verified valuation report '.repeat(20)}</article></body></html>`
-const context = { reportId: sessionKey, flow: 'manual' as const, locale: 'en', clientId: 'client-a', version: 2 }
+const context = {
+  reportId: sessionKey,
+  flow: 'manual' as const,
+  locale: 'en',
+  clientId: 'client-a',
+  version: 2,
+}
 
 function Lifecycle() {
   const [id, setId] = useState(sessionKey)
@@ -34,7 +59,11 @@ function Lifecycle() {
     window.addEventListener(REPORT_IDENTITY_PROMOTED_EVENT, promote)
     return () => window.removeEventListener(REPORT_IDENTITY_PROMOTED_EVENT, promote)
   }, [])
-  return <ValuationSessionManager reportId={id}>{(props) => <ValuationFlowSelector {...props} reportId={id} onComplete={() => undefined} />}</ValuationSessionManager>
+  return (
+    <ValuationSessionManager reportId={id}>
+      {(props) => <ValuationFlowSelector {...props} reportId={id} onComplete={() => undefined} />}
+    </ValuationSessionManager>
+  )
 }
 
 describe('calculation → save → UUID → refresh with the real session manager and stores', () => {
@@ -45,19 +74,49 @@ describe('calculation → save → UUID → refresh with the real session manage
     pendingReportAssetSaves.clear()
     window.localStorage.clear()
     clearScopedGlobalBootstrapResult()
-    state.bootstrap = { ...DEFAULT_BOOTSTRAP_STATE, isBootstrapping: true, bootstrapError: null, refreshBootstrap: state.refresh,
-      report: { ...DEFAULT_BOOTSTRAP_STATE.report, reportId: sessionKey, mode: 'existing', hasExistingData: true, reportReady: true } }
+    state.bootstrap = {
+      ...DEFAULT_BOOTSTRAP_STATE,
+      isBootstrapping: true,
+      bootstrapError: null,
+      refreshBootstrap: state.refresh,
+      report: {
+        ...DEFAULT_BOOTSTRAP_STATE.report,
+        reportId: sessionKey,
+        mode: 'existing',
+        hasExistingData: true,
+        reportReady: true,
+      },
+    }
     rememberScopedGlobalBootstrapResult(context, state.bootstrap)
     // The calculator's successful result has already reached the real session store.
-    useSessionStore.setState({ engine: null, status: 'loaded', errorMessage: null, hasUnsavedChanges: false,
-      session: { reportId: sessionKey, currentView: 'manual', dataSource: 'manual', createdAt: new Date(), updatedAt: new Date(),
-        sessionData: { company_name: 'Incident BV', revenue: 1450000 }, partialData: {}, htmlReport: html,
-        valuationResult: { equity_value_mid: 1400832, html_report: html }, reportReady: true } as ValuationSession })
+    useSessionStore.setState({
+      engine: null,
+      status: 'loaded',
+      errorMessage: null,
+      hasUnsavedChanges: false,
+      session: {
+        reportId: sessionKey,
+        currentView: 'manual',
+        dataSource: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        sessionData: { company_name: 'Incident BV', revenue: 1450000 },
+        partialData: {},
+        htmlReport: html,
+        valuationResult: { equity_value_mid: 1400832, html_report: html },
+        reportReady: true,
+      } as ValuationSession,
+    })
   })
 
   it('hydrates the saved UUID before navigation and keeps the same report mounted when the next bootstrap fails', async () => {
     let resolveSave!: (value: any) => void
-    const save = vi.spyOn(SessionAPI.prototype, 'saveValuationResult').mockImplementation(() => new Promise(resolve => { resolveSave = resolve }))
+    const save = vi.spyOn(SessionAPI.prototype, 'saveValuationResult').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        })
+    )
     const view = render(<Lifecycle />)
     await screen.findByText('Generated valuation')
     const note = screen.getByLabelText('Report note')
@@ -65,7 +124,9 @@ describe('calculation → save → UUID → refresh with the real session manage
     const observed: string[] = []
     const promotion = () => {
       observed.push(useSessionStore.getState().session!.reportId)
-      expect(getScopedGlobalBootstrapResult({ ...context, reportId: uuid })?.report.reportReady).toBe(true)
+      expect(
+        getScopedGlobalBootstrapResult({ ...context, reportId: uuid })?.report.reportReady
+      ).toBe(true)
     }
     window.addEventListener(REPORT_IDENTITY_PROMOTED_EVENT, promotion)
     const saving = reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
@@ -78,21 +139,60 @@ describe('calculation → save → UUID → refresh with the real session manage
     })
     expect(observed).toEqual([uuid])
     expect(useSessionStore.getState().session?.htmlReport).toBe(html)
-    state.bootstrap = { ...state.bootstrap, isBootstrapping: false, bootstrapError: 'Loading took too long.' }
+    state.bootstrap = {
+      ...state.bootstrap,
+      isBootstrapping: false,
+      bootstrapError: 'Loading took too long.',
+    }
     view.rerender(<Lifecycle />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Loading took too long.')
     expect(screen.getByLabelText('Report note')).toBe(note)
     expect(note).toHaveValue('keep my edit')
-    fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+    fireEvent.click(screen.getByRole('button', { name: /tryAgain/i }))
     await waitFor(() => expect(state.refresh).toHaveBeenCalledTimes(1))
     expect(save).toHaveBeenCalledTimes(1)
     expect(state.mounts).toBe(1)
     window.removeEventListener(REPORT_IDENTITY_PROMOTED_EVENT, promotion)
   })
 
+  it('retries a failed asset save inline with the same payload and report still mounted', async () => {
+    const save = vi
+      .spyOn(SessionAPI.prototype, 'saveValuationResult')
+      .mockRejectedValueOnce(new Error('Save temporarily unavailable'))
+      .mockResolvedValueOnce({
+        success: true,
+        message: 'saved',
+        reportId: uuid,
+        sessionKey,
+        reportReady: true,
+      })
+    render(<Lifecycle />)
+    const note = await screen.findByLabelText('Report note')
+    fireEvent.change(note, { target: { value: 'preserve unsaved note' } })
+    await act(async () => {
+      await expect(
+        reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
+      ).rejects.toThrow()
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Save temporarily unavailable')
+    fireEvent.click(screen.getByRole('button', { name: /tryAgain/i }))
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(save.mock.calls[1]).toEqual(save.mock.calls[0])
+    expect(state.refresh).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Report note')).toBe(note)
+    expect(note).toHaveValue('preserve unsaved note')
+    expect(state.mounts).toBe(1)
+  })
+
   it('ignores an old save after switching reports', async () => {
     let resolveSave!: (value: any) => void
-    const save = vi.spyOn(SessionAPI.prototype, 'saveValuationResult').mockImplementation(() => new Promise(resolve => { resolveSave = resolve }))
+    const save = vi.spyOn(SessionAPI.prototype, 'saveValuationResult').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        })
+    )
     const saving = reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
     const next = { ...useSessionStore.getState().session!, reportId: 'val_other_report' }
@@ -101,4 +201,4 @@ describe('calculation → save → UUID → refresh with the real session manage
     await saving
     expect(useSessionStore.getState().session).toBe(next)
   })
-});
+})

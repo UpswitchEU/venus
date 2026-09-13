@@ -218,7 +218,7 @@ describe('SessionAPI', () => {
       }
     })
 
-    it('returns optimistic success when non-critical rate-limit retries are exhausted', async () => {
+    it('surfaces rate-limit failure after one retry without claiming the save succeeded', async () => {
       vi.useFakeTimers()
       try {
         executeRequestSpy.mockRejectedValue({
@@ -230,12 +230,10 @@ describe('SessionAPI', () => {
           updates: { status: 'active' },
         })
 
-        await vi.advanceTimersByTimeAsync(3000)
-        const result = await resultPromise
-
-        expect(result.success).toBe(true)
-        expect(result.updated).toBe(false)
-        expect(executeRequestSpy).toHaveBeenCalledTimes(3)
+        const rejection = expect(resultPromise).rejects.toBeInstanceOf(Error)
+        await vi.advanceTimersByTimeAsync(1000)
+        await rejection
+        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
         for (const [, options] of executeRequestSpy.mock.calls) {
           expect(options).toEqual(
             expect.objectContaining({

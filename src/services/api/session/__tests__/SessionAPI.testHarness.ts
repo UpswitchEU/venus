@@ -38,6 +38,7 @@ vi.mock('../../../../services/session/SessionService', () => ({
 
 vi.mock('../../../../services/report/ReportAssetService', () => ({
   pendingReportAssetSaves: new Map<string, Promise<void>>(),
+  pendingReportAssetSave: vi.fn(),
   ReportAssetService: class ReportAssetService {
     static getInstance() {
       return new ReportAssetService()

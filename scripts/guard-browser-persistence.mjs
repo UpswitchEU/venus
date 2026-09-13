@@ -219,6 +219,15 @@ const approvedStorageWriters = {
     maxRetentionHours: 0.5,
     reason: 'Caches report existence booleans only.',
   }),
+  'src/utils/reportIdentityPromotion.ts': reviewed({
+    classification: 'confirmed-report-identity-alias',
+    retention: 'local-navigation-alias',
+    allowedKeyPrefixes: ['upswitch:report-alias:v2:'],
+    allowedExpressions: ['key'],
+    ttlExemption: 'Opaque confirmed report IDs remain stable for legacy links; values are scoped to authenticated user and client and grant no server access.',
+    requiredSourceIncludes: ['reportAccessScope()', 'isUuid(input.response.reportId)'],
+    reason: 'Persists only Titan-confirmed session-key to report-UUID mappings; contains no financial data, HTML, or credentials.',
+  }),
   'src/utils/sessionCacheManager.ts': reviewed({
     classification: 'workflow-session-metadata-cache',
     retention: 'ttl-24h',

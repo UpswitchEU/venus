@@ -28,7 +28,7 @@ import { apiLogger } from '../../../utils/logger'
 import { stripReportBlobsFromSessionPatch } from '../../../utils/stripReportBlobsFromSessionPatch'
 import { validateOptionalValuationCompanyGraphContext } from '../../../utils/valuationCompanyGraphContext'
 import { type APIRequestConfig, HttpClient } from '../HttpClient'
-import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
+import { VALUATION_NO_RETRY } from '../valuationTimeouts'
 import type { CreateValuationSessionInput } from './SessionApiCreateHelpers'
 import {
   buildCreateValuationSessionRequest,
@@ -43,7 +43,6 @@ import {
   toAxiosLikeError,
 } from './SessionApiHttp'
 import {
-  isCriticalSessionUpdate,
   recoverMissingSessionUpdate,
 } from './SessionApiMissingSessionRecovery'
 import {
@@ -554,7 +553,7 @@ export class SessionAPI extends HttpClient {
         }),
         {
           ...options,
-          timeout: options?.timeout ?? VALUATION_OPERATION_TIMEOUT_MS,
+          timeout: Math.min(options?.timeout ?? 30_000, 30_000),
           retry: { ...options?.retry, ...VALUATION_NO_RETRY },
         }
       )

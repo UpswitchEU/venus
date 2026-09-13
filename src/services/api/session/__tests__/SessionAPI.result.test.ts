@@ -109,7 +109,7 @@ describe('SessionAPI', () => {
       expect(resultDetails.method).toBe('dcf')
     })
 
-    it('uses extended timeout for PUT /result to match valuation calculate', async () => {
+    it('bounds result persistence to the session deadline', async () => {
       executeRequestSpy.mockResolvedValue({
         success: true,
         message: 'saved',
@@ -128,7 +128,7 @@ describe('SessionAPI', () => {
           url: '/api/v2/valuations/sessions/val_timeout/result',
         }),
         expect.objectContaining({
-          timeout: 120_000,
+          timeout: 30_000,
           retry: expect.objectContaining({ maxRetries: 0 }),
         })
       )
@@ -157,7 +157,7 @@ describe('SessionAPI', () => {
           url: '/api/v2/valuations/sessions/val_no_retry/result',
         }),
         expect.objectContaining({
-          timeout: 120_000,
+          timeout: 30_000,
           retry: expect.objectContaining({ maxRetries: 0 }),
         })
       )

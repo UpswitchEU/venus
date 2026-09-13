@@ -21,7 +21,11 @@ import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '
 import type { ValuationResponse } from '../../types/valuation'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
-import { promoteSavedReportIdentity, resolveSavedReportIdentity, rememberSavedReportAlias } from '../../utils/reportIdentityPromotion'
+import {
+  promoteSavedReportIdentity,
+  resolveSavedReportIdentity,
+  rememberSavedReportAlias,
+} from '../../utils/reportIdentityPromotion'
 import { reportAccessScope } from '../../utils/reportAccessScope'
 import { getCanonicalReportAlias } from '../../utils/reportIdentityPromotion'
 
@@ -44,6 +48,22 @@ type ReportAssets = {
   valuationResult?: ValuationResponse
   htmlReport?: string
   name?: string
+}
+
+type FailedAssetSave = { assets: ReportAssets; error: string }
+const failedAssetSaves = new Map<string, FailedAssetSave>()
+const saveStateListeners = new Set<() => void>()
+export function subscribeReportAssetSaveState(listener: () => void): () => void {
+  saveStateListeners.add(listener)
+  return () => {
+    saveStateListeners.delete(listener)
+  }
+}
+export function failedReportAssetSave(reportId: string): FailedAssetSave | undefined {
+  return failedAssetSaves.get(reportAssetSaveKey(reportId))
+}
+function notifySaveState(): void {
+  saveStateListeners.forEach((listener) => listener())
 }
 
 function snapshotValue<T>(value: T): T {
@@ -123,13 +143,26 @@ export class ReportAssetService {
     const savePromise = (previousSave ?? Promise.resolve())
       .catch(() => undefined)
       .then(() => {
-        if (reportAccessScope() !== accessScope) throw new Error('Report save cancelled: client context changed')
+        if (reportAccessScope() !== accessScope)
+          throw new Error('Report save cancelled: client context changed')
         return this._saveReportAssetsInternal(reportId, assetsSnapshot)
       })
     pendingReportAssetSaves.set(queueKey, savePromise)
 
     try {
       await savePromise
+      failedAssetSaves.delete(queueKey)
+      failedAssetSaves.delete(`${accessScope}:${getCanonicalReportAlias(reportId) ?? reportId}`)
+      notifySaveState()
+    } catch (error) {
+      if (
+        reportAccessScope() === accessScope &&
+        pendingReportAssetSaves.get(queueKey) === savePromise
+      ) {
+        failedAssetSaves.set(queueKey, { assets: assetsSnapshot, error: getErrorMessage(error) })
+        notifySaveState()
+      }
+      throw error
     } finally {
       if (pendingReportAssetSaves.get(queueKey) === savePromise) {
         pendingReportAssetSaves.delete(queueKey)
@@ -137,10 +170,12 @@ export class ReportAssetService {
     }
   }
 
-  private async _saveReportAssetsInternal(
-    reportId: string,
-    assets: ReportAssets
-  ): Promise<void> {
+  async retryFailedSave(reportId: string): Promise<void> {
+    const failed = failedReportAssetSave(reportId)
+    if (failed) await this.saveReportAssets(reportId, failed.assets)
+  }
+
+  private async _saveReportAssetsInternal(reportId: string, assets: ReportAssets): Promise<void> {
     const startTime = performance.now()
     const accessScope = reportAccessScope()
 
@@ -233,19 +268,39 @@ export class ReportAssetService {
       if (!isStillTarget()) return
 
       const { globalSessionCache } = await import('../../utils/sessionCacheManager')
-      const { promoteScopedBootstrapReport } = await import('../../lib/bootstrap/BootstrapProviderCache')
+      const { promoteScopedBootstrapReport } = await import(
+        '../../lib/bootstrap/BootstrapProviderCache'
+      )
       if (!isStillTarget()) return
       const current = useSessionStore.getState()
-      const previousSession = current.session!
+      const previousSession = current.session
+      if (!previousSession) return
       const authoritative = saveResponse.session
       const savedSession = {
         ...previousSession,
         ...authoritative,
         reportId: canonicalReportId,
         sessionData: { ...authoritative?.sessionData, ...previousSession.sessionData },
-        valuationResult: authoritative?.valuationResult ?? assets.valuationResult ?? previousSession.valuationResult,
+        valuationResult:
+          authoritative?.valuationResult ??
+          assets.valuationResult ??
+          previousSession.valuationResult,
         htmlReport: authoritative?.htmlReport || assets.htmlReport || previousSession.htmlReport,
         reportReady: saveResponse.reportReady ?? authoritative?.reportReady ?? false,
+      }
+      // Expose both confirmed aliases to the same queue before navigation can
+      // enqueue another write under the UUID.
+      const oldQueueKey = `${accessScope}:${reportId}`
+      const canonicalQueueKey = `${accessScope}:${canonicalReportId}`
+      const pending = pendingReportAssetSaves.get(oldQueueKey)
+      if (pending && oldQueueKey !== canonicalQueueKey) {
+        pendingReportAssetSaves.set(canonicalQueueKey, pending)
+        void pending
+          .finally(() => {
+            if (pendingReportAssetSaves.get(canonicalQueueKey) === pending)
+              pendingReportAssetSaves.delete(canonicalQueueKey)
+          })
+          .catch(() => undefined)
       }
       // Commit all render state before navigation is observable. Missing read-back
       // assets never erase the result already returned by the calculation.
@@ -254,18 +309,11 @@ export class ReportAssetService {
       rememberSavedReportAlias({ previousId: reportId, response: saveResponse })
       useSessionStore.getState().commitSavedReport(reportId, savedSession)
       promoteScopedBootstrapReport(reportId, savedSession)
-      // Expose both confirmed aliases to the same queue before navigation can
-      // enqueue another write under the UUID.
-      const oldQueueKey = `${accessScope}:${getCanonicalReportAlias(reportId) ?? reportId}`
-      const canonicalQueueKey = `${accessScope}:${canonicalReportId}`
-      const pending = pendingReportAssetSaves.get(oldQueueKey)
-      if (pending && oldQueueKey !== canonicalQueueKey) {
-        pendingReportAssetSaves.set(canonicalQueueKey, pending)
-        void pending.finally(() => {
-          if (pendingReportAssetSaves.get(canonicalQueueKey) === pending) pendingReportAssetSaves.delete(canonicalQueueKey)
-        }).catch(() => undefined)
-      }
-      promoteSavedReportIdentity({ previousId: reportId, response: saveResponse, valuationResult: assets.valuationResult })
+      promoteSavedReportIdentity({
+        previousId: reportId,
+        response: saveResponse,
+        valuationResult: assets.valuationResult,
+      })
       current.onAssetSaveSuccess?.()
       // Recovery is background-only; a committed report does not need another
       // mandatory read on the same database connection that just completed its save.
@@ -273,7 +321,6 @@ export class ReportAssetService {
         const { sessionService } = await import('../session/SessionService')
         if (isStillTarget()) sessionService.revalidateSessionInBackground(canonicalReportId)
       }
-
     } catch (error) {
       const duration = performance.now() - startTime
 
