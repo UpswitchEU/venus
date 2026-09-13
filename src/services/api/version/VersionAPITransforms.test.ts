@@ -9,6 +9,32 @@ import {
 } from './VersionAPITransforms'
 
 describe('VersionAPITransforms', () => {
+  it('retains history metadata when a selected version is fetched as a full snapshot', () => {
+    const changes = { totalChanges: 1, significantChanges: ['Verified correction'] }
+    const snapshot = {
+      version_number: 1,
+      change_summary: 'Original incident preserved',
+      version_data: { changesSummary: changes },
+    }
+    expect(transformVersionFromBackend(snapshot)).toMatchObject({
+      versionLabel: 'Original incident preserved',
+      changesSummary: changes,
+    })
+    expect(
+      transformVersionFromBackend({
+        ...snapshot,
+        version_data: { versionLabel: 'Advisor label' },
+        trigger_metadata: { versionLabel: 'Trigger label', changesSummary: changes },
+      })
+    ).toMatchObject({ versionLabel: 'Advisor label', changesSummary: changes })
+    expect(
+      transformVersionFromBackend({
+        ...snapshot,
+        version_label: 'Published label',
+        trigger_metadata: { versionLabel: 'Trigger label' },
+      }).versionLabel
+    ).toBe('Published label')
+  })
   it('marks navigation summaries and retains the confirmed report relationship', () => {
     const result = transformVersionFromBackend({
       id: 'v4',

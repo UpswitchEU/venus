@@ -121,6 +121,7 @@ export function buildCreateVersionBackendRequest(request: CreateVersionRequest) 
 export function transformVersionFromBackend(backendVersion: unknown): ValuationVersion {
   const backend = asRecord(backendVersion) ?? {}
   const versionData = nestedRecord(backend, 'version_data') ?? {}
+  const triggerMetadata = nestedRecord(backend, 'trigger_metadata') ?? {}
   const outputs = nestedRecord(versionData, 'outputs')
   const outputDetails = nestedRecord(outputs, 'details')
   const versionNumber = asNumber(backend.version_number, 1)
@@ -143,7 +144,16 @@ export function transformVersionFromBackend(backendVersion: unknown): ValuationV
       asString(backend.reportId, asString(backend.valuation_id))
     ),
     versionNumber,
-    versionLabel: asString(backend.version_label, `Version ${versionNumber}`),
+    versionLabel: asString(
+      backend.version_label,
+      asString(
+        versionData.versionLabel,
+        asString(
+          triggerMetadata.versionLabel,
+          asString(backend.change_summary, `Version ${versionNumber}`)
+        )
+      )
+    ),
     createdAt: asDate(backend.created_at),
     createdBy: asNullableString(backend.created_by) ?? asNullableString(backend.createdBy),
     formData: asValuationRequest(formData),
@@ -157,7 +167,12 @@ export function transformVersionFromBackend(backendVersion: unknown): ValuationV
         asNullableString(outputDetails?.html_report),
         asNullableString(backend.html_report)
       ) || null,
-    changesSummary: asVersionChanges(backend.changesSummary ?? backend.changes_summary),
+    changesSummary: asVersionChanges(
+      backend.changesSummary ??
+        backend.changes_summary ??
+        versionData.changesSummary ??
+        triggerMetadata.changesSummary
+    ),
     isActive: asBoolean(backend.isActive, asBoolean(backend.is_active)),
     isPinned: asBoolean(backend.isPinned, asBoolean(backend.is_pinned)),
     calculationDuration_ms:
