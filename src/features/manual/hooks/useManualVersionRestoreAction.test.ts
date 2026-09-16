@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { VersionAPI } from '../../../services/api/version/VersionAPI'
 import { useManualFormStore } from '../../../store/manual/useManualFormStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
@@ -57,6 +57,30 @@ describe('manual version restoration', () => {
     expect(p.normalizationActions.setItems).toHaveBeenCalledWith([])
     expect(useVersionHistoryStore.getState().activeVersions['report-a']).toBe(4)
     expect(toast.success).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not hand a restore of another version the first restore\u2019s promise', async () => {
+    let resolveFirst!: (value: any) => void
+    const restore = vi
+      .spyOn(VersionAPI.prototype, 'restoreVersion')
+      .mockImplementation((_id, versionNumber) =>
+        versionNumber === 1
+          ? new Promise((done) => {
+              resolveFirst = done
+            })
+          : Promise.resolve({ ...committed, id: 'v2', versionNumber: 2 } as any)
+      )
+    const p = params()
+    const { result } = renderHook(() => useManualVersionRestoreAction(p))
+    const first = result.current.handleVersionRestore(source)
+    const second = result.current.handleVersionRestore({ ...source, versionNumber: 2 })
+    await waitFor(() => expect(restore).toHaveBeenCalledTimes(2))
+    expect(restore.mock.calls.map((call) => call[1])).toEqual([1, 2])
+    await act(async () => {
+      resolveFirst(committed)
+      await Promise.all([first, second])
+    })
+    expect(toast.success).toHaveBeenCalledTimes(2)
   })
 
   it('keeps the current report on failure and reuses the same operation identifier on retry', async () => {

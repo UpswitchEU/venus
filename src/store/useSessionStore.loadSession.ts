@@ -10,6 +10,7 @@ import {
   officialFinancialsRejectsValuationInputs,
   stripBlockedUntrustedOperatingFinancialSurface,
 } from '../utils/officialValuationInputPolicy'
+import { reportAccessScope } from '../utils/reportAccessScope'
 import { getFirstRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import type { SessionStatus, SessionStore } from './useSessionStore'
 import {
@@ -33,8 +34,20 @@ type PaywallLoadError = Error & {
 }
 
 const SESSION_NOT_READY_MESSAGE = 'Session not ready. Please wait for initialization or retry.'
+/**
+ * In-flight loads keyed by `<browser-local access scope>:<reportId>`. A load
+ * started for one identity (an advisor acting for client A) must never be
+ * handed to a caller in another (the same advisor after switching to client
+ * B, or a different signed-in user in the same tab): Titan authorises each
+ * scope separately and the first caller's payload may be one the second is
+ * not allowed to see.
+ */
 const loadingPromises = new Map<string, Promise<void>>()
 let activeLoadSequence = 0
+
+function loadKeyFor(reportId: string): string {
+  return `${reportAccessScope()}:${reportId}`
+}
 
 export function preserveRejectedOfficialFinancialsOnSessionLoad(
   session: ValuationSession,
@@ -74,7 +87,9 @@ export function preserveRejectedOfficialFinancialsOnSessionLoad(
 export function invalidateActiveLoads(reportId?: string): void {
   activeLoadSequence += 1
   if (reportId) {
-    loadingPromises.delete(reportId)
+    for (const key of Array.from(loadingPromises.keys())) {
+      if (key.endsWith(`:${reportId}`)) loadingPromises.delete(key)
+    }
     return
   }
   loadingPromises.clear()
@@ -102,9 +117,10 @@ export function createLoadSessionAction(set: StoreSet, get: StoreGet): SessionSt
       throw new Error(SESSION_NOT_READY_MESSAGE)
     }
 
-    if (loadingPromises.has(reportId)) {
+    const loadKey = loadKeyFor(reportId)
+    if (loadingPromises.has(loadKey)) {
       storeLogger.debug('[Session] Reusing existing load promise', { reportId })
-      await loadingPromises.get(reportId)
+      await loadingPromises.get(loadKey)
       return
     }
 
@@ -336,13 +352,13 @@ export function createLoadSessionAction(set: StoreSet, get: StoreGet): SessionSt
       }
     })()
 
-    loadingPromises.set(reportId, loadPromise)
+    loadingPromises.set(loadKey, loadPromise)
 
     try {
       await loadPromise
     } finally {
-      if (loadingPromises.get(reportId) === loadPromise) {
-        loadingPromises.delete(reportId)
+      if (loadingPromises.get(loadKey) === loadPromise) {
+        loadingPromises.delete(loadKey)
       }
     }
   }

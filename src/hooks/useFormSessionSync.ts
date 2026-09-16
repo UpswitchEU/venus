@@ -558,6 +558,11 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           })
         }
 
+        // The scope may have moved while the comparisons above ran (client
+        // switch in another tab, identity promotion). Check BEFORE the local
+        // store write as well: writing first and bailing afterwards left the
+        // previous client's form state in the store of the new one.
+        if (!isCurrent()) return
         // ✅ FIX: Update local store first
         await updateSessionData(sessionUpdate as Parameters<typeof updateSessionData>[0])
         if (!isCurrent()) return
