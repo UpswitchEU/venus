@@ -142,15 +142,22 @@ export function getPdfAccessGateMessage(errBody: unknown): string {
   return firstNonEmptyString(errBody, ['message', 'error'], PDF_ACCESS_GATE_MESSAGE)
 }
 
+/**
+ * Titan answers a report that cannot be turned into a document with a typed 422 carrying
+ * `code`, `message` (the internal precondition) and `remediation` (what the adviser can do
+ * about it). Every reader below prefers `remediation`: the adviser needs the next action,
+ * not the name of the invariant that failed. A failed queued job carries the same sentence
+ * in `error`, followed by the code in brackets.
+ */
 export function getPdfGenerationStartErrorMessage(errBody: unknown): string {
   return stringifyMessageValue(
-    firstPresentValue(errBody, ['message', 'error', 'detail']),
+    firstPresentValue(errBody, ['remediation', 'message', 'error', 'detail']),
     PDF_GENERATION_START_FAILED
   )
 }
 
 export function getPdfDownloadErrorMessage(errBody: unknown): string {
-  return firstNonEmptyString(errBody, ['error', 'message'], PDF_DOWNLOAD_FAILED)
+  return firstNonEmptyString(errBody, ['remediation', 'error', 'message'], PDF_DOWNLOAD_FAILED)
 }
 
 export function resolvePdfGenerationStartResult(body: unknown): PdfGenerationStartResult {
@@ -159,7 +166,7 @@ export function resolvePdfGenerationStartResult(body: unknown): PdfGenerationSta
   if (data?.success === false) {
     return {
       status: 'failed',
-      error: firstNonEmptyString(data, ['error', 'message'], PDF_GENERATION_FAILED),
+      error: firstNonEmptyString(data, ['remediation', 'error', 'message'], PDF_GENERATION_FAILED),
     }
   }
 
@@ -187,7 +194,7 @@ export function resolvePdfStatusPollResult(body: unknown): PdfStatusPollResult {
   if (data?.status === 'failed') {
     return {
       status: 'failed',
-      error: firstNonEmptyString(data, ['error', 'message'], PDF_GENERATION_FAILED),
+      error: firstNonEmptyString(data, ['remediation', 'error', 'message'], PDF_GENERATION_FAILED),
     }
   }
 

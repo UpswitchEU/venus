@@ -1,13 +1,13 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { NormalizationItem, RightPanelView } from '../../../components/calculator'
+import { pendingReportAssetSave } from '../../../services/report/ReportAssetService'
+import { useManualFormStore } from '../../../store/manual/useManualFormStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
-import { useManualFormStore } from '../../../store/manual/useManualFormStore'
-import { pendingReportAssetSave } from '../../../services/report/ReportAssetService'
-import { reportAccessScope, watchReportAccessScope } from '../../../utils/reportAccessScope'
 import { generalLogger } from '../../../utils/logger'
+import { reportAccessScope, watchReportAccessScope } from '../../../utils/reportAccessScope'
 import {
   buildManualVersionRestorePlan,
   type ManualVersionRestorePlan,
@@ -45,7 +45,11 @@ export function useManualVersionRestoreAction({
   translate,
   updateFormData,
 }: UseManualVersionRestoreActionParams): UseManualVersionRestoreActionResult {
-  const pendingRef = useRef<{ target: string; promise: Promise<void> } | null>(null)
+  const pendingRef = useRef<{
+    target: string
+    versionNumber: number
+    promise: Promise<void>
+  } | null>(null)
   const attemptRef = useRef<{ key: string; id: string } | null>(null)
   const targetRef = useRef('')
   const revisionRef = useRef(0)
@@ -62,10 +66,17 @@ export function useManualVersionRestoreAction({
   )
   const handleVersionRestore = useCallback(
     (version: unknown) => {
-      if (pendingRef.current?.target === targetRef.current) return pendingRef.current.promise
       const plan = buildManualVersionRestorePlan(version)
       const idForApi = resolvedReportId || reportId
       if (!plan?.versionNumber || !idForApi) return Promise.resolve()
+      // Only an identical in-flight restore (same target AND same version) is
+      // coalesced; a request for a different version used to resolve to the
+      // first one's promise and silently restore the wrong snapshot.
+      if (
+        pendingRef.current?.target === targetRef.current &&
+        pendingRef.current.versionNumber === plan.versionNumber
+      )
+        return pendingRef.current.promise
       const access = watchReportAccessScope()
       const revision = revisionRef.current
       const stillCurrent = () => access.isCurrent() && revisionRef.current === revision
@@ -110,7 +121,11 @@ export function useManualVersionRestoreAction({
           access.dispose()
         }
       })()
-      pendingRef.current = { target: targetRef.current, promise: operation }
+      pendingRef.current = {
+        target: targetRef.current,
+        versionNumber: plan.versionNumber,
+        promise: operation,
+      }
       void operation.finally(() => {
         if (pendingRef.current?.promise === operation) pendingRef.current = null
       })

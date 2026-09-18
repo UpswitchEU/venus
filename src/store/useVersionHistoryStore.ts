@@ -9,6 +9,7 @@
 
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
+import { useAuthStore } from '../lib/auth/store'
 import { VersionAPI } from '../services/api/version/VersionAPI'
 import type {
   CreateVersionRequest,
@@ -599,7 +600,57 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
     {
       name: 'version-history-storage',
       storage: createJSONStorage(() => createQuotaSafeStorage()),
-      partialize: (state: VersionHistoryStore) => partializeVersionHistoryState(state),
+      partialize: (state: VersionHistoryStore) => ({
+        ...partializeVersionHistoryState(state),
+        // Browser-local identity that wrote this snapshot (see reportAccessScope).
+        scope: reportAccessScope(),
+      }),
+      merge: (persisted, current) => mergePersistedVersionHistory(persisted, current),
     }
   )
 )
+
+/**
+ * The persisted snapshot is keyed by report id only, so on a shared browser
+ * it used to rehydrate the previous user's version history (labels, form
+ * snapshots, valuation figures) for whoever signs in next. A snapshot written
+ * under another signed-in user never hydrates; one written before sign-in
+ * (user id null) or by the same user does. When the signed-in user changes
+ * later in the tab's lifetime the in-memory history is dropped as well.
+ */
+function scopeUserId(scope: string | undefined): string | null {
+  if (typeof scope !== 'string') return null
+  try {
+    const parsed = JSON.parse(scope)
+    return Array.isArray(parsed) && typeof parsed[0] === 'string' ? parsed[0] : null
+  } catch {
+    return null
+  }
+}
+
+export function mergePersistedVersionHistory(
+  persisted: unknown,
+  current: VersionHistoryStore
+): VersionHistoryStore {
+  if (!persisted || typeof persisted !== 'object') return current
+  const snapshot = persisted as Partial<VersionHistoryStore> & { scope?: string }
+  const persistedUser = scopeUserId(snapshot.scope)
+  const liveUser = scopeUserId(reportAccessScope())
+  if (persistedUser && liveUser && persistedUser !== liveUser) {
+    versionLogger.warn('Dropping persisted version history written under another user')
+    return current
+  }
+  const { scope: _scope, ...rest } = snapshot
+  return { ...current, ...rest }
+}
+
+let versionHistoryUserId = scopeUserId(reportAccessScope())
+useAuthStore.subscribe(() => {
+  const nextUser = scopeUserId(reportAccessScope())
+  if (nextUser === versionHistoryUserId) return
+  const previousUser = versionHistoryUserId
+  versionHistoryUserId = nextUser
+  // null -> user is the sign-in after a cold start: keep what was hydrated.
+  if (previousUser === null) return
+  useVersionHistoryStore.setState({ versions: {}, activeVersions: {}, syncStatus: {} })
+})

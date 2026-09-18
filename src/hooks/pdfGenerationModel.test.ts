@@ -146,6 +146,39 @@ describe('pdfGenerationModel', () => {
     expect(getPdfDownloadErrorMessage({ error: 'pooler blip' })).toBe('pooler blip')
   })
 
+  it("prefers Titan's remediation over the internal precondition for an unpublishable report", () => {
+    // Titan's typed 422 (advisory register R-05). Without this precedence the calculator
+    // showed "Sealed report rendering requires valuation_run.v2" — the name of an
+    // invariant — instead of what the adviser can do next.
+    const refusal = {
+      success: false,
+      code: 'SEALED_VALUATION_RUN_MISSING',
+      message: 'Sealed report rendering requires valuation_run.v2',
+      remediation:
+        'This valuation was produced by the legacy engine and carries no sealed calculation contract. Recalculate the valuation to make it publishable.',
+    }
+
+    expect(getPdfGenerationStartErrorMessage(refusal)).toContain('Recalculate the valuation')
+    expect(getPdfDownloadErrorMessage(refusal)).toContain('Recalculate the valuation')
+    expect(resolvePdfGenerationStartResult(refusal)).toEqual({
+      status: 'failed',
+      error: refusal.remediation,
+    })
+    expect(resolvePdfStatusPollResult({ status: 'failed', ...refusal })).toEqual({
+      status: 'failed',
+      error: refusal.remediation,
+    })
+  })
+
+  it('keeps the existing message order when Titan sends no remediation', () => {
+    expect(getPdfGenerationStartErrorMessage({ message: 'm', error: 'e' })).toBe('m')
+    expect(getPdfDownloadErrorMessage({ message: 'm', error: 'e' })).toBe('e')
+    expect(resolvePdfStatusPollResult({ status: 'failed', error: 'e', message: 'm' })).toEqual({
+      status: 'failed',
+      error: 'e',
+    })
+  })
+
   it('describes invalid PDF payload snippets without leaking raw HTML noise', () => {
     expect(describeInvalidPdfPayloadSnippet('{"message":"storage denied"}')).toBe('storage denied')
     expect(describeInvalidPdfPayloadSnippet('<!doctype html><title>Forbidden</title>')).toBe(

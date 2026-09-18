@@ -6,7 +6,8 @@
  * @module store/__tests__/useSessionStore
  */
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { useClientContext } from '../../stores/clientContext'
 import type { SessionStatus, ValuationSession } from './useSessionStore.testHarness'
 import {
   mockHydrateSession,
@@ -567,5 +568,68 @@ describe('State Machine Transitions', () => {
     expect(useSessionStore.getState().status).toBe('idle')
     expect(useSessionStore.getState().session).toBeNull()
     expect(useSessionStore.getState().errorMessage).toBeNull()
+  })
+})
+
+describe('in-flight load coalescing is scoped to the browser-local access scope', () => {
+  afterEach(() => {
+    useClientContext.setState({ isActingAsClient: false, accountant: null, relationshipId: null })
+  })
+
+  it('does not hand a load started for one client context to a caller in another', async () => {
+    const releases: Array<(session: unknown) => void> = []
+    mockLoadSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(resolve)
+        })
+    )
+    useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+    useClientContext.setState({
+      isActingAsClient: true,
+      accountant: { id: 'advisor-1' } as never,
+      relationshipId: 'client-a',
+    })
+
+    const first = useSessionStore.getState().loadSession('val_shared_report')
+    await Promise.resolve()
+    useClientContext.setState({
+      isActingAsClient: true,
+      accountant: { id: 'advisor-1' } as never,
+      relationshipId: 'client-b',
+    })
+    const second = useSessionStore.getState().loadSession('val_shared_report')
+    await Promise.resolve()
+
+    expect(mockLoadSession).toHaveBeenCalledTimes(2)
+
+    const payload = {
+      reportId: 'val_shared_report',
+      sessionData: { company_name: 'Shared' },
+      updatedAt: new Date('2026-09-16T10:00:00.000Z'),
+    }
+    for (const release of releases) release(payload)
+    await Promise.allSettled([first, second])
+  })
+
+  it('still coalesces a second load for the same report in the same scope', async () => {
+    const releases: Array<(session: unknown) => void> = []
+    mockLoadSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(resolve)
+        })
+    )
+    useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'user-123' })
+
+    const first = useSessionStore.getState().loadSession('val_same_scope')
+    await Promise.resolve()
+    const second = useSessionStore.getState().loadSession('val_same_scope')
+    await Promise.resolve()
+
+    expect(mockLoadSession).toHaveBeenCalledTimes(1)
+    for (const release of releases)
+      release({ reportId: 'val_same_scope', sessionData: {}, updatedAt: new Date() })
+    await Promise.allSettled([first, second])
   })
 })

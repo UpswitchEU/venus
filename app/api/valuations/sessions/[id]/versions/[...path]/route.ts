@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -47,6 +48,12 @@ async function proxyToTitan(
       method,
       headers: {
         'Content-Type': 'application/json',
+        // Delegated (advisor-for-client) sessions authorise version reads and
+        // restores through the client-context headers, exactly like the
+        // sibling list/create proxy. Without them a delegated restore reached
+        // Titan as the bare advisor and was refused or resolved against the
+        // wrong identity.
+        ...getTitanClientContextHeaders(request),
         ...(cookieHeader && { Cookie: cookieHeader }),
         ...(authHeader && { Authorization: authHeader }),
         ...(idempotencyKey && { 'Idempotency-Key': idempotencyKey }),
