@@ -24,10 +24,12 @@ describe('describeSessionError', () => {
   })
 
   it('offers a retry only when trying again can change the outcome', () => {
-    expect(describeSessionError('[DATABASE_ERROR] Database unavailable (retryable)')).toMatchObject({
-      kind: 'temporary',
-      allowRetry: true,
-    })
+    expect(describeSessionError('[DATABASE_ERROR] Database unavailable (retryable)')).toMatchObject(
+      {
+        kind: 'temporary',
+        allowRetry: true,
+      }
+    )
     expect(describeSessionError('[SOMETHING_NEW] Flaky upstream (retryable)')).toMatchObject({
       kind: 'temporary',
       allowRetry: true,
