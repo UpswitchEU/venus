@@ -462,3 +462,20 @@ describe('fallbackDashboardForSource', () => {
     )
   })
 })
+
+describe('getSafeMercuryReturnUrl client fallback', () => {
+  it('returns to the client page, which exists in Mercury, when no return URL survived', () => {
+    expect(
+      getSafeMercuryReturnUrl(null, {
+        clientContextId: 'aedca102-7e28-4678-a058-c61bc22768b6',
+        locale: 'nl',
+      })
+    ).toBe('https://upswitch.app/nl/advisor/clients/aedca102-7e28-4678-a058-c61bc22768b6')
+  })
+
+  it('never appends the /valuations suffix Mercury has no route for', () => {
+    expect(
+      getSafeMercuryReturnUrl('javascript:alert(1)', { clientContextId: 'client-1', locale: 'fr' })
+    ).not.toContain('/valuations')
+  })
+})
