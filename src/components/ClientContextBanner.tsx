@@ -4,10 +4,15 @@ import { X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { navigateToMercuryFromManualHandoff } from '@/features/manual/utils/manualMercuryNavigate'
+import {
+  hasCompletedManualValuation,
+  resolveManualMercuryReportId,
+} from '@/features/manual/utils/manualMercuryNavigation'
 import { navigateToSafeMercuryNavigationUrl } from '@/lib/return-url'
 import { generalLogger } from '@/utils/logger'
 import { useAuth } from '../lib/auth'
 import { clearDelegatedClientContext } from '../lib/auth/persistedClientContext'
+import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 
 /**
@@ -23,6 +28,7 @@ export function ClientContextBanner() {
   const [mounted, setMounted] = useState(false)
   const { isAuthenticated } = useAuth()
   const { isActingAsClient, client, clearClientContext, relationshipId } = useClientContext()
+  const session = useSessionStore((state) => state.session)
   const locale = useLocale()
   const t = useTranslations() // ✅ Venus pattern: NO namespace
 
@@ -51,10 +57,19 @@ export function ClientContextBanner() {
     try {
       clearDelegatedClientContext(() => clearClientContext())
       const validLocale = locale && ['en', 'nl', 'fr'].includes(locale) ? locale : 'en'
+      // Same rule as the toolbar's "Back to Client" and the user menu: leaving
+      // after a valuation was calculated must tell Mercury so. This exit used to
+      // say "no valuation" unconditionally, so the dossier came back without
+      // `?from=valuation` / `?reportId` and never reconciled the report the
+      // advisor had just produced.
+      const hasCompletedValuation = hasCompletedManualValuation(null, session)
       navigateToMercuryFromManualHandoff({
         currentLocale: validLocale,
         clientContextId: relationshipId ?? client?.id,
-        hasCompletedValuation: false,
+        hasCompletedValuation,
+        ...(hasCompletedValuation
+          ? { reportId: resolveManualMercuryReportId(null, session) ?? null }
+          : {}),
       })
     } catch (error) {
       generalLogger.error('[ClientContextBanner] Error in handleExitClientView', {
