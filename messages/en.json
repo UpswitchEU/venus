@@ -927,6 +927,25 @@
 			"contactSupport": "contact support",
 			"contactSupportPrefix": "If this problem persists,"
 		},
+		"sessionRecovery": {
+			"report_unavailable": {
+				"title": "We couldn't open this report",
+				"message": "It may have been deleted, or it belongs to a workspace you are not a member of. Your client's figures are untouched. Go back to start a new valuation or open another report."
+			},
+			"access_denied": {
+				"title": "You don't have access to this report",
+				"message": "This report belongs to another workspace. Ask the person who created it to share it with you, or go back to your own clients."
+			},
+			"temporary": {
+				"title": "We couldn't load this report just now",
+				"message": "Nothing was lost. This is a temporary problem on our side. Try again in a moment."
+			},
+			"exit": {
+				"client": "Back to client",
+				"workspace": "Back to Upswitch",
+				"start_over": "Start a new valuation"
+			}
+		},
 		"errorState": {
 			"generationFailed": "Indicative Estimate Generation Failed",
 			"generationFailedDesc": "We encountered an unexpected issue while generating your report. Please check your inputs and try again.",

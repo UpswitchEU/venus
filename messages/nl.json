@@ -927,6 +927,25 @@
 			"contactSupport": "neem contact op met support",
 			"contactSupportPrefix": "Als dit probleem aanhoudt,"
 		},
+		"sessionRecovery": {
+			"report_unavailable": {
+				"title": "We konden dit rapport niet openen",
+				"message": "Het rapport is mogelijk verwijderd, of het hoort bij een werkruimte waarvan u geen lid bent. De cijfers van uw klant zijn ongewijzigd. Ga terug om een nieuwe waardering te starten of een ander rapport te openen."
+			},
+			"access_denied": {
+				"title": "U heeft geen toegang tot dit rapport",
+				"message": "Dit rapport hoort bij een andere werkruimte. Vraag de maker om het met u te delen, of ga terug naar uw eigen klanten."
+			},
+			"temporary": {
+				"title": "We konden dit rapport nu niet laden",
+				"message": "Er is niets verloren gegaan. Dit is een tijdelijk probleem aan onze kant. Probeer het over enkele ogenblikken opnieuw."
+			},
+			"exit": {
+				"client": "Terug naar klant",
+				"workspace": "Terug naar Upswitch",
+				"start_over": "Nieuwe waardering starten"
+			}
+		},
 		"errorState": {
 			"generationFailed": "Indicatieve bedrijfsschatting genereren mislukt",
 			"generationFailedDesc": "Er is een onverwacht probleem opgetreden bij het genereren van uw rapport. Controleer uw invoer en probeer opnieuw.",

@@ -339,7 +339,7 @@ export function fallbackDashboardForSource(
 
 /**
  * Returns a safe Mercury URL for redirect. If storedUrl is legacy or invalid,
- * falls back to dashboard or client valuations.
+ * falls back to the client page or the dashboard.
  *
  * @param celebrateMercuryReturn When true, appends `?from=valuation` so Mercury can celebrate.
  *   When false/undefined, strips `from` if present (defensive cleanup of old links).
@@ -399,7 +399,9 @@ export function getSafeMercuryReturnUrl(
       }
     }
   } else if (options?.clientContextId) {
-    result = `${mercuryUrl}/${pathLocale}/advisor/clients/${options.clientContextId}/valuations`
+    // The client page is where Mercury shows the valuation history. It has no
+    // `/valuations` sub-route, so that suffix sent every advisor to a 404.
+    result = `${mercuryUrl}/${pathLocale}/advisor/clients/${encodeURIComponent(options.clientContextId)}`
   } else {
     result = sourceFallback
   }
