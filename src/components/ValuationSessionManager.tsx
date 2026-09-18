@@ -27,6 +27,11 @@ import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
 import { generalLogger } from '../utils/logger'
+import {
+  describeSessionError,
+  resolveSessionErrorExit,
+  stripSessionErrorDiagnostics,
+} from './sessionErrorPresentation'
 import { useSessionManagerTimeouts } from './useSessionManagerTimeouts'
 import { useValuationSessionLoader } from './useValuationSessionLoader'
 import { resolveValuationSessionStage, type Stage } from './ValuationSessionManager.stage'
@@ -95,6 +100,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
   ({ reportId, children }) => {
     const searchParams = useSearchParams()
     const pathname = usePathname()
+    const tSessionError = useTranslations('errors.sessionRecovery')
     const router = useTransitionRouter()
 
     // OPTIMISTIC: Detect Mercury flow to render form immediately during bootstrap
@@ -477,7 +483,6 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       })
     }, [advisorPrefillAdvisoryCode, reportId])
     const resolvedStage: Stage = stage
-    const advisorErrorPresentation = null
 
     const assetSaveFailure = useReportAssetSaveFailure(reportId)
     const { handleRetry: retrySessionLoad } = useValuationSessionLoader({
@@ -543,7 +548,25 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
     const rawEffectiveError =
       assetSaveFailure?.error || sessionSaveError || error || bootstrap?.bootstrapError || null
-    const effectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
+    const normalizedEffectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
+    // The card never shows `[CODE]`: a recognised code gets localized copy below,
+    // anything else keeps its sentence without the diagnostic wrapper.
+    const effectiveError = normalizedEffectiveError
+      ? stripSessionErrorDiagnostics(normalizedEffectiveError) || normalizedEffectiveError
+      : null
+    const sessionErrorDescriptor = describeSessionError(normalizedEffectiveError)
+    const sessionErrorExit = resolveSessionErrorExit({
+      isFromMercury,
+      hasClientContext: Boolean(clientIdParam),
+    })
+    const advisorErrorPresentation = sessionErrorDescriptor
+      ? {
+          title: tSessionError(`${sessionErrorDescriptor.kind}.title`),
+          message: tSessionError(`${sessionErrorDescriptor.kind}.message`),
+          backLabel: tSessionError(`exit.${sessionErrorExit}`),
+          allowRetry: sessionErrorDescriptor.allowRetry,
+        }
+      : null
 
     // Ghost deleted-report URLs: bootstrap says "new" but path looks like val_* / UUID — if session
     // load still fails, recover to /reports/new with Mercury query params preserved.

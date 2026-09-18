@@ -927,6 +927,25 @@
 			"contactSupport": "contacter l'assistance",
 			"contactSupportPrefix": "Si ce problème persiste,"
 		},
+		"sessionRecovery": {
+			"report_unavailable": {
+				"title": "Nous n'avons pas pu ouvrir ce rapport",
+				"message": "Il a peut-être été supprimé, ou il appartient à un espace de travail dont vous n'êtes pas membre. Les chiffres de votre client sont intacts. Revenez en arrière pour lancer une nouvelle valorisation ou ouvrir un autre rapport."
+			},
+			"access_denied": {
+				"title": "Vous n'avez pas accès à ce rapport",
+				"message": "Ce rapport appartient à un autre espace de travail. Demandez à son auteur de le partager avec vous, ou revenez à vos propres clients."
+			},
+			"temporary": {
+				"title": "Nous n'avons pas pu charger ce rapport pour le moment",
+				"message": "Rien n'a été perdu. Il s'agit d'un problème temporaire de notre côté. Réessayez dans un instant."
+			},
+			"exit": {
+				"client": "Retour au client",
+				"workspace": "Retour à Upswitch",
+				"start_over": "Lancer une nouvelle valorisation"
+			}
+		},
 		"errorState": {
 			"generationFailed": "Échec de la génération de l'estimation indicative",
 			"generationFailedDesc": "Nous avons rencontré un problème inattendu lors de la génération de votre rapport. Veuillez vérifier vos entrées et réessayer.",
