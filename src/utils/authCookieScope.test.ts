@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getTitanAccessTokenFromCookieHeader } from './auth/cookieHeader'
 import {
   describeDuplicateAuthCookies,
   detectDuplicateAuthCookies,
@@ -76,5 +77,36 @@ describe('authCookieScope', () => {
     expect(summary).toContain('conflicting=true')
     expect(summary).not.toContain('STALE_USER')
     expect(summary).not.toContain('CURRENT_USER')
+  })
+})
+
+describe('getTitanAccessTokenFromCookieHeader', () => {
+  const STALE = 'STALE_USER_TOKEN'
+  const CURRENT = 'CURRENT_USER_TOKEN'
+  const CONFLICTING_JAR = `upswitch_access_token=${STALE}; upswitch_access_token=${CURRENT}`
+
+  it('withholds the bearer token when the jar holds two identities', () => {
+    // Six Venus routes turn this into `Authorization: Bearer …`, and a Bearer
+    // is invisible to Titan's duplicate-cookie guard (which reads the Cookie
+    // header these proxies do not always forward). Returning either value
+    // would smuggle one identity past every check in the stack.
+    expect(getTitanAccessTokenFromCookieHeader(CONFLICTING_JAR)).toBeNull()
+  })
+
+  it('still returns the token for a healthy jar', () => {
+    expect(getTitanAccessTokenFromCookieHeader(`upswitch_access_token=${CURRENT}`)).toBe(CURRENT)
+  })
+
+  it('tolerates a same-value duplicate', () => {
+    expect(
+      getTitanAccessTokenFromCookieHeader(
+        `upswitch_access_token=${CURRENT}; upswitch_access_token=${CURRENT}`
+      )
+    ).toBe(CURRENT)
+  })
+
+  it('returns null when no auth cookie is present', () => {
+    expect(getTitanAccessTokenFromCookieHeader('unrelated=1')).toBeNull()
+    expect(getTitanAccessTokenFromCookieHeader('')).toBeNull()
   })
 })
