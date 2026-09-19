@@ -4,6 +4,11 @@
  */
 
 import { cookies } from 'next/headers'
+import {
+  type DuplicateAuthCookie,
+  describeDuplicateAuthCookies,
+  detectDuplicateAuthCookies,
+} from './authCookieScope'
 
 /**
  * Thrown when `fetchWithTimeout` aborts. Message matches Mercury for shared client handling.
@@ -83,6 +88,16 @@ export function getResponseSetCookieList(res: Response): string[] {
 export async function getBffCookieHeaderForTitan(request: Pick<Request, 'headers'>): Promise<{
   cookieHeader: string
   cookieSource: BffCookieSource
+  /**
+   * Auth cookies the browser sent more than once, read from the RAW header
+   * before the merge below collapses them.
+   *
+   * The merge keys by name and keeps the LAST value, while Titan's Fastify
+   * parser keeps the FIRST — so forwarding the merged header would hide a
+   * two-identity jar from the one service that fails closed on it. Callers
+   * must refuse rather than forward a guess.
+   */
+  duplicateAuthCookies: DuplicateAuthCookie[]
   refreshTokenFromStore?: string
 }> {
   const requestCookieHeader = request.headers.get('cookie') || ''
@@ -102,5 +117,33 @@ export async function getBffCookieHeaderForTitan(request: Pick<Request, 'headers
     cookieSource = 'cookieStore'
   }
   const refreshTokenFromStore = cookieStore.get('upswitch_refresh_token')?.value
-  return { cookieHeader, cookieSource, refreshTokenFromStore }
+  const duplicateAuthCookies = detectDuplicateAuthCookies(requestCookieHeader)
+
+  // Two identities in one jar: forward NOTHING rather than a guess.
+  //
+  // Every caller forwards `cookieHeader` straight to Titan, and the merge
+  // above has already collapsed the duplicate — so passing it on would hand
+  // Titan a single cookie it can no longer recognise as ambiguous, bypassing
+  // its fail-closed guard. An empty header makes Titan answer 401, which is
+  // the same outcome Mercury and Titan reach on their own paths.
+  if (duplicateAuthCookies.some((d) => d.conflicting)) {
+    console.error(
+      `[venus bff] conflicting auth cookies — withholding credentials: ${describeDuplicateAuthCookies(
+        duplicateAuthCookies
+      )}`
+    )
+    return {
+      cookieHeader: '',
+      cookieSource,
+      refreshTokenFromStore: undefined,
+      duplicateAuthCookies,
+    }
+  }
+
+  return {
+    cookieHeader,
+    cookieSource,
+    refreshTokenFromStore,
+    duplicateAuthCookies,
+  }
 }
