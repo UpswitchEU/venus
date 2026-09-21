@@ -19,8 +19,8 @@ import {
   isAccountantFreeOrStarterTier,
   isAccountantTierRole,
 } from '@/constants/accountantPlanMethods'
-import { useManualPreviewFormatters } from '@/lib/omniPreview'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
+import { useManualPreviewFormatters } from '@/lib/omniPreview'
 
 // Round-4 audit: `METHOD_LABEL_KEYS` was imported here to localise the
 // BelgianSmeAuditPanel title. Panel moved to the report; import dropped.
@@ -648,10 +648,7 @@ export function ManualInputPanel({
               saasSignals={saasSignalsForBonusSections}
               setFormData={setFormData}
               showRealEstateCarveOut={
-                Boolean(selectedCompany) &&
-                hasBusinessType &&
-                hasFinancials &&
-                showRealEstateCarveOut
+                hasCompanyInfo && hasBusinessType && hasFinancials && showRealEstateCarveOut
               }
               synthesisJustification={synthesisJustification}
               synthesisMethods={synthesisMethodsForPanel}

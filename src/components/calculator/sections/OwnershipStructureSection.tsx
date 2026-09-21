@@ -25,14 +25,13 @@ interface OwnershipStructureSectionProps {
 
 export function OwnershipStructureSection({
   formData,
-  selectedCompany,
   hasBusinessType,
   fieldValidation,
   updateField,
   onFieldHelpRequest,
 }: OwnershipStructureSectionProps) {
   const mi = useTranslations('manualInput')
-  if (!selectedCompany || !hasBusinessType) return null
+  if (!formData.companyName?.trim() || !hasBusinessType) return null
 
   return (
     <motion.section

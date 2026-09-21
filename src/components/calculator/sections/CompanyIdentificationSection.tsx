@@ -306,7 +306,11 @@ export function CompanyIdentificationSection({
     // (the business-type / sector picker lives in this section).
     <section id="manual-section-company" className="space-y-4 scroll-mt-24">
       <div className={SECTION_HEADER_ROW_CLASS}>
-        <SectionStatusCircle step={1} complete={!!selectedCompany} className="flex" />
+        <SectionStatusCircle
+          step={1}
+          complete={Boolean(formData.companyName?.trim())}
+          className="flex"
+        />
         <h3 className="text-sm font-medium text-foreground">{mi('sections.companyDetails')}</h3>
       </div>
 
@@ -325,7 +329,7 @@ export function CompanyIdentificationSection({
           if (cc) updateFormData({ country_code: cc })
           if (val !== prev) {
             setSelectedCompany(null)
-            setCompanySearchValue('')
+            setCompanySearchValue(formData.companyName || '')
           }
         }}
         helpText={mi('fields.operatingCountryHelp')}
@@ -344,9 +348,13 @@ export function CompanyIdentificationSection({
         />
       ) : (
         <KBOSearchInput
-          label={localizeActivityCodeCopy(mi('fields.companyNameOrKbo'))}
+          label={mi('fields.companyNameOptionalRegistry')}
           value={companySearchValue}
-          onChange={setCompanySearchValue}
+          onChange={(name) => {
+            setCompanySearchValue(name)
+            updateField('companyName', name)
+            updateFormData({ company_name: name })
+          }}
           onCompanySelect={handleCompanySelect}
           selectedCompany={selectedCompany}
           onClear={handleClearCompany}
@@ -356,9 +364,25 @@ export function CompanyIdentificationSection({
           size="sm"
           disabled={isCalculating}
           countryCode={searchCountry}
-          description={searchCountry === 'NL' ? mi('registryNlSearchHint') : undefined}
+          description={mi('registryOptionalHint')}
           noResultsHint={searchCountry === 'NL' ? mi('registryNlNoResults') : undefined}
         />
+      )}
+
+      {!selectedCompany && companySearchValue.trim() && (
+        <button
+          type="button"
+          disabled={isCalculating}
+          className="text-xs font-medium text-primary hover:underline"
+          onClick={() => {
+            const name = companySearchValue.trim()
+            updateField('companyName', name)
+            updateFormData({ company_name: name })
+            document.getElementById('manual-business-type')?.focus({ preventScroll: true })
+          }}
+        >
+          {mi('continueWithoutRegistry')}
+        </button>
       )}
 
       <AnimatePresence>
@@ -401,14 +425,14 @@ export function CompanyIdentificationSection({
       </AnimatePresence>
 
       <AnimatePresence>
-        {selectedCompany && (
+        {Boolean(formData.companyName?.trim()) && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             className="space-y-3 overflow-hidden"
           >
-            <div className="space-y-1">
+            <div id="manual-business-type" tabIndex={-1} className="space-y-1">
               <div className="flex items-start gap-1.5">
                 <div className="flex-1 min-w-0">
                   <BusinessTypeSelector

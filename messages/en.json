@@ -1373,6 +1373,7 @@
 		"fields": {
 			"operatingCountry": "Operating country",
 			"operatingCountryHelp": "Chooses KBO (Belgium) or KVK (Netherlands) company search and terminology.",
+			"companyNameOptionalRegistry": "Company name (registry lookup optional)",
 			"companyNameOrKbo": "Company name or KBO number",
 			"businessType": "Business Type",
 			"legalForm": "Legal Form",
@@ -1398,6 +1399,8 @@
 			"cancel": "Keep current company",
 			"confirm": "Change company"
 		},
+		"registryOptionalHint": "You can continue with a company name. A registry match can be added later.",
+		"continueWithoutRegistry": "Continue without registry match",
 		"registryNlSearchHint": "Search the live KVK trade register by company name or KVK number, or enter the details manually if your company isn't found.",
 		"registryNlNoResults": "No registry match found. You can continue with the company name you typed.",
 		"normalized": "Normalized",
