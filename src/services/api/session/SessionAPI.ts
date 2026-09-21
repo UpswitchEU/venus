@@ -42,9 +42,7 @@ import {
   shouldRetryGetValuationSession,
   toAxiosLikeError,
 } from './SessionApiHttp'
-import {
-  recoverMissingSessionUpdate,
-} from './SessionApiMissingSessionRecovery'
+import { recoverMissingSessionUpdate } from './SessionApiMissingSessionRecovery'
 import {
   normalizeBackendSessionPayload,
   normalizeSessionView,

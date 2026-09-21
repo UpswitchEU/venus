@@ -1,6 +1,7 @@
 'use client'
 
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from 'react'
+import { restoreAccountingReconnectDraft } from '@/features/manual/utils/accountingReconnectDraft'
 import {
   ACCOUNTING_RECONNECT_STATUS_EVENT,
   applyValuationSnapshotToReconnectDraft,
@@ -38,13 +39,29 @@ const ACCOUNTING_RECONNECT_PAGE_OWNER =
     : `page-${Date.now()}-${Math.random().toString(16).slice(2)}`
 
 function claimAccountingReconnectRunLock(storage: Storage, key: string): boolean {
-  if (storage.getItem(key) === ACCOUNTING_RECONNECT_PAGE_OWNER) return false
-  storage.setItem(key, ACCOUNTING_RECONNECT_PAGE_OWNER)
-  return true
+  if (!key.startsWith('silverfin_oauth_') && !key.startsWith('accounting_handoff_')) return false
+  try {
+    if (storage.getItem(key) === ACCOUNTING_RECONNECT_PAGE_OWNER) return false
+    storage.setItem(key, ACCOUNTING_RECONNECT_PAGE_OWNER)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function releaseAccountingReconnectRunLock(storage: Storage, key: string): void {
-  if (storage.getItem(key) === ACCOUNTING_RECONNECT_PAGE_OWNER) storage.removeItem(key)
+  try {
+    if (storage.getItem(key) === ACCOUNTING_RECONNECT_PAGE_OWNER) storage.removeItem(key)
+  } catch {
+    /* A failed cleanup must not hide the recoverable provider error. */
+  }
+}
+
+function isReconnectContextCurrent(path: string, clientId: string): boolean {
+  return (
+    window.location.pathname === path &&
+    new URLSearchParams(window.location.search).get('clientId') === clientId
+  )
 }
 
 function publishAccountingReconnectStatus(input: {
@@ -558,16 +575,19 @@ export function useManualAccountingImportController({
     redirectUrl.searchParams.delete('state')
     redirectUrl.searchParams.delete('firm_id')
 
+    const reconnectPath = window.location.pathname
     void (async () => {
       try {
         await accountingAPI.connectSilverfin(code, redirectUrl.toString(), resolvedFirmId)
         await accountingAPI.resyncClient(reconnectClientId, { force: true })
         const snapshot = await accountingAPI.getClientValuationFinancials(reconnectClientId)
+        // A completed provider request must not populate another report/client.
+        if (!isReconnectContextCurrent(reconnectPath, reconnectClientId)) return
         const correctedFormData = applyValuationSnapshotToReconnectDraft(
           claimedIntent.formData,
           snapshot
         )
-        setFormData(correctedFormData)
+        setFormData((current) => restoreAccountingReconnectDraft(correctedFormData, current))
         if (
           !markAccountingReconnectReady(window.sessionStorage, {
             provider: 'silverfin',
@@ -588,6 +608,7 @@ export function useManualAccountingImportController({
         window.history.replaceState({}, '', resumeUrl.toString())
         window.dispatchEvent(new Event('upswitch:accounting-reconnect-ready'))
       } catch (error) {
+        if (!isReconnectContextCurrent(reconnectPath, reconnectClientId)) return
         const message = parseAccountingApiError(error) || 'Silverfin connection failed'
         markAccountingReconnectFailed(window.sessionStorage, {
           provider: 'silverfin',
@@ -604,6 +625,8 @@ export function useManualAccountingImportController({
         window.sessionStorage.removeItem('upswitch_silverfin_oauth_in_progress')
         releaseAccountingReconnectRunLock(window.sessionStorage, oauthLockKey)
         stripSilverfinCallback()
+      } finally {
+        releaseAccountingReconnectRunLock(window.sessionStorage, oauthLockKey)
       }
     })()
   }, [loadAccountingIntegrationStatus, setFormData])
@@ -660,15 +683,18 @@ export function useManualAccountingImportController({
       clientId: reconnectClientId,
     })
 
+    const reconnectPath = window.location.pathname
     void (async () => {
       try {
         await accountingAPI.resyncClient(reconnectClientId, { force: true })
         const snapshot = await accountingAPI.getClientValuationFinancials(reconnectClientId)
+        // A completed provider request must not populate another report/client.
+        if (!isReconnectContextCurrent(reconnectPath, reconnectClientId)) return
         const correctedFormData = applyValuationSnapshotToReconnectDraft(
           claimedIntent.formData,
           snapshot
         )
-        setFormData(correctedFormData)
+        setFormData((current) => restoreAccountingReconnectDraft(correctedFormData, current))
         if (
           !markAccountingReconnectReady(window.sessionStorage, {
             provider,
@@ -688,6 +714,7 @@ export function useManualAccountingImportController({
         window.history.replaceState({}, '', resumeUrl.toString())
         window.dispatchEvent(new Event('upswitch:accounting-reconnect-ready'))
       } catch (error) {
+        if (!isReconnectContextCurrent(reconnectPath, reconnectClientId)) return
         const message = parseAccountingApiError(error) || 'Accounting synchronization failed'
         markAccountingReconnectFailed(window.sessionStorage, {
           provider,
@@ -703,6 +730,8 @@ export function useManualAccountingImportController({
         releaseAccountingReconnectRunLock(window.sessionStorage, lockKey)
         stripHandoffCallback()
         import('sonner').then(({ toast }) => toast.error(message))
+      } finally {
+        releaseAccountingReconnectRunLock(window.sessionStorage, lockKey)
       }
     })()
   }, [loadAccountingIntegrationStatus, setFormData])

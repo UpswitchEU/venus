@@ -1,6 +1,15 @@
 import type { ClientValuationFinancialSnapshot } from '@/services/api/accounting'
 import type { ManualValuationFormData, YearlyFinancials } from '@/types/valuation'
+import {
+  readBrowserRecoveryValue,
+  removeBrowserRecoveryValue,
+  writeBrowserRecoveryValue,
+} from '@/utils/browserRecoveryStorage'
 import { isYearRowForecast } from '@/utils/yearData'
+import {
+  isAccountingReconnectDraft,
+  sanitizeAccountingReconnectDraft,
+} from './accountingReconnectDraft'
 
 export const ACCOUNTING_RECONNECT_RESUME_KEY = 'venus_accounting_reconnect_resume'
 export const ACCOUNTING_RECONNECT_STATUS_EVENT = 'upswitch:accounting-reconnect-status'
@@ -43,42 +52,54 @@ function clean(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase() : ''
 }
 
-function parseIntent(raw: string | null, now: number): AccountingReconnectIntent | null {
-  if (!raw) return null
+function readIntent(storage: Storage, now = Date.now()): AccountingReconnectIntent | null {
+  const intent = readBrowserRecoveryValue(
+    ACCOUNTING_RECONNECT_RESUME_KEY,
+    (value): value is AccountingReconnectIntent => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+      const record = value as Partial<AccountingReconnectIntent>
+      return (
+        record.version === INTENT_VERSION &&
+        !!clean(record.provider) &&
+        typeof record.clientId === 'string' &&
+        !!record.clientId.trim() &&
+        typeof record.reportId === 'string' &&
+        !!record.reportId.trim() &&
+        typeof record.expiresAt === 'number' &&
+        Number.isFinite(record.expiresAt) &&
+        record.expiresAt > now &&
+        record.expiresAt <= now + DEFAULT_TTL_MS &&
+        ['oauthNonce', 'failure', 'firmId', 'reasonCode', 'lastSuccessfulSyncAt'].every((key) => {
+          const field = (record as Record<string, unknown>)[key]
+          return field == null || (typeof field === 'string' && field.length <= 500)
+        }) &&
+        (record.anchorYear == null || Number.isInteger(record.anchorYear)) &&
+        (record.unavailableYears == null ||
+          (Array.isArray(record.unavailableYears) &&
+            record.unavailableYears.length <= 100 &&
+            record.unavailableYears.every(
+              (row) => row && Number.isInteger(row.year) && typeof row.reason === 'string'
+            ))) &&
+        isAccountingReconnectDraft(record.formData) &&
+        [
+          'reconnect_required',
+          'oauth_pending',
+          'handoff_pending',
+          'resyncing',
+          'ready',
+          'failed',
+        ].includes(String(record.phase))
+      )
+    },
+    { storage, nowMs: () => now, ttlMs: DEFAULT_TTL_MS }
+  )
+  if (!intent) return null
   try {
-    const value = JSON.parse(raw) as Partial<AccountingReconnectIntent>
-    if (
-      value.version !== INTENT_VERSION ||
-      !clean(value.provider) ||
-      typeof value.clientId !== 'string' ||
-      !value.clientId.trim() ||
-      typeof value.reportId !== 'string' ||
-      !value.reportId.trim() ||
-      typeof value.expiresAt !== 'number' ||
-      value.expiresAt < now ||
-      !value.formData ||
-      typeof value.formData !== 'object' ||
-      ![
-        'reconnect_required',
-        'oauth_pending',
-        'handoff_pending',
-        'resyncing',
-        'ready',
-        'failed',
-      ].includes(String(value.phase))
-    ) {
-      return null
-    }
-    return value as AccountingReconnectIntent
+    return { ...intent, formData: sanitizeAccountingReconnectDraft(intent.formData) }
   } catch {
+    removeBrowserRecoveryValue(ACCOUNTING_RECONNECT_RESUME_KEY, { storage })
     return null
   }
-}
-
-function readIntent(storage: Storage, now = Date.now()): AccountingReconnectIntent | null {
-  const intent = parseIntent(storage.getItem(ACCOUNTING_RECONNECT_RESUME_KEY), now)
-  if (!intent) storage.removeItem(ACCOUNTING_RECONNECT_RESUME_KEY)
-  return intent
 }
 
 function sameIdentity(intent: AccountingReconnectIntent, identity: IntentIdentity): boolean {
@@ -88,8 +109,16 @@ function sameIdentity(intent: AccountingReconnectIntent, identity: IntentIdentit
   )
 }
 
-function writeIntent(storage: Storage, intent: AccountingReconnectIntent): void {
-  storage.setItem(ACCOUNTING_RECONNECT_RESUME_KEY, JSON.stringify(intent))
+function writeIntent(storage: Storage, intent: AccountingReconnectIntent, now: number): boolean {
+  try {
+    return writeBrowserRecoveryValue(
+      ACCOUNTING_RECONNECT_RESUME_KEY,
+      { ...intent, formData: sanitizeAccountingReconnectDraft(intent.formData) },
+      { storage, nowMs: () => now, ttlMs: Math.min(intent.expiresAt - now, DEFAULT_TTL_MS) }
+    )
+  } catch {
+    return false
+  }
 }
 
 export function persistAccountingReconnectIntent(
@@ -117,14 +146,13 @@ export function persistAccountingReconnectIntent(
     provider,
     clientId,
     reportId,
-    expiresAt: now + (input.ttlMs ?? DEFAULT_TTL_MS),
+    expiresAt: now + Math.min(input.ttlMs ?? DEFAULT_TTL_MS, DEFAULT_TTL_MS),
     formData: input.formData,
     firmId: input.firmId?.trim() || undefined,
     reasonCode: input.reasonCode?.trim() || undefined,
     lastSuccessfulSyncAt: input.lastSuccessfulSyncAt?.trim() || undefined,
   }
-  writeIntent(storage, intent)
-  return intent
+  return writeIntent(storage, intent, now) ? intent : null
 }
 
 export type AccountingReconnectIntentSummary = Pick<
@@ -186,14 +214,17 @@ export function bindAccountingReconnectOAuth(
   ) {
     return false
   }
-  writeIntent(storage, {
-    ...intent,
-    phase: 'oauth_pending',
-    oauthNonce: nonce,
-    expiresAt: now + DEFAULT_TTL_MS,
-    failure: undefined,
-  })
-  return true
+  return writeIntent(
+    storage,
+    {
+      ...intent,
+      phase: 'oauth_pending',
+      oauthNonce: nonce,
+      expiresAt: now + DEFAULT_TTL_MS,
+      failure: undefined,
+    },
+    now
+  )
 }
 
 /**
@@ -216,14 +247,17 @@ export function bindAccountingReconnectHandoff(
   ) {
     return false
   }
-  writeIntent(storage, {
-    ...intent,
-    phase: 'handoff_pending',
-    oauthNonce: nonce,
-    expiresAt: now + DEFAULT_TTL_MS,
-    failure: undefined,
-  })
-  return true
+  return writeIntent(
+    storage,
+    {
+      ...intent,
+      phase: 'handoff_pending',
+      oauthNonce: nonce,
+      expiresAt: now + DEFAULT_TTL_MS,
+      failure: undefined,
+    },
+    now
+  )
 }
 
 /**
@@ -250,8 +284,7 @@ export function beginAccountingReconnectResync(
     phase: 'resyncing',
     expiresAt: now + RESYNC_TTL_MS,
   }
-  writeIntent(storage, claimed)
-  return claimed
+  return writeIntent(storage, claimed, now) ? claimed : null
 }
 
 /** Claim a trusted Mercury return exactly once before forcing client resync. */
@@ -275,8 +308,7 @@ export function beginAccountingReconnectHandoffResync(
     phase: 'resyncing',
     expiresAt: now + RESYNC_TTL_MS,
   }
-  writeIntent(storage, claimed)
-  return claimed
+  return writeIntent(storage, claimed, now) ? claimed : null
 }
 
 /**
@@ -300,8 +332,7 @@ export function resumeInterruptedAccountingReconnectResync(
     return null
   }
   const reclaimed = { ...intent, expiresAt: now + RESYNC_TTL_MS }
-  writeIntent(storage, reclaimed)
-  return reclaimed
+  return writeIntent(storage, reclaimed, now) ? reclaimed : null
 }
 
 export function markAccountingReconnectReady(
@@ -316,29 +347,37 @@ export function markAccountingReconnectReady(
   const now = input.now ?? Date.now()
   const intent = readIntent(storage, now)
   if (!intent || !sameIdentity(intent, input) || intent.phase !== 'resyncing') return false
-  writeIntent(storage, {
-    ...intent,
-    phase: 'ready',
-    formData: input.formData,
-    anchorYear: input.anchorYear,
-    unavailableYears: input.unavailableYears,
-    oauthNonce: undefined,
-  })
-  return true
+  return writeIntent(
+    storage,
+    {
+      ...intent,
+      phase: 'ready',
+      formData: input.formData,
+      anchorYear: input.anchorYear,
+      unavailableYears: input.unavailableYears,
+      oauthNonce: undefined,
+    },
+    now
+  )
 }
 
 export function markAccountingReconnectFailed(
   storage: Storage,
   input: IntentIdentity & { failure: string; now?: number }
 ): void {
-  const intent = readIntent(storage, input.now ?? Date.now())
+  const now = input.now ?? Date.now()
+  const intent = readIntent(storage, now)
   if (!intent || !sameIdentity(intent, input)) return
-  writeIntent(storage, {
-    ...intent,
-    phase: 'failed',
-    failure: input.failure.slice(0, 500),
-    oauthNonce: undefined,
-  })
+  writeIntent(
+    storage,
+    {
+      ...intent,
+      phase: 'failed',
+      failure: input.failure.slice(0, 500),
+      oauthNonce: undefined,
+    },
+    now
+  )
 }
 
 /** Consume first, then return: refreshes and duplicate callbacks cannot recalculate twice. */
@@ -355,8 +394,7 @@ export function consumeReadyAccountingReconnect(
   ) {
     return null
   }
-  storage.removeItem(ACCOUNTING_RECONNECT_RESUME_KEY)
-  return intent
+  return removeBrowserRecoveryValue(ACCOUNTING_RECONNECT_RESUME_KEY, { storage }) ? intent : null
 }
 
 const FINANCIAL_FIELDS = [
@@ -382,6 +420,13 @@ function toYearlyFinancial(
   row: ClientValuationFinancialSnapshot['years'][number]
 ): YearlyFinancials | null {
   const year = Number(row.fiscal_year)
+  if (
+    row.revenue == null ||
+    row.ebitda == null ||
+    String(row.revenue).trim() === '' ||
+    String(row.ebitda).trim() === ''
+  )
+    return null
   const revenue = Number(row.revenue)
   const ebitda = Number(row.ebitda)
   if (!Number.isInteger(year) || !Number.isFinite(revenue) || !Number.isFinite(ebitda)) return null
@@ -403,7 +448,9 @@ function toYearlyFinancial(
   }
   const source = row as Record<string, unknown>
   for (const field of FINANCIAL_FIELDS) {
-    const value = Number(source[field])
+    const raw = source[field]
+    if (raw == null || raw === '') continue
+    const value = Number(raw)
     if (Number.isFinite(value)) {
       ;(mapped as unknown as Record<string, unknown>)[field] = value
     }

@@ -14,6 +14,9 @@ interface BrowserRecoveryEnvelope<T> {
 
 interface BrowserRecoveryOptions {
   ttlMs?: number
+  storage?: Storage | null
+  maxBytes?: number
+  allowLegacy?: boolean
   nowMs?: () => number
 }
 
@@ -22,8 +25,11 @@ interface BrowserRecoveryListOptions extends BrowserRecoveryOptions {
 }
 
 function getLocalStorage(): Storage | null {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return null
-  return window.localStorage
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage
+  } catch {
+    return null
+  }
 }
 
 function isRecoveryEnvelope(value: unknown): value is BrowserRecoveryEnvelope<unknown> {
@@ -33,7 +39,9 @@ function isRecoveryEnvelope(value: unknown): value is BrowserRecoveryEnvelope<un
     record.schemaVersion === RECOVERY_STORAGE_SCHEMA_VERSION &&
     record.classification === 'workflow-recovery' &&
     typeof record.writtenAtMs === 'number' &&
+    Number.isFinite(record.writtenAtMs) &&
     typeof record.expiresAtMs === 'number' &&
+    Number.isFinite(record.expiresAtMs) &&
     'value' in record
   )
 }
@@ -51,11 +59,14 @@ export function writeBrowserRecoveryValue<T>(
   value: T,
   options: BrowserRecoveryOptions = {}
 ): boolean {
-  const storage = getLocalStorage()
+  const storage = options.storage === undefined ? getLocalStorage() : options.storage
   if (!storage || !key) return false
 
   const now = options.nowMs?.() ?? Date.now()
-  const ttlMs = options.ttlMs ?? WORKFLOW_RECOVERY_TTL_MS
+  const requestedTtlMs = options.ttlMs ?? WORKFLOW_RECOVERY_TTL_MS
+  if (!Number.isFinite(requestedTtlMs)) return false
+  const ttlMs = Math.min(requestedTtlMs, WORKFLOW_RECOVERY_TTL_MS)
+  if (!Number.isFinite(now) || !Number.isFinite(ttlMs) || ttlMs <= 0) return false
   const envelope: BrowserRecoveryEnvelope<T> = {
     schemaVersion: RECOVERY_STORAGE_SCHEMA_VERSION,
     classification: 'workflow-recovery',
@@ -65,7 +76,9 @@ export function writeBrowserRecoveryValue<T>(
   }
 
   try {
-    storage.setItem(key, JSON.stringify(envelope))
+    const raw = JSON.stringify(envelope)
+    if (new TextEncoder().encode(raw).length > (options.maxBytes ?? 500_000)) return false
+    storage.setItem(key, raw)
     return true
   } catch {
     return false
@@ -77,7 +90,7 @@ export function readBrowserRecoveryValue<T>(
   isValue: (value: unknown) => value is T,
   options: BrowserRecoveryOptions = {}
 ): T | null {
-  const storage = getLocalStorage()
+  const storage = options.storage === undefined ? getLocalStorage() : options.storage
   if (!storage || !key) return null
 
   let raw: string | null = null
@@ -88,12 +101,22 @@ export function readBrowserRecoveryValue<T>(
   }
 
   if (!raw) return null
+  if (new TextEncoder().encode(raw).length > (options.maxBytes ?? 500_000)) {
+    removeRecoveryValueFrom(storage, key)
+    return null
+  }
 
   try {
     const parsed = JSON.parse(raw) as unknown
     if (isRecoveryEnvelope(parsed)) {
       const now = options.nowMs?.() ?? Date.now()
-      if (parsed.expiresAtMs <= now) {
+      if (
+        !Number.isFinite(now) ||
+        parsed.expiresAtMs <= now ||
+        parsed.writtenAtMs > now ||
+        parsed.expiresAtMs <= parsed.writtenAtMs ||
+        parsed.expiresAtMs - parsed.writtenAtMs > (options.ttlMs ?? WORKFLOW_RECOVERY_TTL_MS)
+      ) {
         removeRecoveryValueFrom(storage, key)
         return null
       }
@@ -104,7 +127,7 @@ export function readBrowserRecoveryValue<T>(
 
     // Legacy recovery buffers were stored as raw JSON. Accept once so users
     // do not lose in-flight edits during the migration, then callers clear.
-    if (isValue(parsed)) return parsed
+    if (options.allowLegacy !== false && isValue(parsed)) return parsed
     removeRecoveryValueFrom(storage, key)
   } catch {
     removeRecoveryValueFrom(storage, key)
@@ -113,10 +136,18 @@ export function readBrowserRecoveryValue<T>(
   return null
 }
 
-export function removeBrowserRecoveryValue(key: string): void {
-  const storage = getLocalStorage()
-  if (!storage || !key) return
-  removeRecoveryValueFrom(storage, key)
+export function removeBrowserRecoveryValue(
+  key: string,
+  options: BrowserRecoveryOptions = {}
+): boolean {
+  const storage = options.storage === undefined ? getLocalStorage() : options.storage
+  if (!storage || !key) return false
+  try {
+    storage.removeItem(key)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function appendBrowserRecoveryListItem<T>(

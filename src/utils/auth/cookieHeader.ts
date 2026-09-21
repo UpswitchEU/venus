@@ -1,4 +1,5 @@
 import { hasConflictingAuthCookies, readAllCookieValues } from '../authCookieScope'
+import { apiLogger } from '../logger'
 
 export const TITAN_ACCESS_COOKIE = 'upswitch_access_token'
 export const TITAN_REFRESH_COOKIE = 'upswitch_refresh_token'
@@ -30,7 +31,7 @@ export function hasCookieInHeader(cookieHeader: string, cookieName: string): boo
  */
 export function getTitanAccessTokenFromCookieHeader(cookieHeader: string): string | null {
   if (hasConflictingAuthCookies(cookieHeader)) {
-    console.error('[venus] conflicting auth cookies — withholding bearer token')
+    apiLogger.error('[venus] conflicting auth cookies — withholding bearer token')
     return null
   }
   const token = getCookieValueFromHeader(cookieHeader, TITAN_ACCESS_COOKIE)

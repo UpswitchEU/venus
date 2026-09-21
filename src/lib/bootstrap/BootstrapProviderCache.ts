@@ -1,7 +1,7 @@
-import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
-import type { BootstrapContext, SessionBootstrapState } from './types'
 import type { ValuationSession } from '../../types/valuation'
 import { reportAccessScope } from '../../utils/reportAccessScope'
+import { getBootstrapContextCacheKey, getBootstrapReportCacheKey } from './contextCacheKey'
+import type { BootstrapContext, SessionBootstrapState } from './types'
 
 let bootstrapCompletedGlobally = false
 let lastGlobalResult: SessionBootstrapState | null = null
@@ -71,7 +71,8 @@ export function rememberScopedGlobalBootstrapResult(
 
 /** Carry the already-authorized bootstrap across Titan's session-key → UUID promotion. */
 export function promoteScopedBootstrapReport(previousId: string, session: ValuationSession): void {
-  if (!lastGlobalResult || !lastGlobalContext || lastGlobalAccessScope !== reportAccessScope()) return
+  if (!lastGlobalResult || !lastGlobalContext || lastGlobalAccessScope !== reportAccessScope())
+    return
   if (![previousId, session.reportId].includes(lastGlobalResult.report.reportId)) return
   const result: SessionBootstrapState = {
     ...lastGlobalResult,

@@ -1,12 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { createElement, StrictMode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ValuationReportData } from '../../../components/calculator'
 import { VersionAPI } from '../../../services/api/version/VersionAPI'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import { useClientContext } from '../../../stores/clientContext'
 import type { ValuationVersion } from '../../../types/ValuationVersion'
-import type { ValuationReportData } from '../../../components/calculator'
 import { useManualVersionNavigation } from './useManualVersionNavigation'
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('@/services/backendApi', () => ({
   backendAPI: { calculateStartupPreview: vi.fn() },
 }))
+
 import { valuationIqPreviewToLiveValuation } from './useLiveValuation'
 
 const canonicalResponse = {

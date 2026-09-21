@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { VersionAPI } from '../../../services/api/version/VersionAPI'
-import { reportAccessScope, watchReportAccessScope } from '../../../utils/reportAccessScope'
 import type { ValuationReportData } from '../../../components/calculator'
+import { VersionAPI } from '../../../services/api/version/VersionAPI'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type { ValuationResponse } from '../../../types/valuation'
+import { reportAccessScope, watchReportAccessScope } from '../../../utils/reportAccessScope'
 import { getFirstRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
 import { buildManualVersionHistoryForNav } from '../utils/manualVersionNav'
 
@@ -200,13 +200,19 @@ export function useManualVersionNavigation({
   )
 
   useEffect(() => {
-    if (!hasReport || !Number.isInteger(initialVersion) || (initialVersion ?? 0) < 1) return
+    if (
+      !hasReport ||
+      typeof initialVersion !== 'number' ||
+      !Number.isInteger(initialVersion) ||
+      initialVersion < 1
+    )
+      return
     const key = `${target}:${initialVersion}`
     if (initialSelection.current === key) return
     initialSelection.current = key
     // Bootstrap supplies the latest committed report. Explicit version links
     // must hydrate their own snapshot, including after a full page refresh.
-    void loadVersion(initialVersion!, false)
+    void loadVersion(initialVersion, false)
   }, [hasReport, initialVersion, loadVersion, target])
 
   return {

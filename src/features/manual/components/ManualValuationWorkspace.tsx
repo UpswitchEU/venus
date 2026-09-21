@@ -46,13 +46,9 @@ import {
   useResultToReportBridge,
   useSynthesisReportHeadlineSync,
 } from '../hooks'
+import { useAccountingReconnectContext } from '../hooks/useAccountingReconnectContext'
 import { useAdvisorFormInteraction } from '../hooks/useAdvisorFormInteraction'
 import type { ValuationRunTrigger } from '../hooks/useResultToReportBridge'
-import {
-  ACCOUNTING_RECONNECT_STATUS_EVENT,
-  type RecoveryPhase,
-  readAccountingReconnectIntentSummary,
-} from '../utils/accountingReconnectResume'
 import { MANUAL_SUBMIT_VALIDATION_TOAST_KEYS } from '../utils/manualSubmitValidation'
 import { persistedFinancialInputsDiffer } from '../utils/persistedFinancialInputMismatch'
 import { AccountingReconnectRecovery } from './AccountingReconnectRecovery'
@@ -94,14 +90,6 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   const tPreparer = useTranslations('preparerMultiple')
   const tMethodSelector = useTranslations('manualInput.methodSelector')
   const startProposalVersionLabelRef = React.useRef<string | null>(null)
-  const [accountingReconnectContext, setAccountingReconnectContext] = React.useState<Record<
-    string,
-    unknown
-  > | null>(null)
-  const handleAccountingReconnectRecovered = React.useCallback(
-    () => setAccountingReconnectContext(null),
-    []
-  )
   const { isMobile } = useManualLayoutViewport()
   useManualPanelStorageReset()
   useManualToastMessageLifecycle(t)
@@ -152,43 +140,6 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     resultValuationId: result?.valuation_id,
     session,
   })
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const activeReportId = resolvedReportId || reportId
-    const restore = (override?: {
-      phase: RecoveryPhase
-      provider: string
-      clientId: string
-      failure?: string
-    }) => {
-      const summary = readAccountingReconnectIntentSummary(window.sessionStorage)
-      if (!summary || summary.reportId !== activeReportId) return
-      setAccountingReconnectContext({
-        provider: override?.provider ?? summary.provider,
-        client_id: override?.clientId ?? summary.clientId,
-        firm_id: summary.firmId,
-        reason_code: summary.reasonCode,
-        last_successful_sync_at: summary.lastSuccessfulSyncAt,
-        recovery_phase: override?.phase ?? summary.phase,
-        failure: override?.failure ?? summary.failure,
-      })
-    }
-    restore()
-    const onStatus = (event: Event) => {
-      const detail = (event as CustomEvent).detail as
-        | { phase?: RecoveryPhase; provider?: string; clientId?: string; failure?: string }
-        | undefined
-      if (!detail?.phase || !detail.provider || !detail.clientId) return
-      restore({
-        phase: detail.phase,
-        provider: detail.provider,
-        clientId: detail.clientId,
-        failure: detail.failure,
-      })
-    }
-    window.addEventListener(ACCOUNTING_RECONNECT_STATUS_EVENT, onStatus)
-    return () => window.removeEventListener(ACCOUNTING_RECONNECT_STATUS_EVENT, onStatus)
-  }, [reportId, resolvedReportId])
   const currentLocale = useLocale()
   const {
     accountantDisplayName,
@@ -198,6 +149,11 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     isAccountantMode,
   } = useManualAccountantContext()
   const requestAccountantCustomerId = accountantCustomerId ?? clientContextId ?? ctxRelationshipId
+  const {
+    accountingReconnectContext,
+    setAccountingReconnectContext,
+    handleAccountingReconnectRecovered,
+  } = useAccountingReconnectContext(resolvedReportId || reportId, requestAccountantCustomerId)
   const {
     canDownloadPdf,
     currentYearRevenueForMethodNav,

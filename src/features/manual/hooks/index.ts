@@ -216,17 +216,17 @@ export {
   useManualReportUiState,
 } from './useManualReportUiState'
 export {
-  type UseManualSubmitControllerParams,
-  type UseManualSubmitControllerResult,
-  useManualSubmitController,
-} from './useManualSubmitController'
-export {
   START_VALUATION_INTENT,
   startValuationIntentStorageKey,
   type UseManualStartValuationIntentParams,
   urlWithoutStartValuationIntent,
   useManualStartValuationIntent,
 } from './useManualStartValuationIntent'
+export {
+  type UseManualSubmitControllerParams,
+  type UseManualSubmitControllerResult,
+  useManualSubmitController,
+} from './useManualSubmitController'
 export {
   type HandleManualSubmitErrorParams,
   type UseManualSubmitErrorHandlerParams,

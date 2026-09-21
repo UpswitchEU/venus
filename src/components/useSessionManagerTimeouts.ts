@@ -62,7 +62,11 @@ export function useSessionManagerTimeouts({
     const maxLoadingTimer = setTimeout(() => {
       const current = useSessionStore.getState()
       if (current.session?.reportId && current.session.reportId !== reportId) return
-      if (current.session?.reportId === reportId && (current.status === 'loaded' || hasAssetsInSession(current.session))) return
+      if (
+        current.session?.reportId === reportId &&
+        (current.status === 'loaded' || hasAssetsInSession(current.session))
+      )
+        return
       current.cancelActiveLoad(reportId)
       const snapshot = loadingTimeoutSnapshotRef.current
       generalLogger.error('[SessionManager] Max loading time exceeded', {

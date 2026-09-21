@@ -1,7 +1,7 @@
-import { reportAccessScope } from '../utils/reportAccessScope'
 import { render, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { reportAccessScope } from '../utils/reportAccessScope'
 
 import { ValuationReport } from './ValuationReport'
 
@@ -97,7 +97,11 @@ describe('ValuationReport URL sync', () => {
   it('promotes a saved val_* concept to the durable report UUID without losing query state', async () => {
     const sessionKey = 'val_1700000000_route123'
     const reportUuid = '35a422c3-028f-4d46-88e5-27ac5519826c'
-    window.history.replaceState({}, '', `/en/reports/${sessionKey}?source=mercury&tab=history&clientId=client-a&version=2&selected_method=upswitch_adaptive&locale=en&return_url=https%3A%2F%2Fwww.upswitch.app%2Fen%2Fadvisor`)
+    window.history.replaceState(
+      {},
+      '',
+      `/en/reports/${sessionKey}?source=mercury&tab=history&clientId=client-a&version=2&selected_method=upswitch_adaptive&locale=en&return_url=https%3A%2F%2Fwww.upswitch.app%2Fen%2Fadvisor`
+    )
 
     render(<ValuationReport reportId={sessionKey} />)
     window.dispatchEvent(
@@ -121,7 +125,10 @@ describe('ValuationReport URL sync', () => {
   it('resolves a persisted session-key alias on a later Mercury round-trip', async () => {
     const sessionKey = 'val_1700000000_return123'
     const reportUuid = 'ec8c5f17-d0ef-471e-bfa0-b2e9ac946df8'
-    window.localStorage.setItem(`upswitch:report-alias:v2:${reportAccessScope()}:${sessionKey}`, reportUuid)
+    window.localStorage.setItem(
+      `upswitch:report-alias:v2:${reportAccessScope()}:${sessionKey}`,
+      reportUuid
+    )
     window.history.replaceState({}, '', `/nl/reports/${sessionKey}?source=mercury`)
 
     render(<ValuationReport reportId={sessionKey} />)

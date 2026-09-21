@@ -69,6 +69,7 @@ export function useManualVersionRestoreAction({
       const plan = buildManualVersionRestorePlan(version)
       const idForApi = resolvedReportId || reportId
       if (!plan?.versionNumber || !idForApi) return Promise.resolve()
+      const versionNumber = plan.versionNumber
       // Only an identical in-flight restore (same target AND same version) is
       // coalesced; a request for a different version used to resolve to the
       // first one's promise and silently restore the wrong snapshot.
@@ -91,7 +92,7 @@ export function useManualVersionRestoreAction({
           if (!stillCurrent()) return
           const { VersionAPI } = await import('../../../services/api/version/VersionAPI')
           if (!stillCurrent()) return
-          const restored = await new VersionAPI().restoreVersion(idForApi, plan.versionNumber!, {
+          const restored = await new VersionAPI().restoreVersion(idForApi, versionNumber, {
             idempotencyKey: attempt.id,
             timeout: 30_000,
           })

@@ -20,6 +20,7 @@ import {
 import { generalLogger } from '../../../utils/logger'
 import { detectVersionChanges } from '../../../utils/versionDiffDetection'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
+import { restoreAccountingReconnectDraft } from '../utils/accountingReconnectDraft'
 import {
   consumeReadyAccountingReconnect,
   persistAccountingReconnectIntent,
@@ -439,7 +440,11 @@ export function useManualSubmitController({
         reconnectResumeBypassRef.current = false
         return
       }
-      void handleManualSubmit(ready.formData).finally(() => {
+      const recoveredForm = restoreAccountingReconnectDraft(
+        ready.formData,
+        useManualFormStore.getState().formData
+      )
+      void handleManualSubmit(recoveredForm).finally(() => {
         reconnectResumeBypassRef.current = false
       })
     }

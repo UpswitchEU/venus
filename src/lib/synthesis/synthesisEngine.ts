@@ -165,9 +165,7 @@ function isSynthesisMultiplesMethodKey(methodKey: string): boolean {
 function readCanonicalMultiplesEquityValue(
   result: ValuationResponse | null | undefined
 ): number | null {
-  return (
-    toFiniteNumber(result?.multiples_valuation?.adjusted_equity_value) ?? null
-  )
+  return toFiniteNumber(result?.multiples_valuation?.adjusted_equity_value) ?? null
 }
 
 function toFiniteNumber(value: unknown): number | null {
