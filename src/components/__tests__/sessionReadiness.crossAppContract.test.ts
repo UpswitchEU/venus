@@ -586,7 +586,7 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(errorPolicySource).toMatch(/status === 503 \|\| status === 504/)
     expect(engineSource).toMatch(/awaitSessionPoolPressureGate/)
     expect(engineSource).toMatch(/recordSessionPoolPressureFromHttpError/)
-    expect(engineSource).toMatch(/isRetryableSessionSaveError/)
+    expect(engineSource).toMatch(/executeAuthenticatedSessionSave/)
   })
 
   it('HttpClient does not retry 503/504 by default', () => {
