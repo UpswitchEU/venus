@@ -187,9 +187,10 @@ describe('mapValuationResultToReport', () => {
   })
 
   describe('multipleRange', () => {
-    it('uses Waarderingssynthese headline when clientBlendedValue is supplied', () => {
+    it('preserves the engine headline when an obsolete client blend is supplied', () => {
       const report = mapValuationResultToReport({
         result: {
+          recommended_asking_price: 400_000,
           valuation_results: {
             upswitch_adaptive: { available: true, value: 384_000, details: {} },
           },
@@ -201,7 +202,8 @@ describe('mapValuationResultToReport', () => {
         clientBlendedValue: 567_771,
       })
 
-      expect(report.valuation).toBe(567_771)
+      expect(report.valuation).toBe(384_000)
+      expect(report.recommendedAskingPrice).toBe(400_000)
     })
 
     it('sets recommendedAskingPrice to synthesis headline when weighted_valuation is present', () => {

@@ -62,7 +62,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
   const isSaving = useSessionStore((state) => state.isSaving)
   const lastSaved = useSessionStore((state) => state.lastSaved)
   const hasUnsavedChanges = useSessionStore((state) => state.hasUnsavedChanges)
-  const syncError = useSessionStore((state) => state.error)
+  const syncError = useSessionStore((state) => state.saveErrorMessage ?? state.errorMessage)
   const valuationResult = useSessionStore((state) => state.session?.valuationResult)
 
   const {

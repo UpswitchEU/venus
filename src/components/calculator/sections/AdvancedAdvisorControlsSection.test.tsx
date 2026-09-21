@@ -254,12 +254,12 @@ describe('AdvancedAdvisorControlsSection', () => {
     const tape = screen.getByTestId('advisor-calibration-derivation')
 
     // Sector value carries through. Premium row shows "—" because nothing
-    // has been typed. Calibrated equals sector because adjustment is 0.
+    // has been typed. The calibrated result awaits the engine.
     expect(tape.textContent).toContain('5.50x')
     expect(tape.textContent).toContain('—')
   })
 
-  it('renders a live before-and-after valuation preview for a calibration premium', () => {
+  it('keeps calibration premiums as inputs until the engine recalculates', () => {
     render(
       <AdvancedAdvisorControlsSection
         {...baseProps}
@@ -268,25 +268,11 @@ describe('AdvancedAdvisorControlsSection', () => {
       />
     )
 
-    expect(screen.getByTestId('advisor-controls-live-preview-before').textContent).toContain(
-      '€550,000'
-    )
-    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
-      '€675,000'
-    )
-    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
-      '+€125,000'
-    )
-    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
-      '+22,7%'
-    )
-    expect(screen.getByTestId('advisor-controls-curve-shift')).toBeInTheDocument()
-    expect(screen.getByTestId('advisor-controls-active-changes').textContent).toContain(
-      'livePreviewMultiplePremium'
-    )
+    expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
+    expect(screen.getByTestId('advisor-calibration-derivation').textContent).toContain('—')
   })
 
-  it('uses the final effective multiple override in the live preview when present', () => {
+  it('keeps effective overrides as inputs until the engine recalculates', () => {
     render(
       <AdvancedAdvisorControlsSection
         {...baseProps}
@@ -297,18 +283,11 @@ describe('AdvancedAdvisorControlsSection', () => {
       />
     )
 
-    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
-      '€750,000'
-    )
-    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
-      '+€200,000'
-    )
-    expect(screen.getByTestId('advisor-controls-active-changes').textContent).toContain(
-      'livePreviewEffectiveOverride'
-    )
+    expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
+    expect(screen.getByTestId('advisor-calibration-derivation').textContent).toContain('—')
   })
 
-  it('surfaces active value-moving risk, blend, floor, and weighting controls in the preview', () => {
+  it('does not fabricate a live value from risk, blend, floor, or weighting controls', () => {
     render(
       <AdvancedAdvisorControlsSection
         {...baseProps}
@@ -320,14 +299,8 @@ describe('AdvancedAdvisorControlsSection', () => {
       />
     )
 
-    const activeChanges = screen.getByTestId('advisor-controls-active-changes').textContent
-
-    expect(activeChanges).toContain('livePreviewMultipleBlend')
-    expect(activeChanges).toContain('livePreviewRiskOff')
-    expect(activeChanges).toContain('livePreviewDiscountWeights')
-    expect(activeChanges).toContain('livePreviewDiscountFloor')
-    expect(activeChanges).toContain('livePreviewHistoricalWeights')
-    expect(screen.getByTestId('advisor-controls-live-preview')).toBeInTheDocument()
+    expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
+    expect(screen.getByTestId('advisor-calibration-derivation').textContent).toContain('—')
   })
 
   it('does not render the live preview without a sector multiple or EBITDA basis', () => {
@@ -342,7 +315,7 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
   })
 
-  it('formats a positive premium with a leading + sign and updates the calibrated row', () => {
+  it('formats a positive input premium while leaving the recalculated result pending', () => {
     render(
       <AdvancedAdvisorControlsSection
         {...baseProps}
@@ -353,8 +326,9 @@ describe('AdvancedAdvisorControlsSection', () => {
 
     const tape = screen.getByTestId('advisor-calibration-derivation')
     expect(tape.textContent).toContain('+1.25')
-    // 5.5 (sector) + 1.25 = 6.75 calibrated
-    expect(tape.textContent).toContain('6.75x')
+    // Monetary output comes from the engine after recalculation.
+    expect(tape.textContent).not.toContain('6.75x')
+    expect(tape.textContent).toContain('—')
   })
 
   it('formats a negative premium without doubling the sign', () => {
@@ -370,7 +344,8 @@ describe('AdvancedAdvisorControlsSection', () => {
     // toFixed(2) on -0.5 is "-0.50"; we must not prepend another "+".
     expect(tape.textContent).toContain('-0.50')
     expect(tape.textContent).not.toContain('+-0.50')
-    expect(tape.textContent).toContain('5.00x')
+    expect(tape.textContent).not.toContain('5.00x')
+    expect(tape.textContent).toContain('—')
   })
 
   it('shows an em-dash for sector + calibrated when no sector multiple is available', () => {
@@ -400,7 +375,7 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(screen.queryByText('title')).not.toBeInTheDocument()
   })
 
-  it('blends a true SOTP segment mix into the live before/after preview', () => {
+  it('does not calculate a SOTP segment valuation in the browser', () => {
     render(
       <AdvancedAdvisorControlsSection
         {...baseProps}
@@ -411,20 +386,8 @@ describe('AdvancedAdvisorControlsSection', () => {
       />
     )
 
-    // Baseline = sector 5.5x × €100k = €550,000.
-    expect(screen.getByTestId('advisor-controls-live-preview-before').textContent).toContain(
-      '€550,000'
-    )
-    // SOTP blend = 8×0.7 + 4×0.3 = 6.8x × €100k = €680,000.
-    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
-      '€680,000'
-    )
-    expect(screen.getByTestId('advisor-controls-live-preview-delta').textContent).toContain(
-      '+€130,000'
-    )
-    expect(screen.getByTestId('advisor-controls-active-changes').textContent).toContain(
-      'livePreviewSegmentWeights'
-    )
+    expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
+    expect(screen.getByTestId('advisor-calibration-derivation').textContent).toContain('—')
   })
 
   it('does not surface a segment-weights change for a single-segment mix', () => {
@@ -438,7 +401,7 @@ describe('AdvancedAdvisorControlsSection', () => {
     expect(screen.queryByTestId('advisor-controls-active-changes')).not.toBeInTheDocument()
   })
 
-  it('lets an explicit effective override win over the SOTP segment blend', () => {
+  it('sends overrides and SOTP inputs to the engine without a competing local headline', () => {
     render(
       <AdvancedAdvisorControlsSection
         {...baseProps}
@@ -451,13 +414,8 @@ describe('AdvancedAdvisorControlsSection', () => {
       />
     )
 
-    // Override 7x × €100k = €700,000 (not the 6.8x blend).
-    expect(screen.getByTestId('advisor-controls-live-preview-after').textContent).toContain(
-      '€700,000'
-    )
-    const activeChanges = screen.getByTestId('advisor-controls-active-changes').textContent
-    expect(activeChanges).toContain('livePreviewEffectiveOverride')
-    expect(activeChanges).toContain('livePreviewSegmentWeights')
+    expect(screen.queryByTestId('advisor-controls-live-preview')).not.toBeInTheDocument()
+    expect(screen.getByTestId('advisor-calibration-derivation').textContent).toContain('—')
   })
 
   it('rebalances edited year weights so the total stays at 100%', () => {

@@ -7,8 +7,10 @@ import { ManualLayoutContextBar } from './ManualLayoutContextBar'
 import { ManualLayoutModals } from './ManualLayoutModals'
 import { ManualLayoutNav } from './ManualLayoutNav'
 import { ManualPdfStaleBanner } from './ManualPdfStaleBanner'
+import { ManualSavedInputNotice } from './ManualSavedInputNotice'
 
 interface ManualLayoutChromeProps {
+  financialInputsChanged?: boolean
   bodyProps: ComponentProps<typeof ManualLayoutBody>
   chatDrawerOpen: boolean
   chatDrawerProps: ComponentProps<typeof ChatAssistantDrawer>
@@ -21,6 +23,7 @@ interface ManualLayoutChromeProps {
 
 export function ManualLayoutChrome({
   bodyProps,
+  financialInputsChanged = false,
   chatDrawerOpen,
   chatDrawerProps,
   contextBarProps,
@@ -41,6 +44,7 @@ export function ManualLayoutChrome({
         <ManualLayoutNav {...navProps} />
         <ManualPdfStaleBanner {...pdfStaleBannerProps} />
         <ManualLayoutContextBar {...contextBarProps} />
+        <ManualSavedInputNotice changed={financialInputsChanged} />
         <ManualLayoutBody {...bodyProps} />
         <ManualLayoutModals {...modalsProps} />
       </div>

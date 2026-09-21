@@ -48,7 +48,7 @@ export interface MapValuationResultToReportOpts {
   canDownloadPdf: boolean
   /** Narrowed translator from `useTranslations('reportPanel')`. */
   tReport: ReportTranslator
-  /** Live Waarderingssynthese blend (current weights); wins over single-method headline. */
+  /** @deprecated Monetary synthesis is read only from ValuationIQ. */
   clientBlendedValue?: number | null
 }
 
@@ -116,8 +116,7 @@ export function mapValuationResultToReport(
     askingRaw != null && Number.isFinite(Number(askingRaw)) && Number(askingRaw) > 0
       ? Number(askingRaw)
       : undefined
-  const hasSynthesisHeadline =
-    clientBlendedValue != null || resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
+  const hasSynthesisHeadline = resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
   const recommendedAskingPrice = hasSynthesisHeadline
     ? presentation.valuation
     : (askingPrice ?? presentation.valuation)
