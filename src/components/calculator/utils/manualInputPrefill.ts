@@ -175,7 +175,6 @@ export function applyManualInitialPrefill({
 }
 
 export function buildManualPrefillCompany({
-  businessTypeToApply,
   companyName,
   prefill,
 }: {
@@ -184,12 +183,11 @@ export function buildManualPrefillCompany({
   prefill: ManualInitialPrefillData
 }): KBOCompany | null {
   const name = companyName?.trim()
-  const hasExpandData =
-    prefill.kboNumber || prefill.legalForm || businessTypeToApply || prefill.industry
-  if (!name || !hasExpandData) return null
+  // A name-only prefill is usable company information, not a registry match.
+  if (!name || !prefill.kboNumber?.trim()) return null
 
   return {
-    id: prefill.kboNumber || 'prefill',
+    id: prefill.kboNumber,
     name,
     kboNumber: prefill.kboNumber || '',
     legalForm: prefill.legalForm || '',

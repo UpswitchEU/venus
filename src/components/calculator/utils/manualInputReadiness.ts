@@ -15,7 +15,6 @@ export function deriveManualInputReadiness({
   canSave,
   formData,
   hasSelectedBusinessType,
-  hasSelectedCompany,
   latestCompleteYearlyFinancial,
   resolvedBusinessTypeId,
 }: {
@@ -27,7 +26,7 @@ export function deriveManualInputReadiness({
   resolvedBusinessTypeId?: string | null
 }): ManualInputReadiness {
   const yearlyFinancials = formData.yearlyFinancials ?? []
-  const hasCompanyInfo = hasSelectedCompany || Boolean(formData.companyName?.length)
+  const hasCompanyInfo = Boolean(formData.companyName?.trim())
   const hasBusinessTypeSegment = (formData.business_type_segments ?? []).some((segment) =>
     Boolean(segment.business_type_id?.trim())
   )

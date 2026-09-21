@@ -232,6 +232,7 @@ export function useManualNaceBusinessTypePrefill({
   const suppressNacePrefill = useCallback(() => {
     userClearedRef.current = true
     backgroundAbortRef.current?.abort()
+    companySelectAbortRef.current?.abort()
   }, [])
 
   return {

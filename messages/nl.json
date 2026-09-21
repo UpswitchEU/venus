@@ -1373,6 +1373,7 @@
 		"fields": {
 			"operatingCountry": "Land van vestiging",
 			"operatingCountryHelp": "Bepaalt KBO-zoekopdracht (België) of KVK-zoekopdracht (Nederland) en terminologie.",
+			"companyNameOptionalRegistry": "Bedrijfsnaam (register opzoeken is optioneel)",
 			"companyNameOrKbo": "Bedrijfsnaam of KBO-nummer",
 			"businessType": "Bedrijfstype",
 			"legalForm": "Rechtsvorm",
@@ -1398,6 +1399,8 @@
 			"cancel": "Huidig bedrijf behouden",
 			"confirm": "Bedrijf wijzigen"
 		},
+		"registryOptionalHint": "Je kunt doorgaan met een bedrijfsnaam. Een registerkoppeling kan later worden toegevoegd.",
+		"continueWithoutRegistry": "Doorgaan zonder registerkoppeling",
 		"registryNlSearchHint": "Zoek live in het KVK-handelsregister op bedrijfsnaam of KVK-nummer, of vul de gegevens handmatig in als u uw bedrijf niet vindt.",
 		"registryNlNoResults": "Geen registermatch gevonden. U kunt doorgaan met de bedrijfsnaam die u heeft ingevoerd.",
 		"normalized": "Genormaliseerd",

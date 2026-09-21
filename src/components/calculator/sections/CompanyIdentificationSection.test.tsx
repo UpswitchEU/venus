@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import type { HTMLAttributes, ReactNode } from 'react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { type ComponentProps, type HTMLAttributes, type ReactNode, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { KBOCompany } from '@/design-system'
 import type { ManualValuationFormData } from '../../../types/valuation'
@@ -31,7 +31,17 @@ vi.mock('framer-motion', () => ({
 
 vi.mock('@/design-system', () => ({
   AuroraNumberInput: ({ label }: { label: string }) => <label>{label}</label>,
-  KBOSearchInput: () => <div data-testid="kbo-search" />,
+  KBOSearchInput: ({
+    onChange,
+    value,
+    label,
+  }: {
+    onChange: (name: string) => void
+    value: string
+    label: string
+  }) => (
+    <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
+  ),
   KboConfirmedCard: () => <div data-testid="kbo-confirmed" />,
 }))
 
@@ -224,5 +234,53 @@ describe('CompanyIdentificationSection business type fallbacks', () => {
     expect(screen.getByTestId('fallback-tax-advisory')).toHaveTextContent(
       'Fiscaal advies EV/Revenue 1.2x'
     )
+  })
+})
+
+describe('optional registry identification', () => {
+  it('persists a manual company name and reveals business type without a registry selection', () => {
+    const updateFormData = vi.fn()
+    function ManualCompany() {
+      const [name, setName] = useState('')
+      const [data, setData] = useState({ ...formData, companyName: '', businessType: '' })
+      const props = {
+        formData: data,
+        initialData: {},
+        readOnlyKbo: false,
+        isCalculating: false,
+        selectedCompany: null,
+        setSelectedCompany: vi.fn(),
+        companySearchValue: name,
+        setCompanySearchValue: setName,
+        countryUserOverrideRef: { current: false },
+        updateField: (key: string, value: unknown) =>
+          setData((previous) => ({ ...previous, [key]: value })),
+        updateFormData,
+        localizeActivityCodeCopy: (copy: string) => copy,
+        searchCountry: 'BE',
+        kboSearchFn: vi.fn().mockRejectedValue(new Error('registry unavailable')),
+        handleCompanySelect: vi.fn(),
+        handleClearCompany: vi.fn(),
+        showChangeCompanyWarning: false,
+        prefillCompanyRef: { current: null },
+        setShowChangeCompanyWarning: vi.fn(),
+        executeClearCompany: vi.fn(),
+        nacePrefillError: null,
+        retryNacePrefill: vi.fn(),
+        selectedBusinessType: null,
+        selectedBusinessTypeIds: [],
+        effectiveMethods: [],
+        handleBusinessTypeSelectionChange: vi.fn(),
+      } as ComponentProps<typeof CompanyIdentificationSection>
+      return <CompanyIdentificationSection {...props} />
+    }
+    render(<ManualCompany />)
+    expect(screen.queryByTestId('business-type-selector')).toBeNull()
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Manual Acme' } })
+    expect(updateFormData).toHaveBeenCalledWith({ company_name: 'Manual Acme' })
+    expect(screen.getByTestId('business-type-selector')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'continueWithoutRegistry' }))
+    expect(document.getElementById('manual-business-type')).toHaveFocus()
+    expect(updateFormData.mock.calls.every(([update]) => !('kbo_number' in update))).toBe(true)
   })
 })

@@ -1373,6 +1373,7 @@
 		"fields": {
 			"operatingCountry": "Pays d'exploitation",
 			"operatingCountryHelp": "Choisit la recherche et la terminologie d'entreprise KBO (Belgique) ou KVK (Pays-Bas).",
+			"companyNameOptionalRegistry": "Nom de l’entreprise (recherche au registre facultative)",
 			"companyNameOrKbo": "Nom de l'entreprise ou numéro KBO",
 			"businessType": "Type d'entreprise",
 			"legalForm": "Forme juridique",
@@ -1398,6 +1399,8 @@
 			"cancel": "Conserver l'entreprise actuelle",
 			"confirm": "Changer d'entreprise"
 		},
+		"registryOptionalHint": "Vous pouvez continuer avec un nom. Le lien au registre peut être ajouté plus tard.",
+		"continueWithoutRegistry": "Continuer sans correspondance au registre",
 		"registryNlSearchHint": "Recherchez dans le registre du commerce KVK en direct par nom d'entreprise ou numéro KVK, ou saisissez les détails manuellement si votre entreprise n'est pas trouvée.",
 		"registryNlNoResults": "Aucune correspondance de registre trouvée. Vous pouvez continuer avec le nom de l'entreprise que vous avez saisi.",
 		"normalized": "Normalisé",
