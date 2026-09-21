@@ -155,4 +155,45 @@ describe('useManualNaceBusinessTypePrefill', () => {
     })
     await waitFor(() => expect(getType).toHaveBeenCalled())
   })
+  it('ignores late registry business-type enrichment after an advisor chooses a type', async () => {
+    let resolve!: (type: BusinessType) => void
+    vi.mocked(naceBusinessTypeService.getBusinessTypeForNaceCode).mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        })
+    )
+    const updateFormData = vi.fn()
+    const { result } = renderHook(() =>
+      useManualNaceBusinessTypePrefill({
+        businessTypesForSearch: [fintechType],
+        formData: {
+          companyName: 'Manual company',
+          businessType: '',
+          country: 'BE',
+        } as ManualValuationFormData,
+        localizeActivityCodeCopy: (copy) => copy,
+        selectedBusinessTypeId: undefined,
+        selectedCompany: null,
+        setFormData: vi.fn(),
+        setSelectedBusinessType: vi.fn(),
+        translate: (key) => key,
+        updateFormData,
+      })
+    )
+    let pending!: Promise<void>
+    act(() => {
+      pending = result.current.prefillBusinessTypeForCompany(
+        { name: 'Registry company', countryCode: 'BE' } as never,
+        {},
+        '64.191'
+      )
+    })
+    act(() => result.current.suppressNacePrefill())
+    await act(async () => {
+      resolve(fintechType)
+      await pending
+    })
+    expect(updateFormData).not.toHaveBeenCalled()
+  })
 })

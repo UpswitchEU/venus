@@ -162,4 +162,13 @@ describe('manual input prefill utilities', () => {
       })
     ).toBeNull()
   })
+  it('does not fabricate a registry selection for imported names with business type', () => {
+    expect(
+      buildManualPrefillCompany({
+        businessTypeToApply: 'software',
+        companyName: 'Imported company',
+        prefill: { city: 'Gent', canonicalNaceCode: '62010' },
+      })
+    ).toBeNull()
+  })
 })

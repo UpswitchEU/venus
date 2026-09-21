@@ -118,7 +118,6 @@ export function FinancialHistorySection({
   onViewAllNormalizations,
   partialYears,
   requestRemoveHistoricalYear,
-  selectedCompany,
   setFormData,
   setShowForecastRemovalConfirm,
   taxLatencyCount,
@@ -220,15 +219,15 @@ export function FinancialHistorySection({
   // once per mount, only when the step is actually shown (past the guard below).
   const viewedRef = useRef(false)
   useEffect(() => {
-    if (viewedRef.current || !selectedCompany || !hasBusinessType) return
+    if (viewedRef.current || !formData.companyName?.trim() || !hasBusinessType) return
     viewedRef.current = true
     trackFinancialsStepViewed({
       hasFinancials,
       hasConnectedProvider: liveImportProviderName != null,
     })
-  }, [selectedCompany, hasBusinessType, hasFinancials, liveImportProviderName])
+  }, [formData.companyName, hasBusinessType, hasFinancials, liveImportProviderName])
 
-  if (!selectedCompany || !hasBusinessType) return null
+  if (!formData.companyName?.trim() || !hasBusinessType) return null
 
   return (
     <motion.section

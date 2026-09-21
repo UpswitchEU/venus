@@ -140,6 +140,7 @@ export function useManualCompanyIdentificationController({
     (selectedBusinessTypes: ApiBusinessType[], baseUpdates: Partial<ValuationFormData> = {}) => {
       const primaryBusinessType = selectedBusinessTypes[0]
       clearNacePrefillError()
+      suppressNacePrefill()
 
       if (!primaryBusinessType) {
         suppressNacePrefill()
@@ -205,7 +206,15 @@ export function useManualCompanyIdentificationController({
   const handleCompanySelect = useCallback(
     async (company: KBOCompany) => {
       setSelectedCompany(company)
-      setCompanySearchValue(company.name ?? '')
+      const enrichingExistingInputs =
+        Boolean(formData.businessType?.trim()) ||
+        formData.yearlyFinancials.some(
+          (year) => year.revenue != null && String(year.revenue).trim() !== ''
+        )
+      const companyName = enrichingExistingInputs
+        ? formData.companyName?.trim() || company.name || ''
+        : company.name || ''
+      setCompanySearchValue(companyName)
 
       // NACE codes carry two granularities (mirrors mapRegistrySearchResultToKboCompany):
       //  - `canonical`   → the broad canonical NACE used as the primary nace_code
@@ -216,15 +225,16 @@ export function useManualCompanyIdentificationController({
       const displayCode = company.activityCode?.trim() || canonical
 
       const baseUpdates: Partial<ValuationFormData> = {
-        companyName: company.name ?? '',
+        companyName,
         kboNumber: company.kboNumber ?? '',
-        legalForm: company.legalForm ?? '',
-        address: company.address ?? '',
-        city: company.city ?? '',
+        legalForm: formData.legalForm || company.legalForm || '',
+        address: formData.address || company.address || '',
+        city: formData.city || company.city || '',
         naceCode: displayCode,
         canonicalNaceCode: canonical,
         naceDescription: company.naceDescription ?? '',
-        businessStructure: mapLegalFormToBusinessStructure(company.legalForm ?? ''),
+        businessStructure:
+          formData.businessStructure || mapLegalFormToBusinessStructure(company.legalForm ?? ''),
       }
 
       setFormData((prev) => ({ ...prev, ...baseUpdates }))
@@ -232,15 +242,19 @@ export function useManualCompanyIdentificationController({
 
       updateFormData({
         kbo_number: company.kboNumber ?? '',
-        legal_form: company.legalForm ?? '',
+        company_name: baseUpdates.companyName,
+        legal_form: baseUpdates.legalForm,
         nace_code: canonical,
         nace_description: baseUpdates.naceDescription || '',
         ...(company.postalCode ? { postal_code: company.postalCode } : {}),
-        ...(company.city ? { city: company.city } : {}),
+        ...(baseUpdates.city ? { city: baseUpdates.city } : {}),
         ...(displayCode && canonical && displayCode !== canonical
           ? { activity_code: displayCode }
           : { activity_code: undefined }),
       })
+
+      // Registry enrichment must not replace an advisor-selected business type.
+      if (selectedBusinessTypeIds.length > 0 || formData.businessType?.trim()) return
 
       const seededBusinessTypes = resolveBusinessTypesFromKboCompany(company, businessTypes)
       if (seededBusinessTypes.length > 0) {
@@ -248,14 +262,12 @@ export function useManualCompanyIdentificationController({
         return
       }
 
-      await prefillBusinessTypeForCompany(
-        company,
-        baseUpdates,
-        canonical || company.naceCode?.trim()
-      )
+      await prefillBusinessTypeForCompany(company, {}, canonical || company.naceCode?.trim())
     },
     [
       applyApiBusinessTypeSelection,
+      selectedBusinessTypeIds,
+      formData,
       businessTypes,
       clearNacePrefillError,
       prefillBusinessTypeForCompany,

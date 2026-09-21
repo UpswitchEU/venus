@@ -244,4 +244,52 @@ describe('useManualCompanyIdentificationController', () => {
       })
     )
   })
+  it('enriches a manual company without replacing its figures, name or advisor business type', async () => {
+    const manual = {
+      ...baseFormData,
+      companyName: 'Advisor company name',
+      businessType: 'accounting',
+      legalForm: 'Advisor legal form',
+      yearlyFinancials: [{ year: '2025', revenue: 999, ebitda: 123 }],
+    } as ManualValuationFormData
+    const { result, setFormData, updateFormData } = renderController(manual)
+    mocks.prefillBusinessTypeForCompany.mockClear()
+    await act(async () => {
+      await result.current.handleCompanySelect({
+        id: '0123456789',
+        name: 'Registry name',
+        kboNumber: '0123.456.789',
+        legalForm: 'BV',
+        address: 'Registry street',
+        city: 'Gent',
+        businessTypeId: 'tax-advisory',
+      })
+    })
+    const next = setFormData.mock.calls.at(-1)?.[0](manual)
+    expect(next).toMatchObject({
+      companyName: manual.companyName,
+      businessType: 'accounting',
+      legalForm: manual.legalForm,
+      kboNumber: '0123.456.789',
+      address: 'Registry street',
+      yearlyFinancials: manual.yearlyFinancials,
+    })
+    expect(mocks.prefillBusinessTypeForCompany).not.toHaveBeenCalled()
+    expect(updateFormData.mock.calls.every(([update]) => !('business_type_id' in update))).toBe(
+      true
+    )
+  })
+  it('replaces a registry search prefix with the explicitly selected company name', async () => {
+    const { result, setFormData } = renderController({ ...baseFormData, companyName: 'Ac' })
+    await act(async () =>
+      result.current.handleCompanySelect({
+        id: '0123456789',
+        name: 'Acme BV',
+        kboNumber: '0123.456.789',
+      } as never)
+    )
+    expect(
+      setFormData.mock.calls.at(-1)?.[0]({ ...baseFormData, companyName: 'Ac' }).companyName
+    ).toBe('Acme BV')
+  })
 })
