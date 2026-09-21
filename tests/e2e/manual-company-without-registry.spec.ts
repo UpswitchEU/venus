@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
 
-test('manual company entry remains usable when registry search fails', async ({ page }) => {
+test('manual company entry remains usable when registry search fails', async ({ page, isMobile }) => {
   const calculation: { submitted: Record<string, unknown> | null } = { submitted: null }
+  let registryRequests = 0
   const baseUrl = String(test.info().project.use.baseURL)
   await page
     .context()
@@ -87,9 +88,10 @@ test('manual company entry remains usable when registry search fails', async ({ 
       },
     })
   )
-  await page.route('**/registry/**', (route) =>
-    route.fulfill({ status: 503, json: { error: 'Search unavailable' } })
-  )
+  await page.route('**/registry/**', (route) => {
+    registryRequests += 1
+    return route.fulfill({ status: 503, json: { error: 'Search unavailable' } })
+  })
   await page.route('**/valuations/calculate', (route) => {
     calculation.submitted = route.request().postDataJSON()
     return route.fulfill({
@@ -107,6 +109,7 @@ test('manual company entry remains usable when registry search fails', async ({ 
   const companyName = page.getByRole('textbox', { name: /company name/i }).first()
   await expect(companyName).toHaveValue('Imported business')
   await companyName.fill('Manual company without KBO')
+  await expect.poll(() => registryRequests).toBeGreaterThan(0)
   await page.getByRole('button', { name: 'Continue without registry match', exact: true }).click()
   await expect(companyName).toHaveValue('Manual company without KBO')
   await expect(page.locator('#manual-business-type')).toBeVisible()
@@ -130,5 +133,6 @@ test('manual company entry remains usable when registry search fails', async ({ 
     current_year_data: { revenue: 1600000 },
   })
   expect(calculation.submitted?.kbo_number).toBeFalsy()
-  await expect(page.getByText('Manual company valuation', { exact: true })).toBeVisible()
+  const output = isMobile ? page.getByRole('dialog') : page
+  await expect(output.getByText('Manual company valuation', { exact: true })).toBeVisible()
 })
