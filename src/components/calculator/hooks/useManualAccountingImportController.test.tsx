@@ -236,19 +236,95 @@ describe('useManualAccountingImportController', () => {
     })
 
     expect(accountingAPI.resyncClient).toHaveBeenCalledWith('client-1', { force: true })
-    expect(setFormData).toHaveBeenCalledWith(
-      expect.objectContaining({
-        yearlyFinancials: [
-          expect.objectContaining({ year: '2023', revenue: 500_000, ebitda: 100_000 }),
-        ],
-      })
-    )
+    const restore = vi.mocked(setFormData).mock.calls.at(-1)?.[0]
+    expect(typeof restore).toBe('function')
+    if (typeof restore !== 'function') throw new Error('Expected functional form recovery')
+    const restored = restore({ ...staleDraft, companyName: 'Current dossier identity' })
+    expect(restored.companyName).toBe('Current dossier identity')
+    expect(restored.yearlyFinancials).toEqual([
+      expect.objectContaining({ year: '2023', revenue: 500_000, ebitda: 100_000 }),
+    ])
     expect(new URLSearchParams(window.location.search).get('resume_calculation')).toBe('1')
     const ready = consumeReadyAccountingReconnect(sessionStorage, {
       clientId: 'client-1',
       reportId: 'report-1',
     })
     expect(ready).toMatchObject({ phase: 'ready', anchorYear: 2023 })
+    expect(
+      consumeReadyAccountingReconnect(sessionStorage, {
+        clientId: 'client-1',
+        reportId: 'report-1',
+      })
+    ).toBeNull()
+  })
+
+  it.each([
+    'success',
+    'failure',
+  ] as const)('ignores late reconnect %s after changing report and client', async (outcome) => {
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: {
+        companyName: 'Old client',
+        businessType: 'services',
+        industry: 'services',
+        country: 'BE',
+        yearFounded: '2020',
+        businessStructure: 'company',
+        ownerManagers: 1,
+        fteEmployees: 5,
+        yearlyFinancials: [],
+      },
+    })
+    bindAccountingReconnectHandoff(sessionStorage, {
+      provider: 'horus',
+      clientId: 'client-1',
+      nonce: 'late-1',
+    })
+    window.history.replaceState(
+      {},
+      '',
+      '/reports/report-1?clientId=client-1&just_connected=horus&accounting_resume=late-1'
+    )
+    vi.spyOn(accountingAPI, 'resyncClient').mockResolvedValue({ success: true } as Awaited<
+      ReturnType<typeof accountingAPI.resyncClient>
+    >)
+    let completeSnapshot: (
+      value: Awaited<ReturnType<typeof accountingAPI.getClientValuationFinancials>>
+    ) => void = () => {
+      throw new Error('Snapshot request was not started')
+    }
+    let failSnapshot: (error: Error) => void = () => {
+      throw new Error('Snapshot request was not started')
+    }
+    vi.spyOn(accountingAPI, 'getClientValuationFinancials').mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          completeSnapshot = resolve
+          failSnapshot = reject
+        })
+    )
+    vi.spyOn(accountingAPI, 'getAllIntegrationStatus').mockResolvedValue([])
+    const setFormData = vi.fn()
+    renderHook(() =>
+      useManualAccountingImportController({
+        currentFilingYear: 2026,
+        integrationsEnabled: true,
+        messages,
+        setFormData,
+      })
+    )
+    await vi.waitFor(() => expect(accountingAPI.getClientValuationFinancials).toHaveBeenCalled())
+    window.history.replaceState({}, '', '/reports/report-2?clientId=client-2')
+    await act(async () => {
+      if (outcome === 'failure') failSnapshot(new Error('Provider timed out'))
+      else
+        completeSnapshot({ provider: 'horus', anchor_year: null, years: [], unavailable_years: [] })
+    })
+    expect(setFormData).not.toHaveBeenCalled()
+    expect(window.location.search).toBe('?clientId=client-2')
     expect(
       consumeReadyAccountingReconnect(sessionStorage, {
         clientId: 'client-1',

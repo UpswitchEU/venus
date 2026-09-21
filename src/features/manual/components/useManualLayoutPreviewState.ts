@@ -1,10 +1,7 @@
 'use client'
 
 import type { ValuationReportData } from '../../../components/calculator'
-import {
-  isVenturePathMethodKey,
-  type MethodKey,
-} from '../../../lib/methods'
+import { isVenturePathMethodKey, type MethodKey } from '../../../lib/methods'
 import type { ValuationSession } from '../../../types/valuation'
 import { useRestorationGate } from '../hooks/useRestorationGate'
 import { shouldRestoreExistingManualReport } from './manualLayoutDerivedState'

@@ -98,3 +98,56 @@ describe('browserRecoveryStorage', () => {
     ).toEqual([{ id: 'a' }, { id: 'b' }])
   })
 })
+
+describe('bounded session recovery', () => {
+  it('uses the provided session store without copying to local storage', () => {
+    localStorage.clear()
+    sessionStorage.clear()
+    expect(
+      writeBrowserRecoveryValue(
+        'session:draft',
+        { id: 'draft' },
+        { storage: sessionStorage, nowMs: () => 10, ttlMs: 20 }
+      )
+    ).toBe(true)
+    expect(localStorage.getItem('session:draft')).toBeNull()
+    expect(
+      readBrowserRecoveryValue('session:draft', isRecoveryItem, {
+        storage: sessionStorage,
+        nowMs: () => 29,
+        ttlMs: 20,
+      })
+    ).toEqual({ id: 'draft' })
+    expect(
+      readBrowserRecoveryValue('session:draft', isRecoveryItem, {
+        storage: sessionStorage,
+        nowMs: () => 30,
+        ttlMs: 20,
+      })
+    ).toBeNull()
+    expect(sessionStorage.getItem('session:draft')).toBeNull()
+  })
+
+  it('rejects oversized writes and drops oversized or invalid-time reads', () => {
+    const options = { storage: sessionStorage, maxBytes: 200, nowMs: () => 10 }
+    expect(writeBrowserRecoveryValue('size', { id: 'x'.repeat(201) }, options)).toBe(false)
+    sessionStorage.setItem('size', 'x'.repeat(201))
+    expect(readBrowserRecoveryValue('size', isRecoveryItem, options)).toBeNull()
+    expect(sessionStorage.getItem('size')).toBeNull()
+    expect(writeBrowserRecoveryValue('size', { id: 'x' }, { ...options, ttlMs: Infinity })).toBe(
+      false
+    )
+    expect(writeBrowserRecoveryValue('size', { id: 'x' }, { ...options, ttlMs: 0 })).toBe(false)
+    sessionStorage.setItem(
+      'size',
+      JSON.stringify({
+        schemaVersion: 1,
+        classification: 'workflow-recovery',
+        writtenAtMs: 100,
+        expiresAtMs: 200,
+        value: { id: 'x' },
+      })
+    )
+    expect(readBrowserRecoveryValue('size', isRecoveryItem, options)).toBeNull()
+  })
+})

@@ -7,9 +7,9 @@
  * @module utils/sessionCacheManager
  */
 
-import { reportAccessScope } from './reportAccessScope'
 import type { ValuationSession } from '../types/valuation'
 import { createContextLogger } from './logger'
+import { reportAccessScope } from './reportAccessScope'
 import { sanitizeSessionData, validateSessionData } from './sessionValidation'
 
 const cacheLogger = createContextLogger('SessionCache')

@@ -34,6 +34,35 @@ function reviewed(policy) {
 }
 
 const approvedStorageWriters = {
+  'src/features/manual/components/AccountingReconnectRecovery.tsx': reviewed({
+    classification: 'oauth-flow-marker', retention: 'session',
+    allowedKeys: ['upswitch_silverfin_oauth_in_progress'],
+    reason: 'A one-tab boolean marker only; no draft, token, or company payload.',
+  }),
+  'src/features/manual/hooks/useManualStartValuationIntent.ts': reviewed({
+    classification: 'workflow-submission-marker', retention: 'session',
+    allowedKeyPrefixes: ['venus:start-valuation-intent:v1:'], allowedExpressions: ['storageKey'],
+    requiredSourceIncludes: ['START_VALUATION_RESERVATION_TTL_MS = 5 * 60 * 1000'],
+    reason: 'Opaque report ID with completion marker or a five-minute reservation timestamp.',
+  }),
+  'src/lib/analytics.ts': reviewed({
+    classification: 'analytics-deduplication', retention: 'session',
+    allowedKeyPrefixes: ['upswitch:recovery-result-event:'], allowedExpressions: ['key'],
+    requiredSourceIncludes: ["/^[0-9a-f]{64}$/.test(hash)", "window.sessionStorage.setItem(key, '1')"],
+    reason: 'One-tab boolean per event and validated resolution hash; no financial payload.',
+  }),
+  'src/utils/journeyTrace.ts': reviewed({
+    classification: 'correlation-metadata', retention: 'session',
+    allowedKeys: ['upswitch_valuation_journey_id.v1'],
+    requiredSourceIncludes: ['UUID_PATTERN.test(value)'],
+    reason: 'A validated random journey UUID only; grants no access and contains no identity or figures.',
+  }),
+  'src/utils/silverfin-oauth-state.ts': reviewed({
+    classification: 'oauth-callback-correlation', retention: 'session-ttl-10m',
+    allowedKeys: ['venus_silverfin_oauth_state'], maxRetentionHours: 1 / 6,
+    requiredSourceIncludes: ['SILVERFIN_OAUTH_STATE_TTL_MS = 10 * 60 * 1000', 'sessionStorage.removeItem(SILVERFIN_OAUTH_STATE_KEY)'],
+    reason: 'One-use anti-CSRF callback nonce, consumed before comparison; no provider credentials or session token.',
+  }),
   'src/components/AuthGate.tsx': reviewed({
     classification: 'navigation-throttle',
     retention: 'session',
@@ -43,8 +72,9 @@ const approvedStorageWriters = {
   'src/components/calculator/hooks/useManualAccountingImportController.ts': reviewed({
     classification: 'oauth-flow-lock',
     retention: 'session',
-    allowedKeyPrefixes: ['silverfin_oauth_'],
-    allowedExpressions: ['oauthLockKey'],
+    allowedKeyPrefixes: ['silverfin_oauth_', 'accounting_handoff_'],
+    allowedExpressions: ['key'],
+    requiredSourceIncludes: ["key.startsWith('silverfin_oauth_')", "key.startsWith('accounting_handoff_')"],
     reason: 'Prevents duplicate accounting-provider OAuth launches.',
   }),
   'src/components/calculator/venus-ai-dock-resize-model.ts': reviewed({
@@ -187,7 +217,7 @@ const approvedStorageWriters = {
     retention: 'ttl-24h',
     allowedExpressions: ['key'],
     allowedKeyPrefixes: ['_norm_pending_', '_taxlat_pending_'],
-    allowedKeys: ['venus_pending_syncs'],
+    allowedKeys: ['venus_pending_syncs', 'venus_accounting_reconnect_resume'],
     maxRetentionHours: 24,
     reason: 'Central TTL envelope for browser workflow recovery buffers.',
   }),
@@ -250,6 +280,11 @@ const approvedStorageWriters = {
 }
 
 const approvedRecoveryCallers = {
+  'src/features/manual/utils/accountingReconnectResume.ts': reviewed({
+    classification: 'workflow-recovery-buffer', retention: 'session-ttl-30m',
+    allowedKeys: ['venus_accounting_reconnect_resume'], maxRetentionHours: 0.5,
+    reason: 'One bounded in-flight draft in the central TTL envelope. Identity, credentials and report assets are stripped on write/read; current bootstrap restores identity, and successful resume consumes the entry.',
+  }),
   'src/services/reports/ReportService.ts': reviewed({
     classification: 'workflow-recovery-buffer',
     retention: 'ttl-24h',

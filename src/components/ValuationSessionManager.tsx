@@ -1,7 +1,5 @@
 'use client'
 
-import { useReportAssetSaveFailure } from '../hooks/useReportAssetSaveFailure'
-import { reportAssetService } from '../services/report/ReportAssetService'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useTransitionRouter } from 'next-view-transitions'
@@ -11,6 +9,7 @@ import {
   buildManualMercuryReturnFromBrowser,
   performManualMercuryNavigation,
 } from '../features/manual/utils/manualMercuryNavigate'
+import { useReportAssetSaveFailure } from '../hooks/useReportAssetSaveFailure'
 import { trackPaywallShown } from '../lib/analytics'
 import { useAuthStore } from '../lib/auth'
 import { useBootstrapSafe } from '../lib/bootstrap'
@@ -23,6 +22,7 @@ import {
   shouldSeedOptimisticMercuryShell,
   validateMercuryAdvisorPrefillContract,
 } from '../lib/mercury/sessionReadiness'
+import { reportAssetService } from '../services/report/ReportAssetService'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'

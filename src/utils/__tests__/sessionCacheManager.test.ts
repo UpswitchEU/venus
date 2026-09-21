@@ -56,7 +56,9 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
     it('should include version field when caching session', () => {
       cacheManager.set(mockReportId, completeSession)
 
-      const cached = localStorage.getItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`)
+      const cached = localStorage.getItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`
+      )
       expect(cached).toBeTruthy()
       if (!cached) throw new Error('Expected cached session')
 
@@ -76,7 +78,9 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       cacheManager.set(mockReportId, sessionWithoutUpdatedAt)
       const after = Date.now()
 
-      const cached = localStorage.getItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`)
+      const cached = localStorage.getItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`
+      )
       expect(cached).toBeTruthy()
       if (!cached) throw new Error('Expected cached session')
       const parsed = JSON.parse(cached)
@@ -121,7 +125,10 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
         version: incompleteSession.updatedAt?.toString() || Date.now().toString(),
       }
 
-      localStorage.setItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`, JSON.stringify(cached))
+      localStorage.setItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`,
+        JSON.stringify(cached)
+      )
 
       const result = cacheManager.get(mockReportId)
 
@@ -129,7 +136,9 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       expect(result).toBeNull()
 
       // Cache should be deleted
-      const deletedCache = localStorage.getItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`)
+      const deletedCache = localStorage.getItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`
+      )
       expect(deletedCache == null).toBe(true)
     })
 
@@ -142,7 +151,10 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
         version: completeSession.updatedAt?.toString() || Date.now().toString(),
       }
 
-      localStorage.setItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`, JSON.stringify(cached))
+      localStorage.setItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`,
+        JSON.stringify(cached)
+      )
 
       const result = cacheManager.get(mockReportId)
 
@@ -155,14 +167,19 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
   describe('Edge Cases', () => {
     it('should handle corrupted cache gracefully', () => {
-      localStorage.setItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`, 'invalid json')
+      localStorage.setItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`,
+        'invalid json'
+      )
 
       const result = cacheManager.get(mockReportId)
 
       expect(result).toBeNull()
 
       // Cache should be deleted
-      const deletedCache = localStorage.getItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`)
+      const deletedCache = localStorage.getItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`
+      )
       expect(deletedCache == null).toBe(true)
     })
 
@@ -174,7 +191,10 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
         version: completeSession.updatedAt?.toString() || Date.now().toString(),
       }
 
-      localStorage.setItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`, JSON.stringify(cached))
+      localStorage.setItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`,
+        JSON.stringify(cached)
+      )
 
       const result = cacheManager.get(mockReportId)
 
@@ -252,7 +272,9 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
 
       cacheManager.set(mockReportId, sessionWithRenderedBlobs)
 
-      const cached = localStorage.getItem(`upswitch_session_cache_${reportAccessScope()}:${mockReportId}`)
+      const cached = localStorage.getItem(
+        `upswitch_session_cache_${reportAccessScope()}:${mockReportId}`
+      )
       expect(cached).toBeTruthy()
       expect(cached).not.toContain(hugeHtml)
       expect(cached).not.toContain(hugePdfHtml)

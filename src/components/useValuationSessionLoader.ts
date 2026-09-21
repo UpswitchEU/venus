@@ -284,7 +284,11 @@ export function useValuationSessionLoader({
           loadingInitiatedRef.current = null
         }
 
-        if (!isMounted || (useSessionStore.getState().session && useSessionStore.getState().session?.reportId !== reportId)) {
+        if (
+          !isMounted ||
+          (useSessionStore.getState().session &&
+            useSessionStore.getState().session?.reportId !== reportId)
+        ) {
           generalLogger.debug('[SessionManager] Load completed after unmount, ignoring', {
             reportId,
           })
@@ -315,7 +319,11 @@ export function useValuationSessionLoader({
           loadingInitiatedRef.current = null
         }
 
-        if (!isMounted || (useSessionStore.getState().session && useSessionStore.getState().session?.reportId !== reportId)) {
+        if (
+          !isMounted ||
+          (useSessionStore.getState().session &&
+            useSessionStore.getState().session?.reportId !== reportId)
+        ) {
           generalLogger.debug('[SessionManager] Load failed after unmount, ignoring', {
             reportId,
           })

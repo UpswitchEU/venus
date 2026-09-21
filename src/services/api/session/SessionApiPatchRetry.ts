@@ -35,8 +35,11 @@ export async function patchValuationSessionWithTransientRetry({
   patchBody: Record<string, unknown>
   reportId: string
 }): Promise<unknown> {
-  const deadline = Date.now() + Math.min(options?.timeout ?? SESSION_PATCH_DEADLINE_MS, SESSION_PATCH_DEADLINE_MS)
-  const gateReady = await awaitSessionPoolPressureGate({ maxWaitMs: Math.max(0, deadline - Date.now()) })
+  const deadline =
+    Date.now() + Math.min(options?.timeout ?? SESSION_PATCH_DEADLINE_MS, SESSION_PATCH_DEADLINE_MS)
+  const gateReady = await awaitSessionPoolPressureGate({
+    maxWaitMs: Math.max(0, deadline - Date.now()),
+  })
   if (!gateReady) {
     const deferred = Object.assign(new Error('Session PATCH deferred: database pool pressure'), {
       response: { status: 503 },
@@ -68,10 +71,19 @@ export async function patchValuationSessionWithTransientRetry({
       recordSessionPoolPressureFromHttpError(error)
       const status = toAxiosLikeError(error).response?.status
       const retryAfter = Number(toAxiosLikeError(error).response?.headers?.['retry-after'])
-      const retryDelay = attempt === 0 && status === 429
-        ? (Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000)
-        : TRANSIENT_SESSION_PATCH_RETRY_DELAYS_MS[attempt]
-      if ((!isTransientSessionPatchError(error) && status !== 429) || status === 503 || status === 504 || retryDelay == null || Date.now() + retryDelay >= deadline) {
+      const retryDelay =
+        attempt === 0 && status === 429
+          ? Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter * 1000
+            : 1000
+          : TRANSIENT_SESSION_PATCH_RETRY_DELAYS_MS[attempt]
+      if (
+        (!isTransientSessionPatchError(error) && status !== 429) ||
+        status === 503 ||
+        status === 504 ||
+        retryDelay == null ||
+        Date.now() + retryDelay >= deadline
+      ) {
         throw error
       }
       apiLogger.warn('Transient session PATCH failed, retrying', {

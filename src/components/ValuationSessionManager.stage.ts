@@ -37,7 +37,8 @@ export function resolveValuationSessionStage({
   urlIndicatesExisting: boolean
 }): Stage {
   // A background refresh must never unmount a report that is already usable.
-  if (isSameReportIdentity(session?.reportId, reportId) && hasAssetsInSession(session)) return 'data-entry'
+  if (isSameReportIdentity(session?.reportId, reportId) && hasAssetsInSession(session))
+    return 'data-entry'
   if (
     !isLoading &&
     !isInitializing &&

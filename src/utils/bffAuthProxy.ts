@@ -9,6 +9,7 @@ import {
   describeDuplicateAuthCookies,
   detectDuplicateAuthCookies,
 } from './authCookieScope'
+import { apiLogger } from './logger'
 
 /**
  * Thrown when `fetchWithTimeout` aborts. Message matches Mercury for shared client handling.
@@ -127,7 +128,7 @@ export async function getBffCookieHeaderForTitan(request: Pick<Request, 'headers
   // its fail-closed guard. An empty header makes Titan answer 401, which is
   // the same outcome Mercury and Titan reach on their own paths.
   if (duplicateAuthCookies.some((d) => d.conflicting)) {
-    console.error(
+    apiLogger.error(
       `[venus bff] conflicting auth cookies — withholding credentials: ${describeDuplicateAuthCookies(
         duplicateAuthCookies
       )}`

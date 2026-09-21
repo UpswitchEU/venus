@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ClientValuationFinancialSnapshot } from '@/services/api/accounting'
 import type { ManualValuationFormData } from '@/types/valuation'
+import { restoreAccountingReconnectDraft } from './accountingReconnectDraft'
 import {
   applyValuationSnapshotToReconnectDraft,
   beginAccountingReconnectHandoffResync,
@@ -37,6 +39,152 @@ function draft(): ManualValuationFormData {
 
 describe('accounting reconnect recovery transaction', () => {
   beforeEach(() => sessionStorage.clear())
+
+  it('stores a bounded classified draft without company identity or report content', () => {
+    const formData = {
+      ...draft(),
+      company_name: 'Source Honest BV',
+      html_report: '<secret report />',
+    }
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'silverfin',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData,
+    })
+    const raw = sessionStorage.getItem('venus_accounting_reconnect_resume') || ''
+    expect(JSON.parse(raw)).toMatchObject({ schemaVersion: 1, classification: 'workflow-recovery' })
+    expect(raw).not.toContain('Source Honest BV')
+    expect(raw).not.toContain('secret report')
+  })
+
+  it('fails closed when the recovery write is denied', () => {
+    const storage = {
+      getItem: vi.fn(() => null),
+      removeItem: vi.fn(),
+      setItem: vi.fn(() => {
+        throw new Error('quota')
+      }),
+    } as unknown as Storage
+    expect(
+      persistAccountingReconnectIntent(storage, {
+        provider: 'silverfin',
+        clientId: 'client-1',
+        reportId: 'report-1',
+        formData: draft(),
+      })
+    ).toBeNull()
+  })
+
+  it('does not accept a claim unless the transition is durable', () => {
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'silverfin',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: draft(),
+    })
+    const storage = {
+      getItem: (key: string) => sessionStorage.getItem(key),
+      removeItem: (key: string) => sessionStorage.removeItem(key),
+      setItem: () => {
+        throw new Error('quota')
+      },
+    } as unknown as Storage
+    expect(
+      bindAccountingReconnectOAuth(storage, {
+        provider: 'silverfin',
+        clientId: 'client-1',
+        nonce: 'once',
+      })
+    ).toBe(false)
+  })
+
+  it('restores the current bootstrap identity, never the prior draft identity', () => {
+    const recovered = restoreAccountingReconnectDraft(
+      { ...draft(), kboNumber: 'old-id' },
+      {
+        company_name: 'Current dossier BV',
+        country_code: 'NL',
+        kbo_number: 'new-id',
+        business_type_id: 'current-sector',
+        industry: 'technology',
+        founding_year: 2020,
+        business_type: 'company',
+      }
+    )
+    expect(recovered).toMatchObject({
+      companyName: 'Current dossier BV',
+      country: 'NL',
+      kboNumber: 'new-id',
+      businessType: 'current-sector',
+      yearFounded: '2020',
+      ownerManagers: 1,
+      yearlyFinancials: draft().yearlyFinancials,
+    })
+    expect(JSON.stringify(recovered)).not.toContain('Source Honest BV')
+    expect(JSON.stringify(recovered)).not.toContain('old-id')
+  })
+
+  it('expires at the deadline and removes malformed draft/metadata', () => {
+    persistAccountingReconnectIntent(sessionStorage, {
+      provider: 'silverfin',
+      clientId: 'client-1',
+      reportId: 'report-1',
+      formData: draft(),
+      now: 1000,
+      ttlMs: 100,
+    })
+    expect(readAccountingReconnectIntentSummary(sessionStorage, 1100)).toBeNull()
+    for (const patch of [
+      { formData: [] },
+      { formData: { ...draft(), yearlyFinancials: [null] } },
+      { unavailableYears: [null] },
+      { expiresAt: null },
+    ]) {
+      sessionStorage.setItem(
+        'venus_accounting_reconnect_resume',
+        JSON.stringify({
+          version: 1,
+          phase: 'ready',
+          provider: 'silverfin',
+          clientId: 'client-1',
+          reportId: 'report-1',
+          formData: draft(),
+          expiresAt: 2000,
+          ...patch,
+        })
+      )
+      expect(readAccountingReconnectIntentSummary(sessionStorage, 1000)).toBeNull()
+      expect(sessionStorage.getItem('venus_accounting_reconnect_resume')).toBeNull()
+    }
+  })
+
+  it('preserves missing balance-sheet values and excludes incomplete operating pairs', () => {
+    const snapshot = {
+      provider: 'silverfin',
+      anchor_year: 2025,
+      unavailable_years: [],
+      years: [
+        {
+          fiscal_year: 2025,
+          revenue: 1000,
+          ebitda: 100,
+          cash: null,
+          total_debt: 0,
+          current_assets: '',
+        },
+        { fiscal_year: 2024, revenue: null, ebitda: 50 },
+      ],
+    } as unknown as ClientValuationFinancialSnapshot
+    const recovered = applyValuationSnapshotToReconnectDraft(
+      { ...draft(), yearlyFinancials: [] },
+      snapshot
+    )
+    expect(recovered.yearlyFinancials).toHaveLength(1)
+    expect(recovered.yearlyFinancials[0]).toMatchObject({ year: '2025', total_debt: 0 })
+    expect(recovered.yearlyFinancials[0]).not.toHaveProperty('cash')
+    expect(recovered.yearlyFinancials[0]).not.toHaveProperty('current_assets')
+  })
 
   it('restores only safe reconnect UI metadata after navigation', () => {
     persistAccountingReconnectIntent(sessionStorage, {
@@ -79,9 +227,8 @@ describe('accounting reconnect recovery transaction', () => {
         now: 2_500,
       })
     ).toBe(true)
-    const pending = JSON.parse(
-      sessionStorage.getItem('venus_accounting_reconnect_resume') || '{}'
-    ) as { expiresAt?: number }
+    const pending = JSON.parse(sessionStorage.getItem('venus_accounting_reconnect_resume') || '{}')
+      .value as { expiresAt?: number }
     expect(pending.expiresAt).toBeGreaterThan(2_500 + 20 * 60 * 1_000)
 
     const claimed = beginAccountingReconnectHandoffResync(sessionStorage, {

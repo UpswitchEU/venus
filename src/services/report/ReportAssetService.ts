@@ -17,18 +17,18 @@
  * @module services/report/ReportAssetService
  */
 
+import { getManualResultsSnapshot } from '../../store/manualResultsSnapshot'
 import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '../../types/errors'
 import type { ValuationResponse } from '../../types/valuation'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
-import {
-  promoteSavedReportIdentity,
-  resolveSavedReportIdentity,
-  rememberSavedReportAlias,
-} from '../../utils/reportIdentityPromotion'
 import { reportAccessScope, watchReportAccessScope } from '../../utils/reportAccessScope'
-import { getManualResultsSnapshot } from '../../store/manualResultsSnapshot'
-import { getCanonicalReportAlias } from '../../utils/reportIdentityPromotion'
+import {
+  getCanonicalReportAlias,
+  promoteSavedReportIdentity,
+  rememberSavedReportAlias,
+  resolveSavedReportIdentity,
+} from '../../utils/reportIdentityPromotion'
 
 const logger = createContextLogger('ReportAssetService')
 

@@ -1,8 +1,8 @@
 import type { StateCreator } from 'zustand'
 import { storeLogger } from '../utils/logger'
-import type { SessionStore } from './useSessionStore'
 import { watchReportAccessScope } from '../utils/reportAccessScope'
 import { isSameReportIdentity } from '../utils/reportIdentityPromotion'
+import type { SessionStore } from './useSessionStore'
 import { deriveMarkSavedState } from './useSessionStore.dirtyState'
 import {
   asSessionDataRecord,

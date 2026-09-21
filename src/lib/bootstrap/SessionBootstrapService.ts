@@ -12,8 +12,8 @@
  * @module lib/bootstrap/SessionBootstrapService
  */
 
-import { reportAccessScope } from '../../utils/reportAccessScope'
 import { getIdentifierType, isUuid } from '../../utils/identifiers'
+import { reportAccessScope } from '../../utils/reportAccessScope'
 import { getInitTraceId } from '../auth'
 import { syncBootstrapClientContext } from './BootstrapClientContextSync'
 import { isDelegatedBootstrapCacheAllowed } from './BootstrapReadinessGate'
@@ -458,7 +458,8 @@ export class SessionBootstrapService {
         startTime,
       })
 
-      if (reportAccessScope() !== requestScope) throw new Error('Bootstrap cancelled: client context changed')
+      if (reportAccessScope() !== requestScope)
+        throw new Error('Bootstrap cancelled: client context changed')
 
       // DIAGNOSTIC (dev only): Log bootstrap response for accountant + clientToken flow
       if (hints.hasClientToken) {

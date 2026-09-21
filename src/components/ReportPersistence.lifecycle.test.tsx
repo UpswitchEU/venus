@@ -1,25 +1,25 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
-import { useSessionStore } from '../store/useSessionStore'
-import { useManualResultsStore } from '../store/manual/useManualResultsStore'
-import { useClientContext } from '../stores/clientContext'
-import { SessionAPI } from '../services/api/session/SessionAPI'
-import {
-  reportAssetService,
-  pendingReportAssetSaves,
-  failedReportAssetSave,
-} from '../services/report/ReportAssetService'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearScopedGlobalBootstrapResult,
   getScopedGlobalBootstrapResult,
   rememberScopedGlobalBootstrapResult,
 } from '../lib/bootstrap/BootstrapProviderCache'
 import { DEFAULT_BOOTSTRAP_STATE } from '../lib/bootstrap/types'
-import { REPORT_IDENTITY_PROMOTED_EVENT } from '../utils/reportIdentityPromotion'
+import { SessionAPI } from '../services/api/session/SessionAPI'
+import {
+  failedReportAssetSave,
+  pendingReportAssetSaves,
+  reportAssetService,
+} from '../services/report/ReportAssetService'
+import { useManualResultsStore } from '../store/manual/useManualResultsStore'
+import { useSessionStore } from '../store/useSessionStore'
+import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
-import { ValuationSessionManager } from './ValuationSessionManager'
+import { REPORT_IDENTITY_PROMOTED_EVENT } from '../utils/reportIdentityPromotion'
 import { ValuationFlowSelector } from './ValuationFlowSelector'
+import { ValuationSessionManager } from './ValuationSessionManager'
 
 const state = vi.hoisted(() => ({ bootstrap: null as any, mounts: 0, refresh: vi.fn() }))
 vi.mock('../lib/bootstrap', async (original) => ({
@@ -132,7 +132,7 @@ describe('calculation → save → UUID → refresh with the real session manage
     fireEvent.change(note, { target: { value: 'keep my edit' } })
     const observed: string[] = []
     const promotion = () => {
-      observed.push(useSessionStore.getState().session!.reportId)
+      observed.push(requireValue(useSessionStore.getState().session).reportId)
       expect(
         getScopedGlobalBootstrapResult({ ...context, reportId: uuid })?.report.reportReady
       ).toBe(true)
@@ -204,7 +204,10 @@ describe('calculation → save → UUID → refresh with the real session manage
     )
     const saving = reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
-    const next = { ...useSessionStore.getState().session!, reportId: 'val_other_report' }
+    const next = {
+      ...requireValue(useSessionStore.getState().session),
+      reportId: 'val_other_report',
+    }
     useSessionStore.setState({ session: next })
     resolveSave({ success: true, reportId: uuid, sessionKey, reportReady: true })
     await saving
@@ -271,7 +274,10 @@ describe('calculation → save → UUID → refresh with the real session manage
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
     const selected = { equity_value_mid: 1218800, html_report: html } as any
     useManualResultsStore.getState().setResult(selected)
-    const versionSession = { ...useSessionStore.getState().session!, valuationResult: selected }
+    const versionSession = {
+      ...requireValue(useSessionStore.getState().session),
+      valuationResult: selected,
+    }
     useSessionStore.setState({ session: versionSession })
     if (outcome === 'success')
       resolveSave({ success: true, reportId: uuid, sessionKey, reportReady: true })
@@ -309,7 +315,7 @@ describe('calculation → save → UUID → refresh with the real session manage
   it('retries a failed draft save without reloading the report or discarding edits', async () => {
     useSessionStore.getState().setEngine({ type: 'authenticated', userId: 'lifecycle-advisor' })
     const save = vi
-      .spyOn(useSessionStore.getState().engine!, 'saveSession')
+      .spyOn(requireValue(useSessionStore.getState().engine), 'saveSession')
       .mockRejectedValueOnce(new Error('Service Unavailable (503)'))
       .mockResolvedValueOnce(undefined)
     render(<Lifecycle />)
@@ -331,3 +337,8 @@ describe('calculation → save → UUID → refresh with the real session manage
     expect(state.mounts).toBe(1)
   })
 })
+
+function requireValue<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('Expected initialized session state')
+  return value
+}

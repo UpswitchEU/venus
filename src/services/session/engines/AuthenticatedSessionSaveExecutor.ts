@@ -13,7 +13,6 @@ import {
   mergeQueuedLocalSession,
 } from './AuthenticatedSessionSavePayload'
 
-
 export interface AuthenticatedSessionSaveExecutorState {
   currentSession: ValuationSession | null
   sessionLifecycleVersion: number
