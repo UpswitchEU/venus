@@ -43,7 +43,7 @@ describe('session dirty state transitions', () => {
       )
     ).toEqual({
       dirtyVersion: 4,
-      errorMessage: null,
+      errorMessage: 'previous save failed',
       hasUnsavedChanges: true,
       isSaving: false,
       lastSaved: savedAt,

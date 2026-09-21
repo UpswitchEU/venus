@@ -54,6 +54,7 @@ import {
   readAccountingReconnectIntentSummary,
 } from '../utils/accountingReconnectResume'
 import { MANUAL_SUBMIT_VALIDATION_TOAST_KEYS } from '../utils/manualSubmitValidation'
+import { persistedFinancialInputsDiffer } from '../utils/persistedFinancialInputMismatch'
 import { AccountingReconnectRecovery } from './AccountingReconnectRecovery'
 import { ManualLayoutChrome } from './ManualLayoutChrome'
 import { ManualLayoutSessionGate } from './ManualLayoutSessionGate'
@@ -433,13 +434,9 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     reportId,
     canDownloadPdf,
     isMobile,
-    draftStatus,
-    durableSaveInFlightRef,
     tReport,
     onComplete,
     setReport,
-    setDraftStatus,
-    setLastSaved,
     setRightPanelView,
     setShowFullscreenModal,
     generatePdf,
@@ -837,6 +834,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   return (
     <>
       <ManualLayoutChrome
+        financialInputsChanged={persistedFinancialInputsDiffer(formStoreData, result)}
         chatDrawerOpen={chatDrawerOpen}
         isMobile={isMobile}
         navProps={{

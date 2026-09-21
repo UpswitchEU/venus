@@ -12,10 +12,7 @@
  *      state machine, etc.).
  *   3. `setReport(mappedReport)` — drops the projected report into panel
  *      state for the right-rail render.
- *   4. `setDraftStatus('saved')` — marks the draft as persisted when not
- *      mid-save (`draftStatus !== 'saving'`). Durable save hooks own status
- *      during PUT /result.
- *   5. `setLastSaved(new Date())` — stamps the last-saved indicator (same guard).
+ *   Persistence status belongs to the session/save actions, never this projection.
  *   6. `setRightPanelView('preview')` — switches the right panel to the
  *      preview tab. **Note: this overrides prior user navigation on every
  *      result-arrival — preserved verbatim per Phase 4c.2 product call.**
@@ -94,15 +91,9 @@ export interface UseResultToReportBridgeParams {
   isMobile: boolean
   /** Narrowed `useTranslations('reportPanel')` consumer. */
   tReport: ReportTranslator
-  /** Live draft status — skip persisted hints while a durable save is in flight. */
-  draftStatus: 'draft' | 'saved' | 'saving'
-  /** Synchronous guard set before Zustand result updates during PUT /result. */
-  durableSaveInFlightRef: MutableRefObject<boolean>
   /** Parent-callback fired after the bridge maps the result. */
   onComplete: (result: ValuationResponse) => void
   setReport: Dispatch<SetStateAction<ValuationReportData | null>>
-  setDraftStatus: Dispatch<SetStateAction<'draft' | 'saved' | 'saving'>>
-  setLastSaved: Dispatch<SetStateAction<Date | undefined>>
   setRightPanelView: Dispatch<SetStateAction<RightPanelView>>
   setShowFullscreenModal: Dispatch<SetStateAction<boolean>>
   /** `usePdfGeneration().generatePdf` — fired in background on first map. */
@@ -137,13 +128,9 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     reportId,
     canDownloadPdf,
     isMobile,
-    draftStatus,
-    durableSaveInFlightRef,
     tReport,
     onComplete,
     setReport,
-    setDraftStatus,
-    setLastSaved,
     setRightPanelView,
     setShowFullscreenModal,
     generatePdf,
@@ -154,8 +141,6 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
   const generatePdfRef = useLatestRef(generatePdf)
   const isPdfGeneratingRef = useLatestRef(isPdfGenerating)
   const onCompleteRef = useLatestRef(onComplete)
-  const setDraftStatusRef = useLatestRef(setDraftStatus)
-  const setLastSavedRef = useLatestRef(setLastSaved)
   const setReportRef = useLatestRef(setReport)
   const setRightPanelViewRef = useLatestRef(setRightPanelView)
   const setShowFullscreenModalRef = useLatestRef(setShowFullscreenModal)
@@ -201,12 +186,8 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
         tReport: tReportRef.current,
       })
 
-      // 3-5. Drop into panel state. Durable-save flows set status after PUT /result.
+      // Projection does not claim that the current input state was saved.
       setReportRef.current(mappedReport)
-      if (draftStatus !== 'saving' && !durableSaveInFlightRef.current) {
-        setDraftStatusRef.current('saved')
-        setLastSavedRef.current(new Date())
-      }
 
       // 6. Switch panel view to preview. PRESERVED: overrides prior user
       //    navigation; documented as intentional pending product review.
@@ -259,15 +240,11 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     reportId,
     generatePdfRef,
     isMobile,
-    draftStatus,
-    durableSaveInFlightRef,
     selectedMethod,
     canDownloadPdf,
     isPdfGenerationInFlight,
     runTriggerRef,
     onCompleteRef,
-    setDraftStatusRef,
-    setLastSavedRef,
     setReportRef,
     setRightPanelViewRef,
     setShowFullscreenModalRef,

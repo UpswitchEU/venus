@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
+import { useSessionStore } from '../../../store/useSessionStore'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 
 export interface UseManualReportUiStateParams {
@@ -10,12 +11,29 @@ export function useManualReportUiState({ initialTab }: UseManualReportUiStatePar
   const [report, setReport] = useState<ValuationReportData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [rightPanelView, setRightPanelView] = useState<RightPanelView>(initialTab)
-  const [draftStatus, setDraftStatus] = useState<'draft' | 'saved' | 'saving'>('draft')
-  const [lastSaved, setLastSaved] = useState<Date | undefined>(undefined)
+  const [calculationSaveStatus, setDraftStatus] = useState<'draft' | 'saved' | 'saving'>('draft')
+  const [calculationSavedAt, setLastSaved] = useState<Date | undefined>(undefined)
   const [isDirty, setIsDirty] = useState(false)
   const lastSubmittedFinancialSnapshotRef = useRef<SubmittedFinancialSnapshot | null>(null)
-  /** Synchronous guard — set before Zustand `setResult` so the report bridge cannot mark saved early. */
+  /** Tracks durable calculation saves until persistence acknowledges them. */
   const durableSaveInFlightRef = useRef(false)
+
+  const sessionSaving = useSessionStore((state) => state.isSaving)
+  const sessionDirty = useSessionStore((state) => state.hasUnsavedChanges)
+  const sessionSaveError = useSessionStore((state) => state.saveErrorMessage)
+  const sessionSavedAt = useSessionStore((state) => state.lastSaved)
+  // A rendered calculation is not a persistence acknowledgement. Session
+  // failures and pending edits take precedence over an older calculation save.
+  const draftStatus: 'draft' | 'saved' | 'saving' = sessionSaveError
+    ? 'draft'
+    : sessionSaving || calculationSaveStatus === 'saving'
+      ? 'saving'
+      : sessionDirty
+        ? 'draft'
+        : sessionSavedAt
+          ? 'saved'
+          : calculationSaveStatus
+  const lastSaved = sessionSavedAt ?? calculationSavedAt
 
   return {
     draftStatus,

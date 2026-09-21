@@ -9,6 +9,7 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
+import { useSessionStore } from '@/store/useSessionStore'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { clearReportsDeleting, markReportsDeleting } from '../utils/manualReportDeleteGuard'
@@ -31,20 +32,15 @@ function makeResult(partial: Partial<ValuationResponse> = {}): ValuationResponse
 function makeParams(
   override: Partial<UseResultToReportBridgeParams> = {}
 ): UseResultToReportBridgeParams {
-  const durableSaveInFlightRef = { current: false }
   return {
     result: makeResult(),
     selectedMethod: 'dcf',
     reportId: 'route-id',
     canDownloadPdf: true,
     isMobile: false,
-    draftStatus: 'draft',
-    durableSaveInFlightRef,
     tReport: (key) => `t:${key}`,
     onComplete: vi.fn(),
     setReport: vi.fn(),
-    setDraftStatus: vi.fn(),
-    setLastSaved: vi.fn(),
     setRightPanelView: vi.fn(),
     setShowFullscreenModal: vi.fn(),
     generatePdf: vi.fn().mockResolvedValue(undefined),
@@ -84,8 +80,6 @@ describe('useResultToReportBridge', () => {
       renderHook(() => useResultToReportBridge(params))
       expect(params.onComplete).not.toHaveBeenCalled()
       expect(params.setReport).toHaveBeenCalledWith(null)
-      expect(params.setDraftStatus).not.toHaveBeenCalled()
-      expect(params.setLastSaved).not.toHaveBeenCalled()
       expect(params.setRightPanelView).not.toHaveBeenCalled()
       expect(params.setShowFullscreenModal).not.toHaveBeenCalled()
       expect(params.generatePdf).not.toHaveBeenCalled()
@@ -115,28 +109,24 @@ describe('useResultToReportBridge', () => {
 
       expect(params.onComplete).toHaveBeenCalledWith(params.result)
       expect(params.setReport).toHaveBeenCalledTimes(1)
-      expect(params.setDraftStatus).toHaveBeenCalledWith('saved')
-      expect(params.setLastSaved).toHaveBeenCalledTimes(1)
       expect(params.setRightPanelView).toHaveBeenCalledWith('preview')
     })
 
-    it('does not mark the draft saved while a durable save is in flight', () => {
-      const params = makeParams({ draftStatus: 'saving' })
+    it('mapping a restored result cannot acknowledge a failed or pending save', () => {
+      const savedAt = new Date('2026-09-19T06:12:51Z')
+      useSessionStore.setState({
+        lastSaved: savedAt,
+        saveErrorMessage: 'Network error',
+        hasUnsavedChanges: true,
+      })
+      const params = makeParams()
       renderHook(() => useResultToReportBridge(params))
-
       expect(params.setReport).toHaveBeenCalledTimes(1)
-      expect(params.setDraftStatus).not.toHaveBeenCalled()
-      expect(params.setLastSaved).not.toHaveBeenCalled()
-    })
-
-    it('does not mark the draft saved when durableSaveInFlightRef is set synchronously', () => {
-      const durableSaveInFlightRef = { current: true }
-      const params = makeParams({ durableSaveInFlightRef })
-      renderHook(() => useResultToReportBridge(params))
-
-      expect(params.setReport).toHaveBeenCalledTimes(1)
-      expect(params.setDraftStatus).not.toHaveBeenCalled()
-      expect(params.setLastSaved).not.toHaveBeenCalled()
+      expect(useSessionStore.getState()).toMatchObject({
+        lastSaved: savedAt,
+        saveErrorMessage: 'Network error',
+        hasUnsavedChanges: true,
+      })
     })
 
     it('calls generatePdf in the background when PDF is stale', () => {
@@ -243,8 +233,6 @@ describe('useResultToReportBridge', () => {
       const nextCallbacks = {
         onComplete: vi.fn(),
         setReport: vi.fn(),
-        setDraftStatus: vi.fn(),
-        setLastSaved: vi.fn(),
         setRightPanelView: vi.fn(),
         setShowFullscreenModal: vi.fn(),
         tReport: vi.fn((key: string) => `next:${key}`),
@@ -269,7 +257,6 @@ describe('useResultToReportBridge', () => {
       expect(initialParams.onComplete).not.toHaveBeenCalled()
       expect(nextCallbacks.onComplete).toHaveBeenCalledWith(nextResult)
       expect(nextCallbacks.setReport).toHaveBeenCalledTimes(1)
-      expect(nextCallbacks.setDraftStatus).toHaveBeenCalledWith('saved')
       expect(nextCallbacks.setRightPanelView).toHaveBeenCalledWith('preview')
     })
 

@@ -14,7 +14,7 @@ import { backendAPI } from '../../backendApi'
 import { SessionService } from '../SessionService'
 
 const sessionApiMocks = vi.hoisted(() => ({
-  saveValuationResult: vi.fn().mockResolvedValue(undefined),
+  saveValuationResult: vi.fn().mockResolvedValue({ reportId: 'val_test_123' }),
 }))
 
 vi.mock('../../api/session/SessionAPI', () => ({

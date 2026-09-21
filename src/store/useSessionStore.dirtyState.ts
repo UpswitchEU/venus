@@ -1,6 +1,7 @@
 export interface SessionDirtyState {
   dirtyVersion: number
   errorMessage: string | null
+  saveErrorMessage?: string | null
   hasUnsavedChanges: boolean
   isSaving: boolean
   lastSaved: Date | null
@@ -19,7 +20,10 @@ export function deriveMarkSavedState(
     hasUnsavedChanges: hasNewerChanges ? current.hasUnsavedChanges : false,
     lastSaved: now,
     isSaving: false,
-    errorMessage: null,
+    errorMessage: hasNewerChanges ? current.errorMessage : null,
+    ...(current.saveErrorMessage !== undefined
+      ? { saveErrorMessage: hasNewerChanges ? current.saveErrorMessage : null }
+      : {}),
   }
 }
 

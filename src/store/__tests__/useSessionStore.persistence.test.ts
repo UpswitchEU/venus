@@ -182,12 +182,14 @@ describe('Save Error Handling', () => {
       dirtyVersion: 1,
       isSaving: true,
       errorMessage: 'previous save failed',
+      saveErrorMessage: 'previous save failed',
     })
 
     useSessionStore.getState().markSaved()
 
     expect(useSessionStore.getState().hasUnsavedChanges).toBe(false)
     expect(useSessionStore.getState().errorMessage).toBeNull()
+    expect(useSessionStore.getState().saveErrorMessage).toBeNull()
     expect(useSessionStore.getState().isSaving).toBe(false)
   })
 
@@ -196,13 +198,15 @@ describe('Save Error Handling', () => {
       hasUnsavedChanges: true,
       dirtyVersion: 3,
       errorMessage: 'previous save failed',
+      saveErrorMessage: 'previous save failed',
     })
 
     useSessionStore.getState().markSaved(2)
 
     expect(useSessionStore.getState().hasUnsavedChanges).toBe(true)
     expect(useSessionStore.getState().dirtyVersion).toBe(3)
-    expect(useSessionStore.getState().errorMessage).toBeNull()
+    expect(useSessionStore.getState().errorMessage).toBe('previous save failed')
+    expect(useSessionStore.getState().saveErrorMessage).toBe('previous save failed')
   })
 
   it('should preserve unsaved changes made during an in-flight save', async () => {
