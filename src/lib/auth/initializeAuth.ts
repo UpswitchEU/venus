@@ -7,6 +7,12 @@ import { createRandomId } from '../../utils/secureRandom'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '../authLogger'
 import { isSafeMercuryReturnUrlInput } from '../return-url'
 import {
+  ClientContextExchangeRefusal,
+  IDENTITY_MISMATCH_MESSAGE,
+  NOT_SIGNED_IN_MESSAGE,
+  toClientContextExchangeRefusal,
+} from './clientContextExchangeRefusal'
+import {
   initClientContextPromise,
   rejectClientContext,
   resolveClientContext,
@@ -29,6 +35,10 @@ import {
 import { getCachedRequest } from './requestCache'
 import { useAuthStore } from './store'
 import { sanitizeUrl } from './urlSecurity'
+
+function isSpecificRefusalMessage(message: string): boolean {
+  return message === IDENTITY_MISMATCH_MESSAGE || message === NOT_SIGNED_IN_MESSAGE
+}
 
 function generateTraceId(): string {
   return createRandomId('init', 8)
@@ -195,11 +205,9 @@ export async function initializeAuth(): Promise<void> {
                   const errorData = await response.json().catch(() => ({}))
                   const status = response.status
 
-                  if (status === 401 || status === 403) {
-                    throw new Error(
-                      errorData.message ||
-                        'Client context token expired or invalid. Please try creating a new valuation.'
-                    )
+                  const refusal = toClientContextExchangeRefusal(status, errorData)
+                  if (refusal) {
+                    throw refusal
                   }
 
                   if (status >= 500 && attempt < maxRetries - 1) {
@@ -215,6 +223,7 @@ export async function initializeAuth(): Promise<void> {
                   lastError = error instanceof Error ? error : new Error(String(error))
 
                   if (
+                    lastError instanceof ClientContextExchangeRefusal ||
                     lastError.message.includes('expired') ||
                     lastError.message.includes('invalid') ||
                     lastError.message.includes('Invalid client context')
@@ -257,11 +266,13 @@ export async function initializeAuth(): Promise<void> {
               message: lastError.message,
             })
 
-            const errorMessage = lastError.message.includes('expired')
-              ? 'The valuation link has expired. Please create a new valuation from the client page.'
-              : lastError.message.includes('invalid')
-                ? 'Invalid valuation link. Please create a new valuation from the client page.'
-                : 'Unable to load client context. Please try again or create a new valuation.'
+            const errorMessage = isSpecificRefusalMessage(lastError.message)
+              ? lastError.message
+              : lastError.message.includes('expired')
+                ? 'The valuation link has expired. Please create a new valuation from the client page.'
+                : lastError.message.includes('invalid')
+                  ? 'Invalid valuation link. Please create a new valuation from the client page.'
+                  : 'Unable to load client context. Please try again or create a new valuation.'
 
             useAuthStore.getState().setError(errorMessage)
 
