@@ -45,6 +45,8 @@ interface HistoricalYearCardProps {
   financialRows: YearlyFinancials[]
   formatCurrency: (amount: number) => string
   importQuality?: ImportQualityPerYear
+  /** Figures are locked while a calculation runs, like the rest of the form. */
+  isCalculating?: boolean
   normalizedYear?: ManualInputNormalizedYear
   onFieldHelpRequest?: (context: FieldHelpContext) => void
   onRemoveForecastYear: (year: string) => void
@@ -77,6 +79,7 @@ export function HistoricalYearCard({
   financialRows,
   formatCurrency,
   importQuality,
+  isCalculating = false,
   normalizedYear,
   onFieldHelpRequest,
   onRemoveForecastYear,
@@ -352,7 +355,8 @@ export function HistoricalYearCard({
               <button
                 type="button"
                 onClick={() => onRemoveForecastYear(yearData.year)}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/15 text-primary/60 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                disabled={isCalculating}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/15 text-primary/60 transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                 aria-label={`${t('common.actions.delete')} ${mi('forecastLabel').toLowerCase()} ${yearData.year}`}
               >
                 <X className="h-3.5 w-3.5" />
@@ -362,7 +366,8 @@ export function HistoricalYearCard({
               <button
                 type="button"
                 onClick={() => onRemoveHistoricalYear(String(yearData.year))}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-foreground/10 text-foreground/50 transition-colors hover:border-destructive/30 hover:bg-destructive/[0.06] hover:text-destructive"
+                disabled={isCalculating}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-foreground/10 text-foreground/50 transition-colors hover:border-destructive/30 hover:bg-destructive/[0.06] hover:text-destructive disabled:opacity-50"
                 aria-label={mi('removeHistoricalYearAria', {
                   year: String(yearData.year),
                 })}
@@ -389,6 +394,7 @@ export function HistoricalYearCard({
               onChange={(value) =>
                 updateYearlyFinancials(yearData.year, !!yearData.isForecast, 'revenue', value)
               }
+              disabled={isCalculating}
               size="sm"
               placeholder="1.500.000"
               truncateLabel={false}
@@ -412,6 +418,7 @@ export function HistoricalYearCard({
               onChange={(value) =>
                 updateYearlyFinancials(yearData.year, !!yearData.isForecast, 'ebitda', value)
               }
+              disabled={isCalculating}
               size="sm"
               placeholder="250.000"
               truncateLabel={false}

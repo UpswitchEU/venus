@@ -9,6 +9,7 @@ import {
   buildManualMercuryReturnFromBrowser,
   performManualMercuryNavigation,
 } from '../features/manual/utils/manualMercuryNavigate'
+import { hasCompletedManualValuation } from '../features/manual/utils/manualMercuryNavigation'
 import { useReportAssetSaveFailure } from '../hooks/useReportAssetSaveFailure'
 import { trackPaywallShown } from '../lib/analytics'
 import { useAuthStore } from '../lib/auth'
@@ -530,7 +531,8 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
         const targetUrl = buildManualMercuryReturnFromBrowser({
           currentLocale: locale,
           clientContextId: clientIdParam,
-          hasCompletedValuation: sessionHasAssets,
+          // An error exit only reports "valuation added" when one was saved during this visit.
+          hasCompletedValuation: hasCompletedManualValuation(null, session, reportId),
           reportId,
         })
         performManualMercuryNavigation({
@@ -543,7 +545,7 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
       generalLogger.info('[SessionManager] Starting over', { reportId })
       clearSession()
       router.push('/')
-    }, [clientIdParam, clearSession, isFromMercury, pathname, reportId, router, sessionHasAssets])
+    }, [clientIdParam, clearSession, isFromMercury, pathname, reportId, router, session])
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
     const rawEffectiveError =

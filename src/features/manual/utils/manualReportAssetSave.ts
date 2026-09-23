@@ -19,6 +19,8 @@ export interface SaveManualCalculationReportAssetsParams {
   dirtyVersion: number
   isStillTarget: () => boolean
   deps: SaveManualCalculationReportAssetsDeps
+  /** Form fields edited while the calculation ran; left out so the newer values survive. */
+  changedFormKeys?: readonly string[]
 }
 
 export interface SaveManualCalculationReportAssetsResult {
@@ -41,6 +43,7 @@ export async function saveManualCalculationReportAssets({
   dirtyVersion,
   isStillTarget,
   deps,
+  changedFormKeys,
 }: SaveManualCalculationReportAssetsParams): Promise<SaveManualCalculationReportAssetsResult> {
   if (!reportId) {
     return { aborted: false, durableSaveSucceeded: true }
@@ -55,6 +58,7 @@ export async function saveManualCalculationReportAssets({
         taxLatencyItems,
         valuationResult,
         name,
+        changedFormKeys,
       })
     )
     if (!isStillTarget()) return { aborted: true, durableSaveSucceeded: false }

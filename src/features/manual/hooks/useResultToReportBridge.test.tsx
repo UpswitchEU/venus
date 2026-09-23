@@ -6,12 +6,15 @@
  * isolated test coverage.
  */
 
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
 import { useSessionStore } from '@/store/useSessionStore'
+import type { SaveValuationResultResponse } from '@/types/api-responses'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
+import { rememberSavedReportAlias } from '@/utils/reportIdentityPromotion'
 import { clearReportsDeleting, markReportsDeleting } from '../utils/manualReportDeleteGuard'
 import {
   resolveValuationRunTrigger,
@@ -247,20 +250,24 @@ describe('useResultToReportBridge', () => {
       expect(nextCallbacks.onComplete).not.toHaveBeenCalled()
       expect(nextCallbacks.setReport).not.toHaveBeenCalled()
 
+      // Producers set the new result first and then announce it (see announceNewResult).
       const nextResult = makeResult({ valuation_id: 'val_next' })
       rerender({
         ...initialParams,
         ...nextCallbacks,
         result: nextResult,
       })
+      expect(nextCallbacks.setReport).toHaveBeenCalledTimes(1)
+      act(() => {
+        useManualResultsStore.getState().announceNewResult()
+      })
 
       expect(initialParams.onComplete).not.toHaveBeenCalled()
       expect(nextCallbacks.onComplete).toHaveBeenCalledWith(nextResult)
-      expect(nextCallbacks.setReport).toHaveBeenCalledTimes(1)
       expect(nextCallbacks.setRightPanelView).toHaveBeenCalledWith('preview')
     })
 
-    it('overrides setRightPanelView to "preview" on EVERY result-arrival (preserved)', () => {
+    it('switches to "preview" again when a new result is produced (calculation, version)', () => {
       const initialParams = makeParams()
       const { rerender } = renderHook(
         (p: UseResultToReportBridgeParams) => useResultToReportBridge(p),
@@ -269,12 +276,16 @@ describe('useResultToReportBridge', () => {
       // First arrival.
       expect(initialParams.setRightPanelView).toHaveBeenCalledWith('preview')
 
-      // A "different" result triggers the override again.
+      // A newly produced result announces itself again.
       const next = makeParams({
         result: makeResult({ valuation_id: 'val_next' }),
         setRightPanelView: vi.fn(),
       })
       rerender(next)
+      expect(next.setRightPanelView).not.toHaveBeenCalled()
+      act(() => {
+        useManualResultsStore.getState().announceNewResult()
+      })
       expect(next.setRightPanelView).toHaveBeenCalledWith('preview')
     })
 
@@ -321,6 +332,109 @@ describe('useResultToReportBridge', () => {
         }),
       })
       expect(params.generatePdf).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  // F-08: the advisor opens History (or the mobile report is closed) while the report is
+  // saved, polled and its PDF generated. Each of those replaced `result` or changed a
+  // presentation input, and every re-run used to switch back to Preview, re-open the mobile
+  // report and fire onComplete again.
+  describe('announcing a new result only once', () => {
+    function renderAnnounced(overrides: Partial<UseResultToReportBridgeParams> = {}) {
+      const params = makeParams({ isMobile: true, ...overrides })
+      const view = renderHook((p: UseResultToReportBridgeParams) => useResultToReportBridge(p), {
+        initialProps: params,
+      })
+      expect(params.setRightPanelView).toHaveBeenCalledTimes(1)
+      expect(params.onComplete).toHaveBeenCalledTimes(1)
+      return { params, ...view }
+    }
+
+    it('re-projects but does not re-announce when only presentation inputs change', () => {
+      const { params, rerender } = renderAnnounced({
+        result: makeResult({ updated_at: '2026-09-23T10:00:00.000Z', pdf_generated_at: null }),
+      })
+
+      rerender({ ...params, sessionHtmlReport: '<div>saved html</div>' })
+      rerender({ ...params, sessionHtmlReport: '<div>saved html</div>', clientBlendedValue: 1234 })
+      rerender({ ...params, clientBlendedValue: 1234, selectedMethod: 'ebitda_multiple' })
+      rerender({ ...params, isPdfGenerating: true })
+      rerender({ ...params, isPdfGenerating: false })
+
+      expect(vi.mocked(params.setReport).mock.calls.length).toBeGreaterThan(1)
+      expect(params.setRightPanelView).toHaveBeenCalledTimes(1)
+      expect(params.onComplete).toHaveBeenCalledTimes(1)
+      expect(params.setShowFullscreenModal).toHaveBeenCalledTimes(1)
+    })
+
+    it('treats a poll merge of the same report (new result object) as enrichment', () => {
+      const { params, rerender } = renderAnnounced()
+
+      rerender({
+        ...params,
+        result: { ...(params.result as ValuationResponse), pdf_url: 'https://x.test/r.pdf' },
+      })
+
+      expect(params.setReport).toHaveBeenCalledTimes(2)
+      expect(params.setRightPanelView).toHaveBeenCalledTimes(1)
+      expect(params.onComplete).toHaveBeenCalledTimes(1)
+      expect(params.setShowFullscreenModal).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps the announcement when the route moves from the session key to the saved UUID', () => {
+      const uuid = '2f1d5c3e-8b7a-4c1e-9d2f-6a5b4c3d2e1f'
+      const { params, rerender } = renderAnnounced({ reportId: 'val_abc12345' })
+      rememberSavedReportAlias({
+        previousId: 'val_abc12345',
+        response: { reportId: uuid, sessionKey: 'val_abc12345' } as SaveValuationResultResponse,
+      })
+
+      rerender({ ...params, reportId: uuid })
+
+      expect(params.setRightPanelView).toHaveBeenCalledTimes(1)
+      expect(params.onComplete).toHaveBeenCalledTimes(1)
+    })
+
+    it("announces another report's first result, not the one carried over from the last", () => {
+      const { params, rerender } = renderAnnounced({ reportId: 'report-a' })
+
+      // The route switched but report A's result is still on screen for a moment.
+      rerender({ ...params, reportId: 'report-b' })
+      expect(params.setRightPanelView).toHaveBeenCalledTimes(1)
+      expect(params.onComplete).toHaveBeenCalledTimes(1)
+
+      const reportBResult = makeResult({ valuation_id: 'val_report_b' })
+      rerender({ ...params, reportId: 'report-b', result: reportBResult })
+      expect(params.setRightPanelView).toHaveBeenCalledTimes(2)
+      expect(params.onComplete).toHaveBeenLastCalledWith(reportBResult)
+    })
+
+    it('opens the mobile report once, when the announced result first has HTML', () => {
+      const params = makeParams({
+        isMobile: true,
+        result: makeResult({ html_report: undefined as unknown as string }),
+      })
+      const { rerender } = renderHook(
+        (p: UseResultToReportBridgeParams) => useResultToReportBridge(p),
+        { initialProps: params }
+      )
+      expect(params.setShowFullscreenModal).not.toHaveBeenCalled()
+
+      rerender({ ...params, sessionHtmlReport: '<div>recovered html</div>' })
+      rerender({ ...params, sessionHtmlReport: '<div>recovered html v2</div>' })
+
+      expect(params.setShowFullscreenModal).toHaveBeenCalledTimes(1)
+    })
+
+    it('ignores announcements made before it mounted', () => {
+      act(() => {
+        useManualResultsStore.getState().announceNewResult()
+      })
+      const { params, rerender } = renderAnnounced()
+
+      rerender({ ...params, clientBlendedValue: 99 })
+
+      expect(params.setRightPanelView).toHaveBeenCalledTimes(1)
     })
   })
 

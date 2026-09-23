@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { PdfRequestRefusedError } from '../../../hooks/pdfGenerationModel'
 import { APIError } from '../../../types/errors'
 import { useManualPdfExportController } from './useManualPdfExportController'
 
@@ -30,12 +31,12 @@ function makeParams(
     openPdfPaywall: vi.fn(),
     defaultFilename: 'valuation',
     pdfSuffix: 'report',
-    staleHint: 'PDF is stale',
     transientDownloadHint: 'Server temporarily unavailable',
     exportFailedTitle: 'PDF export failed',
     exportFailedDescription: 'Please try again',
     generatingTitle: 'Generating PDF',
     downloadedTitle: 'PDF downloaded',
+    describeRefusal: (refusal) => `localized:${refusal.code}`,
     ...overrides,
   }
 }
@@ -90,6 +91,70 @@ describe('useManualPdfExportController', () => {
     expect(downloadPdf).not.toHaveBeenCalled()
     expect(toast.warning).not.toHaveBeenCalled()
     expect(toast.info).toHaveBeenCalledWith('Generating PDF', { id: 'pdf-gen' })
+  })
+
+  // F-04: a stale PDF with no job running (e.g. the background generation failed) used to
+  // dead-end with "wait until the PDF has finished updating". The download route regenerates
+  // on demand, so export goes there.
+  it('exports a stale PDF through the on-demand download when no job is running', async () => {
+    const downloadPdf = vi.fn().mockResolvedValue(undefined)
+    const { result } = renderHook(() =>
+      useManualPdfExportController(
+        makeParams(downloadPdf, { pdfStale: true, isPdfGenerating: false })
+      )
+    )
+
+    await act(async () => {
+      await result.current.handleExport()
+    })
+
+    expect(downloadPdf).toHaveBeenCalledTimes(1)
+    expect(downloadPdf).toHaveBeenCalledWith(
+      undefined,
+      expect.stringContaining('Acme'),
+      expect.any(AbortSignal),
+      'report-1'
+    )
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(toast.success).toHaveBeenCalledWith('PDF downloaded')
+  })
+
+  it("shows the server's reason when the report cannot be turned into a PDF", async () => {
+    const downloadPdf = vi.fn().mockRejectedValue(
+      new PdfRequestRefusedError(
+        {
+          code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+          remediation: 'Complete the client and engagement details, then export again.',
+        },
+        422
+      )
+    )
+    const { result } = renderHook(() =>
+      useManualPdfExportController(makeParams(downloadPdf, { pdfStale: true }))
+    )
+
+    await act(async () => {
+      await result.current.handleExport()
+    })
+
+    expect(toast.error).toHaveBeenCalledWith('PDF export failed', {
+      description: 'localized:SEALED_REPORT_INPUT_INCOMPLETE',
+    })
+  })
+
+  it('keeps the generic failure copy for untyped errors', async () => {
+    const downloadPdf = vi
+      .fn()
+      .mockRejectedValue(new Error('Server returned HTML instead of a PDF.'))
+    const { result } = renderHook(() => useManualPdfExportController(makeParams(downloadPdf)))
+
+    await act(async () => {
+      await result.current.handleExport()
+    })
+
+    expect(toast.error).toHaveBeenCalledWith('PDF export failed', {
+      description: 'Please try again',
+    })
   })
 
   it('warns on transient download errors without a hard export failure toast', async () => {

@@ -18,6 +18,11 @@ import { renderHook } from '@testing-library/react'
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  VALUATION_INVALID_DATA_FALLBACK_MESSAGE,
+  VALUATION_SERVICE_UNAVAILABLE_FALLBACK_MESSAGE,
+} from '../../../services/api/valuation/valuationApiFallbackMessages'
+import {
+  APIError,
   AuthenticationError,
   CreditError,
   NetworkError,
@@ -273,11 +278,12 @@ describe('useManualSubmitErrorHandler', () => {
       expect(options.action.label).toBe('session.reloadPage')
     })
 
-    it('NetworkError → serviceUnavailable title with raw message as description', () => {
-      callHandler(new NetworkError('Service temporarily unavailable'))
+    it('NetworkError → localized serviceUnavailable title without the English API message', () => {
+      callHandler(new NetworkError(VALUATION_SERVICE_UNAVAILABLE_FALLBACK_MESSAGE))
       const [title, options] = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0]
       expect(title).toBe('serviceUnavailable')
-      expect(options.description).toBe('Service temporarily unavailable')
+      expect(options.description).toBeUndefined()
+      expect(options.action.label).toBe('retry')
     })
 
     it('unknown ValidationError without a code falls through to calculationFailed', () => {
@@ -292,6 +298,53 @@ describe('useManualSubmitErrorHandler', () => {
       callHandler(error)
       const [title] = (toast.error as ReturnType<typeof vi.fn>).mock.calls[0]
       expect(title).toBe('calculationFailed')
+    })
+  })
+
+  // F-16: the API layer's messages are fixed English text. In NL/FR sessions they showed
+  // up verbatim as toast descriptions.
+  describe('toast descriptions are localized, not API-layer English', () => {
+    function lastToast() {
+      const calls = (toast.error as ReturnType<typeof vi.fn>).mock.calls
+      return calls[calls.length - 1] as [string, { description?: string }]
+    }
+
+    it('CreditError → localized description', () => {
+      callHandler(new CreditError('Insufficient credits for valuation calculation.'))
+      expect(lastToast()[1].description).toBe('insufficientCreditsDesc')
+    })
+
+    it('RateLimitError → localized description', () => {
+      callHandler(
+        new RateLimitError('Too many valuation requests. Please wait before trying again.')
+      )
+      expect(lastToast()[1].description).toBe('rateLimit.description')
+    })
+
+    it('an untyped API error → localized review hint', () => {
+      callHandler(new APIError('Failed to complete calculate valuation', 500))
+      expect(lastToast()).toEqual([
+        'calculationFailed',
+        expect.objectContaining({ description: 'calculationFailedReview' }),
+      ])
+    })
+
+    it("keeps the server's own validation detail", () => {
+      callHandler(
+        new ValidationError('founding_year: must not be in the future', 'founding_year', 2031, {
+          status: 422,
+        })
+      )
+      expect(lastToast()[1].description).toBe('founding_year: must not be in the future')
+    })
+
+    it('replaces the API-layer fallback on a validation error', () => {
+      callHandler(
+        new ValidationError(VALUATION_INVALID_DATA_FALLBACK_MESSAGE, undefined, undefined, {
+          status: 400,
+        })
+      )
+      expect(lastToast()[1].description).toBe('calculationFailedReview')
     })
   })
 })

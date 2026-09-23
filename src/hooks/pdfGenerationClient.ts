@@ -6,7 +6,9 @@ import {
   getPdfDownloadErrorMessage,
   getPdfGenerationStartErrorMessage,
   type PdfGenerationStartResult,
+  PdfRequestRefusedError,
   type PdfStatusPollResult,
+  pdfRefusalFromBody,
   resolvePdfGenerationStartResult,
   resolvePdfStatusPollResult,
 } from './pdfGenerationModel'
@@ -77,11 +79,16 @@ export async function requestPdfGenerationStart({
         buildPdfAccessErrorContext(errBody)
       )
     }
+    const refusal = pdfRefusalFromBody(errBody)
+    if (refusal) throw new PdfRequestRefusedError(refusal, response.status)
     throw new Error(getPdfGenerationStartErrorMessage(errBody))
   }
 
-  const startResult = resolvePdfGenerationStartResult(await response.json())
+  const body: unknown = await response.json()
+  const startResult = resolvePdfGenerationStartResult(body)
   if (startResult.status === 'failed' || startResult.status === 'invalid') {
+    const refusal = startResult.status === 'failed' ? pdfRefusalFromBody(body) : null
+    if (refusal) throw new PdfRequestRefusedError(refusal, response.status)
     throw new Error(startResult.error)
   }
   return startResult
@@ -132,6 +139,8 @@ export async function requestPdfDownload({
     if (isPdfTransientUpstreamStatus(response.status)) {
       throw new APIError('PDF download temporarily unavailable', response.status)
     }
+    const refusal = pdfRefusalFromBody(errBody)
+    if (refusal) throw new PdfRequestRefusedError(refusal, response.status)
     throw new Error(errMsg)
   }
 

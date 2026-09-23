@@ -5,6 +5,9 @@ import {
   getSafeMercuryReturnUrl,
   isLegacyReturnUrl,
 } from '@/lib/return-url'
+import { isUuid } from '@/utils/identifiers'
+import { getCanonicalReportAlias } from '@/utils/reportIdentityPromotion'
+import { wasManualValuationSavedThisVisit } from './manualValuationSaveReceipt'
 
 const MERCURY_IMPORT_REVIEW_SESSION_KEY_RE = /^val_[a-zA-Z0-9_-]{8,128}$/
 
@@ -237,35 +240,47 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
-export function hasCompletedManualValuation(report: unknown, session: unknown): boolean {
+function manualReportIdCandidates(
+  report: unknown,
+  session: unknown,
+  resolvedReportId?: unknown
+): unknown[] {
   const reportRecord = asRecord(report)
   const sessionRecord = asRecord(session)
-  const valuation = reportRecord?.valuation
-  return !!(
-    (typeof valuation === 'number' && Number.isFinite(valuation)) ||
-    sessionRecord?.valuationResult ||
-    sessionRecord?.htmlReport
+  return [resolvedReportId, reportRecord?.id, reportRecord?.reportId, sessionRecord?.reportId]
+}
+
+/**
+ * True only when a calculation completed AND its result was durably saved during this visit
+ * for the report being left. A result on screen proves nothing: Mercury's "Start valuation"
+ * re-opens the existing report, and a review-and-exit must not return as "Valuation added".
+ */
+export function hasCompletedManualValuation(
+  report: unknown,
+  session: unknown,
+  resolvedReportId?: unknown
+): boolean {
+  return wasManualValuationSavedThisVisit(
+    manualReportIdCandidates(report, session, resolvedReportId)
   )
 }
 
+/**
+ * The saved report's UUID for Mercury's return reconciliation. Mercury compares it with the
+ * dossier's latest report UUID, so a session key (`val_*`, before the save commits) kept it
+ * re-fetching for ~32 s and then giving up. Without a UUID Mercury simply refreshes.
+ */
 export function resolveManualMercuryReportId(
   report: unknown,
   session: unknown,
   resolvedReportId?: unknown
 ): string | undefined {
-  const resolved =
-    typeof resolvedReportId === 'string' && resolvedReportId.trim()
-      ? resolvedReportId.trim()
-      : undefined
-  if (resolved) return resolved
-
-  const reportRecord = asRecord(report)
-  const sessionRecord = asRecord(session)
-  const candidates = [reportRecord?.id, reportRecord?.reportId, sessionRecord?.reportId]
-  for (const candidate of candidates) {
-    if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim()
-    }
+  for (const candidate of manualReportIdCandidates(report, session, resolvedReportId)) {
+    if (typeof candidate !== 'string') continue
+    const id = candidate.trim()
+    if (isUuid(id)) return id
+    const savedReportId = getCanonicalReportAlias(id)
+    if (savedReportId) return savedReportId
   }
   return undefined
 }
@@ -325,9 +340,10 @@ export function buildManualExitClientViewTarget({
     celebrateMercuryReturn: hasCompletedValuation,
   })
 
+  const savedReportId = reportId?.trim()
   return applyMercuryReportIdQuery(
     applyMercuryNewClientNameQuery(withCelebration, companyName),
-    hasCompletedValuation ? reportId : null
+    hasCompletedValuation && isUuid(savedReportId) ? savedReportId : null
   )
 }
 

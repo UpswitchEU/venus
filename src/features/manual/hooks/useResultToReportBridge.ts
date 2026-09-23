@@ -2,21 +2,29 @@
  * useResultToReportBridge — the venus-API → Clarity-report bridge effect.
  *
  * Wraps the pure `mapValuationResultToReport` projection in a useEffect
- * that fires every time `result` changes, plus the seven side effects the
- * original inline effect performed:
+ * that re-projects whenever `result` or a presentation input changes, plus
+ * the side effects the original inline effect performed:
  *
  *   1. `usePreparerMultipleStore.syncFromValuationResult(result)` — pulls
  *      the preparer-multiple state out of the response so the override
- *      panel reflects the latest engine output.
+ *      panel reflects the latest engine output (once per result object).
  *   2. `onComplete(result)` — fires the parent-callback (analytics, parent
  *      state machine, etc.).
  *   3. `setReport(mappedReport)` — drops the projected report into panel
  *      state for the right-rail render.
  *   Persistence status belongs to the session/save actions, never this projection.
  *   6. `setRightPanelView('preview')` — switches the right panel to the
- *      preview tab. **Note: this overrides prior user navigation on every
- *      result-arrival — preserved verbatim per Phase 4c.2 product call.**
+ *      preview tab.
  *   7. On mobile + html present, `setShowFullscreenModal(true)`.
+ *
+ *   2, 6 and 7 announce a NEW result: they run once for the first result of a
+ *   report and once per `resultAnnouncementSeq` bump (a calculation, a loaded
+ *   or restored version). Everything else that replaces `result` — PDF and
+ *   staleness polls, method hydration, HTML recovery, the save commit — only
+ *   enriches the result on screen, and changes of the saved HTML, the blend,
+ *   the selected method or the PDF flags only re-project it. Re-announcing on
+ *   those pulled an advisor out of History back to Preview (and re-opened the
+ *   mobile report) on every save commit and PDF start/finish.
  *   8. On `reportId + html + canDownloadPdf`, `generatePdf()` is fired
  *      in the background. **Note: also fires when the user has already
  *      generated a PDF manually this session — preserved verbatim per
@@ -24,25 +32,22 @@
  *      other PDF-gen errors are logged but not surfaced (background gen).
  *      Exception: a run started by Mercury's one-shot intent (not by the
  *      advisor) never triggers a background PDF — the advisor has not
- *      reviewed the figures yet, and the PDF is regenerated on demand.
+ *      reviewed the figures yet, and the PDF is regenerated on demand. The
+ *      render fingerprint guard keeps poll merges from re-firing it.
  *
  * Errors thrown by the mapper are caught and logged with reportId +
  * valuationId context, then swallowed — the panel keeps rendering the
  * prior `report` state.
- *
- * This hook is "preserve current behaviour" by design. The two open
- * product questions on the override-on-every-result and the auto-PDF
- * trigger were resolved in favour of preserving today's behaviour
- * unchanged. Either can be revisited via a follow-up flag without
- * re-extracting the bridge.
  */
 
 import { type Dispatch, type MutableRefObject, type SetStateAction, useEffect, useRef } from 'react'
 import type { RightPanelView, ValuationReportData } from '@/components/calculator'
+import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStore'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { generalLogger } from '@/utils/logger'
+import { isSameReportIdentity } from '@/utils/reportIdentityPromotion'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
 import {
@@ -147,6 +152,17 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
   const tReportRef = useLatestRef(tReport)
   const isPdfGenerationInFlight = isPdfGeneratingRef.current
   const lastPdfTriggerFingerprintRef = useRef<string | null>(null)
+  const resultAnnouncementSeq = useManualResultsStore((state) => state.resultAnnouncementSeq)
+  // Announcements made before this bridge mounted belong to an earlier workspace.
+  const handledAnnouncementSeqRef = useRef(resultAnnouncementSeq)
+  const reportKeyRef = useRef<string | null>(null)
+  const announcedForReportRef = useRef(false)
+  /** Result still on screen when the route switched reports; it is not the new report's. */
+  const carriedOverResultRef = useRef<ValuationResponse | null>(null)
+  const lastSeenResultRef = useRef<ValuationResponse | null>(null)
+  const lastSyncedResultRef = useRef<ValuationResponse | null>(null)
+  /** The mobile report opens once per announcement, as soon as it has HTML to show. */
+  const mobileRevealPendingRef = useRef(false)
 
   useEffect(() => {
     void reportId
@@ -157,6 +173,11 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     if (!result) {
       // Keep panel in sync when results store is cleared (delete, company change, list delete).
       setReportRef.current(null)
+      announcedForReportRef.current = false
+      carriedOverResultRef.current = null
+      lastSeenResultRef.current = null
+      lastSyncedResultRef.current = null
+      mobileRevealPendingRef.current = false
       return
     }
 
@@ -168,11 +189,38 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
       return
     }
 
+    // A route change from the session key to the saved report UUID is the same report.
+    const reportKey = reportId ?? ''
+    const previousReportKey = reportKeyRef.current
+    if (
+      previousReportKey !== null &&
+      previousReportKey !== reportKey &&
+      !isSameReportIdentity(previousReportKey, reportKey)
+    ) {
+      announcedForReportRef.current = false
+      carriedOverResultRef.current = lastSeenResultRef.current
+    }
+    reportKeyRef.current = reportKey
+    lastSeenResultRef.current = result
+    const isFirstResultOfReport =
+      !announcedForReportRef.current && result !== carriedOverResultRef.current
+    const announce =
+      isFirstResultOfReport || resultAnnouncementSeq !== handledAnnouncementSeqRef.current
+    if (announce) {
+      announcedForReportRef.current = true
+      carriedOverResultRef.current = null
+      handledAnnouncementSeqRef.current = resultAnnouncementSeq
+      mobileRevealPendingRef.current = isMobile
+    }
+
     try {
-      // 1. Preparer-multiple store sync.
-      usePreparerMultipleStore.getState().syncFromValuationResult(result)
+      // 1. Preparer-multiple store sync (once per result object).
+      if (lastSyncedResultRef.current !== result) {
+        lastSyncedResultRef.current = result
+        usePreparerMultipleStore.getState().syncFromValuationResult(result)
+      }
       // 2. Parent-callback.
-      onCompleteRef.current(result)
+      if (announce) onCompleteRef.current(result)
 
       // Build the report projection (pure).
       const mappedReport = mapValuationResultToReport({
@@ -189,12 +237,12 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
       // Projection does not claim that the current input state was saved.
       setReportRef.current(mappedReport)
 
-      // 6. Switch panel view to preview. PRESERVED: overrides prior user
-      //    navigation; documented as intentional pending product review.
-      setRightPanelViewRef.current('preview')
+      // 6. Show the new result in the preview tab.
+      if (announce) setRightPanelViewRef.current('preview')
 
       // 7. Mobile fullscreen.
-      if (isMobile && mappedReport.htmlReport) {
+      if (mobileRevealPendingRef.current && isMobile && mappedReport.htmlReport) {
+        mobileRevealPendingRef.current = false
         setShowFullscreenModalRef.current(true)
       }
 
@@ -234,6 +282,7 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     }
   }, [
     result,
+    resultAnnouncementSeq,
     sessionHtmlReport,
     standaloneHtmlReport,
     clientBlendedValue,

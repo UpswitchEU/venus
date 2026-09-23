@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import type { NormalizationItem, RightPanelView } from '../../../components/calculator'
 import { pendingReportAssetSave } from '../../../services/report/ReportAssetService'
 import { useManualFormStore } from '../../../store/manual/useManualFormStore'
+import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
@@ -106,7 +107,10 @@ export function useManualVersionRestoreAction({
             normalizationActions.setItems(committedPlan.normalizations)
             restoreTaxLatencySnapshot(committedPlan)
           }
-          if (committedPlan.valuationResult) setResult(committedPlan.valuationResult)
+          if (committedPlan.valuationResult) {
+            setResult(committedPlan.valuationResult)
+            useManualResultsStore.getState().announceNewResult()
+          }
           useVersionHistoryStore.getState().setActiveVersion(idForApi, restored.versionNumber)
           setRightPanelView('preview')
           toast.success(translate('versionRestored', { version: restored.versionNumber }))

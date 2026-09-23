@@ -171,6 +171,37 @@ describe('/api/valuations/[id]/pdf/download', () => {
     )
   })
 
+  // F-04: export of a stale PDF regenerates on demand here; a refused report must reach the
+  // browser with its code and remediation instead of the internal precondition text.
+  it('keeps the code and remediation when on-demand regeneration is refused', async () => {
+    mocks.getBffCookieHeaderForTitan.mockResolvedValue({
+      cookieHeader: 'upswitch_access_token=jwt-token; upswitch_refresh_token=refresh-token',
+      cookieSource: 'cookieStore',
+    })
+    mocks.fetch
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, pdfUrl: null }))
+      .mockResolvedValueOnce(
+        jsonResponse(422, {
+          code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+          message: 'publication input founding_year missing',
+          remediation: 'Complete the client and engagement details, then export again.',
+          report_id: 'report-1',
+        })
+      )
+
+    const res = await GET(request(), {
+      params: Promise.resolve({ id: 'report-1' }),
+    })
+
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({
+      success: false,
+      error: 'publication input founding_year missing',
+      code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+      remediation: 'Complete the client and engagement details, then export again.',
+    })
+  })
+
   it('rejects download when neither request nor cookie store has Titan auth', async () => {
     mocks.getBffCookieHeaderForTitan.mockResolvedValue({
       cookieHeader: '',

@@ -31,6 +31,52 @@ export type PdfStatusPollResult =
   | { status: 'failed'; error: string }
   | { status: 'pending' }
 
+/**
+ * Titan's typed refusals for a report that cannot be turned into a document
+ * (`SealedReportRenderError`). The UI branches on `code`, never on `message`.
+ */
+export const PDF_REFUSAL_CODES = [
+  'SEALED_VALUATION_RUN_MISSING',
+  'SEALED_REPORT_SUPERSEDED',
+  'SEALED_REPORT_IDENTITY_MISSING',
+  'SEALED_RESULT_TOO_LARGE',
+  'SEALED_REPORT_INPUT_INCOMPLETE',
+  'SEALED_PROFESSIONAL_REVIEW_INCOMPLETE',
+  'SEALED_PUBLICATION_CONTRACT_INVALID',
+  'SEALED_LOCALE_UNSUPPORTED',
+  'SEALED_ENGINE_RESPONSE_INVALID',
+  'PREVIEW_REPORT_CONTENT_MISSING',
+  'PREVIEW_ENGINE_REFUSED',
+  'PREVIEW_ENGINE_RESPONSE_INVALID',
+] as const
+
+export type PdfRefusalCode = (typeof PDF_REFUSAL_CODES)[number]
+
+export function isKnownPdfRefusalCode(code: unknown): code is PdfRefusalCode {
+  return typeof code === 'string' && (PDF_REFUSAL_CODES as readonly string[]).includes(code)
+}
+
+/** Why the server will not produce this report's PDF, and what the adviser can do about it. */
+export interface PdfRefusal {
+  code: string | null
+  remediation: string
+}
+
+/** A PDF request the server refused for a stated reason; retrying unchanged will not help. */
+export class PdfRequestRefusedError extends Error {
+  readonly refusal: PdfRefusal
+  readonly status: number | null
+
+  constructor(refusal: PdfRefusal, status: number | null = null) {
+    super(refusal.remediation)
+    this.name = 'PdfRequestRefusedError'
+    this.refusal = refusal
+    this.status = status
+  }
+}
+
+const PDF_JOB_FAILURE_CODE_SUFFIX = /\s*\[([A-Z][A-Z0-9_]*)\]\s*$/
+
 const PDF_GENERATION_FAILED = 'PDF generation failed'
 const PDF_GENERATION_START_FAILED = 'Failed to start PDF generation'
 const PDF_GENERATION_MISSING_TARGET = 'No PDF URL or job ID returned — please try again'
@@ -158,6 +204,24 @@ export function getPdfGenerationStartErrorMessage(errBody: unknown): string {
 
 export function getPdfDownloadErrorMessage(errBody: unknown): string {
   return firstNonEmptyString(errBody, ['remediation', 'error', 'message'], PDF_DOWNLOAD_FAILED)
+}
+
+/** Titan's refusal body (`code` + `remediation`); `null` when the body names no remediation. */
+export function pdfRefusalFromBody(body: unknown): PdfRefusal | null {
+  const record = asRecord(body)
+  const remediation = nonEmptyString(record?.remediation)
+  if (!remediation) return null
+  return { code: nonEmptyString(record?.code), remediation: remediation.trim() }
+}
+
+/** A failed PDF job reports Titan's refusal as `"<remediation> [<CODE>]"`. */
+export function pdfRefusalFromJobError(message: string | null | undefined): PdfRefusal | null {
+  const text = message?.trim()
+  if (!text) return null
+  const match = PDF_JOB_FAILURE_CODE_SUFFIX.exec(text)
+  if (!match) return null
+  const remediation = text.slice(0, match.index).trim()
+  return remediation ? { code: match[1], remediation } : null
 }
 
 export function resolvePdfGenerationStartResult(body: unknown): PdfGenerationStartResult {

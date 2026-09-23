@@ -112,6 +112,15 @@ interface ManualResultsStore {
   // Progress tracking (for long calculations)
   calculationProgress: number
 
+  /**
+   * Bumped by the paths that PRODUCE a new result (a calculation, loading or restoring a
+   * version) — never by merges that enrich the current one (PDF/staleness polls, method
+   * hydration, HTML recovery, save commits). The result→report bridge only switches the
+   * panel to the preview, opens the mobile report and fires `onComplete` on a bump (or on
+   * the first result of a report), so enrichment cannot pull the advisor away from History.
+   */
+  resultAnnouncementSeq: number
+
   // Omni-Calc: derived active valuation from selected method
   getActiveValuation: () => ValuationMethodResult | null
 
@@ -121,6 +130,8 @@ interface ManualResultsStore {
 
   // Actions (all atomic with functional updates)
   setResult: (result: ValuationResponse | null) => void
+  /** Call right after `setResult` when that result is new (see `resultAnnouncementSeq`). */
+  announceNewResult: () => void
   setHtmlReport: (html: string) => void
   setSelectedMethod: (method: string) => void
   setPreSelectedMethod: (method: string | null) => void
@@ -154,6 +165,7 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
   isCalculating: false,
   error: null,
   calculationProgress: 0,
+  resultAnnouncementSeq: 0,
 
   getActiveValuation: () => {
     const { result, selectedMethod } = get()
@@ -255,6 +267,10 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
 
   setMethodDataPlan: (plan: MethodWeightsDataPlan | null) => {
     set((state) => ({ ...state, methodDataPlan: plan }))
+  },
+
+  announceNewResult: () => {
+    set((state) => ({ ...state, resultAnnouncementSeq: state.resultAnnouncementSeq + 1 }))
   },
 
   // Set result (atomic)

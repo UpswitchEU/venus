@@ -27,17 +27,26 @@
  *   7. Retry resets the unchanged streak + wait state, kicks `generatePdf()`,
  *      refetches the report, and merges. Still-stale refetch re-arms the wait
  *      timer; transient 5xx on retry extends the deadline without a toast.
- *      402 paywall → starter modal; other errors → toast.
+ *      402 paywall → starter modal; a server refusal → toast with its
+ *      remediation; other errors → generic toast.
+ *   8. Once generation has failed for the current stale cycle, polling stops
+ *      and the stalled banner shows at once (with the refusal's remediation):
+ *      re-reading the report cannot un-fail the job, and the old 2.5s loop
+ *      only delayed the banner by up to a minute. A new cycle (the report
+ *      changes) or a new generation attempt clears it.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ValuationReportData } from '@/components/calculator'
+import { type PdfRefusal, PdfRequestRefusedError } from '@/hooks/pdfGenerationModel'
+import type { PdfStatus } from '@/hooks/usePdfGeneration'
 import { useManualResultsStore } from '@/store/manual'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { isSessionKey } from '@/utils/identifiers'
 import { generalLogger } from '@/utils/logger'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
+import { describePdfRefusal } from '../utils/pdfRefusalMessage'
 import {
   derivePdfStale,
   getBySession404BackoffDelayMs,
@@ -53,8 +62,13 @@ import {
 } from './usePdfStalenessLifecycleReportPatch'
 import { usePdfStalenessLifecycleRuntime } from './usePdfStalenessLifecycleRuntime'
 
-/** Narrow signature for `t` from `useTranslations('toast')` (or equivalent). */
-export type PdfLifecycleTranslator = (key: 'pdfExportFailed' | 'pdfExportFailedDesc') => string
+/** `t` from `useTranslations('toast')` (or equivalent). */
+export type PdfLifecycleTranslator = (key: string) => string
+
+/** Generation failed for the stale cycle on screen; `refusal` is set when the server said why. */
+export interface PdfGenerationFailure {
+  refusal: PdfRefusal | null
+}
 
 /** Narrow signature for `backendAPI.getReport`. Accepted as a param for testability. */
 export type GetReportFn = (
@@ -69,8 +83,8 @@ export interface UsePdfStalenessLifecycleParams {
   isPdfReady: boolean
   /** `true` while async PDF generation / status polling is in flight. */
   isPdfGenerating: boolean
-  /** Output of `usePdfGeneration` — only `.url` is consumed here. */
-  pdfGenerationState: { url?: string | null }
+  /** Output of `usePdfGeneration` — `.url`, `.status` and `.refusal` are consumed here. */
+  pdfGenerationState: { url?: string | null; status?: PdfStatus; refusal?: PdfRefusal | null }
   /** UUID resolved from the session — the poll target. `null` ⇒ no polling. */
   persistedReportLookupId: string | null
   /** Plan/firm gate for PDF actions; also gates the URL mirror. */
@@ -87,7 +101,7 @@ export interface UsePdfStalenessLifecycleParams {
   openStarterPaywall: (reason: 'pdf_download') => void
   /** Toast triggered on non-paywall retry failure. */
   showRetryFailureToast: (title: string, options: { description: string }) => void
-  /** Narrow translator for the two strings this hook surfaces. */
+  /** Translator for the strings this hook surfaces (`toast` namespace). */
   translate: PdfLifecycleTranslator
 }
 
@@ -105,6 +119,8 @@ export interface UsePdfStalenessLifecycleResult {
   pdfPollTransientCount: number
   /** True while `retry` is in flight (button disabled, spinner shown). */
   isPdfRetrying: boolean
+  /** Set when generation failed for this stale cycle; the stalled banner explains it. */
+  pdfGenerationFailure: PdfGenerationFailure | null
   /** Imperative retry handle — invoked from the stalled banner CTA. */
   retry: () => Promise<void>
 }
@@ -172,6 +188,34 @@ export function usePdfStalenessLifecycle(
         pdfGenerationUrl: pdfGenerationState.url,
       }),
     [report, isPdfReady, pdfGenerationState.url]
+  )
+
+  // A failed generation belongs to the stale cycle it happened in (keyed like the
+  // stalled banner's dismissal): a new edit starts a new cycle and polling resumes.
+  // Tracked during render, not in an effect, so the poll effect never starts one
+  // more round in the commit where the job turns from generating into error.
+  const staleCycleKey =
+    report?.reportUpdatedAt instanceof Date ? report.reportUpdatedAt.getTime() : null
+  const generationStatus = pdfGenerationState.status
+  const failedCycleKeyFor = (status: PdfStatus | undefined) =>
+    status === 'error' ? staleCycleKey : undefined
+  const [failureTracking, setFailureTracking] = useState(() => ({
+    status: generationStatus,
+    failedCycleKey: failedCycleKeyFor(generationStatus),
+  }))
+  const failedCycleKey =
+    failureTracking.status === generationStatus
+      ? failureTracking.failedCycleKey
+      : failedCycleKeyFor(generationStatus)
+  if (failureTracking.status !== generationStatus) {
+    setFailureTracking({ status: generationStatus, failedCycleKey })
+  }
+  const generationFailedThisCycle =
+    pdfStale && failedCycleKey !== undefined && failedCycleKey === staleCycleKey
+  const failedRefusal = generationFailedThisCycle ? (pdfGenerationState.refusal ?? null) : null
+  const pdfGenerationFailure = useMemo<PdfGenerationFailure | null>(
+    () => (generationFailedThisCycle ? { refusal: failedRefusal } : null),
+    [generationFailedThisCycle, failedRefusal]
   )
 
   // ─── Effect A — mirror client-generated PDF URL into `report` ──────────
@@ -376,7 +420,15 @@ export function usePdfStalenessLifecycle(
     // setTimeout fired or the unchanged-response streak guard kicked in.
     // The user now sees the retry CTA — keeping the 2.5s interval running
     // just wastes their bandwidth and the backend's Prisma+Python budget.
-    if (!pdfStale || !persistedReportLookupId || pdfWaitTimedOut || isPdfGenerating) return
+    if (
+      !pdfStale ||
+      !persistedReportLookupId ||
+      pdfWaitTimedOut ||
+      isPdfGenerating ||
+      generationFailedThisCycle
+    ) {
+      return
+    }
     // `cancelled` flag handles the cross-report navigation race documented
     // in the Phase 4c.2 audit. When `persistedReportLookupId` changes mid-
     // flight, this effect's cleanup runs (sets `cancelled = true`), but any
@@ -402,6 +454,7 @@ export function usePdfStalenessLifecycle(
     persistedReportLookupId,
     pdfWaitTimedOut,
     isPdfGenerating,
+    generationFailedThisCycle,
     runStalePollOnce,
     cancelPollLock,
   ])
@@ -475,6 +528,12 @@ export function usePdfStalenessLifecycle(
         openStarterPaywall('pdf_download')
         return
       }
+      if (err instanceof PdfRequestRefusedError) {
+        showRetryFailureToast(translate('pdfExportFailed'), {
+          description: describePdfRefusal(err.refusal, translate),
+        })
+        return
+      }
       if (isTransientPollError(err)) {
         extendWaitTimeoutForTransientError()
         if (!isPdfGeneratingRef.current) scheduleWaitTimeout()
@@ -509,10 +568,11 @@ export function usePdfStalenessLifecycle(
 
   return {
     pdfStale,
-    pdfWaitTimedOut: effectivePdfWaitTimedOut,
+    pdfWaitTimedOut: effectivePdfWaitTimedOut || generationFailedThisCycle,
     pdfPollErrorCount,
     pdfPollTransientCount,
     isPdfRetrying,
+    pdfGenerationFailure,
     retry,
   }
 }

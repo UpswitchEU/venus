@@ -331,6 +331,7 @@ export function FinancialHistorySection({
               key={`${yearData.year}-${yearData.isForecast ? 'f' : 'h'}`}
               baseFilingYearForLabels={baseFilingYearForLabels}
               fieldValidation={fieldValidation}
+              isCalculating={isCalculating}
               financialRows={formData.yearlyFinancials}
               formatCurrency={formatCurrency}
               importQuality={importQuality?.[String(yearData.year)]}
@@ -416,7 +417,8 @@ export function FinancialHistorySection({
                 ],
               }))
             }}
-            className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2"
+            disabled={isCalculating}
+            className="w-full p-3 rounded-xl border border-dashed border-foreground/[0.08] text-sm text-foreground/40 hover:text-foreground/60 hover:border-foreground/[0.15] hover:bg-foreground/[0.02] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             aria-label={`${mi('addYear')} ${getNextHistoricalYear(formData.yearlyFinancials)}`}
           >
             <Plus className="w-4 h-4" aria-hidden />

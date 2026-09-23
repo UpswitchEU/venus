@@ -204,7 +204,7 @@ export function useManualSubmitController({
         runTriggerRef.current = resolveValuationRunTrigger(startProposalVersionLabelRef.current)
       }
       if (isAccountingReconnectRequired && !reconnectResumeBypassRef.current) {
-        toast.warning('Reconnect accounting before calculating again.')
+        toast.warning(translate('accountingReconnectRequired'))
         return false
       }
       const effectiveMethod =

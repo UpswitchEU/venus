@@ -3,6 +3,8 @@ import { useState } from 'react'
 import type { ValuationReportData } from '../../../components/calculator'
 import { AuroraButton } from '../../../design-system/components/Button'
 import { openSafeNewTabUrl } from '../../../utils/safeVenusRedirect'
+import type { PdfGenerationFailure } from '../hooks/usePdfStalenessLifecycle'
+import { describePdfRefusal } from '../utils/pdfRefusalMessage'
 
 interface ManualPdfStaleBannerProps {
   canDownloadPdf: boolean
@@ -14,6 +16,8 @@ interface ManualPdfStaleBannerProps {
   pdfPollTransientCount: number
   pdfStale: boolean
   pdfWaitTimedOut: boolean
+  /** Generation failed for this stale cycle; a server refusal replaces the generic blurb. */
+  generationFailure?: PdfGenerationFailure | null
   report: ValuationReportData | null
   translate: (key: string) => string
 }
@@ -28,6 +32,7 @@ export function ManualPdfStaleBanner({
   pdfPollTransientCount,
   pdfStale,
   pdfWaitTimedOut,
+  generationFailure,
   report,
   translate,
 }: ManualPdfStaleBannerProps) {
@@ -50,8 +55,9 @@ export function ManualPdfStaleBanner({
   if (!pdfWaitTimedOut) return null
   if (dismissedCycleKey === cycleKey) return null
 
-  const pollBlurb =
-    pdfPollErrorCount >= 2 || pdfPollTransientCount >= 2
+  const pollBlurb = generationFailure?.refusal
+    ? describePdfRefusal(generationFailure.refusal, translate)
+    : pdfPollErrorCount >= 2 || pdfPollTransientCount >= 2
       ? translate('pdfPollDegradedHint')
       : translate('pdfStalledBlurb')
   const lastPdfUrl = report.pdfUrl || availablePdfUrl || null

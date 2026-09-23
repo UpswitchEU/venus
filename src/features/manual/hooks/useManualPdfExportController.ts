@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { DownloadHistoryItem } from '../../../components/calculator'
+import { type PdfRefusal, PdfRequestRefusedError } from '../../../hooks/pdfGenerationModel'
 import { trackPDFDownload } from '../../../lib/analytics'
 import { APIError } from '../../../types/errors'
 import { generalLogger } from '../../../utils/logger'
@@ -21,7 +22,10 @@ export interface UseManualPdfExportControllerParams {
   resolvedReportId?: string | null
   canDownloadPdf: boolean
   pdfStale: boolean
-  /** When true, a background PDF job is running — do not toast "stale" on export. */
+  /**
+   * When true, a background PDF job is running and export waits for it. A stale PDF with no
+   * job running is exported through the download route, which regenerates it on demand.
+   */
   isPdfGenerating?: boolean
   downloadPdf: (
     url?: string,
@@ -32,13 +36,14 @@ export interface UseManualPdfExportControllerParams {
   openPdfPaywall: () => void
   defaultFilename: string
   pdfSuffix: string
-  staleHint: string
   /** Shown when Titan/BFF returns transient 5xx during download (pooler blips). */
   transientDownloadHint: string
   exportFailedTitle: string
   exportFailedDescription: string
   generatingTitle: string
   downloadedTitle: string
+  /** The adviser-facing reason when the server refuses to produce this report's PDF. */
+  describeRefusal: (refusal: PdfRefusal) => string
 }
 
 export interface UseManualPdfExportControllerResult {
@@ -60,12 +65,12 @@ export function useManualPdfExportController({
   openPdfPaywall,
   defaultFilename,
   pdfSuffix,
-  staleHint,
   transientDownloadHint,
   exportFailedTitle,
   exportFailedDescription,
   generatingTitle,
   downloadedTitle,
+  describeRefusal,
 }: UseManualPdfExportControllerParams): UseManualPdfExportControllerResult {
   const [isExporting, setIsExporting] = useState(false)
   const [downloadHistory, setDownloadHistory] = useState<DownloadHistoryItem[]>([])
@@ -102,12 +107,8 @@ export function useManualPdfExportController({
       openPdfPaywall()
       return
     }
-    if (pdfStale) {
-      if (isPdfGenerating) {
-        toast.info(generatingTitle, { id: PDF_EXPORT_TOAST_ID })
-        return
-      }
-      toast.warning(staleHint)
+    if (pdfStale && isPdfGenerating) {
+      toast.info(generatingTitle, { id: PDF_EXPORT_TOAST_ID })
       return
     }
 
@@ -165,8 +166,14 @@ export function useManualPdfExportController({
       if (!isCurrentRun()) return
       generalLogger.error('[ManualValuationWorkspace] PDF export failed', {
         error: error instanceof Error ? error.message : String(error),
+        code: error instanceof PdfRequestRefusedError ? error.refusal.code : undefined,
       })
-      toast.error(exportFailedTitle, { description: exportFailedDescription })
+      toast.error(exportFailedTitle, {
+        description:
+          error instanceof PdfRequestRefusedError
+            ? describeRefusal(error.refusal)
+            : exportFailedDescription,
+      })
     } finally {
       if (isCurrentRun()) {
         toast.dismiss(PDF_EXPORT_TOAST_ID)
@@ -180,6 +187,7 @@ export function useManualPdfExportController({
   }, [
     canDownloadPdf,
     defaultFilename,
+    describeRefusal,
     downloadedTitle,
     downloadPdf,
     exportFailedDescription,
@@ -191,7 +199,6 @@ export function useManualPdfExportController({
     pdfSuffix,
     report,
     currentPdfReportId,
-    staleHint,
     transientDownloadHint,
   ])
 

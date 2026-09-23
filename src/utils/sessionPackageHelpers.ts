@@ -90,3 +90,34 @@ export function mergeSessionDataForReportAssets<T extends Record<string, unknown
     [LAST_VALUATION_REQUEST_SESSION_KEY]: lastValuationRequest,
   }
 }
+
+/**
+ * Session blob for `saveReportAssets` when some inputs changed while the calculation ran.
+ *
+ * Titan merges the saved blob over the stored session (`{...stored, ...sessionData}`), so a
+ * submit-time copy of a field that the user has since edited would overwrite the newer value.
+ * This variant drops the changed fields and the request-derived input fields (which describe the
+ * submitted inputs, not the current ones), and keeps the keys that belong to the result.
+ */
+export function mergeSessionDataForReportAssetsKeepingNewerInputs<
+  T extends Record<string, unknown>,
+>(
+  sessionData: T | null | undefined,
+  lastValuationRequest: Record<string, unknown>,
+  taxLatencyItems: unknown[],
+  changedKeys: readonly string[]
+): Record<string, unknown> {
+  const base: Record<string, unknown> =
+    sessionData && typeof sessionData === 'object' && !Array.isArray(sessionData)
+      ? { ...sessionData }
+      : {}
+  for (const key of changedKeys) delete base[key]
+  for (const key of SESSION_SNAPSHOT_KEYS_FROM_VALUATION_REQUEST) delete base[key]
+  delete base.revenue
+  delete base.ebitda
+  return {
+    ...base,
+    _taxLatencies: taxLatencyItems,
+    [LAST_VALUATION_REQUEST_SESSION_KEY]: lastValuationRequest,
+  }
+}

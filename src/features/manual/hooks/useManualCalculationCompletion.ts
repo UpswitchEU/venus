@@ -2,7 +2,7 @@ import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback 
 import { toast } from 'sonner'
 import { reportAssetService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
-import { useManualResultsStore } from '../../../store/manual'
+import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
@@ -21,10 +21,12 @@ import {
   type SubmittedFinancialSnapshot,
 } from '../utils/manualFinancialSnapshot'
 import { saveManualCalculationReportAssets } from '../utils/manualReportAssetSave'
+import { formKeysChangedSinceSubmit } from '../utils/manualReportAssets'
 import {
   applyPostCalculateHtmlRecovery,
   needsManualReportHtmlRecovery,
 } from '../utils/manualReportHtmlRecoveryUtil'
+import { recordManualValuationSaved } from '../utils/manualValuationSaveReceipt'
 import { scheduleManualVersionHistorySync } from '../utils/manualVersionHistorySync'
 import type { ManualVersionBaseline } from '../utils/manualVersioningDecision'
 import { runManualCalculationVersioning } from '../utils/manualVersioningExecutor'
@@ -120,31 +122,115 @@ export function useManualCalculationCompletion({
       valuationResult,
     }: CompleteManualCalculationParams): Promise<CompleteManualCalculationResult> => {
       const willPersist = Boolean(idForApi)
+      // Edits made while the calculation ran must survive its save: Titan merges the saved
+      // form over the stored session, so the submit-time copy would overwrite them there.
+      const inputsChangedSinceSubmit = () =>
+        formKeysChangedSinceSubmit(
+          storeSnapshot as unknown as Record<string, unknown>,
+          useManualFormStore.getState().formData as unknown as Record<string, unknown>
+        )
+      const changedFormKeys = inputsChangedSinceSubmit()
+      if (changedFormKeys.length > 0) {
+        generalLogger.info('[ManualValuationWorkspace] Inputs changed while calculating', {
+          reportId: idForApi,
+          changedFields: changedFormKeys,
+        })
+      }
+      // The result reflects the submitted inputs, so "inputs changed" only stays armed for
+      // edits made while it ran. Later edits re-arm it through the form change handler.
+      setIsDirty(changedFormKeys.length > 0)
+
       if (willPersist) {
         durableSaveInFlightRef.current = true
         setDraftStatus('saving')
       }
 
       setResult(valuationResult)
+      useManualResultsStore.getState().announceNewResult()
+      const announcementSeq = useManualResultsStore.getState().resultAnnouncementSeq
       let resultForUi = valuationResult
       submitRun.endLoading()
       lastSubmittedFinancialSnapshotRef.current = buildSubmittedFinancialSnapshot(request)
 
-      const saveResult = await saveManualCalculationReportAssets({
-        reportId: idForApi,
-        sessionData: storeSnapshot as unknown as Record<string, unknown>,
-        request: request as unknown as Record<string, unknown>,
-        taxLatencyItems: useTaxLatencyStore.getState().items,
-        valuationResult,
-        name: sessionName,
-        dirtyVersion: useSessionStore.getState().dirtyVersion,
-        isStillTarget: submitRun.isStillTarget,
-        deps: {
-          saveReportAssets: (reportId, assets) =>
-            reportAssetService.saveReportAssets(reportId, assets),
-          markSaved: (dirtyVersion) => useSessionStore.getState().markSaved(dirtyVersion),
-        },
-      })
+      const dirtyVersion = useSessionStore.getState().dirtyVersion
+      const initialVersionLabel = startProposalVersionLabelRef.current
+      const saveResultAssets = (keysToKeepOut: readonly string[]) =>
+        saveManualCalculationReportAssets({
+          reportId: idForApi,
+          sessionData: storeSnapshot as unknown as Record<string, unknown>,
+          request: request as unknown as Record<string, unknown>,
+          taxLatencyItems: useTaxLatencyStore.getState().items,
+          valuationResult,
+          name: sessionName,
+          dirtyVersion,
+          isStillTarget: submitRun.isStillTarget,
+          changedFormKeys: keysToKeepOut,
+          deps: {
+            saveReportAssets: (reportId, assets) =>
+              reportAssetService.saveReportAssets(reportId, assets),
+            markSaved: (version) => useSessionStore.getState().markSaved(version),
+          },
+        })
+      let durablySaved = false
+      const markDurablySaved = () => {
+        durablySaved = true
+        setDraftStatus('saved')
+        setLastSaved(new Date())
+        if (idForApi) {
+          recordManualValuationSaved([idForApi, useSessionStore.getState().session?.reportId])
+        }
+      }
+      const runVersioning = (durableSaveSucceeded: boolean) =>
+        completeManualVersioning({
+          calculationDurationMs,
+          createVersion,
+          durableSaveSucceeded,
+          idForApi,
+          previousVersion,
+          request,
+          retrySubmit,
+          submitRun,
+          translate,
+          translateHistory,
+          userId,
+          valuationResult,
+          versionSyncTimeoutRef,
+          initialVersionLabel,
+        })
+
+      // Re-sends this result only while it is still the newest one of this report: a later
+      // calculation or a loaded version owns the report and must not be overwritten.
+      let retryInFlight = false
+      const retryResultSave = async (): Promise<void> => {
+        if (
+          retryInFlight ||
+          durablySaved ||
+          !idForApi ||
+          !submitRun.isStillTarget() ||
+          useManualResultsStore.getState().resultAnnouncementSeq !== announcementSeq
+        ) {
+          return
+        }
+        retryInFlight = true
+        durableSaveInFlightRef.current = true
+        setDraftStatus('saving')
+        const retryResult = await saveResultAssets(inputsChangedSinceSubmit())
+        durableSaveInFlightRef.current = false
+        retryInFlight = false
+        if (retryResult.aborted) return
+        if (!retryResult.durableSaveSucceeded) {
+          setDraftStatus('draft')
+          toastSaveFailure(retryResult.saveError, translateReport, {
+            onRetry: () => void retryResultSave(),
+          })
+          return
+        }
+        markDurablySaved()
+        toast.success(translateReport('saveRetrySucceeded'))
+        await runVersioning(true)
+      }
+
+      const saveResult = await saveResultAssets(changedFormKeys)
 
       if (saveResult.aborted) {
         if (willPersist) durableSaveInFlightRef.current = false
@@ -159,13 +245,13 @@ export function useManualCalculationCompletion({
               ? saveResult.saveError.message
               : String(saveResult.saveError),
         })
-        toastSaveFailure(saveResult.saveError, translateReport)
+        toastSaveFailure(saveResult.saveError, translateReport, {
+          onRetry: () => void retryResultSave(),
+        })
       }
 
       if (saveResult.durableSaveSucceeded) {
-        setDraftStatus('saved')
-        setLastSaved(new Date())
-        setIsDirty(false)
+        markDurablySaved()
       } else if (!saveResult.aborted && willPersist) {
         setDraftStatus('draft')
       }
@@ -174,22 +260,7 @@ export function useManualCalculationCompletion({
         durableSaveInFlightRef.current = false
       }
 
-      const versionCreationFailed = await completeManualVersioning({
-        calculationDurationMs,
-        createVersion,
-        durableSaveSucceeded: saveResult.durableSaveSucceeded,
-        idForApi,
-        previousVersion,
-        request,
-        retrySubmit,
-        submitRun,
-        translate,
-        translateHistory,
-        userId,
-        valuationResult,
-        versionSyncTimeoutRef,
-        initialVersionLabel: startProposalVersionLabelRef.current,
-      })
+      const versionCreationFailed = await runVersioning(saveResult.durableSaveSucceeded)
 
       if (versionCreationFailed.aborted) {
         return {
