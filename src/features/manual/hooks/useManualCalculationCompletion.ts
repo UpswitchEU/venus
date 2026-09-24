@@ -202,15 +202,17 @@ export function useManualCalculationCompletion({
       // calculation or a loaded version owns the report and must not be overwritten.
       let retryInFlight = false
       const retryResultSave = async (): Promise<void> => {
-        if (
-          retryInFlight ||
-          durablySaved ||
-          !idForApi ||
-          !submitRun.isStillTarget() ||
-          useManualResultsStore.getState().resultAnnouncementSeq !== announcementSeq
-        ) {
+        if (retryInFlight || durablySaved || !idForApi) return
+        if (!submitRun.isStillTarget()) {
+          // A failed first save of a new report replaces the workspace with the
+          // session error screen, which unmounts this run: the toast's retry must
+          // still re-send the failed payload instead of silently doing nothing.
+          if (useManualResultsStore.getState().resultAnnouncementSeq === announcementSeq) {
+            await reportAssetService.retryFailedSave(idForApi).catch(() => undefined)
+          }
           return
         }
+        if (useManualResultsStore.getState().resultAnnouncementSeq !== announcementSeq) return
         retryInFlight = true
         durableSaveInFlightRef.current = true
         setDraftStatus('saving')

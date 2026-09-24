@@ -14,10 +14,11 @@ import { useManualCalculationCompletion } from './useManualCalculationCompletion
 import type { ManualSubmitRun } from './useManualSubmitRunGuard'
 
 const saveReportAssets = vi.hoisted(() => vi.fn())
+const retryFailedSave = vi.hoisted(() => vi.fn())
 const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 
 vi.mock('sonner', () => ({ toast }))
-vi.mock('../../../services', () => ({ reportAssetService: { saveReportAssets } }))
+vi.mock('../../../services', () => ({ reportAssetService: { saveReportAssets, retryFailedSave } }))
 vi.mock('../../../services/audit/ValuationAuditService', () => ({
   valuationAuditService: { logRegeneration: vi.fn() },
 }))
@@ -115,6 +116,8 @@ describe('useManualCalculationCompletion', () => {
   beforeEach(() => {
     saveReportAssets.mockReset()
     saveReportAssets.mockResolvedValue(undefined)
+    retryFailedSave.mockReset()
+    retryFailedSave.mockResolvedValue(undefined)
     Object.values(toast).forEach((fn) => fn.mockReset())
     resetManualValuationSaveReceiptsForTests()
     useManualFormStore.setState({ formData: submittedForm })
@@ -122,6 +125,34 @@ describe('useManualCalculationCompletion', () => {
 
   afterEach(() => {
     useManualFormStore.getState().resetForm()
+  })
+
+  describe('retry after a failed first save (review of #44)', () => {
+    it('re-sends the failed save through the service when the error screen replaced the workspace', async () => {
+      // A failed first save of a new report swaps the workspace for the session
+      // error screen: the run is no longer the target, and the toast's retry
+      // used to return without doing anything.
+      saveReportAssets.mockRejectedValueOnce(new Error('HTTP 503'))
+      let stillTarget = true
+      const run = submitRun({ isStillTarget: () => stillTarget })
+      const { complete } = renderCompletion()
+
+      await act(async () => {
+        await complete(run)
+      })
+      const retry = toast.warning.mock.calls.at(-1)?.[1]?.action?.onClick as
+        | (() => void)
+        | undefined
+      expect(retry).toBeTypeOf('function')
+
+      stillTarget = false
+      await act(async () => {
+        retry?.()
+        await Promise.resolve()
+      })
+
+      expect(retryFailedSave).toHaveBeenCalledWith(REPORT_ID)
+    })
   })
 
   describe('edits made while the calculation runs (F-05)', () => {

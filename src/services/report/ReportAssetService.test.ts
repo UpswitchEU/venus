@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ValuationResponse } from '../../types/valuation'
+import {
+  resetManualValuationSaveReceiptsForTests,
+  wasManualValuationSavedThisVisit,
+} from '../../features/manual/utils/manualValuationSaveReceipt'
 import { pendingReportAssetSaves, ReportAssetService } from './ReportAssetService'
 
 type ReportAssetServiceInternals = ReportAssetService & {
@@ -123,5 +127,37 @@ describe('ReportAssetService asset save queue', () => {
       expect.any(Function),
       expect.any(Function)
     )
+  })
+
+  it('records the save receipt for a durable save of a calculated result, whichever path saved it', async () => {
+    // Review of #44: the error screen's "Try again" re-sent a failed first save
+    // without the receipt, so the advisor returned to Mercury without
+    // `from=valuation` although the save succeeded.
+    resetManualValuationSaveReceiptsForTests()
+    const service = ReportAssetService.getInstance() as ReportAssetServiceInternals
+    const internalSave = vi.spyOn(service, '_saveReportAssetsInternal')
+    internalSave.mockRejectedValueOnce(new Error('HTTP 503'))
+
+    await expect(
+      service.saveReportAssets('report-7', {
+        valuationResult: { equity_value_mid: 1 } as unknown as ValuationResponse,
+      })
+    ).rejects.toThrow('HTTP 503')
+    expect(wasManualValuationSavedThisVisit(['report-7'])).toBe(false)
+
+    internalSave.mockResolvedValueOnce(undefined)
+    await service.retryFailedSave('report-7')
+
+    expect(wasManualValuationSavedThisVisit(['report-7'])).toBe(true)
+  })
+
+  it('does not record a receipt for a save without a calculated result', async () => {
+    resetManualValuationSaveReceiptsForTests()
+    const service = ReportAssetService.getInstance() as ReportAssetServiceInternals
+    vi.spyOn(service, '_saveReportAssetsInternal').mockResolvedValueOnce(undefined)
+
+    await service.saveReportAssets('report-8', { name: 'draft only' })
+
+    expect(wasManualValuationSavedThisVisit(['report-8'])).toBe(false)
   })
 })
