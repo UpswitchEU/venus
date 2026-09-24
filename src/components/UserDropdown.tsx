@@ -11,6 +11,10 @@ import {
   navigateToMercuryFromManualHandoff,
   readManualMercuryHandoffFromBrowser,
 } from '@/features/manual/utils/manualMercuryNavigate'
+import {
+  hasCompletedManualValuation,
+  resolveManualMercuryReportId,
+} from '@/features/manual/utils/manualMercuryNavigation'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type { User as UserType } from '../contexts/AuthContextTypes'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
@@ -69,9 +73,6 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
     pathname,
     sessionReportId: session?.reportId,
   })
-
-  /** Only then may Mercury show "valuation added to business card" — not on plain exit. */
-  const celebrateMercuryReturn = !!session?.valuationResult || !!session?.htmlReport
 
   // Debug logging for pathname detection
   useEffect(() => {
@@ -197,6 +198,10 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
     )
   }
 
+  // Every way back to Mercury claims "valuation added", and names the report, only for a
+  // result saved during this visit, as "Exit client view" does: a result on screen proves
+  // nothing, since Mercury's "Start valuation" re-opens the latest report. The receipt is
+  // not React state, so it is read when the advisor leaves.
   const handleBackToDashboard = () => {
     setIsOpen(false)
     const locale = resolveMercuryLocale(pathname)
@@ -205,7 +210,8 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
     navigateToMercuryFromManualHandoff({
       currentLocale: locale,
       clientContextId: relationshipId,
-      hasCompletedValuation: celebrateMercuryReturn,
+      hasCompletedValuation: hasCompletedManualValuation(null, session, reportId),
+      reportId: resolveManualMercuryReportId(null, session, reportId),
     })
   }
 
@@ -261,7 +267,8 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
       navigateToMercuryFromManualHandoff({
         currentLocale: locale,
         clientContextId: relId,
-        hasCompletedValuation: celebrateMercuryReturn,
+        hasCompletedValuation: hasCompletedManualValuation(null, session, reportId),
+        reportId: resolveManualMercuryReportId(null, session, reportId),
       })
       return
     }
@@ -333,7 +340,8 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         navigateToMercuryFromManualHandoff({
           currentLocale: locale,
           clientContextId: relId2,
-          hasCompletedValuation: celebrateMercuryReturn,
+          hasCompletedValuation: hasCompletedManualValuation(null, session, reportId),
+          reportId: resolveManualMercuryReportId(null, session, reportId),
         })
         return
       }
@@ -361,7 +369,8 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         navigateToMercuryFromManualHandoff({
           currentLocale: locale,
           clientContextId: relId3,
-          hasCompletedValuation: celebrateMercuryReturn,
+          hasCompletedValuation: hasCompletedManualValuation(null, session, reportId),
+          reportId: resolveManualMercuryReportId(null, session, reportId),
         })
         return
       }
