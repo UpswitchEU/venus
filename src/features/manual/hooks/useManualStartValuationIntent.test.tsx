@@ -12,6 +12,8 @@ const readyData = {
   companyName: 'Demonlabs',
   businessType: 'software',
   country: 'BE',
+  ownerManagers: 1,
+  fteEmployees: 4,
   yearlyFinancials: [
     { year: 2021, revenue: 13_000, ebitda: 13_000 },
     { year: 2022, revenue: 25_000, ebitda: 25_000 },
@@ -285,6 +287,34 @@ describe('useManualStartValuationIntent', () => {
     expect(onAutomaticStartSkipped).toHaveBeenCalledTimes(1)
     // Nothing persisted as complete: a fresh explicit CTA can try again.
     expect(window.sessionStorage.getItem(startValuationIntentStorageKey('val_1_demo'))).toBeNull()
+  })
+
+  // E-04a: with no headcount from Mercury the automatic run used to go out with an
+  // invented one; now it waits for the advisor like every other calculate path.
+  it('drops the intent when no source gave a headcount', async () => {
+    const onStart = vi.fn().mockResolvedValue(true)
+    const onAutomaticStartSkipped = vi.fn()
+    const noHeadcountData = { ...readyData, fteEmployees: undefined } as ValuationFormData
+    renderHook(() =>
+      useManualStartValuationIntent({
+        accountantCustomerId: 'client-1',
+        buildSubmitData: () => noHeadcountData,
+        effectiveMethod: 'upswitch_adaptive',
+        hasExistingValuation: false,
+        intent: 'start_valuation',
+        isAccountantMode: true,
+        isCalculating: false,
+        isGenerating: false,
+        onAutomaticStartSkipped,
+        onStart,
+        reportId: 'val_1_demo',
+        restorationComplete: true,
+      })
+    )
+
+    await waitFor(() => expect(onAutomaticStartSkipped).toHaveBeenCalledTimes(1))
+    expect(onAutomaticStartSkipped).toHaveBeenCalledWith('form_invalid', 'employeeCountMissing')
+    expect(onStart).not.toHaveBeenCalled()
   })
 
   it('drops the intent once the advisor has started editing before the gates open', async () => {

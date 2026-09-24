@@ -8,6 +8,7 @@ import {
 export type ManualSubmitValidationIssue =
   | 'companyNameMissing'
   | 'businessTypeMissing'
+  | 'employeeCountMissing'
   | 'financialDataIncomplete'
   | 'dcfNotReady'
 
@@ -19,6 +20,10 @@ export const MANUAL_SUBMIT_VALIDATION_TOAST_KEYS = {
   businessTypeMissing: {
     title: 'businessTypeMissing',
     description: 'businessTypeMissingDesc',
+  },
+  employeeCountMissing: {
+    title: 'employeeCountMissing',
+    description: 'employeeCountMissingDesc',
   },
   financialDataIncomplete: {
     title: 'financialDataIncomplete',
@@ -37,6 +42,9 @@ export interface ManualSubmitValidationData {
   businessTypeId?: string | null
   business_type_id?: string | null
   business_type_segments?: Array<{ business_type_id?: string | null } | null> | null
+  businessStructure?: string | null
+  ownerManagers?: number | null
+  fteEmployees?: number | null
   yearlyFinancials?: Array<
     YearlyFinancialLike & { isForecast?: boolean; is_forecast?: boolean }
   > | null
@@ -68,9 +76,21 @@ function hasResolvedBusinessType(
 }
 
 /**
+ * The engine reads the headcount against the owners (owner concentration, sole-trader
+ * detection), so a company with owner-managers needs a real count: asked for, never
+ * assumed. 0 is a valid answer; sole traders send none.
+ */
+function isEmployeeCountMissing(data: ManualSubmitValidationData): boolean {
+  const hasOwnerManagers = (data.ownerManagers ?? 1) > 0
+  if (data.businessStructure === 'sole-trader' || !hasOwnerManagers) return false
+  return typeof data.fteEmployees !== 'number' || !Number.isFinite(data.fteEmployees)
+}
+
+/**
  * Validates only the minimum submit blockers. Every valuation path needs a
- * resolved business-type identity; venture-path methods only skip SME
- * historical-financial blockers because their engine is milestone driven.
+ * resolved business-type identity; venture-path methods only skip the SME
+ * headcount and historical-financial blockers because their engine is
+ * milestone driven.
  */
 export function getManualSubmitValidationIssue(
   data: ManualSubmitValidationData,
@@ -84,6 +104,8 @@ export function getManualSubmitValidationIssue(
   }
 
   if (isVenturePath) return null
+
+  if (isEmployeeCountMissing(data)) return 'employeeCountMissing'
 
   if (!getLatestCompleteYearlyFinancial(data.yearlyFinancials ?? [])) {
     return 'financialDataIncomplete'

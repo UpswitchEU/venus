@@ -15,10 +15,23 @@ describe('buildManualInputInitialFormData', () => {
       naceCode: '62010',
       canonicalNaceCode: '62010',
       ownerManagers: 1,
-      fteEmployees: 5,
       dcf_input_mode: 'ebitda',
     })
     expect(result.yearlyFinancials).toEqual([{ year: '2024', revenue: 100, ebitda: 20 }])
+  })
+
+  // E-04a: the seed used to invent 5 employees, which reached the engine and the report
+  // as the company's own headcount. Unknown now stays empty until a source or the advisor
+  // fills it.
+  it('does not invent a headcount when no source provides one', () => {
+    const result = buildManualInputInitialFormData({ companyName: 'Acme BV' })
+
+    expect(result.fteEmployees).toBeUndefined()
+  })
+
+  it('keeps a headcount a source provided, including 0', () => {
+    expect(buildManualInputInitialFormData({ fteEmployees: 12 }).fteEmployees).toBe(12)
+    expect(buildManualInputInitialFormData({ fteEmployees: 0 }).fteEmployees).toBe(0)
   })
 
   it('preserves explicit DCF input mode and filing-year confirmation', () => {

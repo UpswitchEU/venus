@@ -1,13 +1,17 @@
 import { act, renderHook } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage, ValuationFormData } from '@/components/calculator'
 import {
   STARTUP_SUBMIT_REVIEW_REQUEST_EVENT,
   type StartupSubmitReviewRequestDetail,
 } from '@/features/startup-studio/utils/startupSubmitReviewRequest'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
+import { buildManualLiveValuationSubmitData } from '../utils/manualInputData'
 import { useManualAiProposalActions } from './useManualAiProposalActions'
+import { useManualSubmitController } from './useManualSubmitController'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -22,7 +26,31 @@ vi.mock('@/lib/analytics', () => ({
   trackReturnToMercury: vi.fn(),
 }))
 
+// Only the engine call and what follows it are stubbed: the approved-run tests below
+// drive the real submit controller up to the point where it would calculate.
+const calculationMocks = vi.hoisted(() => ({
+  runManualCalculationExecution: vi.fn(),
+  handleManualSubmitError: vi.fn(),
+}))
+
+vi.mock('./useManualCalculationExecution', () => ({
+  useManualCalculationExecution: () => ({
+    runManualCalculationExecution: calculationMocks.runManualCalculationExecution,
+  }),
+}))
+
+vi.mock('./useManualCalculationCompletion', () => ({
+  useManualCalculationCompletion: () => ({ completeManualCalculation: vi.fn() }),
+}))
+
+vi.mock('./useManualSubmitErrorHandler', () => ({
+  useManualSubmitErrorHandler: () => ({
+    handleManualSubmitError: calculationMocks.handleManualSubmitError,
+  }),
+}))
+
 const initialManualResultsSnapshot = useManualResultsStore.getState()
+const initialManualFormSnapshot = useManualFormStore.getState()
 const startupSubmitReviewListeners = new Set<EventListener>()
 
 function createChatMessage(): ChatMessage {
@@ -234,5 +262,130 @@ describe('useManualAiProposalActions', () => {
     })
 
     expect(result.current.messages[0]?.reportGenerationRequests?.[0]?.decision).toBeUndefined()
+  })
+})
+
+const identity = (key: string) => key
+
+/** A company the assistant may value: everything known except, per test, the headcount. */
+const approvedRunInitialData: Partial<ValuationFormData> = {
+  companyName: 'Acme',
+  businessType: 'consulting',
+  businessStructure: 'bv',
+  country: 'BE',
+  ownerManagers: 1,
+  yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+}
+
+/**
+ * The approved run as the workspace wires it: the proposal action builds the live submit
+ * data and hands it to the real submit controller, whose shared check runs first.
+ */
+function renderApprovedRunWiring(liveData: Partial<ValuationFormData> | null) {
+  const trySetCalculating = vi.fn(() => true)
+  const rendered = renderHook(() => {
+    const [messages, setMessages] = useState<ChatMessage[]>([createChatMessage()])
+    const { handleManualSubmit, lastSubmittedDataRef } = useManualSubmitController({
+      calculationRequestIdentifiers: {},
+      createVersion: vi.fn(),
+      currentLocale: 'en',
+      durableSaveInFlightRef: { current: false },
+      getLatestVersion: () => null,
+      isAccountantMode: true,
+      lastSubmittedFinancialSnapshotRef: { current: null },
+      linkedIdentifier: null,
+      preSelectedMethod: null,
+      reportId: 'val_1_demo',
+      resolvedReportId: null,
+      restorationComplete: false,
+      result: null,
+      selectedMethod: 'upswitch_adaptive',
+      setCalculating: vi.fn(),
+      setCollectedData: vi.fn(),
+      setDraftStatus: vi.fn(),
+      setIsDirty: vi.fn(),
+      setIsGenerating: vi.fn(),
+      setLastSaved: vi.fn(),
+      setResult: vi.fn(),
+      startProposalVersionLabelRef: { current: null },
+      synthesisSelection: { preSelectedMethods: [], userWeights: {} },
+      translate: identity,
+      translateErrors: identity,
+      translateHistory: identity,
+      translatePreparer: identity,
+      translateReport: identity,
+      trySetCalculating,
+      updateFormData: (updates) => useManualFormStore.getState().updateFormData(updates),
+      versionSyncTimeoutRef: { current: null },
+      warnIfSubmitSynthesisSkipped: vi.fn(),
+    })
+    const actions = useManualAiProposalActions({
+      activeSessionKey: null,
+      buildLiveValuationSubmitData: () =>
+        buildManualLiveValuationSubmitData({
+          initialData: approvedRunInitialData,
+          liveData,
+          fallbackYearlyFinancials: [],
+        }),
+      clientContextId: null,
+      contextRelationshipId: null,
+      handlePdfExport: null,
+      handleManualSubmit,
+      isStartupAssistantRoute: false,
+      lastSubmittedDataRef,
+      mercuryLocale: 'nl',
+      postValuationListingHandoffPendingRef: { current: false },
+      reportId: null,
+      resolvedReportId: null,
+      resultValuationId: null,
+      session: null,
+      setChatMessages: setMessages,
+    })
+    return { actions, messages }
+  })
+  return { ...rendered, trySetCalculating }
+}
+
+describe('useManualAiProposalActions approved valuation run', () => {
+  beforeEach(() => {
+    vi.mocked(toast.warning).mockClear()
+    calculationMocks.runManualCalculationExecution.mockReset().mockResolvedValue({ aborted: true })
+    calculationMocks.handleManualSubmitError.mockReset()
+  })
+
+  afterEach(() => {
+    useManualResultsStore.setState(initialManualResultsSnapshot, true)
+    useManualFormStore.setState(initialManualFormSnapshot, true)
+  })
+
+  // E-04a: this run skips the panel's field check, and it used to fill an unknown
+  // headcount with 0 — with one owner, a sole trader to the engine.
+  it('refuses the run with a toast when no source gave a headcount', async () => {
+    const { result, trySetCalculating } = renderApprovedRunWiring(null)
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
+    })
+
+    expect(toast.warning).toHaveBeenCalledWith('employeeCountMissing', {
+      description: 'employeeCountMissingDesc',
+    })
+    expect(trySetCalculating).not.toHaveBeenCalled()
+    expect(calculationMocks.runManualCalculationExecution).not.toHaveBeenCalled()
+  })
+
+  it('calculates with the headcount the advisor typed, 0 included', async () => {
+    const { result } = renderApprovedRunWiring({ fteEmployees: 0 })
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
+    })
+
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(calculationMocks.handleManualSubmitError).not.toHaveBeenCalled()
+    expect(calculationMocks.runManualCalculationExecution).toHaveBeenCalledTimes(1)
+    expect(calculationMocks.runManualCalculationExecution.mock.calls[0]?.[0].request).toMatchObject(
+      { number_of_employees: 0, number_of_owners: 1 }
+    )
   })
 })

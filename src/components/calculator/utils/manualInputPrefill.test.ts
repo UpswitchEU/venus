@@ -14,7 +14,8 @@ function makeForm(overrides: Partial<ManualValuationFormData> = {}): ManualValua
     country: 'BE',
     businessStructure: '',
     ownerManagers: 1,
-    fteEmployees: 5,
+    // The panel seeds no headcount (E-04a): unknown stays empty.
+    fteEmployees: undefined,
     yearlyFinancials: [
       { year: '2024', revenue: 0, ebitda: 0 },
       { year: '2023', revenue: 0, ebitda: 0 },
@@ -117,6 +118,19 @@ describe('manual input prefill utilities', () => {
       fteEmployees: 9,
     })
     expect(result.next.yearlyFinancials).toEqual(previous.yearlyFinancials)
+  })
+
+  // 5 used to be the seeded placeholder, so a late prefill replaced it. Now that nothing
+  // seeds 5, a 5 in the field is the advisor's own.
+  it('keeps a headcount of 5 the advisor typed when a late prefill arrives', () => {
+    const result = applyManualInitialPrefill({
+      previous: makeForm({ fteEmployees: 5 }),
+      countryUserOverridden: false,
+      prefill: { fteEmployees: 12 },
+    })
+
+    expect(result.next.fteEmployees).toBe(5)
+    expect(result.updates).not.toHaveProperty('fteEmployees')
   })
 
   it('builds the selected company shell with canonical NACE metadata', () => {

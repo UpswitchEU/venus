@@ -2314,6 +2314,8 @@
 		"companyNameMissingDesc": "Entrez un nom d'entreprise ou effectuez une recherche via KBO.",
 		"businessTypeMissing": "Type d'entreprise manquant",
 		"businessTypeMissingDesc": "Sélectionnez un type d'entreprise pour continuer.",
+		"employeeCountMissing": "Nombre d'employés manquant",
+		"employeeCountMissingDesc": "Entrez l'ETP total (0 si propriétaire uniquement) pour continuer.",
 		"startProposalSkipped": "Proposition initiale non générée",
 		"startProposalSkippedDesc": "Vérifiez les chiffres, puis cliquez sur Calculer quand vous êtes prêt.",
 		"financialDataIncomplete": "Données financières incomplètes",

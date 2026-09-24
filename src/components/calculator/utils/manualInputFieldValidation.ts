@@ -54,7 +54,12 @@ export function buildManualInputFieldValidation(
 
   if (formData.ownerManagers < 0) errors.ownerManagers = translate('validation.minZero')
 
-  if (formData.ownerManagers > 0 && formData.fteEmployees === undefined) {
+  // Sole traders send no headcount (the request drops it), so none is required.
+  if (
+    formData.ownerManagers > 0 &&
+    formData.fteEmployees === undefined &&
+    formData.businessStructure !== 'sole-trader'
+  ) {
     errors.fteEmployees = translate('validation.fteRequired')
   } else if (formData.fteEmployees !== undefined) {
     if (formData.fteEmployees < 0) errors.fteEmployees = translate('validation.minZero')

@@ -2314,6 +2314,8 @@
 		"companyNameMissingDesc": "Vul een bedrijfsnaam in of zoek via KBO.",
 		"businessTypeMissing": "Bedrijfstype ontbreekt",
 		"businessTypeMissingDesc": "Selecteer een bedrijfstype om verder te gaan.",
+		"employeeCountMissing": "Aantal werknemers ontbreekt",
+		"employeeCountMissingDesc": "Vul het totaal aantal FTE in (0 indien alleen eigenaar) om verder te gaan.",
 		"startProposalSkipped": "Startvoorstel niet aangemaakt",
 		"startProposalSkippedDesc": "Controleer de cijfers en klik op Berekenen wanneer het past.",
 		"financialDataIncomplete": "Financiële gegevens onvolledig",
