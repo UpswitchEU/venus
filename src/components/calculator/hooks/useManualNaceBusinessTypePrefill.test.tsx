@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BusinessType } from '@/design-system'
 import { naceBusinessTypeService } from '../../../services/naceBusinessTypeService'
 import type { ManualValuationFormData } from '../../../types/valuation'
@@ -195,5 +195,106 @@ describe('useManualNaceBusinessTypePrefill', () => {
       await pending
     })
     expect(updateFormData).not.toHaveBeenCalled()
+  })
+})
+
+describe('useManualNaceBusinessTypePrefill with a last-resort Titan match', () => {
+  // Stable across renders, as in the panel, so the lookup effect runs once.
+  const localizeActivityCodeCopy = (copy: string) => copy
+  const translate = (key: string) => key
+
+  /** Route the hook through the real service, with Titan answering a same-sector guess. */
+  async function answerWithLastResortMatch() {
+    const actual = await vi.importActual<
+      typeof import('../../../services/naceBusinessTypeService')
+    >('../../../services/naceBusinessTypeService')
+    actual.naceBusinessTypeService.clearCache()
+    vi.mocked(naceBusinessTypeService.getBusinessTypeForNaceCode).mockImplementation((...args) =>
+      actual.naceBusinessTypeService.getBusinessTypeForNaceCode(...args)
+    )
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          business_type_id: 'arts-crafts',
+          confidence: 0.35,
+          resolver_path: 'section_category',
+          business_type: { id: 'arts-crafts', title: 'Arts & Crafts', category_id: 'creative' },
+        }),
+        { status: 200 }
+      )
+    )
+  }
+
+  afterEach(() => {
+    vi.mocked(naceBusinessTypeService.getBusinessTypeForNaceCode).mockReset()
+    vi.mocked(fetch).mockReset()
+  })
+
+  // E-05a: the guess used to be applied as the business type, silently choosing the peer
+  // group. The advisor now sees the existing "select manually" message instead.
+  it('asks the advisor to choose instead of applying it in the background', async () => {
+    await answerWithLastResortMatch()
+    const setFormData = vi.fn()
+    const setSelectedBusinessType = vi.fn()
+    const updateFormData = vi.fn()
+
+    const { result } = renderHook(() =>
+      useManualNaceBusinessTypePrefill({
+        businessTypesForSearch: [fintechType],
+        formData: {
+          businessType: '',
+          canonicalNaceCode: '25.11',
+          country: 'BE',
+        } as ManualValuationFormData,
+        localizeActivityCodeCopy,
+        selectedBusinessTypeId: undefined,
+        selectedCompany: null,
+        setFormData,
+        setSelectedBusinessType,
+        translate,
+        updateFormData,
+      })
+    )
+
+    await waitFor(() =>
+      expect(result.current.nacePrefillError).toBe('errors.noBusinessTypeForNace')
+    )
+    expect(updateFormData).not.toHaveBeenCalled()
+    expect(setFormData).not.toHaveBeenCalled()
+    expect(setSelectedBusinessType).not.toHaveBeenCalled()
+  })
+
+  it('asks the advisor to choose instead of applying it on company selection', async () => {
+    await answerWithLastResortMatch()
+    const setFormData = vi.fn()
+    const setSelectedBusinessType = vi.fn()
+    const updateFormData = vi.fn()
+
+    const { result } = renderHook(() =>
+      useManualNaceBusinessTypePrefill({
+        businessTypesForSearch: [fintechType],
+        formData: { companyName: 'Registry company', businessType: '' } as ManualValuationFormData,
+        localizeActivityCodeCopy,
+        selectedBusinessTypeId: undefined,
+        selectedCompany: null,
+        setFormData,
+        setSelectedBusinessType,
+        translate,
+        updateFormData,
+      })
+    )
+
+    await act(async () => {
+      await result.current.prefillBusinessTypeForCompany(
+        { name: 'Registry company', countryCode: 'BE' } as never,
+        {},
+        '25.11'
+      )
+    })
+
+    expect(result.current.nacePrefillError).toBe('errors.noBusinessTypeForNace')
+    expect(updateFormData).not.toHaveBeenCalled()
+    expect(setFormData).not.toHaveBeenCalled()
+    expect(setSelectedBusinessType).not.toHaveBeenCalled()
   })
 })

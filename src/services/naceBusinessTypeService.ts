@@ -122,9 +122,31 @@ function parseTitanBusinessType(value: unknown): TitanBusinessTypeResponse | nul
   }
 }
 
+/**
+ * Titan's last-resort tiers (a type from the same NACE section, then a generic default)
+ * exist so Delphi's indicative valuation never comes back empty. They are guesses, not
+ * mappings, and the business type picks the peer group, so the advisor chooses instead;
+ * the same goes for any match Titan scores below 0.5. A response without these fields
+ * is accepted as before.
+ */
+const LAST_RESORT_RESOLVER_PATHS = new Set(['section_category', 'global_default'])
+const MIN_AUTO_APPLY_CONFIDENCE = 0.5
+
+function isLastResortMatch(payload: Record<string, unknown>): boolean {
+  if (
+    typeof payload.resolver_path === 'string' &&
+    LAST_RESORT_RESOLVER_PATHS.has(payload.resolver_path)
+  ) {
+    return true
+  }
+  return typeof payload.confidence === 'number' && payload.confidence < MIN_AUTO_APPLY_CONFIDENCE
+}
+
 function parseBusinessTypePayload(value: unknown): TitanBusinessTypeResponse | null {
   if (!isRecord(value)) return null
-  return parseTitanBusinessType(value.business_type)
+  const businessType = parseTitanBusinessType(value.business_type)
+  if (!businessType || isLastResortMatch(value)) return null
+  return businessType
 }
 
 function mapToBusinessType(bt: TitanBusinessTypeResponse): BusinessType {
