@@ -21,6 +21,10 @@ import { normalizeValuationResultEnvelope } from '../../../utils/resolveAcademic
 import { validateOptionalValuationCompanyGraphContext } from '../../../utils/valuationCompanyGraphContext'
 import { APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY, VALUATION_OPERATION_TIMEOUT_MS } from '../valuationTimeouts'
+import {
+  VALUATION_INVALID_DATA_FALLBACK_MESSAGE,
+  VALUATION_SERVICE_UNAVAILABLE_FALLBACK_MESSAGE,
+} from './valuationApiFallbackMessages'
 
 /**
  * BANK-GRADE TIMEOUT CHAIN
@@ -425,7 +429,10 @@ export class ValuationAPI extends HttpClient {
     }
 
     if (status === 400 || status === 422) {
-      const message = extractValidationMessage(responseData, 'Invalid valuation data provided.')
+      const message = extractValidationMessage(
+        responseData,
+        VALUATION_INVALID_DATA_FALLBACK_MESSAGE
+      )
       const validationIssues = extractValidationIssues(
         response?.validationErrors ?? response?.errors
       )
@@ -466,14 +473,14 @@ export class ValuationAPI extends HttpClient {
         const userMessage =
           asString(nestedMsgRecord?.message) ??
           asString(response?.message) ??
-          'Service temporarily unavailable. Please try again in a moment.'
+          VALUATION_SERVICE_UNAVAILABLE_FALLBACK_MESSAGE
         throw new ValidationError(userMessage, undefined, undefined, {
           status,
           code: codeFromBody,
           via_503_passthrough: true,
         })
       }
-      throw new NetworkError('Service temporarily unavailable. Please try again in a moment.')
+      throw new NetworkError(VALUATION_SERVICE_UNAVAILABLE_FALLBACK_MESSAGE)
     }
 
     throw new APIError(`Failed to complete ${operation}`, status, undefined, true, {

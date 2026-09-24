@@ -32,6 +32,7 @@ import { fetchArrayBufferWithTimeout, fetchJsonWithTimeout } from '@/utils/fetch
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { createContextLogger } from '@/utils/logger'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
+import { pickPdfRefusalFields } from '@/utils/pdfRefusalFields'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
 export const runtime = 'nodejs'
@@ -203,6 +204,7 @@ async function titanLookupPdfUrl(
         {
           success: false,
           error: errMsg,
+          ...pickPdfRefusalFields(errBody),
         },
         titanResponse.status
       ),
@@ -262,7 +264,10 @@ async function titanGeneratePdf(
       stringField(errBody, 'message') || stringField(errBody, 'error') || 'Failed to generate PDF'
     return {
       pdfUrl: null,
-      errorResponse: pdfErrorJson({ success: false, error: msg }, postRes.status),
+      errorResponse: pdfErrorJson(
+        { success: false, error: msg, ...pickPdfRefusalFields(errBody) },
+        postRes.status
+      ),
     }
   }
 

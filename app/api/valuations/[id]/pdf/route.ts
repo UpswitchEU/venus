@@ -22,6 +22,7 @@ import { fetchJsonWithTimeout } from '@/utils/fetchWithTimeout'
 import { getTitanApiUrl } from '@/utils/getTitanApiUrl'
 import { createContextLogger } from '@/utils/logger'
 import { buildPdfPaywall402JsonBody, type TitanPdfPaywallBody } from '@/utils/pdfPaywall402'
+import { pickPdfRefusalFields } from '@/utils/pdfRefusalFields'
 import { isPdfTransientUpstreamStatus } from '@/utils/pdfTransientUpstream'
 import { getTitanClientContextHeaders } from '@/utils/titanClientContextHeaders'
 
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           : {
               success: false,
               error: errMsg,
+              ...pickPdfRefusalFields(errBody),
             }
       return pdfJson(paywallBody, response.status)
     }

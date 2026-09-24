@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import type { NormalizationItem, ValuationReportData } from '../../../components/calculator'
 import type { SynthesisWeightSelection } from '../../../lib/synthesis/synthesisWeights'
 import { reportAssetService, valuationService } from '../../../services'
+import { useManualResultsStore } from '../../../store/manual'
 import {
   mergePreparerMultipleIntoRequest,
   usePreparerMultipleStore,
@@ -29,6 +30,7 @@ import {
   buildManualCalculationRequest,
   type ManualCalculationIdentifiers,
 } from '../utils/manualValuationRequest'
+import { recordManualValuationSaved } from '../utils/manualValuationSaveReceipt'
 import { useIsMountedRef, useLatestRef } from './useNavigationCancellation'
 
 type ManualNormalizationRecalculationTranslator = (
@@ -149,6 +151,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         durableSaveInFlightRef.current = true
         setDraftStatus('saving')
         setResult(calcResult)
+        useManualResultsStore.getState().announceNewResult()
         let durableSaveSucceeded = true
         try {
           await reportAssetService.saveReportAssets(
@@ -177,6 +180,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
           return
         }
         if (durableSaveSucceeded) {
+          recordManualValuationSaved([idForApi, useSessionStore.getState().session?.reportId])
           await applyPostCalculateHtmlRecovery({
             reportId: idForApi,
             session: useSessionStore.getState().session,

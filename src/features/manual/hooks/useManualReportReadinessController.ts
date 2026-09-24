@@ -113,6 +113,7 @@ export function useManualReportReadinessController({
     pdfPollErrorCount,
     pdfPollTransientCount,
     isPdfRetrying,
+    pdfGenerationFailure,
     retry: handleRetryPdfStalled,
   } = usePdfStalenessLifecycle({
     report,
@@ -147,6 +148,7 @@ export function useManualReportReadinessController({
     pdfPollErrorCount,
     pdfPollTransientCount,
     isPdfRetrying,
+    pdfGenerationFailure,
     handleRetryPdfStalled,
   }
 }

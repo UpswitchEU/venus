@@ -179,4 +179,42 @@ describe('usePdfGeneration', () => {
       progress: 0,
     })
   })
+
+  it('records a refused report and rejects so user-initiated retries can explain it', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: false,
+          error: 'publication input founding_year missing',
+          code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+          remediation: 'Complete the client and engagement details, then export again.',
+        }),
+        { status: 422, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result } = renderHook(() => usePdfGeneration('report-a'))
+
+    let rejection: unknown
+    await act(async () => {
+      rejection = await result.current.generatePdf().catch((error: unknown) => error)
+    })
+
+    expect(rejection).toMatchObject({
+      name: 'PdfRequestRefusedError',
+      refusal: { code: 'SEALED_REPORT_INPUT_INCOMPLETE' },
+    })
+    expect(result.current.state).toEqual({
+      status: 'error',
+      url: null,
+      error: 'Complete the client and engagement details, then export again.',
+      progress: 0,
+      refusal: {
+        code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+        remediation: 'Complete the client and engagement details, then export again.',
+      },
+    })
+    expect(result.current.isGenerating).toBe(false)
+  })
 })

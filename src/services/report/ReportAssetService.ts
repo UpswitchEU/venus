@@ -17,6 +17,7 @@
  * @module services/report/ReportAssetService
  */
 
+import { recordManualValuationSaved } from '../../features/manual/utils/manualValuationSaveReceipt'
 import { getManualResultsSnapshot } from '../../store/manualResultsSnapshot'
 import { ApplicationError, NetworkError, NotFoundError, ValidationError } from '../../types/errors'
 import type { ValuationResponse } from '../../types/valuation'
@@ -162,6 +163,11 @@ export class ReportAssetService {
       await savePromise
       failedAssetSaves.delete(queueKey)
       failedAssetSaves.delete(`${accessScope}:${getCanonicalReportAlias(reportId) ?? reportId}`)
+      // A durable save of a calculated result is the receipt the return to Mercury
+      // reads (`from=valuation`), whichever path saved it: the completion hook, its
+      // toast retry, or the error screen's "Try again" (`retryFailedSave`), which
+      // used to save without recording it.
+      if (assetsSnapshot.valuationResult) recordManualValuationSaved([reportId])
       notifySaveState()
     } catch (error) {
       if (canUpdateView() && pendingReportAssetSaves.get(queueKey) === savePromise) {

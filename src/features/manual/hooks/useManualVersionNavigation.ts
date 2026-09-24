@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { ValuationReportData } from '../../../components/calculator'
 import { VersionAPI } from '../../../services/api/version/VersionAPI'
+import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type { ValuationResponse } from '../../../types/valuation'
 import { reportAccessScope, watchReportAccessScope } from '../../../utils/reportAccessScope'
@@ -163,6 +164,7 @@ export function useManualVersionNavigation({
             },
           }))
           setResult({ ...loaded.valuationResult, html_report: html })
+          useManualResultsStore.getState().announceNewResult()
           setSelectedVersionId(loaded.id)
           useVersionHistoryStore.getState().setActiveVersion(versionLookupId, loaded.versionNumber)
           const url = new URL(window.location.href)

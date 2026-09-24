@@ -9,8 +9,11 @@ import {
   getPdfAccessGateMessage,
   getPdfDownloadErrorMessage,
   getPdfGenerationStartErrorMessage,
+  isKnownPdfRefusalCode,
   PDF_STATUS_POLL_INTERVAL_MS,
   PDF_STATUS_POLL_MAX_BACKOFF_MS,
+  pdfRefusalFromBody,
+  pdfRefusalFromJobError,
   resolvePdfGenerationStartResult,
   resolvePdfStatusPollResult,
 } from './pdfGenerationModel'
@@ -226,5 +229,45 @@ describe('pdfGenerationModel', () => {
     expect(handle.didTimeout()).toBe(false)
 
     handle.cleanup()
+  })
+})
+
+describe('PDF refusals', () => {
+  it('reads code + remediation from a refusal body, and nothing from other bodies', () => {
+    expect(
+      pdfRefusalFromBody({
+        code: 'SEALED_REPORT_SUPERSEDED',
+        remediation: ' Open the current version and export from there. ',
+      })
+    ).toEqual({
+      code: 'SEALED_REPORT_SUPERSEDED',
+      remediation: 'Open the current version and export from there.',
+    })
+    expect(pdfRefusalFromBody({ remediation: 'Recalculate.' })).toEqual({
+      code: null,
+      remediation: 'Recalculate.',
+    })
+    expect(pdfRefusalFromBody({ error: 'PDF generation failed' })).toBeNull()
+    expect(pdfRefusalFromBody(null)).toBeNull()
+  })
+
+  it('splits a failed job message "<remediation> [<CODE>]"', () => {
+    expect(
+      pdfRefusalFromJobError(
+        'Recalculate the valuation, then export again. [PREVIEW_ENGINE_REFUSED]'
+      )
+    ).toEqual({
+      code: 'PREVIEW_ENGINE_REFUSED',
+      remediation: 'Recalculate the valuation, then export again.',
+    })
+    expect(pdfRefusalFromJobError('PDF generation failed')).toBeNull()
+    expect(pdfRefusalFromJobError('[PREVIEW_ENGINE_REFUSED]')).toBeNull()
+    expect(pdfRefusalFromJobError(null)).toBeNull()
+  })
+
+  it('knows the codes it has localized copy for', () => {
+    expect(isKnownPdfRefusalCode('SEALED_REPORT_INPUT_INCOMPLETE')).toBe(true)
+    expect(isKnownPdfRefusalCode('SOME_FUTURE_CODE')).toBe(false)
+    expect(isKnownPdfRefusalCode(null)).toBe(false)
   })
 })

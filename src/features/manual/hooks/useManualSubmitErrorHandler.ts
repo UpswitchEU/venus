@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
+import { isValuationApiFallbackMessage } from '../../../services/api/valuation/valuationApiFallbackMessages'
 import {
   AuthenticationError,
   CreditError,
@@ -132,9 +133,11 @@ export function useManualSubmitErrorHandler({
         return
       }
 
+      // CreditError / RateLimitError / NetworkError / AuthenticationError messages are fixed
+      // English text from the API layer: the toast uses localized copy instead.
       if (error instanceof CreditError) {
         toast.error(translateErrors('calculation.insufficientCredits'), {
-          description: error.message,
+          description: translate('insufficientCreditsDesc'),
         })
         generalLogger.warn('[ManualValuationWorkspace] Insufficient credits for calculation', {
           message: error.message,
@@ -144,7 +147,7 @@ export function useManualSubmitErrorHandler({
 
       if (error instanceof RateLimitError) {
         toast.error(translateErrors('rateLimit.title'), {
-          description: error.message || translateErrors('rateLimit.description'),
+          description: translateErrors('rateLimit.description'),
         })
         generalLogger.warn('[ManualValuationWorkspace] Rate limited during calculation', {
           message: error.message,
@@ -159,11 +162,17 @@ export function useManualSubmitErrorHandler({
         : isNetworkFailure
           ? translate('serviceUnavailable')
           : translate('calculationFailed')
+      // Only a ValidationError can carry the server's own explanation (field-level detail);
+      // an API-layer fallback on it is fixed English text like the error classes above.
+      const serverDetail =
+        error instanceof ValidationError &&
+        error.message.trim() &&
+        !isValuationApiFallbackMessage(error.message)
+          ? error.message
+          : null
       const description = isSessionExpired
         ? translateErrors('authentication.expired')
-        : error instanceof Error
-          ? error.message
-          : translate('unknownError')
+        : (serverDetail ?? (isNetworkFailure ? undefined : translate('calculationFailedReview')))
 
       toast.error(title, {
         description,
@@ -178,7 +187,7 @@ export function useManualSubmitErrorHandler({
             },
       })
       generalLogger.error('[ManualValuationWorkspace] Form submission failed', {
-        error: description,
+        error: error instanceof Error ? error.message : String(error),
         isSessionExpired,
       })
     },

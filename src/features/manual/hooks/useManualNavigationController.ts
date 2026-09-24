@@ -2,6 +2,8 @@ import { useTransitionRouter } from 'next-view-transitions'
 import { type Dispatch, type SetStateAction, useCallback } from 'react'
 import { trackFullscreenOpen, trackPreviewOpen, trackVersionHistoryOpen } from '@/lib/analytics'
 import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
+import type { PdfRefusal } from '../../../hooks/pdfGenerationModel'
+import { describePdfRefusal } from '../utils/pdfRefusalMessage'
 import { useManualMercuryNavigationActions } from './useManualMercuryNavigationActions'
 import { useManualNewValuationFlow } from './useManualNewValuationFlow'
 import {
@@ -76,6 +78,10 @@ export function useManualNavigationController({
   translateReport,
 }: UseManualNavigationControllerParams) {
   const router = useTransitionRouter()
+  const describeRefusal = useCallback(
+    (refusal: PdfRefusal) => describePdfRefusal(refusal, translate),
+    [translate]
+  )
 
   const { isExporting, downloadHistory, handleExport } = useManualPdfExportController({
     report,
@@ -88,12 +94,12 @@ export function useManualNavigationController({
     openPdfPaywall: () => openStarterPaywall('pdf_download'),
     defaultFilename: translateReport('defaultFilename'),
     pdfSuffix: translateReport('pdfSuffix'),
-    staleHint: translate('downloadPdfStaleHint'),
     transientDownloadHint: translate('pdfPollDegradedHint'),
     exportFailedTitle: translate('pdfExportFailed'),
     exportFailedDescription: translate('pdfExportFailedDesc'),
     generatingTitle: translate('pdfGenerating'),
     downloadedTitle: translate('pdfDownloaded'),
+    describeRefusal,
   })
 
   const handlePreview = useCallback(() => {

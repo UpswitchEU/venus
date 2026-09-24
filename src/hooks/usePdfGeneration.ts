@@ -29,6 +29,9 @@ import {
   PDF_STATUS_FETCH_MS,
   PDF_STATUS_MAX_POLL_MS,
   PDF_STATUS_POLL_INTERVAL_MS,
+  type PdfRefusal,
+  PdfRequestRefusedError,
+  pdfRefusalFromJobError,
   type TimeoutAbortHandle,
 } from './pdfGenerationModel'
 
@@ -46,12 +49,18 @@ export interface PdfGenerationState {
   url: string | null
   error: string | null
   progress: number
+  /** Set with `status: 'error'` when the server refused this report's PDF for a stated reason. */
+  refusal?: PdfRefusal | null
 }
 
 export interface UsePdfGenerationReturn {
   /** Current PDF generation state */
   state: PdfGenerationState
-  /** Trigger PDF generation — returns the PDF URL if available synchronously */
+  /**
+   * Trigger PDF generation — returns the PDF URL if available synchronously. Rejects with
+   * `PdfRequestRefusedError` when the server refuses the report (after recording it in
+   * `state`); other failures resolve to `null` with `state.status === 'error'`.
+   */
   generatePdf: () => Promise<string | null>
   /** Download existing PDF with optional custom filename and abort signal */
   downloadPdf: (
@@ -279,11 +288,13 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             isGeneratingRef.current = false
             shouldContinuePolling = false
             if (mountedRef.current) {
+              const refusal = pdfRefusalFromJobError(pollResult.error)
               setState({
                 status: 'error',
                 url: null,
                 error: pollResult.error,
                 progress: 0,
+                ...(refusal ? { refusal } : {}),
               })
             }
           }
@@ -414,6 +425,18 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         return null
       }
       if (error instanceof APIError && error.statusCode === 402) {
+        throw error
+      }
+      if (error instanceof PdfRequestRefusedError) {
+        if (!isCurrentGeneration()) return null
+        isGeneratingRef.current = false
+        setState({
+          status: 'error',
+          url: null,
+          error: error.message,
+          progress: 0,
+          refusal: error.refusal,
+        })
         throw error
       }
       if (error instanceof APIError && isPdfTransientUpstreamStatus(error.statusCode)) {

@@ -276,6 +276,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     pdfPollErrorCount,
     pdfPollTransientCount,
     isPdfRetrying,
+    pdfGenerationFailure,
     handleRetryPdfStalled,
   } = useManualReportReadinessController({
     reportId,
@@ -868,6 +869,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
           pdfPollTransientCount,
           pdfStale,
           pdfWaitTimedOut,
+          generationFailure: pdfGenerationFailure,
           report,
           translate: t,
         }}

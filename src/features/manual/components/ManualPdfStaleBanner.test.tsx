@@ -119,4 +119,33 @@ describe('ManualPdfStaleBanner', () => {
     )
     expect(screen.getByText('pdfOpenLastVersion')).toBeInTheDocument()
   })
+
+  // F-04: a refused background generation used to leave only the generic "not finished
+  // updating" blurb; the adviser needs the server's reason to fix the report.
+  it('explains a refused generation with its remediation', () => {
+    render(
+      <ManualPdfStaleBanner
+        canDownloadPdf
+        isPdfRetrying={false}
+        onRetry={vi.fn()}
+        persistedReportLookupId="uuid-1"
+        pdfPollErrorCount={0}
+        pdfPollTransientCount={0}
+        pdfStale
+        pdfWaitTimedOut
+        generationFailure={{
+          refusal: {
+            code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+            remediation: 'Complete the client and engagement details, then export again.',
+          },
+        }}
+        report={makeReport()}
+        translate={translate}
+      />
+    )
+
+    expect(screen.getByText('pdfRefusal.SEALED_REPORT_INPUT_INCOMPLETE')).toBeInTheDocument()
+    expect(screen.queryByText('pdfStalledBlurb')).not.toBeInTheDocument()
+    expect(screen.getByText('pdfRetry')).toBeInTheDocument()
+  })
 })

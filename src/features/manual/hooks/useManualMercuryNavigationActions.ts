@@ -84,7 +84,7 @@ export function useManualMercuryNavigationActions({
       navigateToMercuryFromManualHandoff({
         currentLocale,
         clientContextId,
-        hasCompletedValuation: hasCompletedManualValuation(report, session),
+        hasCompletedValuation: hasCompletedManualValuation(report, session, resolvedReportId),
         companyName: resolveManualMercuryCompanyName(report, session),
         reportId: resolveManualMercuryReportId(report, session, resolvedReportId),
       })
@@ -177,7 +177,7 @@ export function useManualMercuryNavigationActions({
         clientContextId,
         returnUrl,
         sourceApp,
-        hasCompletedValuation: hasCompletedManualValuation(report, session),
+        hasCompletedValuation: hasCompletedManualValuation(report, session, resolvedReportId),
       })
       performManualMercuryNavigation({ targetUrl, postEngineCloseOnEmbedFailure: true })
     } catch (error) {
@@ -188,13 +188,13 @@ export function useManualMercuryNavigationActions({
         navigateToMercuryFromManualHandoff({
           currentLocale: mercuryLocale,
           clientContextId,
-          hasCompletedValuation: hasCompletedManualValuation(report, session),
+          hasCompletedValuation: hasCompletedManualValuation(report, session, resolvedReportId),
         })
       } catch {
         // Last-ditch navigation failed; nothing useful left to do.
       }
     }
-  }, [clientContextId, mercuryLocale, report, session])
+  }, [clientContextId, mercuryLocale, report, resolvedReportId, session])
 
   const handleLogout = useCallback(() => {
     const postLogoutUrl = buildManualLogoutPostUrl({

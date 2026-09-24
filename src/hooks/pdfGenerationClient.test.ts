@@ -8,6 +8,7 @@ import {
   requestPdfGenerationStart,
   requestPdfStatusPoll,
 } from './pdfGenerationClient'
+import { PdfRequestRefusedError } from './pdfGenerationModel'
 
 const headers = { 'X-Relationship-Id': 'rel-1' }
 
@@ -147,5 +148,59 @@ describe('pdfGenerationClient', () => {
         headers,
       })
     )
+  })
+
+  // Titan refuses an unpublishable report with a typed 422 (`code` + `remediation`). The
+  // browser must receive both to tell the adviser what to fix instead of "try again".
+  const refusalBody = {
+    success: false,
+    error: 'publication input founding_year missing',
+    code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+    remediation: 'Complete the client and engagement details, then export again.',
+  }
+
+  it('throws a typed refusal when generation is refused for a stated reason', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(refusalBody, 422)))
+
+    const start = requestPdfGenerationStart({
+      headers,
+      reportId: 'report-1',
+      signal: new AbortController().signal,
+    })
+
+    await expect(start).rejects.toBeInstanceOf(PdfRequestRefusedError)
+    await expect(start).rejects.toMatchObject({
+      status: 422,
+      message: refusalBody.remediation,
+      refusal: { code: 'SEALED_REPORT_INPUT_INCOMPLETE', remediation: refusalBody.remediation },
+    })
+  })
+
+  it('throws a typed refusal when the on-demand download regeneration is refused', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(refusalBody, 422)))
+
+    await expect(
+      requestPdfDownload({ headers, reportId: 'report-1', signal: new AbortController().signal })
+    ).rejects.toMatchObject({
+      name: 'PdfRequestRefusedError',
+      refusal: { code: 'SEALED_REPORT_INPUT_INCOMPLETE' },
+    })
+  })
+
+  it('keeps untyped failures as plain errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(jsonResponse({ success: false, error: 'PDF generation failed' }, 500))
+    )
+
+    const start = requestPdfGenerationStart({
+      headers,
+      reportId: 'report-1',
+      signal: new AbortController().signal,
+    })
+    await expect(start).rejects.toThrow('PDF generation failed')
+    await expect(start).rejects.not.toBeInstanceOf(PdfRequestRefusedError)
   })
 })

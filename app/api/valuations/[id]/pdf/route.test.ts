@@ -297,6 +297,32 @@ describe('/api/valuations/[id]/pdf', () => {
     expect(loggerMock.error).not.toHaveBeenCalled()
   })
 
+  // F-04: the browser shows the remediation (localized by code); dropping both fields here
+  // left it with Titan's internal precondition message only.
+  it('keeps the code and remediation of a Titan refusal', async () => {
+    authFromCookieStore()
+    mocks.fetch.mockResolvedValue(
+      titanJsonResponse(422, {
+        code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+        message: 'publication input founding_year missing',
+        remediation: 'Complete the client and engagement details, then export again.',
+        report_id: 'report-1',
+      })
+    )
+
+    const res = await POST(request('POST'), {
+      params: Promise.resolve({ id: 'report-1' }),
+    })
+
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({
+      success: false,
+      error: 'publication input founding_year missing',
+      code: 'SEALED_REPORT_INPUT_INCOMPLETE',
+      remediation: 'Complete the client and engagement details, then export again.',
+    })
+  })
+
   it('encodes report IDs before proxying to Titan', async () => {
     authFromCookieStore()
     mocks.fetch.mockResolvedValue(titanJsonResponse(200, { success: true, pdfUrl: null }))
