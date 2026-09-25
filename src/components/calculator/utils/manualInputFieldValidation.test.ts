@@ -82,4 +82,23 @@ describe('buildManualInputFieldValidation', () => {
     expect(result.errors.fteEmployees).toBe('validation.fteRequired')
     expect(result.hasErrors).toBe(true)
   })
+
+  // The copy no longer mentions 0; it must still be a valid answer.
+  it('accepts a typed headcount of 0', () => {
+    const result = buildManualInputFieldValidation(
+      {
+        companyName: 'Acme',
+        businessType: 'Consulting',
+        businessStructure: 'bv',
+        ownerManagers: 1,
+        fteEmployees: 0,
+        yearlyFinancials: [{ year: '2025', revenue: 100_000, ebitda: 20_000 }],
+      } as ManualValuationFormData,
+      translate,
+      2026
+    )
+
+    expect(result.errors.fteEmployees).toBeUndefined()
+    expect(result.hasErrors).toBe(false)
+  })
 })

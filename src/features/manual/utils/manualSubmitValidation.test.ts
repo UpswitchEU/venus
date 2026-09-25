@@ -386,6 +386,30 @@ describe('getManualSubmitValidationIssue', () => {
       expect(String(toastCopy[description]).trim(), description).not.toBe('')
     }
   })
+
+  // The toast and the field's own error used to say "0 if owner-only", which contradicts
+  // the field hint (owners included). All three now give the hint's instruction, and the
+  // toast names the field as the panel labels it.
+  it.each([
+    ['en', en, 'owners included'],
+    ['nl', nl, 'eigenaars meegeteld'],
+    ['fr', fr, 'propriétaires inclus'],
+  ])('asks for the headcount the way the field hint defines it (%s)', (_locale, messages, ownersIncluded) => {
+    const copy = messages as {
+      manualInput: {
+        fields: { totalFte: string }
+        totalFteHint: string
+        validation: { fteRequired: string }
+      }
+      toast: Record<string, string>
+    }
+    const { title, description } = MANUAL_SUBMIT_VALIDATION_TOAST_KEYS.employeeCountMissing
+
+    expect(copy.manualInput.totalFteHint).toContain(ownersIncluded)
+    expect(copy.toast[description]).toContain(ownersIncluded)
+    expect(copy.manualInput.validation.fteRequired).toContain(ownersIncluded)
+    expect(copy.toast[title]).toContain(copy.manualInput.fields.totalFte)
+  })
 })
 
 // Recalculations that bypass Calculate apply this on its own: it must be the same rule,
