@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { registerSignedInUserIdResolver } from '../lib/auth/actingAccountant'
 import { generalLogger } from '../utils/logger'
 import {
   startClientContextAutoValidation,
@@ -95,6 +96,44 @@ describe('clientContext auto validation', () => {
         '[ClientContext] Scheduled validation failed',
         { error }
       )
+    })
+  })
+})
+
+describe('client context headers', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.clearAllMocks()
+    useClientContext.getState().clearClientContext()
+    useClientContext.setState({ contextGateResolved: true })
+  })
+
+  afterEach(() => {
+    registerSignedInUserIdResolver(null)
+    useClientContext.getState().clearClientContext()
+  })
+
+  it('names the signed-in advisor, not the relationship owner bootstrap stored', () => {
+    useClientContext.getState().setClientContext({
+      ...delegatedContext,
+      accountantUser: { ...delegatedContext.accountantUser, id: 'relationship-owner' },
+    })
+    useClientContext.setState({ contextGateResolved: true })
+    registerSignedInUserIdResolver(() => 'signed-in-colleague')
+
+    expect(useClientContext.getState().getContextHeaders()).toMatchObject({
+      'X-Accountant-User-Id': 'signed-in-colleague',
+      'X-Relationship-Id': 'relationship-1',
+    })
+  })
+
+  it('keeps the stored accountant while no one is signed in yet', () => {
+    useClientContext.getState().setClientContext(delegatedContext)
+    useClientContext.setState({ contextGateResolved: true })
+    registerSignedInUserIdResolver(() => undefined)
+
+    expect(useClientContext.getState().getContextHeaders()).toMatchObject({
+      'X-Accountant-User-Id': 'accountant-1',
     })
   })
 })

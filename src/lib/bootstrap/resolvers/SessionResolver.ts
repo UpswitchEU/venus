@@ -10,6 +10,7 @@
 import { fetchWithBySession404Retry } from '../../../utils/fetchWithBySession404Retry'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
 import { isUuid } from '../../../utils/identifiers'
+import { actingAccountantUserId } from '../../auth/actingAccountant'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -347,7 +348,9 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         if (identity.clientContext.clientUserId) {
           headers['X-Client-User-Id'] = identity.clientContext.clientUserId
         }
-        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
+        headers['X-Accountant-User-Id'] = actingAccountantUserId(
+          identity.clientContext.accountantUserId
+        )
       }
 
       const response = await fetch(`${API_URL}/api/v2/valuations/sessions/${sessionKey}`, {
@@ -400,7 +403,9 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
         if (identity.clientContext.clientUserId) {
           headers['X-Client-User-Id'] = identity.clientContext.clientUserId
         }
-        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
+        headers['X-Accountant-User-Id'] = actingAccountantUserId(
+          identity.clientContext.accountantUserId
+        )
       }
 
       // Extract relationship ID from session data if available
@@ -473,7 +478,9 @@ export class SessionResolver implements BootstrapResolver<ReportState> {
       if (identity.clientContext.clientUserId) {
         headers['X-Client-User-Id'] = identity.clientContext.clientUserId
       }
-      headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
+      headers['X-Accountant-User-Id'] = actingAccountantUserId(
+        identity.clientContext.accountantUserId
+      )
     }
 
     const url = `${API_URL}/api/v2/valuations/reports/by-session/${sessionKey}`

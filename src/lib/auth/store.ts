@@ -24,6 +24,7 @@ import {
 } from '../../utils/auth-fetch-timeout'
 import { generalLogger } from '../../utils/logger'
 import { authMetrics, logAuthError, trackAuthFailure, trackAuthSuccess } from '../authLogger'
+import { registerSignedInUserIdResolver } from './actingAccountant'
 import { clearAuthCache, getAuthCache, setAuthCache } from './authCache'
 import { API_URL } from './config'
 import { clearInitThrottle } from './initGuards'
@@ -511,3 +512,5 @@ export const useAuthStore = create<AuthState>()(
     { name: 'AuthStore' }
   )
 )
+
+registerSignedInUserIdResolver(() => useAuthStore.getState().user?.id)
