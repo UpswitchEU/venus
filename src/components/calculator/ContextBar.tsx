@@ -8,7 +8,16 @@
  */
 
 import { motion } from 'framer-motion'
-import { Building2, Check, ChevronRight, Clock, Send, User, UserCheck } from 'lucide-react'
+import {
+  AlertCircle,
+  Building2,
+  Check,
+  ChevronRight,
+  Clock,
+  Send,
+  User,
+  UserCheck,
+} from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { springDefault } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
@@ -18,7 +27,8 @@ export type ClientApprovalStatus = 'none' | 'pending' | 'approved' | 'changes_re
 export interface ContextBarProps {
   clientName?: string
   businessName?: string
-  draftStatus?: 'draft' | 'saved' | 'saving'
+  /** `unsaved`: the last save failed. It must never read as a harmless draft. */
+  draftStatus?: 'draft' | 'saved' | 'saving' | 'unsaved'
   lastSaved?: Date
   onClientClick?: () => void
   onBusinessClick?: () => void
@@ -174,12 +184,19 @@ export function ContextBar({
             'flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs sm:min-h-0',
             draftStatus === 'saved'
               ? 'bg-success/10 text-success'
-              : draftStatus === 'saving'
-                ? 'bg-foreground/[0.06] text-foreground/50'
-                : 'bg-foreground/[0.04] text-foreground/40'
+              : draftStatus === 'unsaved'
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                : draftStatus === 'saving'
+                  ? 'bg-foreground/[0.06] text-foreground/50'
+                  : 'bg-foreground/[0.04] text-foreground/40'
           )}
         >
-          {draftStatus === 'saved' ? (
+          {draftStatus === 'unsaved' ? (
+            <>
+              <AlertCircle className="w-3 h-3" />
+              {t('notSaved')}
+            </>
+          ) : draftStatus === 'saved' ? (
             <>
               <Check className="w-3 h-3" />
               {t('saved')}

@@ -5,12 +5,13 @@ export interface ManualLayoutContextBarProps {
   businessName?: string
   clientContextId?: string | null
   clientContextName?: string
-  draftStatus: 'draft' | 'saved' | 'saving'
+  draftStatus: 'draft' | 'saved' | 'saving' | 'unsaved'
   isAccountantMode: boolean
   lastSaved?: Date
   onOpenMercuryClientForInvite: () => void
-  onShowNormalisationReview: () => void
-  pendingNormalizationCount: number
+  /** Not shown here any more: the nav's Normalizations badge is the one home for the count. */
+  onShowNormalisationReview?: () => void
+  pendingNormalizationCount?: number
   translate: (key: string) => string
 }
 
@@ -22,8 +23,6 @@ export function ManualLayoutContextBar({
   isAccountantMode,
   lastSaved,
   onOpenMercuryClientForInvite,
-  onShowNormalisationReview,
-  pendingNormalizationCount,
   translate,
 }: ManualLayoutContextBarProps) {
   if (!isAccountantMode || (!clientContextName && !businessName)) return null
@@ -42,8 +41,6 @@ export function ManualLayoutContextBar({
       onBusinessClick={clientContextId ? onOpenMercuryClientForInvite : undefined}
       clientApprovalStatus="none"
       onResendApproval={() => toast.info(translate('reminderSent'))}
-      pendingNormalisations={pendingNormalizationCount}
-      onShowNormalisationReview={onShowNormalisationReview}
     />
   )
 }

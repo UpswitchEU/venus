@@ -18,6 +18,7 @@ import {
 } from '../../../types/companyGraphContext'
 import { normalizeBusinessTypeId } from '../../../utils/businessTypeIdAliases'
 import { getApiUrl } from '../../../utils/getMercuryUrl'
+import { actingAccountantUserId } from '../../auth/actingAccountant'
 import type {
   BootstrapContext,
   BootstrapHints,
@@ -311,7 +312,9 @@ export class PrefillResolver implements BootstrapResolver<PrefillData> {
         if (identity.clientContext.clientUserId) {
           headers['X-Client-User-Id'] = identity.clientContext.clientUserId
         }
-        headers['X-Accountant-User-Id'] = identity.clientContext.accountantUserId
+        headers['X-Accountant-User-Id'] = actingAccountantUserId(
+          identity.clientContext.accountantUserId
+        )
       }
 
       // ✅ CRITICAL FIX: Use correct endpoint - /api/v2/business-cards/:userId instead of /api/v2/users/:userId/business-card

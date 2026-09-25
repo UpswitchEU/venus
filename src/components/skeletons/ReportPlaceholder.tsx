@@ -9,7 +9,7 @@
  */
 
 import { motion } from 'framer-motion'
-import { Check, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
 
@@ -37,19 +37,6 @@ export function ReportPlaceholder() {
         <p className="mt-2 text-sm text-foreground/50 max-w-sm mx-auto leading-relaxed">
           {t('placeholder.description')}
         </p>
-        <div className="mx-auto mt-6 max-w-sm divide-y divide-foreground/[0.06] rounded-xl border border-foreground/[0.08] bg-background/80 px-4 text-left">
-          {(['context', 'financials', 'result'] as const).map((item, index) => (
-            <div key={item} className="flex items-center gap-3 py-3 text-sm">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                {index < 2 ? <Check className="h-3 w-3" aria-hidden /> : index + 1}
-              </span>
-              <span className={index < 2 ? 'text-foreground/70' : 'text-foreground/45'}>
-                {t(`placeholder.${item}`)}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-5 text-xs text-foreground/40">{t('placeholder.time')}</div>
       </motion.div>
     </div>
   )

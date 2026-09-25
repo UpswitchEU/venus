@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CLIENT_CONTEXT_HEADERS } from '../constants/headers'
+import { actingAccountantUserId } from '../lib/auth/actingAccountant'
 import {
   clearDelegatedClientContext,
   discardStalePersistedClientContextOnRehydrate,
@@ -187,7 +188,7 @@ export const useClientContext = create<ClientContextState>()(
         // BANK GRADE: Using centralized header constants for consistency
         // When client is null (pending invitation), omit CLIENT_USER_ID → DIRECT flow
         const headers: Record<string, string> = {
-          [CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID]: state.accountant.id,
+          [CLIENT_CONTEXT_HEADERS.ACCOUNTANT_USER_ID]: actingAccountantUserId(state.accountant.id),
           [CLIENT_CONTEXT_HEADERS.RELATIONSHIP_ID]: state.relationshipId,
         }
         if (state.client?.id) {

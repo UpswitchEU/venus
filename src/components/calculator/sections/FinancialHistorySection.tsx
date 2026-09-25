@@ -1,10 +1,11 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Plus } from 'lucide-react'
+import { Database, Plus } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { accountingReconnectProviderName } from '@/features/manual/utils/accountingReconnectHandoff'
 import { scrollElementIntoManualLayout } from '@/features/manual/utils/manualLayoutScroll'
 import { trackFinancialsStepViewed } from '@/lib/analytics'
 import { accountingAPI, parseAccountingApiError } from '@/services/api/accounting'
@@ -80,6 +81,38 @@ interface FinancialHistorySectionProps {
   waccSectorBand: WaccSectorBand | null
 }
 
+/** Years the source holds but the valuation cannot use, leaving out empty open years. */
+function countUnusedSourceYears(
+  readiness: ReturnType<typeof useVenusClientValuationReadiness>['readiness']
+): number {
+  const reviewYears = new Set(
+    (readiness?.issues ?? [])
+      .filter((issue) => issue.code === 'FINANCIAL_REVIEW_REQUIRED')
+      .map((issue) => issue.fiscal_year)
+  )
+  return (readiness?.years ?? []).filter(
+    (year) =>
+      !year.eligible &&
+      !reviewYears.has(year.fiscal_year) &&
+      (Boolean(year.revenue) || Boolean(year.ebitda))
+  ).length
+}
+
+/** "18 Sep, 10:29" — with the year only when it isn't this year. */
+function formatSourceSyncedAt(value: string | null | undefined, locale: string): string | null {
+  if (!value) return null
+  const parsed = new Date(value)
+  if (!Number.isFinite(parsed.getTime())) return null
+  const tag = locale === 'nl' ? 'nl-BE' : locale === 'fr' ? 'fr-BE' : 'en-GB'
+  return new Intl.DateTimeFormat(tag, {
+    day: 'numeric',
+    month: 'short',
+    ...(parsed.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }),
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed)
+}
+
 export function FinancialHistorySection({
   adaptiveDcfGlobalStep,
   acceptedNormCount,
@@ -131,7 +164,12 @@ export function FinancialHistorySection({
   const { clientId, readiness, refreshReadiness } = useVenusClientValuationReadiness()
   const importedProvider = useImportQualityStore((state) => state.provider)
   const importQuality = useImportQualityStore((state) => state.importQuality)
-  const sourceProvider = readiness?.source.provider ?? liveImportProviderName ?? importedProvider
+  // Name the source the figures came from, never merely the firm's connected tool:
+  // a dossier typed by hand must not read "From Octopus".
+  const rowSourceProvider = formData.yearlyFinancials?.find(
+    (row) => !row.isForecast && row.source_kind !== 'manual' && row.source_provider
+  )?.source_provider
+  const sourceProvider = readiness?.source.provider ?? importedProvider ?? rowSourceProvider ?? null
   const sourceSyncedAt =
     readiness?.source.synced_at ??
     Object.values(importQuality ?? {})
@@ -144,7 +182,15 @@ export function FinancialHistorySection({
       .filter((issue) => typeof issue.fiscal_year === 'number')
       .map((issue) => [issue.fiscal_year as number, issue])
   )
-  const reviewIssueCount = reviewIssuesByYear.size
+  // Only a year the advisor must look at counts as "to review". An open year that has
+  // no P&L yet (Yuki's current year) is simply not closed: it is neither mentioned
+  // nor counted as unused.
+  const reviewIssueCount = new Set(
+    (readiness?.issues ?? [])
+      .filter((issue) => issue.code === 'FINANCIAL_REVIEW_REQUIRED')
+      .map((issue) => issue.fiscal_year)
+      .filter((year): year is number => typeof year === 'number')
+  ).size
   const reviewIssueLabel =
     locale === 'nl'
       ? `${reviewIssueCount} ${reviewIssueCount === 1 ? 'boekjaar controleren' : 'boekjaren controleren'}`
@@ -195,25 +241,9 @@ export function FinancialHistorySection({
       setIsResyncing(false)
     }
   }
-  const sourceCopy =
-    locale === 'nl'
-      ? { prefix: 'Vooraf ingevuld uit', synced: 'gesynchroniseerd' }
-      : locale === 'fr'
-        ? { prefix: 'Prérempli depuis', synced: 'synchronisé' }
-        : { prefix: 'Prefilled from', synced: 'synced' }
-  const sourceLabel = sourceProvider
-    ? sourceProvider.toLowerCase() === 'silverfin'
-      ? 'Silverfin'
-      : sourceProvider
-    : null
-  const sourceYearCount = readiness?.source.fiscal_years.length ?? 0
-  const hasReadinessYearSet =
-    Array.isArray(readiness?.source.eligible_fiscal_years) || Array.isArray(readiness?.years)
-  const eligibleYearCount =
-    readiness?.source.eligible_fiscal_years?.length ??
-    readiness?.years?.filter((year) => year.eligible).length ??
-    0
-  const excludedYearCount = Math.max(0, sourceYearCount - eligibleYearCount)
+  const sourceLabel = sourceProvider ? accountingReconnectProviderName(sourceProvider) : null
+  const sourceSyncedLabel = formatSourceSyncedAt(sourceSyncedAt, locale)
+  const excludedYearCount = countUnusedSourceYears(readiness)
 
   // BET-315 — financials-step funnel impression (entry → here → submit). Fire
   // once per mount, only when the step is actually shown (past the guard below).
@@ -242,30 +272,17 @@ export function FinancialHistorySection({
       </div>
 
       {sourceLabel ? (
-        <div className="ml-8 rounded-lg border border-primary/20 bg-primary/[0.05] px-3 py-2 text-xs text-foreground/70">
-          <span className="font-semibold text-foreground">
-            {sourceCopy.prefix} {sourceLabel}
-          </span>
-          {sourceSyncedAt ? (
-            <span className="ml-2 text-foreground/50">
-              · {sourceCopy.synced}{' '}
-              {new Intl.DateTimeFormat(
-                locale === 'nl' ? 'nl-BE' : locale === 'fr' ? 'fr-BE' : 'en-GB',
-                { hour: '2-digit', minute: '2-digit' }
-              ).format(new Date(sourceSyncedAt))}
+        <div className="ml-8 space-y-1.5 text-xs">
+          <p className="flex items-center gap-1.5 text-foreground/55">
+            <Database className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>
+              {sourceSyncedLabel
+                ? mi('sourceEvidence.sourceLine', { source: sourceLabel, date: sourceSyncedLabel })
+                : mi('sourceEvidence.sourceLineNoDate', { source: sourceLabel })}
             </span>
-          ) : null}
-          {sourceYearCount > 0 && hasReadinessYearSet ? (
-            <p className="mt-1 text-foreground/55">
-              {mi('sourceEvidence.yearSetSummary', {
-                source: sourceYearCount,
-                eligible: eligibleYearCount,
-                excluded: excludedYearCount,
-              })}
-            </p>
-          ) : null}
+          </p>
           {reviewIssueCount > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-primary/15 pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-medium text-amber-700 dark:text-amber-300">
                 {reviewIssueLabel}
               </span>
@@ -286,9 +303,13 @@ export function FinancialHistorySection({
                 </button>
               ) : null}
             </div>
+          ) : excludedYearCount > 0 ? (
+            <p className="font-medium text-amber-700 dark:text-amber-300">
+              {mi('sourceEvidence.yearsExcluded', { count: excludedYearCount })}
+            </p>
           ) : null}
           {recoveryError ? (
-            <p className="mt-2 text-destructive" role="alert">
+            <p className="text-destructive" role="alert">
               {recoveryError}
             </p>
           ) : null}

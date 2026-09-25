@@ -43,7 +43,38 @@ describe('ManualLayoutBody', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Output' }))
 
     expect(screen.getByRole('tab', { name: 'Output' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByTestId('input-panel').parentElement).toHaveClass('hidden')
-    expect(screen.getByTestId('report-workspace').parentElement).not.toHaveClass('hidden')
+    expect(screen.getByTestId('input-panel').closest('[data-mobile-panel]')).toHaveClass('hidden')
+    expect(screen.getByTestId('report-workspace').closest('[data-mobile-panel]')).not.toHaveClass(
+      'hidden'
+    )
+  })
+
+  it('shows no out-of-date marker while the report matches the figures', () => {
+    render(<ManualLayoutBody {...baseProps} />)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('marks the report out of date in its own header, not in a banner', () => {
+    render(
+      <ManualLayoutBody
+        {...baseProps}
+        outputStale={{ label: 'Out of date', hint: 'The figures changed.' }}
+      />
+    )
+    const pill = screen.getByRole('status')
+    expect(pill).toHaveTextContent('Out of date')
+    expect(pill).toHaveAttribute('title', 'The figures changed.')
+    expect(pill.parentElement).toHaveTextContent('Output')
+  })
+
+  it('marks the mobile report tab when the report is out of date', () => {
+    render(
+      <ManualLayoutBody
+        {...baseProps}
+        isMobile
+        outputStale={{ label: 'Out of date', hint: 'The figures changed.' }}
+      />
+    )
+    expect(screen.getByRole('tab', { name: 'Output (Out of date)' })).toBeInTheDocument()
   })
 })

@@ -193,6 +193,19 @@ export function valuationIqPreviewToLiveValuation(
   }
 }
 
+/**
+ * Titan refuses a startup preview without a business type (400, "At least one business
+ * type is required"). Last-resort business-type guesses are no longer applied, so the
+ * form often has none at first: wait for the advisor to pick one instead of asking.
+ */
+export function startupPreviewHasBusinessType(request: ValuationRequest): boolean {
+  const businessTypeId = request.business_type_id?.trim()
+  return (
+    Boolean(businessTypeId) ||
+    (Array.isArray(request.business_type_segments) && request.business_type_segments.length > 0)
+  )
+}
+
 function previewKey(request: ValuationRequest): string {
   return JSON.stringify(request)
 }
@@ -240,7 +253,11 @@ function schedulePreview(
   return entry
 }
 
-export function useLiveValuation(_benchmark: StartupBenchmarkRow): LiveValuation {
+export function useLiveValuation(
+  _benchmark: StartupBenchmarkRow,
+  options: { enabled?: boolean } = {}
+): LiveValuation {
+  const enabled = options.enabled ?? true
   const startupState = useStartupValuationStore()
   const formData = useManualFormStore((state) => state.formData)
   const fallbackLens = startupState.inception_lens
@@ -276,7 +293,13 @@ export function useLiveValuation(_benchmark: StartupBenchmarkRow): LiveValuation
     value: previewCache.get(key)?.value ?? emptyLiveValuation(fallbackLens),
   }))
 
+  const canPreview = enabled && startupPreviewHasBusinessType(request)
+
   useEffect(() => {
+    if (!canPreview) {
+      setSnapshot({ key, value: emptyLiveValuation(fallbackLens) })
+      return
+    }
     const entry = schedulePreview(key, request, fallbackLens)
     const listener = (value: LiveValuation) => setSnapshot({ key, value })
     entry.listeners.add(listener)
@@ -290,7 +313,7 @@ export function useLiveValuation(_benchmark: StartupBenchmarkRow): LiveValuation
         previewCache.delete(key)
       }
     }
-  }, [fallbackLens, key, request])
+  }, [canPreview, fallbackLens, key, request])
 
   return snapshot.key === key ? snapshot.value : emptyLiveValuation(fallbackLens)
 }

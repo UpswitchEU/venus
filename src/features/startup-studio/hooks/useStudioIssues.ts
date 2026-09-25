@@ -26,9 +26,15 @@ export type {
 /**
  * Top-level hook. Re-runs whenever the persisted Studio state, live
  * valuation, or active benchmark row changes.
+ *
+ * `enabled: false` keeps the live startup preview from calling the engine: the
+ * advisor workspace mounts this hook on every valuation, startup or not.
  */
-export function useStudioIssues(benchmark: StartupBenchmarkRow) {
-  const valuation = useLiveValuation(benchmark)
+export function useStudioIssues(
+  benchmark: StartupBenchmarkRow,
+  options: { enabled?: boolean } = {}
+) {
+  const valuation = useLiveValuation(benchmark, options)
   const state = useStartupValuationStore()
   // Company name lives on the manual form store (shared with SME flows);
   // we read it via the same selector StudioShell uses.

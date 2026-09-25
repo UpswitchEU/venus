@@ -4,6 +4,7 @@ import { AlertCircle, X } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { accountingReconnectProviderName } from '@/features/manual/utils/accountingReconnectHandoff'
 import { accountingAPI, parseAccountingApiError } from '@/services/api/accounting'
 import type { ImportQualityPerYear } from '@/store/useImportQualityStore'
 import type { YearlyFinancials } from '../../../types/valuation'
@@ -37,6 +38,12 @@ type CorrectableProvider = Parameters<typeof accountingAPI.createFinancialCorrec
 
 function isCorrectableProvider(value: string | null | undefined): value is CorrectableProvider {
   return !!value && CORRECTABLE_PROVIDERS.has(value.toLowerCase())
+}
+
+/** A year whose figures came from an accounting tool (not typed, not a public filing). */
+function isAccountingImportedRow(row: YearlyFinancials): boolean {
+  if (row.source_kind === 'manual' || row.source_kind === 'official_filing') return false
+  return Boolean(row.source_provider)
 }
 
 interface HistoricalYearCardProps {
@@ -143,89 +150,91 @@ export function HistoricalYearCard({
       Number.isFinite(yearData.revenue) &&
       Number.isFinite(yearData.ebitda)
   )
+  const providerName = (() => {
+    const provider = yearData.source_provider ?? sourceProvider
+    if (provider?.trim()) return accountingReconnectProviderName(provider)
+    return locale === 'nl' ? 'de bron' : locale === 'fr' ? 'la source' : 'the source'
+  })()
   const reviewCopy =
     locale === 'nl'
       ? {
-          title: 'Ongebruikelijk hoge marge — controle vereist',
-          body: 'Controleer omzet, kosten en het Silverfin-dossier. Bevestig alleen als deze volledige jaarrekening werkelijk een EBITDA-marge van 90% of meer heeft.',
-          placeholder: 'Leg uit waarom deze marge correct is (min. 12 tekens)',
-          confirm: 'Gecontroleerd bevestigen',
-          missingClient: 'Clientcontext ontbreekt. Open dit rapport opnieuw vanuit Mercury.',
+          title: 'Marge van 90%+ — bevestig de cijfers',
+          body: `Controleer omzet en kosten in ${providerName}. Bevestig alleen als dit volledige jaar klopt.`,
+          placeholder: 'Waarom klopt deze marge? (min. 12 tekens)',
+          confirm: 'Cijfers bevestigen',
+          missingClient: 'Clientcontext ontbreekt. Open opnieuw vanuit Mercury.',
         }
       : locale === 'fr'
         ? {
-            title: 'Marge inhabituellement élevée — vérification requise',
-            body: 'Vérifiez le chiffre d’affaires, les charges et le dossier Silverfin. Confirmez uniquement si cet exercice complet présente réellement une marge d’EBITDA d’au moins 90 %.',
-            placeholder: 'Expliquez pourquoi cette marge est correcte (12 caractères minimum)',
-            confirm: 'Confirmer les chiffres vérifiés',
-            missingClient: 'Le contexte client manque. Rouvrez ce rapport depuis Mercury.',
+            title: 'Marge de 90 %+ — confirmez les chiffres',
+            body: `Vérifiez le chiffre d’affaires et les charges dans ${providerName}. Confirmez seulement si cet exercice complet est correct.`,
+            placeholder: 'Pourquoi cette marge est-elle correcte ? (12 caractères min.)',
+            confirm: 'Confirmer les chiffres',
+            missingClient: 'Le contexte client manque. Rouvrez depuis Mercury.',
           }
         : {
-            title: 'Unusually high margin — review required',
-            body: 'Review revenue, expenses, and the Silverfin dossier. Confirm only when this complete fiscal year genuinely has an EBITDA margin of 90% or more.',
-            placeholder: 'Explain why this margin is correct (minimum 12 characters)',
-            confirm: 'Confirm reviewed figures',
-            missingClient: 'Client context is missing. Reopen this report from Mercury.',
+            title: 'Margin of 90%+ — confirm the figures',
+            body: `Check revenue and costs in ${providerName}. Confirm only if this full year is right.`,
+            placeholder: 'Why is this margin right? (min. 12 characters)',
+            confirm: 'Confirm figures',
+            missingClient: 'Client context is missing. Reopen from Mercury.',
           }
   const correctionCopy =
     locale === 'nl'
       ? {
-          open: 'Broncijfers dossierbreed corrigeren',
-          body: 'Dit is een broncorrectie, geen EBITDA-normalisatie. Ze blijft gebonden aan deze provider-sync en wordt bij nieuwe brondata opnieuw te beoordelen.',
-          placeholder:
-            'Beschrijf welk bronbewijs de gecorrigeerde omzet en EBITDA ondersteunt (min. 12 tekens)',
-          confirm: 'Correctie duurzaam opslaan',
+          open: 'Broncijfers corrigeren',
+          body: 'Een broncorrectie, geen normalisatie. Ze blijft gekoppeld aan deze sync.',
+          placeholder: 'Welk bewijs ondersteunt deze cijfers? (min. 12 tekens)',
+          confirm: 'Correctie opslaan',
         }
       : locale === 'fr'
         ? {
-            open: 'Corriger les chiffres source du dossier',
-            body: 'Il s’agit d’une correction de source, pas d’une normalisation EBITDA. Elle reste liée à cette synchronisation et devra être réexaminée si la source change.',
-            placeholder:
-              'Décrivez la preuve qui justifie le chiffre d’affaires et l’EBITDA corrigés (12 caractères minimum)',
-            confirm: 'Enregistrer durablement la correction',
+            open: 'Corriger les chiffres source',
+            body: 'Une correction de source, pas une normalisation. Elle reste liée à cette synchronisation.',
+            placeholder: 'Quelle preuve justifie ces chiffres ? (12 caractères min.)',
+            confirm: 'Enregistrer la correction',
           }
         : {
-            open: 'Correct dossier-wide source figures',
-            body: 'This is a source correction, not an EBITDA normalization. It remains bound to this provider sync and returns to review when the source changes.',
-            placeholder:
-              'Describe the evidence supporting corrected revenue and EBITDA (minimum 12 characters)',
-            confirm: 'Save durable correction',
+            open: 'Correct source figures',
+            body: 'A source correction, not a normalization. It stays tied to this sync.',
+            placeholder: 'Which evidence supports these figures? (min. 12 characters)',
+            confirm: 'Save correction',
           }
   const excludedYearCopy =
     locale === 'nl'
       ? {
-          title: 'Dit boekjaar telt nog niet mee',
+          title: 'Niet gebruikt in waardering',
           body:
             yearReviewReason === 'incomplete_operating_pair'
-              ? 'Vul omzet en EBITDA voor ditzelfde boekjaar aan om het opnieuw toe te laten.'
+              ? 'Vul omzet en EBITDA voor dit jaar aan.'
               : yearReviewReason === 'ebitda_exceeds_revenue'
-                ? 'De EBITDA is hoger dan de omzet. Controleer en corrigeer één van beide cijfers.'
+                ? 'EBITDA is hoger dan de omzet. Corrigeer een van beide.'
                 : yearReviewReason === 'fiscal_year_mismatch'
-                  ? 'Het bronjaar en dit boekjaar komen niet overeen. Controleer de cijfers voor dit jaar.'
-                  : 'De broncontrole voor dit boekjaar is niet volledig. Corrigeer de cijfers hier of synchroniseer Silverfin opnieuw.',
+                  ? 'Het bronjaar komt niet overeen met dit jaar. Controleer de cijfers.'
+                  : `De broncontrole is onvolledig. Corrigeer de cijfers of synchroniseer ${providerName} opnieuw.`,
         }
       : locale === 'fr'
         ? {
-            title: "Cet exercice n'est pas encore pris en compte",
+            title: 'Non utilisé dans l’évaluation',
             body:
               yearReviewReason === 'incomplete_operating_pair'
-                ? 'Complétez le chiffre d’affaires et l’EBITDA du même exercice pour le réadmettre.'
+                ? 'Ajoutez le chiffre d’affaires et l’EBITDA de cet exercice.'
                 : yearReviewReason === 'ebitda_exceeds_revenue'
-                  ? 'L’EBITDA dépasse le chiffre d’affaires. Vérifiez et corrigez l’un des deux montants.'
+                  ? 'L’EBITDA dépasse le chiffre d’affaires. Corrigez l’un des deux.'
                   : yearReviewReason === 'fiscal_year_mismatch'
-                    ? 'L’exercice de la source ne correspond pas à cette année. Vérifiez les chiffres de cet exercice.'
-                    : 'La vérification de la source est incomplète. Corrigez les chiffres ici ou resynchronisez Silverfin.',
+                    ? 'L’exercice de la source ne correspond pas. Vérifiez les chiffres.'
+                    : `La vérification de la source est incomplète. Corrigez les chiffres ou resynchronisez ${providerName}.`,
           }
         : {
-            title: 'This fiscal year is not included yet',
+            title: 'Not used in valuation',
             body:
               yearReviewReason === 'incomplete_operating_pair'
-                ? 'Enter revenue and EBITDA for the same year to admit it again.'
+                ? 'Add revenue and EBITDA for this year.'
                 : yearReviewReason === 'ebitda_exceeds_revenue'
-                  ? 'EBITDA is higher than revenue. Review and correct either figure.'
+                  ? 'EBITDA is higher than revenue. Correct one of them.'
                   : yearReviewReason === 'fiscal_year_mismatch'
-                    ? 'The source year does not match this fiscal year. Review the figures for this year.'
-                    : 'Source verification for this year is incomplete. Correct the figures here or resync Silverfin.',
+                    ? "The source year doesn't match this year. Check the figures."
+                    : `The source check is incomplete. Correct the figures or resync ${providerName}.`,
           }
 
   const attestHighMargin = async () => {
@@ -318,20 +327,9 @@ export function HistoricalYearCard({
         <span className="text-sm font-semibold text-foreground">
           {yearData.year}
           {!yearData.isForecast && histOffset === 0 && (
-            <>
-              {' '}
-              <span className="text-xs font-normal text-muted-foreground">
-                ({mi('filingYearColumnBase')})
-              </span>
-            </>
-          )}
-          {!yearData.isForecast && histOffset !== null && histOffset > 0 && (
-            <>
-              {' '}
-              <span className="text-xs font-normal text-muted-foreground">
-                ({mi('filingYearColumnBaseMinus', { n: histOffset })})
-              </span>
-            </>
+            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+              · {mi('filingYearColumnLatest')}
+            </span>
           )}
           {yearData.isForecast && (
             <>
@@ -340,17 +338,8 @@ export function HistoricalYearCard({
             </>
           )}
         </span>
-        {(normCount > 0 || yearData.isForecast || canRemoveThisHistoricalYear) && (
+        {(yearData.isForecast || canRemoveThisHistoricalYear) && (
           <div className="flex items-center gap-2">
-            {normCount > 0 && (
-              <button
-                type="button"
-                onClick={() => onViewAllNormalizations?.()}
-                className="inline-flex min-h-7 items-center rounded bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15"
-              >
-                {mi('appliedNormalizations', { count: normCount })}
-              </button>
-            )}
             {yearData.isForecast && (
               <button
                 type="button"
@@ -380,6 +369,7 @@ export function HistoricalYearCard({
       </div>
 
       <AccountingYearEvidence
+        attentionExplained={Boolean(yearReviewReason)}
         formatCurrency={formatCurrency}
         importQuality={importQuality}
         yearData={yearData}
@@ -450,14 +440,18 @@ export function HistoricalYearCard({
         </div>
       </div>
 
-      <NbbResetHint
-        fiscalYear={yearData.year}
-        currentRevenue={yearData.revenue}
-        currentEbitda={yearData.ebitda}
-        onReset={(field, value) =>
-          updateYearlyFinancials(yearData.year, !!yearData.isForecast, field, value)
-        }
-      />
+      {/* Restoring public (NBB) figures only makes sense on a row typed by hand or taken
+          from the filing; a ledger-imported year must not offer a one-click overwrite. */}
+      {!yearData.isForecast && !isAccountingImportedRow(yearData) && (
+        <NbbResetHint
+          fiscalYear={yearData.year}
+          currentRevenue={yearData.revenue}
+          currentEbitda={yearData.ebitda}
+          onReset={(field, value) =>
+            updateYearlyFinancials(yearData.year, !!yearData.isForecast, field, value)
+          }
+        />
+      )}
 
       {yearReviewReason && !requiresHighMarginReview ? (
         <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-3">
@@ -536,46 +530,6 @@ export function HistoricalYearCard({
         </div>
       ) : null}
 
-      {hasNormalizedAdjustment && normalizedYear && (
-        <div className="mt-2 flex items-center justify-between text-xs gap-2">
-          <span className="text-foreground/50 shrink-0">{mi('fields.normalizedEbitdaLabel')}</span>
-          <span
-            className={cn(
-              'font-mono font-semibold text-right min-w-0',
-              normalizedYear.totalAdjustment > 0
-                ? 'text-success'
-                : normalizedYear.totalAdjustment < 0
-                  ? 'text-secondary'
-                  : 'text-foreground'
-            )}
-          >
-            {formatCurrency(
-              Number.isFinite(normalizedYear.normalizedEbitda) ? normalizedYear.normalizedEbitda : 0
-            )}
-            <span className="text-foreground/40 ml-1.5 font-normal">
-              {' '}
-              (
-              {normalizedYear.totalAdjustment !== 0 && (
-                <>
-                  {normalizedYear.totalAdjustment > 0 ? '+' : ''}
-                  {formatCurrency(normalizedYear.totalAdjustment)} {mi('fields.adjustmentSuffix')}
-                </>
-              )}
-              {normalizedYear.totalAdjustment !== 0 &&
-                (normalizedYear.fictiveRentDeduction ?? 0) > 0 &&
-                ' / '}
-              {(normalizedYear.fictiveRentDeduction ?? 0) > 0 && (
-                <>
-                  -{formatCurrency(normalizedYear.fictiveRentDeduction)}{' '}
-                  {mi('fields.fictiveRentInlineLabel')}
-                </>
-              )}
-              )
-            </span>
-          </span>
-        </div>
-      )}
-
       {isPartial && (
         <div className="mt-2 flex items-center gap-1.5 text-xs text-warning">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -583,29 +537,82 @@ export function HistoricalYearCard({
         </div>
       )}
 
-      {!isPartial &&
-        Number.isFinite(yearData.revenue) &&
-        Number.isFinite(yearData.ebitda) &&
-        yearData.revenue > 0 &&
-        (() => {
-          // When a normalized EBITDA is shown above, the margin sits under THAT
-          // figure and must divide the normalized EBITDA (e.g. 57.358 / 177.376 =
-          // 32.3%), not the reported EBITDA (which would mislabel it 20.6%).
-          const marginEbitda =
-            hasNormalizedAdjustment &&
-            normalizedYear &&
-            Number.isFinite(normalizedYear.normalizedEbitda)
-              ? normalizedYear.normalizedEbitda
-              : yearData.ebitda
-          const margin = (marginEbitda / yearData.revenue) * 100
-          if (!Number.isFinite(margin)) return null
-          return (
-            <p className="mt-2 text-[11px] text-foreground/40 font-mono tabular-nums">
-              {margin.toFixed(1)}%{' '}
-              <span className="font-sans">{mi('fields.ebitdaMarginInlineLabel')}</span>
-            </p>
-          )
-        })()}
+      {(() => {
+        // One quiet footer: the normalized figure (click opens the normalizations) and
+        // the margin. The margin steps aside when a margin warning already names it.
+        const showNormalized = hasNormalizedAdjustment && normalizedYear
+        const marginEbitda =
+          showNormalized && Number.isFinite(normalizedYear.normalizedEbitda)
+            ? normalizedYear.normalizedEbitda
+            : yearData.ebitda
+        const margin =
+          !isPartial &&
+          Number.isFinite(yearData.revenue) &&
+          Number.isFinite(yearData.ebitda) &&
+          yearData.revenue > 0
+            ? (marginEbitda / yearData.revenue) * 100
+            : Number.NaN
+        const marginWarned =
+          Boolean(fieldValidation.warnings[`margin-${yearData.year}`]) || requiresHighMarginReview
+        const showMargin = Number.isFinite(margin) && !marginWarned
+        if (!showNormalized && !showMargin) return null
+        const adjustment = normalizedYear?.totalAdjustment ?? 0
+        const rentDeduction = normalizedYear?.fictiveRentDeduction ?? 0
+        return (
+          <div className="mt-2 flex items-center justify-between gap-2 text-[11px]">
+            {showNormalized ? (
+              <button
+                type="button"
+                onClick={() => onViewAllNormalizations?.()}
+                title={
+                  normCount > 0 ? mi('appliedNormalizations', { count: normCount }) : undefined
+                }
+                className="min-w-0 truncate text-left text-foreground/55 transition-colors hover:text-foreground"
+              >
+                {mi('fields.normalizedShort')}{' '}
+                <span className="font-mono font-semibold tabular-nums text-foreground">
+                  {formatCurrency(
+                    Number.isFinite(normalizedYear.normalizedEbitda)
+                      ? normalizedYear.normalizedEbitda
+                      : 0
+                  )}
+                </span>
+                {adjustment !== 0 || rentDeduction > 0 ? (
+                  <span
+                    className={cn(
+                      'ml-1 font-mono tabular-nums',
+                      adjustment > 0 ? 'text-success' : 'text-foreground/45'
+                    )}
+                  >
+                    (
+                    {adjustment !== 0 && (
+                      <>
+                        {adjustment > 0 ? '+' : ''}
+                        {formatCurrency(adjustment)}
+                      </>
+                    )}
+                    {adjustment !== 0 && rentDeduction > 0 && ' · '}
+                    {rentDeduction > 0 && (
+                      <>
+                        −{formatCurrency(rentDeduction)}{' '}
+                        <span className="font-sans">{mi('fields.fictiveRentInlineLabel')}</span>
+                      </>
+                    )}
+                    )
+                  </span>
+                ) : null}
+              </button>
+            ) : (
+              <span />
+            )}
+            {showMargin ? (
+              <span className="shrink-0 font-mono tabular-nums text-foreground/40">
+                {margin.toFixed(1)}% <span className="font-sans">{mi('fields.marginShort')}</span>
+              </span>
+            ) : null}
+          </div>
+        )
+      })()}
     </div>
   )
 }

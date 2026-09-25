@@ -756,14 +756,14 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   })
   const handleStartProposal = React.useCallback(
     async (data: Parameters<typeof handleManualSubmit>[0]) => {
-      startProposalVersionLabelRef.current = 'v1 – Startvoorstel'
+      startProposalVersionLabelRef.current = tHistory('startProposalVersionLabel')
       try {
         return await handleManualSubmit(data)
       } finally {
         startProposalVersionLabelRef.current = null
       }
     },
-    [handleManualSubmit]
+    [handleManualSubmit, tHistory]
   )
   useManualStartValuationIntent({
     accountantCustomerId: requestAccountantCustomerId,
@@ -788,10 +788,13 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     restorationComplete,
   })
   const lastFullYear = getCurrentFilingYear()
+  const outputStale = React.useMemo(
+    () => persistedFinancialInputsDiffer(formStoreData, result),
+    [formStoreData, result]
+  )
   return (
     <>
       <ManualLayoutChrome
-        financialInputsChanged={persistedFinancialInputsDiffer(formStoreData, result)}
         chatDrawerOpen={chatDrawerOpen}
         isMobile={isMobile}
         navProps={{
@@ -890,6 +893,9 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
           isMobile,
           manualInputProps,
           outputLabel: tReport('workspace.output'),
+          outputStale: outputStale
+            ? { label: tReport('workspace.outdated'), hint: tReport('workspace.outdatedHint') }
+            : null,
           reportId,
           workspaceProps: {
             isCalculating,

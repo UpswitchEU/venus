@@ -76,7 +76,9 @@ export function useStartupAssistantSurface(
     startupSector,
     isStartupAssistantRoute
   )
-  const { issues: startupRawIssues } = useStudioIssues(startupBenchmark)
+  const { issues: startupRawIssues } = useStudioIssues(startupBenchmark, {
+    enabled: isStartupAssistantRoute,
+  })
 
   const startupIssues = useMemo<StartupAssistantIssue[]>(() => {
     if (!isStartupAssistantRoute) return []

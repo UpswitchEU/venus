@@ -5,7 +5,6 @@ import { AuroraButton } from '@/design-system/components/Button'
 
 interface ManualInputSubmitBarProps {
   canSave: boolean
-  canSaveReason?: string
   canSubmit: boolean
   hasBusinessType: boolean
   hasCompanyInfo: boolean
@@ -20,7 +19,6 @@ interface ManualInputSubmitBarProps {
 
 export function ManualInputSubmitBar({
   canSave,
-  canSaveReason,
   canSubmit,
   hasBusinessType,
   hasCompanyInfo,
@@ -49,15 +47,14 @@ export function ManualInputSubmitBar({
       >
         {ctaLabel}
       </AuroraButton>
-      {!canSubmit && (
+      {/* While sign-in or bootstrap is still loading there is nothing for the advisor to do. */}
+      {!canSubmit && canSave && (
         <p className="text-center text-xs text-foreground/60 mt-2">
-          {!canSave
-            ? canSaveReason
-            : !hasCompanyInfo
-              ? mi('validation.enterCompanyName')
-              : !hasBusinessType
-                ? mi('validation.selectBusinessType')
-                : mi('validation.enterFinancials')}
+          {!hasCompanyInfo
+            ? mi('validation.enterCompanyName')
+            : !hasBusinessType
+              ? mi('validation.selectBusinessType')
+              : mi('validation.enterFinancials')}
         </p>
       )}
     </div>

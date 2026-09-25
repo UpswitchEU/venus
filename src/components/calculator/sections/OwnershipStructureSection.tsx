@@ -122,7 +122,6 @@ export function OwnershipStructureSection({
           )}
         </div>
       </div>
-      <p className="text-[11px] text-foreground/40">{mi('ownershipHint')}</p>
     </motion.section>
   )
 }
