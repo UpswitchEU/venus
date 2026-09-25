@@ -115,15 +115,27 @@ export function useManualAiProposalActions({
       }
 
       const submitData = lastSubmittedDataRef.current ?? buildLiveValuationSubmitData()
-      // As with the startup review above: approve and arm the listing handoff only once the
-      // run really starts. A refused submit (e.g. a missing headcount) leaves the proposal
-      // pending, and no later calculation inherits the handoff.
-      void handleManualSubmit(submitData, {
-        onWillSubmit: () => {
-          postValuationListingHandoffPendingRef.current = true
-          markApproved()
-        },
-      })
+      // Approve and arm the listing handoff only once the run really starts, and take both
+      // back unless it completes: a refused submit (e.g. a missing headcount) never approves,
+      // and a run that stops or fails afterwards (stale run, engine error, failed save)
+      // reopens the proposal. Either way no later calculation inherits the handoff.
+      let runStarted = false
+      const reopenUnlessCompleted = (completed: unknown) => {
+        if (!runStarted || completed === true) return
+        postValuationListingHandoffPendingRef.current = false
+        setChatMessages((prev) =>
+          markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, undefined)
+        )
+      }
+      void Promise.resolve(
+        handleManualSubmit(submitData, {
+          onWillSubmit: () => {
+            runStarted = true
+            postValuationListingHandoffPendingRef.current = true
+            markApproved()
+          },
+        })
+      ).then(reopenUnlessCompleted, () => reopenUnlessCompleted(false))
     },
     [
       buildLiveValuationSubmitData,

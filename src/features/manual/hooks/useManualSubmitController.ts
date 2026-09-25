@@ -102,8 +102,10 @@ export interface UseManualSubmitControllerParams {
 
 export interface ManualSubmitOptions {
   /**
-   * Called once the calculation is about to start: the submit checks passed and no other
-   * run holds the lock. Not called when the submit is refused.
+   * Called once the run is about to start: the pre-run checks passed and this run holds the
+   * lock. Not called when those checks refuse the submit. The run can still stop or fail
+   * after it (a stale run, a failed normalization save, an engine error or no result, a
+   * failed report or version save); the submit then resolves to false.
    */
   onWillSubmit?: () => void
 }
