@@ -81,6 +81,23 @@ interface FinancialHistorySectionProps {
   waccSectorBand: WaccSectorBand | null
 }
 
+/** Years the source holds but the valuation cannot use, leaving out empty open years. */
+function countUnusedSourceYears(
+  readiness: ReturnType<typeof useVenusClientValuationReadiness>['readiness']
+): number {
+  const reviewYears = new Set(
+    (readiness?.issues ?? [])
+      .filter((issue) => issue.code === 'FINANCIAL_REVIEW_REQUIRED')
+      .map((issue) => issue.fiscal_year)
+  )
+  return (readiness?.years ?? []).filter(
+    (year) =>
+      !year.eligible &&
+      !reviewYears.has(year.fiscal_year) &&
+      (Boolean(year.revenue) || Boolean(year.ebitda))
+  ).length
+}
+
 /** "18 Sep, 10:29" — with the year only when it isn't this year. */
 function formatSourceSyncedAt(value: string | null | undefined, locale: string): string | null {
   if (!value) return null
@@ -147,7 +164,12 @@ export function FinancialHistorySection({
   const { clientId, readiness, refreshReadiness } = useVenusClientValuationReadiness()
   const importedProvider = useImportQualityStore((state) => state.provider)
   const importQuality = useImportQualityStore((state) => state.importQuality)
-  const sourceProvider = readiness?.source.provider ?? liveImportProviderName ?? importedProvider
+  // Name the source the figures came from, never merely the firm's connected tool:
+  // a dossier typed by hand must not read "From Octopus".
+  const rowSourceProvider = formData.yearlyFinancials?.find(
+    (row) => !row.isForecast && row.source_kind !== 'manual' && row.source_provider
+  )?.source_provider
+  const sourceProvider = readiness?.source.provider ?? importedProvider ?? rowSourceProvider ?? null
   const sourceSyncedAt =
     readiness?.source.synced_at ??
     Object.values(importQuality ?? {})
@@ -160,7 +182,15 @@ export function FinancialHistorySection({
       .filter((issue) => typeof issue.fiscal_year === 'number')
       .map((issue) => [issue.fiscal_year as number, issue])
   )
-  const reviewIssueCount = reviewIssuesByYear.size
+  // Only a year the advisor must look at counts as "to review". An open year that has
+  // no P&L yet (Yuki's current year) is simply not closed: it is neither mentioned
+  // nor counted as unused.
+  const reviewIssueCount = new Set(
+    (readiness?.issues ?? [])
+      .filter((issue) => issue.code === 'FINANCIAL_REVIEW_REQUIRED')
+      .map((issue) => issue.fiscal_year)
+      .filter((year): year is number => typeof year === 'number')
+  ).size
   const reviewIssueLabel =
     locale === 'nl'
       ? `${reviewIssueCount} ${reviewIssueCount === 1 ? 'boekjaar controleren' : 'boekjaren controleren'}`
@@ -213,14 +243,7 @@ export function FinancialHistorySection({
   }
   const sourceLabel = sourceProvider ? accountingReconnectProviderName(sourceProvider) : null
   const sourceSyncedLabel = formatSourceSyncedAt(sourceSyncedAt, locale)
-  const sourceYearCount = readiness?.source.fiscal_years.length ?? 0
-  const hasReadinessYearSet =
-    Array.isArray(readiness?.source.eligible_fiscal_years) || Array.isArray(readiness?.years)
-  const eligibleYearCount =
-    readiness?.source.eligible_fiscal_years?.length ??
-    readiness?.years?.filter((year) => year.eligible).length ??
-    0
-  const excludedYearCount = Math.max(0, sourceYearCount - eligibleYearCount)
+  const excludedYearCount = countUnusedSourceYears(readiness)
 
   // BET-315 — financials-step funnel impression (entry → here → submit). Fire
   // once per mount, only when the step is actually shown (past the guard below).
@@ -280,7 +303,7 @@ export function FinancialHistorySection({
                 </button>
               ) : null}
             </div>
-          ) : excludedYearCount > 0 && hasReadinessYearSet ? (
+          ) : excludedYearCount > 0 ? (
             <p className="font-medium text-amber-700 dark:text-amber-300">
               {mi('sourceEvidence.yearsExcluded', { count: excludedYearCount })}
             </p>

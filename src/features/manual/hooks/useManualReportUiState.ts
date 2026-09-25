@@ -24,8 +24,8 @@ export function useManualReportUiState({ initialTab }: UseManualReportUiStatePar
   const sessionSavedAt = useSessionStore((state) => state.lastSaved)
   // A rendered calculation is not a persistence acknowledgement. Session
   // failures and pending edits take precedence over an older calculation save.
-  const draftStatus: 'draft' | 'saved' | 'saving' = sessionSaveError
-    ? 'draft'
+  const draftStatus: 'draft' | 'saved' | 'saving' | 'unsaved' = sessionSaveError
+    ? 'unsaved'
     : sessionSaving || calculationSaveStatus === 'saving'
       ? 'saving'
       : sessionDirty

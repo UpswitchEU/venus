@@ -75,7 +75,7 @@ export function useManualSynthesisSkippedWarnings({
         : blockerKey.replace(/_/g, ' ')
 
       toast.warning(translate('synthesisBlendSkippedTitle'), {
-        description: translate('synthesisBlendSkippedDesc', {
+        description: translate('synthesisBlendSkippedMethodDesc', {
           method: methodLabel,
           reason:
             submitBlend.client.blockerReason ?? translate('synthesisBlendSkippedReasonFallback'),

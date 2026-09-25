@@ -72,15 +72,16 @@ describe('HistoricalYearCard source-bound correction', () => {
       />
     )
 
-    expect(screen.getByText('Dit boekjaar telt nog niet mee')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Broncijfers dossierbreed corrigeren' }))
+    expect(screen.getByText('Niet gebruikt in waardering')).toBeInTheDocument()
+    expect(screen.getByText('Vul omzet en EBITDA voor dit jaar aan.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Broncijfers corrigeren' }))
     fireEvent.change(
       screen.getByRole('textbox', {
-        name: /Beschrijf welk bronbewijs de gecorrigeerde omzet en EBITDA ondersteunt/,
+        name: /Welk bewijs ondersteunt deze cijfers/,
       }),
       { target: { value: 'Gecontroleerd tegen de volledige jaarrekening.' } }
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Correctie duurzaam opslaan' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Correctie opslaan' }))
 
     await waitFor(() =>
       expect(api.createFinancialCorrection).toHaveBeenCalledWith({
@@ -127,10 +128,11 @@ describe('HistoricalYearCard source-bound correction', () => {
       />
     )
 
-    expect(screen.queryByText('Broncijfers dossierbreed corrigeren')).not.toBeInTheDocument()
+    expect(screen.queryByText('Broncijfers corrigeren')).not.toBeInTheDocument()
   })
 
-  it('labels accepted per-year normalizations as applied instead of pending review', () => {
+  it('shows accepted normalizations as the normalized figure, not a separate pending tag', () => {
+    const onViewAllNormalizations = vi.fn()
     render(
       <HistoricalYearCard
         baseFilingYearForLabels={2024}
@@ -148,14 +150,20 @@ describe('HistoricalYearCard source-bound correction', () => {
         }}
         onRemoveForecastYear={vi.fn()}
         onRemoveHistoricalYear={vi.fn()}
-        onViewAllNormalizations={vi.fn()}
+        onViewAllNormalizations={onViewAllNormalizations}
         partialYears={[]}
         updateYearlyFinancials={vi.fn()}
         yearData={{ year: '2024', revenue: 1_000, ebitda: 100 }}
       />
     )
 
-    expect(screen.getByRole('button', { name: '2 normalisaties toegepast' })).toBeInTheDocument()
+    const normalized = screen.getByRole('button', {
+      name: /fields\.normalizedShort\s*150\s*\(\+50\)/,
+    })
+    expect(normalized).toHaveAttribute('title', '2 normalisaties toegepast')
+    fireEvent.click(normalized)
+    expect(onViewAllNormalizations).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/15\.0%/)).toBeInTheDocument()
     expect(screen.queryByText(/te beoordelen/)).not.toBeInTheDocument()
   })
 })

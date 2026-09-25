@@ -756,14 +756,14 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   })
   const handleStartProposal = React.useCallback(
     async (data: Parameters<typeof handleManualSubmit>[0]) => {
-      startProposalVersionLabelRef.current = 'v1 – Startvoorstel'
+      startProposalVersionLabelRef.current = tHistory('startProposalVersionLabel')
       try {
         return await handleManualSubmit(data)
       } finally {
         startProposalVersionLabelRef.current = null
       }
     },
-    [handleManualSubmit]
+    [handleManualSubmit, tHistory]
   )
   useManualStartValuationIntent({
     accountantCustomerId: requestAccountantCustomerId,

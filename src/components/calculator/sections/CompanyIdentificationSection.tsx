@@ -2,7 +2,7 @@
 
 import type { BusinessTypeOption as SharedBusinessTypeOption } from '@upswitch/business-type-selector'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Info } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { useMemo } from 'react'
@@ -14,7 +14,6 @@ import {
   type BusinessType as SearchBusinessType,
 } from '@/design-system'
 import { AuroraSelect } from '@/design-system/components/Select'
-import { Tooltip } from '@/design-system/components/Tooltip'
 import { getFinancialTerm } from '@/utils/locale/financial-terms'
 import { TARGET_COUNTRIES } from '../../../config/countries'
 import type { BusinessType as ApiBusinessType } from '../../../services/businessTypesApi'
@@ -22,46 +21,6 @@ import type { ManualValuationFormData } from '../../../types/valuation'
 import { BusinessTypeSelector } from '../../BusinessTypeSelector'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
 import { SegmentWeightingPanel } from './SegmentWeightingPanel'
-
-function MultipleSourceTooltipContent() {
-  return (
-    <div className="space-y-2 max-w-[260px]">
-      <p className="font-semibold text-background text-xs leading-snug">
-        Hoe wordt de multiple bepaald?
-      </p>
-      <p className="text-background/75 text-xs leading-relaxed">
-        Multiples komen uit de Upswitch index, opgebouwd uit echte KMO-transacties in België en
-        Nederland, gecorrigeerd voor sector en omvang.
-      </p>
-      <div className="border-t border-background/20 pt-2 text-background/60 text-[11px] leading-relaxed space-y-1">
-        <div>
-          <span className="font-medium text-background/80">Bron:</span> Upswitch index
-        </div>
-        <div>
-          <span className="font-medium text-background/80">Marge:</span> p25 / mediaan / p75
-          bandbreedte per sector
-        </div>
-        <div>
-          <span className="font-medium text-background/80">Grondslag:</span> EV/EBITDA of EV/SDE
-          afhankelijk van bedrijfstype
-        </div>
-      </div>
-      <p className="border-t border-background/20 pt-2 text-background/60 text-[11px] leading-relaxed">
-        Dit is de sectorbenchmark. Bedrijven met bovengemiddelde marges krijgen een
-        kwaliteitspremie, dus de toegepaste multiple in het rapport kan hoger liggen dan deze
-        benchmark.
-      </p>
-      <a
-        href="https://index.upswitch.app/nl/markets/business-types"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-1 inline-flex items-center gap-1 text-background text-[11px] font-medium underline underline-offset-2 transition-colors hover:text-background/75"
-      >
-        Bekijk de Upswitch index
-      </a>
-    </div>
-  )
-}
 
 const businessStructures = [
   { value: 'bv', label: 'BV' },
@@ -332,8 +291,6 @@ export function CompanyIdentificationSection({
             setCompanySearchValue(formData.companyName || '')
           }
         }}
-        helpText={mi('fields.operatingCountryHelp')}
-        helpTextPlacement="below"
         size="sm"
         disabled={isCalculating}
       />
@@ -364,7 +321,6 @@ export function CompanyIdentificationSection({
           size="sm"
           disabled={isCalculating}
           countryCode={searchCountry}
-          description={mi('registryOptionalHint')}
           noResultsHint={searchCountry === 'NL' ? mi('registryNlNoResults') : undefined}
         />
       )}
@@ -461,16 +417,11 @@ export function CompanyIdentificationSection({
                 </button>
               </div>
             )}
-            {selectedBusinessType && (
-              <div className="-mt-1 space-y-1">
-                <p className="text-[11px] text-foreground/40">{mi('businessTypeHint')}</p>
-                {effectiveMethods.includes('arr_multiple') ? (
-                  <p className="text-[11px] text-foreground/40">
-                    {mi('businessTypeArrMethodNote')}
-                  </p>
-                ) : null}
-              </div>
-            )}
+            {selectedBusinessType && effectiveMethods.includes('arr_multiple') ? (
+              <p className="-mt-1 text-[11px] text-foreground/40">
+                {mi('businessTypeArrMethodNote')}
+              </p>
+            ) : null}
             {/* Preparer override for the single-business-type case. The segment
                 multiple is seeded with the sector benchmark, so the field shows
                 the default pre-filled; editing it overrides via the same
@@ -484,34 +435,11 @@ export function CompanyIdentificationSection({
                 const benchmarkNumber =
                   finiteNumber(segment.multiple) ?? finiteNumber(segment.applied_multiple)
                 if (benchmarkNumber === undefined && segment.multiple == null) return null
+                // One control: the input carries its own label, and the benchmark is its
+                // placeholder. No second header, no tooltip restating the same multiple.
                 return (
-                  <div className="rounded-2xl border border-foreground/[0.10] bg-foreground/[0.03] overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {basis && (
-                          <span className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-xs text-foreground/55">
-                            {basis}
-                          </span>
-                        )}
-                        <span className="text-sm font-semibold text-foreground">{metricLabel}</span>
-                      </div>
-                      <Tooltip
-                        content={<MultipleSourceTooltipContent />}
-                        side="top"
-                        align="end"
-                        sideOffset={8}
-                        className="!py-3 !px-3 !rounded-xl"
-                      >
-                        <button
-                          type="button"
-                          className="flex items-center justify-center h-7 w-7 rounded-lg text-foreground/35 hover:text-foreground/70 hover:bg-foreground/[0.06] transition-all duration-150"
-                          aria-label="Meer informatie over de multiple"
-                        >
-                          <Info className="h-4 w-4" />
-                        </button>
-                      </Tooltip>
-                    </div>
-                    <div className="border-t border-foreground/[0.08] px-4 pb-4 pt-3">
+                  <div className="rounded-2xl border border-foreground/[0.10] bg-foreground/[0.03]">
+                    <div className="px-4 pb-4 pt-3">
                       <AuroraNumberInput
                         label={metricLabel}
                         placeholder={

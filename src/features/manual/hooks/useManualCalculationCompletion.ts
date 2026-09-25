@@ -1,5 +1,6 @@
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react'
 import { toast } from 'sonner'
+import { MOBILE_VIEWPORT_QUERY } from '../../../hooks/useMobileViewport'
 import { reportAssetService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
@@ -78,7 +79,8 @@ export interface UseManualCalculationCompletionParams {
   setPendingPostValuationAgentPrompt: Dispatch<SetStateAction<string | null>>
   setResult: (result: ValuationResponse | null) => void
   translate: ManualCalculationCompletionTranslator
-  translateHistory: ManualCalculationHistoryTranslator
+  /** No longer read: version-history load failures are logged, not toasted. */
+  translateHistory?: ManualCalculationHistoryTranslator
   translateReport: ManualCalculationReportTranslator
   userId?: string
   versionSyncTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
@@ -89,6 +91,13 @@ export interface UseManualCalculationCompletionResult {
   completeManualCalculation: (
     params: CompleteManualCalculationParams
   ) => Promise<CompleteManualCalculationResult>
+}
+
+/** Phones show the report behind a tab; there the finished run deserves a short toast. */
+function isReportPanelHidden(): boolean {
+  return (
+    typeof window !== 'undefined' && window.matchMedia?.(MOBILE_VIEWPORT_QUERY).matches === true
+  )
 }
 
 export function useManualCalculationCompletion({
@@ -104,7 +113,6 @@ export function useManualCalculationCompletion({
   setPendingPostValuationAgentPrompt,
   setResult,
   translate,
-  translateHistory,
   translateReport,
   userId,
   versionSyncTimeoutRef,
@@ -116,7 +124,6 @@ export function useManualCalculationCompletion({
       idForApi,
       previousVersion,
       request,
-      retrySubmit,
       storeSnapshot,
       submitRun,
       valuationResult,
@@ -180,7 +187,9 @@ export function useManualCalculationCompletion({
           recordManualValuationSaved([idForApi, useSessionStore.getState().session?.reportId])
         }
       }
-      const runVersioning = (durableSaveSucceeded: boolean) =>
+      const runVersioning = (
+        durableSaveSucceeded: boolean
+      ): ReturnType<typeof completeManualVersioning> =>
         completeManualVersioning({
           calculationDurationMs,
           createVersion,
@@ -188,10 +197,10 @@ export function useManualCalculationCompletion({
           idForApi,
           previousVersion,
           request,
-          retrySubmit,
+          // A failed version write retries the version, never a whole new calculation.
+          retryVersion: () => void runVersioning(durableSaveSucceeded),
           submitRun,
           translate,
-          translateHistory,
           userId,
           valuationResult,
           versionSyncTimeoutRef,
@@ -303,9 +312,10 @@ export function useManualCalculationCompletion({
             result: resultForUi,
             standaloneHtmlReport: useManualResultsStore.getState().htmlReport,
           })
-        if (recoveryStillMissing) {
-          toast.warning(translate('reportHtmlRecoveryFailed'))
-        } else {
+        // The report appearing is the confirmation. A still-missing preview explains itself
+        // in the report panel (with its own retry), so no toast repeats or contradicts it.
+        // Only a phone, where the report sits behind the other tab, gets a short note.
+        if (!recoveryStillMissing && isReportPanelHidden()) {
           toast.success(translate('calculationComplete'))
         }
         if (postValuationListingHandoffPendingRef.current) {
@@ -334,7 +344,6 @@ export function useManualCalculationCompletion({
       setPendingPostValuationAgentPrompt,
       setResult,
       translate,
-      translateHistory,
       translateReport,
       userId,
       versionSyncTimeoutRef,
@@ -352,10 +361,9 @@ async function completeManualVersioning({
   idForApi,
   previousVersion,
   request,
-  retrySubmit,
+  retryVersion,
   submitRun,
   translate,
-  translateHistory,
   userId,
   valuationResult,
   versionSyncTimeoutRef,
@@ -367,10 +375,9 @@ async function completeManualVersioning({
   idForApi?: string | null
   previousVersion: ManualVersionBaseline | null
   request: ValuationRequest
-  retrySubmit: () => void
+  retryVersion: () => void
   submitRun: ManualSubmitRun
   translate: ManualCalculationCompletionTranslator
-  translateHistory: ManualCalculationHistoryTranslator
   userId?: string
   valuationResult: ValuationResponse
   versionSyncTimeoutRef: MutableRefObject<ReturnType<typeof setTimeout> | null>
@@ -415,11 +422,11 @@ async function completeManualVersioning({
       versioningResult.fetchError instanceof Error
         ? versioningResult.fetchError.message
         : String(versioningResult.fetchError)
+    // Background read: logged, not toasted. The version menu shows its own load state.
     generalLogger.warn('[ManualValuationWorkspace] fetchVersions failed', {
       reportId: idForApi,
       error: fetchMsg,
     })
-    toast.warning(translateHistory('loadError'), { description: fetchMsg })
   }
 
   if (versioningResult.versionError) {
@@ -429,10 +436,9 @@ async function completeManualVersioning({
         : String(versioningResult.versionError)
     generalLogger.error('Failed to create version', { reportId: idForApi, error: errMsg })
     toast.error(translate('versionCreateFailed'), {
-      description: errMsg,
       action: {
         label: translate('retry'),
-        onClick: retrySubmit,
+        onClick: retryVersion,
       },
     })
   }
@@ -445,9 +451,6 @@ async function completeManualVersioning({
     onError: (err) => {
       generalLogger.warn('[ManualValuationWorkspace] Version history sync failed', {
         error: err instanceof Error ? err.message : String(err),
-      })
-      toast.warning(translateHistory('loadError'), {
-        description: err instanceof Error ? err.message : undefined,
       })
     },
   })

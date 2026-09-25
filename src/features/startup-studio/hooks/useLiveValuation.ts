@@ -253,7 +253,11 @@ function schedulePreview(
   return entry
 }
 
-export function useLiveValuation(_benchmark: StartupBenchmarkRow): LiveValuation {
+export function useLiveValuation(
+  _benchmark: StartupBenchmarkRow,
+  options: { enabled?: boolean } = {}
+): LiveValuation {
+  const enabled = options.enabled ?? true
   const startupState = useStartupValuationStore()
   const formData = useManualFormStore((state) => state.formData)
   const fallbackLens = startupState.inception_lens
@@ -289,7 +293,7 @@ export function useLiveValuation(_benchmark: StartupBenchmarkRow): LiveValuation
     value: previewCache.get(key)?.value ?? emptyLiveValuation(fallbackLens),
   }))
 
-  const canPreview = startupPreviewHasBusinessType(request)
+  const canPreview = enabled && startupPreviewHasBusinessType(request)
 
   useEffect(() => {
     if (!canPreview) {

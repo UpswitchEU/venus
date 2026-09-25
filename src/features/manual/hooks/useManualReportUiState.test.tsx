@@ -22,12 +22,13 @@ beforeEach(() => {
 })
 
 describe('manual report persistence indicator', () => {
-  it('a failed autosave overrides an earlier successful calculation save', () => {
+  it('a failed autosave overrides an earlier successful calculation save and says so', () => {
     const { result, rerender } = renderHook(() => useManualReportUiState({ initialTab: 'preview' }))
     act(() => result.current.setDraftStatus('saved'))
     session.saveErrorMessage = 'Network error'
     rerender()
-    expect(result.current.draftStatus).toBe('draft')
+    // A failed save is not a harmless draft: the context bar reads "Not saved".
+    expect(result.current.draftStatus).toBe('unsaved')
   })
 
   it('new unsaved edits override an earlier successful calculation save', () => {

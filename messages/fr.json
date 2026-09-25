@@ -435,7 +435,7 @@
 		},
 		"messages": {
 			"calculationStarted": "Le calcul de l’estimation indicative a commencé",
-			"calculationComplete": "Devis indicatif terminé",
+			"calculationComplete": "Évaluation prête",
 			"calculationFailed": "Le calcul a échoué. Veuillez réessayer.",
 			"savedSuccessfully": "Enregistré avec succès",
 			"saveFailed": "Échec de l'enregistrement. Veuillez réessayer.",
@@ -684,8 +684,8 @@
 		"defaultFilename": "Rapport",
 		"pdfSuffix": "Rapport d'évaluation",
 		"placeholder": {
-			"title": "Votre valorisation se construit ici",
-			"description": "Vérifiez uniquement les données qui nécessitent votre jugement. Le résultat se met à jour lorsque les preuves sont prêtes.",
+			"title": "Pas encore d’évaluation",
+			"description": "Vérifiez les données, puis choisissez Déterminer la valeur.",
 			"context": "Contexte de l’entreprise chargé",
 			"financials": "Preuves financières préremplies",
 			"result": "Valeur et rapport après vérification",
@@ -698,7 +698,7 @@
 			"outdatedHint": "Les chiffres ont changé. Mettez à jour la valeur pour actualiser ce rapport."
 		},
 		"generating": {
-			"title": "Génération du rapport",
+			"title": "Calcul de la valeur…",
 			"description": "Analyser les données financières et calculer des mesures d'estimation commerciale indicatives...",
 			"step1": "Traitement des documents",
 			"step2": "Calcul de l'EBITDA",
@@ -1232,7 +1232,8 @@
 			"changesRequested": "Modifications demandées",
 			"saved": "Enregistré",
 			"saving": "Sauvegarde...",
-			"draft": "Brouillon"
+			"draft": "Brouillon",
+			"notSaved": "Non enregistré"
 		}
 	},
 	"manualInput": {
@@ -1251,6 +1252,7 @@
 			"lockedDescription": "Ajoutez plus de méthodes de valorisation pour débloquer la synthèse."
 		},
 		"academicValidation": {
+			"summary": "{count, plural, one {# vérification avant partage} other {# vérifications avant partage}}",
 			"title": "Vérification croisée académique",
 			"footnote": "Ces éléments apparaissent également sur la page des clauses de non-responsabilité du rapport. Résoudre ou documenter avant distribution externe."
 		},
@@ -1371,9 +1373,9 @@
 			"anchor4Hint": "Utilisez un rapport établi au plus tard le 31 décembre 2027 par un expert comptable certifié ou un réviseur d'entreprises qui n'est pas le conseiller habituel de la société."
 		},
 		"sections": {
-			"companyDetails": "Détails de l'entreprise",
-			"ownershipStructure": "Propriété et structure",
-			"financialHistory": "Histoire financière"
+			"companyDetails": "Entreprise",
+			"ownershipStructure": "Équipe",
+			"financialHistory": "Chiffres financiers"
 		},
 		"balanceSheetAndTransaction": "Actif et bilan (structure de la transaction)",
 		"fields": {
@@ -1391,8 +1393,10 @@
 			"nwcChange": "ΔNWC",
 			"normalizedEbitda": "EBITDA normalisé",
 			"normalizedEbitdaLabel": "EBITDA normalisé :",
+			"normalizedShort": "Normalisé",
+			"marginShort": "marge",
 			"adjustmentSuffix": "réglage",
-			"fictiveRentInlineLabel": "loyer fictif (exclusion RE)",
+			"fictiveRentInlineLabel": "loyer de marché",
 			"ebitdaMarginInlineLabel": "Marge d'EBITDA",
 			"nbbSource": "Importé du dépôt BNB",
 			"grossMarginFallback": "Recettes non publiques ; en utilisant la marge brute comme base",
@@ -1447,6 +1451,7 @@
 		"filingYearAriaSafeDefault": "Sélectionnez {year}, valeur par défaut lorsque les comptes ne sont pas encore finalisés",
 		"filingYearAriaBooksClosed": "Sélectionnez {year}, à utiliser lorsque les comptes annuels sont déjà déposés ou finalisés",
 		"filingYearColumnBase": "Socle",
+		"filingYearColumnLatest": "dernier",
 		"filingYearColumnBaseMinus": "Base − {n}",
 		"filingYearOther": "L'autre année...",
 		"addYear": "Ajouter l'année",
@@ -1589,7 +1594,7 @@
 		"countryOptionNL": "Pays-Bas (KVK)",
 		"businessTypeHint": "Ce type d'activité détermine les données de référence et les multiples de l'estimation",
 		"appliedMultipleLabel": "Multiple appliqué",
-		"appliedMultipleHint": "Référence sectorielle. Ajustez pour remplacer.",
+		"appliedMultipleHint": "Référence de l’indice Upswitch. Modifiez-la pour la remplacer.",
 		"appliedMultipleReset": "Rétablir la référence",
 		"businessTypeArrMethodNote": "Le type d'entreprise reste modifiable : modifiez-le si le profil est erroné. La barre Méthode sélectionne uniquement le prisme de valorisation (par exemple EV/ARR vs DCF).",
 		"ownershipHint": "Ces détails influencent la prime de risque et de multiples corrections dans l'estimation",
@@ -2317,7 +2322,7 @@
 		"employeeCountMissing": "ETP total manquant",
 		"employeeCountMissingDesc": "Entrez l'ETP total, propriétaires inclus, pour continuer.",
 		"startProposalSkipped": "Proposition initiale non générée",
-		"startProposalSkippedDesc": "Vérifiez les chiffres, puis cliquez sur Calculer quand vous êtes prêt.",
+		"startProposalSkippedDesc": "Complétez les chiffres, puis choisissez Déterminer la valeur.",
 		"financialDataIncomplete": "Données financières incomplètes",
 		"financialDataIncompleteDesc": "Entrez au moins 1 an avec les revenus et l'EBITDA.",
 		"dcfNotReady": "Données DCF incomplètes",
@@ -2335,8 +2340,9 @@
 		"benchmarkContractRequiredDesc": "Upswitch n'a pas trouvé de référence fiable pour ce type d'entreprise dans le pays sélectionné. Choisissez un autre type d’entreprise ou contactez l’assistance pour ajouter une couverture.",
 		"calculationComplete": "Devis indicatif réalisé",
 		"reportHtmlRecoveryFailed": "L'aperçu du rapport est toujours en cours de chargement. Actualisez la page ou recalculez si elle n'apparaît pas.",
-		"synthesisBlendSkippedTitle": "Le mélange pondéré ne figure pas dans ce résultat",
-		"synthesisBlendSkippedDesc": "Le moteur n’a pas renvoyé une valeur nette pondérée. Une méthode sélectionnée peut être indisponible : vérifiez les synthèses de valeurs ou recalculez.",
+		"synthesisBlendSkippedTitle": "Valeur pondérée indisponible",
+		"synthesisBlendSkippedDesc": "Une méthode choisie n’a pas donné de valeur. Vérifiez ses données ou ses pondérations.",
+		"synthesisBlendSkippedMethodDesc": "{method} n’a pas donné de valeur : {reason}",
 		"synthesisBlendSkippedReasonFallback": "Vérifiez les champs obligatoires pour cette méthode.",
 		"unknownError": "Erreur inconnue",
 		"fieldUpdated": "{field} mis à jour vers {value}",
@@ -2415,7 +2421,7 @@
 		"guest": "Invité",
 		"retry": "Réessayer",
 		"reminderSent": "Rappel envoyé au client",
-		"versionCreateFailed": "Échec de la création de la version",
+		"versionCreateFailed": "Version non enregistrée",
 		"attestStarted": "Démarrage d’Upswitch Attest…",
 		"attestSuccess": "Invitation de signature envoyée",
 		"attestSuccessDesc": "Consultez votre e-mail pour finaliser la signature eIDAS.",
@@ -2451,6 +2457,7 @@
 		"restoreTo": "Restaurer vers v{version}"
 	},
 	"historyPanel": {
+		"startProposalVersionLabel": "v1 · Première estimation",
 		"title": "Historique des versions",
 		"loading": "Chargement...",
 		"loadError": "L'historique des versions n'a pas pu être chargé",

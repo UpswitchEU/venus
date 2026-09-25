@@ -430,7 +430,7 @@ export function ManualInputPanel({
     [onCSVImportComplete]
   )
 
-  const { canSave, reason: canSaveReason } = useCanSave()
+  const { canSave } = useCanSave()
   const {
     acceptedNormCount,
     adaptiveHeaderSteps,
@@ -661,7 +661,6 @@ export function ManualInputPanel({
 
             <ManualInputSubmitBar
               canSave={canSave}
-              canSaveReason={canSaveReason}
               canSubmit={canSubmit}
               hasBusinessType={hasBusinessType}
               hasCompanyInfo={hasCompanyInfo}

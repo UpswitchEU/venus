@@ -435,7 +435,7 @@
 		},
 		"messages": {
 			"calculationStarted": "Indicatieve bedrijfsschattingsberekening gestart",
-			"calculationComplete": "Indicatieve bedrijfsschatting voltooid",
+			"calculationComplete": "Waardering klaar",
 			"calculationFailed": "Berekening mislukt. Probeer het opnieuw.",
 			"savedSuccessfully": "Succesvol opgeslagen",
 			"saveFailed": "Opslaan mislukt. Probeer het opnieuw.",
@@ -684,8 +684,8 @@
 		"defaultFilename": "Rapport",
 		"pdfSuffix": "Schattingsrapport",
 		"placeholder": {
-			"title": "Uw waardering ontstaat hier",
-			"description": "Beoordeel alleen de invoer die uw oordeel vraagt. De uitvoer wordt bijgewerkt zodra het bewijs klaar is.",
+			"title": "Nog geen waardering",
+			"description": "Controleer de invoer en kies dan Waarde bepalen.",
 			"context": "Bedrijfscontext geladen",
 			"financials": "Financieel bewijs vooraf ingevuld",
 			"result": "Waarde en rapport na beoordeling",
@@ -698,7 +698,7 @@
 			"outdatedHint": "De cijfers zijn gewijzigd. Werk de waarde bij om dit rapport te vernieuwen."
 		},
 		"generating": {
-			"title": "Rapport genereren",
+			"title": "Waarde berekenen…",
 			"description": "Financiële gegevens analyseren en schattingsmetrics berekenen...",
 			"step1": "Documenten verwerken",
 			"step2": "EBITDA berekenen",
@@ -1232,7 +1232,8 @@
 			"changesRequested": "Wijzigingen gevraagd",
 			"saved": "Opgeslagen",
 			"saving": "Opslaan...",
-			"draft": "Concept"
+			"draft": "Concept",
+			"notSaved": "Niet opgeslagen"
 		}
 	},
 	"manualInput": {
@@ -1251,6 +1252,7 @@
 			"lockedDescription": "Voeg meer waarderingsmethodes toe om de synthese te ontgrendelen."
 		},
 		"academicValidation": {
+			"summary": "{count, plural, one {# controle vóór delen} other {# controles vóór delen}}",
 			"title": "Academische kruiscontrole",
 			"footnote": "Deze punten staan ook op de disclaimerpagina van het rapport. Los op of documenteer vóór externe verspreiding."
 		},
@@ -1371,9 +1373,9 @@
 			"anchor4Hint": "Gebruik een verslag dat uiterlijk 31 december 2027 is opgesteld door een gecertificeerd accountant of bedrijfsrevisor die niet de gebruikelijke adviseur van de vennootschap is."
 		},
 		"sections": {
-			"companyDetails": "Bedrijfsgegevens",
-			"ownershipStructure": "Eigendom & Structuur",
-			"financialHistory": "Financiële historie"
+			"companyDetails": "Bedrijf",
+			"ownershipStructure": "Team",
+			"financialHistory": "Cijfers"
 		},
 		"balanceSheetAndTransaction": "Activa & balans (transactiestructuur)",
 		"fields": {
@@ -1391,8 +1393,10 @@
 			"nwcChange": "ΔNWC",
 			"normalizedEbitda": "Genormaliseerde EBITDA",
 			"normalizedEbitdaLabel": "Genormaliseerde EBITDA:",
+			"normalizedShort": "Genormaliseerd",
+			"marginShort": "marge",
 			"adjustmentSuffix": "aanpassing",
-			"fictiveRentInlineLabel": "fictieve huur (vastgoed-carve-out)",
+			"fictiveRentInlineLabel": "marktconforme huur",
 			"ebitdaMarginInlineLabel": "EBITDA-marge",
 			"nbbSource": "Geïmporteerd uit NBB-jaarrekening",
 			"grossMarginFallback": "Omzet niet publiek; brutomarge als basis",
@@ -1447,6 +1451,7 @@
 		"filingYearAriaSafeDefault": "Kies {year}, aanbevolen wanneer de jaarrekening nog niet definitief is",
 		"filingYearAriaBooksClosed": "Kies {year}, wanneer de jaarrekening al is neergelegd of afgerond",
 		"filingYearColumnBase": "Basis",
+		"filingYearColumnLatest": "laatste",
 		"filingYearColumnBaseMinus": "Basis − {n}",
 		"filingYearOther": "Ander jaar...",
 		"addYear": "Jaar toevoegen",
@@ -1589,7 +1594,7 @@
 		"countryOptionNL": "Nederland (KVK)",
 		"businessTypeHint": "Dit bedrijfstype bepaalt de benchmark data en multiples voor de schatting",
 		"appliedMultipleLabel": "Toegepaste multiple",
-		"appliedMultipleHint": "Sectorbenchmark. Pas aan om te overschrijven.",
+		"appliedMultipleHint": "Benchmark uit de Upswitch index. Pas aan om te overschrijven.",
 		"appliedMultipleReset": "Herstel benchmark",
 		"businessTypeArrMethodNote": "Bedrijfstype blijft aanpasbaar—wijzig het als het profiel niet klopt. De balk Methode kiest alleen de waarderingslens (bijv. EV/ARR vs DCF).",
 		"ownershipHint": "Deze gegevens beïnvloeden de risicopremie en meervoudscorrecties in de schatting",
@@ -2317,7 +2322,7 @@
 		"employeeCountMissing": "Totaal FTE ontbreekt",
 		"employeeCountMissingDesc": "Vul het totaal aantal FTE in, eigenaars meegeteld, om verder te gaan.",
 		"startProposalSkipped": "Startvoorstel niet aangemaakt",
-		"startProposalSkippedDesc": "Controleer de cijfers en klik op Berekenen wanneer het past.",
+		"startProposalSkippedDesc": "Vul de cijfers aan en kies dan Waarde bepalen.",
 		"financialDataIncomplete": "Financiële gegevens onvolledig",
 		"financialDataIncompleteDesc": "Vul minstens 1 jaar met omzet én EBITDA in.",
 		"dcfNotReady": "DCF-gegevens onvolledig",
@@ -2335,8 +2340,9 @@
 		"benchmarkContractRequiredDesc": "Upswitch vond geen vertrouwde benchmark voor dit bedrijfstype in het geselecteerde land. Kies een ander bedrijfstype of neem contact op met support om dekking toe te voegen.",
 		"calculationComplete": "Indicatieve bedrijfsschatting voltooid",
 		"reportHtmlRecoveryFailed": "Het rapportvoorbeeld laadt nog. Vernieuw de pagina of bereken opnieuw als het niet verschijnt.",
-		"synthesisBlendSkippedTitle": "Gewogen mix niet in dit resultaat",
-		"synthesisBlendSkippedDesc": "De engine gaf geen geblend eigen vermogen terug. Een geselecteerde methode is mogelijk niet beschikbaar—controleer Waarderingssynthese of herbereken.",
+		"synthesisBlendSkippedTitle": "Gewogen waarde niet beschikbaar",
+		"synthesisBlendSkippedDesc": "Eén gekozen methode gaf geen waarde. Controleer de invoer of de gewichten.",
+		"synthesisBlendSkippedMethodDesc": "{method} gaf geen waarde: {reason}",
 		"synthesisBlendSkippedReasonFallback": "Controleer de verplichte velden voor deze methode.",
 		"unknownError": "Onbekende fout",
 		"fieldUpdated": "{field} bijgewerkt naar {value}",
@@ -2415,7 +2421,7 @@
 		"normalizationNotSavedRetry": "Nu opnieuw proberen",
 		"normalizationNotSavedSession": "Sessie niet gevonden. Bereken eerst uw bedrijfsschatting of vernieuw de pagina.",
 		"reminderSent": "Herinnering verstuurd naar klant",
-		"versionCreateFailed": "Versie aanmaken mislukt",
+		"versionCreateFailed": "Versie niet opgeslagen",
 		"attestStarted": "Upswitch Attest wordt gestart…",
 		"attestSuccess": "Uitnodiging om te ondertekenen verstuurd",
 		"attestSuccessDesc": "Controleer uw e-mail om de eIDAS-handtekening te voltooien.",
@@ -2451,6 +2457,7 @@
 		"restoreTo": "Herstel naar v{version}"
 	},
 	"historyPanel": {
+		"startProposalVersionLabel": "v1 · Startvoorstel",
 		"title": "Versiegeschiedenis",
 		"loading": "Laden...",
 		"loadError": "Versiegeschiedenis kon niet worden geladen",

@@ -435,7 +435,7 @@
 		},
 		"messages": {
 			"calculationStarted": "Indicative estimate calculation started",
-			"calculationComplete": "Indicative estimate complete",
+			"calculationComplete": "Valuation ready",
 			"calculationFailed": "Calculation failed. Please try again.",
 			"savedSuccessfully": "Saved successfully",
 			"saveFailed": "Failed to save. Please try again.",
@@ -684,8 +684,8 @@
 		"defaultFilename": "Report",
 		"pdfSuffix": "Valuation-Report",
 		"placeholder": {
-			"title": "Your valuation builds here",
-			"description": "Review only the inputs that need your judgment. The output updates as the evidence becomes ready.",
+			"title": "No valuation yet",
+			"description": "Check the inputs, then choose Determine value.",
 			"context": "Company context loaded",
 			"financials": "Financial evidence prefilled",
 			"result": "Value and report after review",
@@ -698,7 +698,7 @@
 			"outdatedHint": "The figures changed. Update the value to refresh this report."
 		},
 		"generating": {
-			"title": "Generating report",
+			"title": "Calculating value…",
 			"description": "Analyzing financial data and calculating indicative business estimate metrics...",
 			"step1": "Processing documents",
 			"step2": "Calculating EBITDA",
@@ -1232,7 +1232,8 @@
 			"changesRequested": "Changes requested",
 			"saved": "Saved",
 			"saving": "Saving...",
-			"draft": "Draft"
+			"draft": "Draft",
+			"notSaved": "Not saved"
 		}
 	},
 	"manualInput": {
@@ -1251,6 +1252,7 @@
 			"lockedDescription": "Add more valuation methods to unlock the synthesis."
 		},
 		"academicValidation": {
+			"summary": "{count, plural, one {# check before sharing} other {# checks before sharing}}",
 			"title": "Academic cross-check",
 			"footnote": "These items also appear on the report disclaimers page. Resolve or document before external distribution."
 		},
@@ -1371,9 +1373,9 @@
 			"anchor4Hint": "Use a report completed by 31 December 2027 by a certified accountant or statutory auditor who is not the company's usual adviser."
 		},
 		"sections": {
-			"companyDetails": "Company Details",
-			"ownershipStructure": "Ownership & Structure",
-			"financialHistory": "Financial History"
+			"companyDetails": "Company",
+			"ownershipStructure": "Team",
+			"financialHistory": "Financials"
 		},
 		"balanceSheetAndTransaction": "Assets & balance sheet (transaction structure)",
 		"fields": {
@@ -1381,8 +1383,8 @@
 			"operatingCountryHelp": "Chooses KBO (Belgium) or KVK (Netherlands) company search and terminology.",
 			"companyNameOptionalRegistry": "Company name (registry lookup optional)",
 			"companyNameOrKbo": "Company name or KBO number",
-			"businessType": "Business Type",
-			"legalForm": "Legal Form",
+			"businessType": "Business type",
+			"legalForm": "Legal form",
 			"ownerManagers": "Owner-managers",
 			"totalFte": "Total FTE",
 			"revenue": "Revenue",
@@ -1391,8 +1393,10 @@
 			"nwcChange": "ΔNWC",
 			"normalizedEbitda": "Normalized EBITDA",
 			"normalizedEbitdaLabel": "Normalized EBITDA:",
+			"normalizedShort": "Normalized",
+			"marginShort": "margin",
 			"adjustmentSuffix": "adjustment",
-			"fictiveRentInlineLabel": "fictive rent (RE carve-out)",
+			"fictiveRentInlineLabel": "market rent",
 			"ebitdaMarginInlineLabel": "EBITDA margin",
 			"nbbSource": "Imported from NBB filing",
 			"grossMarginFallback": "Revenue not public; using Gross Margin as base",
@@ -1447,6 +1451,7 @@
 		"filingYearAriaSafeDefault": "Select {year}, safe default when accounts are not yet finalized",
 		"filingYearAriaBooksClosed": "Select {year}, use when annual accounts are already filed or finalized",
 		"filingYearColumnBase": "Base",
+		"filingYearColumnLatest": "latest",
 		"filingYearColumnBaseMinus": "Base − {n}",
 		"filingYearOther": "Other year...",
 		"addYear": "Add year",
@@ -1589,7 +1594,7 @@
 		"countryOptionNL": "Netherlands (KVK)",
 		"businessTypeHint": "This business type determines the benchmark data and multiples for the estimate",
 		"appliedMultipleLabel": "Applied multiple",
-		"appliedMultipleHint": "Sector benchmark. Adjust to override.",
+		"appliedMultipleHint": "Upswitch index benchmark. Edit to override.",
 		"appliedMultipleReset": "Reset to benchmark",
 		"businessTypeArrMethodNote": "Business type stays editable—change it if the profile is wrong. The Method bar only picks the valuation lens (e.g. EV/ARR vs DCF).",
 		"ownershipHint": "These details influence the risk premium and multiple corrections in the estimate",
@@ -2315,7 +2320,7 @@
 		"employeeCountMissing": "Total FTE missing",
 		"employeeCountMissingDesc": "Enter the total FTE, owners included, to continue.",
 		"startProposalSkipped": "Starting proposal not generated",
-		"startProposalSkippedDesc": "Review the figures, then press Calculate when you are ready.",
+		"startProposalSkippedDesc": "Complete the figures, then choose Determine value.",
 		"financialDataIncomplete": "Financial data incomplete",
 		"financialDataIncompleteDesc": "Enter at least 1 year with revenue and EBITDA.",
 		"dcfNotReady": "DCF data incomplete",
@@ -2333,8 +2338,9 @@
 		"benchmarkContractRequiredDesc": "Upswitch couldn't find a trusted benchmark for this business type in the selected country. Pick a different business type or contact support to add coverage.",
 		"calculationComplete": "Indicative estimate completed",
 		"reportHtmlRecoveryFailed": "The report preview is still loading. Refresh the page or recalculate if it does not appear.",
-		"synthesisBlendSkippedTitle": "Blended valuation unavailable",
-		"synthesisBlendSkippedDesc": "{method} did not produce a value for synthesis: {reason}. Adjust inputs or weights and recalculate.",
+		"synthesisBlendSkippedTitle": "Blended value unavailable",
+		"synthesisBlendSkippedDesc": "One selected method returned no value. Check its inputs or weights.",
+		"synthesisBlendSkippedMethodDesc": "{method} returned no value: {reason}",
 		"synthesisBlendSkippedReasonFallback": "Check required fields for this method.",
 		"unknownError": "Unknown error",
 		"fieldUpdated": "{field} updated to {value}",
@@ -2388,8 +2394,6 @@
 		"pdfRetry": "Generate again",
 		"pdfOpenLastVersion": "Open previous PDF",
 		"pdfDismiss": "Dismiss",
-		"synthesisBlendSkippedTitle": "Weighted blend not in this result",
-		"synthesisBlendSkippedDesc": "The engine did not return a blended equity value. One selected method may be unavailable—check Waarderingssynthese or recalculate.",
 		"pdfPollDegradedHint": "Sync with the server failed temporarily. Retrying usually fixes it.",
 		"downloadPdfStaleHint": "Wait until the PDF has finished updating to download the latest version.",
 		"modalEditInputsMissing": "Saved valuation inputs for this report were not found. Run a full calculation in the workspace, or contact support if this persists.",
@@ -2425,7 +2429,7 @@
 		"guest": "Guest",
 		"retry": "Retry",
 		"reminderSent": "Reminder sent to client",
-		"versionCreateFailed": "Failed to create version"
+		"versionCreateFailed": "Version not saved"
 	},
 	"versionCompare": {
 		"typeInitial": "Initial",
@@ -2451,6 +2455,7 @@
 		"restoreTo": "Restore to v{version}"
 	},
 	"historyPanel": {
+		"startProposalVersionLabel": "v1 · First estimate",
 		"title": "Version History",
 		"loading": "Loading...",
 		"loadError": "Version history could not be loaded",
