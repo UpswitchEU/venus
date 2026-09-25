@@ -100,9 +100,17 @@ export interface UseManualSubmitControllerParams {
   startProposalVersionLabelRef: MutableRefObject<string | null>
 }
 
+export interface ManualSubmitOptions {
+  /**
+   * Called once the calculation is about to start: the submit checks passed and no other
+   * run holds the lock. Not called when the submit is refused.
+   */
+  onWillSubmit?: () => void
+}
+
 export interface UseManualSubmitControllerResult {
   /** True only when calculation and required report/version persistence completed. */
-  handleManualSubmit: (data: ValuationFormData) => Promise<boolean>
+  handleManualSubmit: (data: ValuationFormData, options?: ManualSubmitOptions) => Promise<boolean>
   lastSubmittedDataRef: MutableRefObject<ValuationFormData | null>
   pendingPostValuationAgentPrompt: string | null
   postValuationListingHandoffPendingRef: MutableRefObject<boolean>
@@ -199,7 +207,7 @@ export function useManualSubmitController({
   })
 
   const handleManualSubmit = useCallback(
-    async (data: ValuationFormData) => {
+    async (data: ValuationFormData, options?: ManualSubmitOptions) => {
       if (runTriggerRef) {
         runTriggerRef.current = resolveValuationRunTrigger(startProposalVersionLabelRef.current)
       }
@@ -300,6 +308,7 @@ export function useManualSubmitController({
           }
         }
 
+        options?.onWillSubmit?.()
         const calculationResult = await runManualCalculationExecution({
           idForApi,
           request,

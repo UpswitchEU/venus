@@ -20,8 +20,12 @@ import {
 } from '../utils/manualMercuryNavigation'
 import { runManualSellabilityScore } from '../utils/manualSellabilityScore'
 import { resolveManualCanonicalReportId } from '../utils/manualSessionIdentifiers'
+import type { ManualSubmitOptions } from './useManualSubmitController'
 
-type ManualSubmitHandler = (data: ValuationFormData) => void | Promise<unknown>
+type ManualSubmitHandler = (
+  data: ValuationFormData,
+  options?: ManualSubmitOptions
+) => void | Promise<unknown>
 type PdfExportHandler = (() => Promise<unknown>) | null | undefined
 
 export interface UseManualAiProposalActionsParams {
@@ -110,10 +114,16 @@ export function useManualAiProposalActions({
         return
       }
 
-      markApproved()
       const submitData = lastSubmittedDataRef.current ?? buildLiveValuationSubmitData()
-      postValuationListingHandoffPendingRef.current = true
-      void handleManualSubmit(submitData)
+      // As with the startup review above: approve and arm the listing handoff only once the
+      // run really starts. A refused submit (e.g. a missing headcount) leaves the proposal
+      // pending, and no later calculation inherits the handoff.
+      void handleManualSubmit(submitData, {
+        onWillSubmit: () => {
+          postValuationListingHandoffPendingRef.current = true
+          markApproved()
+        },
+      })
     },
     [
       buildLiveValuationSubmitData,

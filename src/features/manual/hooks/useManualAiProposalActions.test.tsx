@@ -164,7 +164,12 @@ describe('useManualAiProposalActions', () => {
 
   it('keeps the existing direct submit path for non-startup valuation approvals', () => {
     const submitData = createSubmitData()
-    const handleManualSubmit = vi.fn()
+    // Stands in for the submit controller starting the run.
+    const handleManualSubmit = vi.fn(
+      (_data: ValuationFormData, options?: { onWillSubmit?: () => void }) => {
+        options?.onWillSubmit?.()
+      }
+    )
     const buildLiveValuationSubmitData = vi.fn(() => submitData)
     const lastSubmittedDataRef = { current: null }
     const postValuationListingHandoffPendingRef = { current: false }
@@ -195,7 +200,9 @@ describe('useManualAiProposalActions', () => {
       result.current.actions.handleApproveValuationRun('proposal-1', undefined, ['dcf'])
     })
 
-    expect(handleManualSubmit).toHaveBeenCalledWith(submitData)
+    expect(handleManualSubmit).toHaveBeenCalledWith(submitData, {
+      onWillSubmit: expect.any(Function),
+    })
     expect(postValuationListingHandoffPendingRef.current).toBe(true)
     expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBe('approved')
   })
@@ -283,6 +290,7 @@ const approvedRunInitialData: Partial<ValuationFormData> = {
  */
 function renderApprovedRunWiring(liveData: Partial<ValuationFormData> | null) {
   const trySetCalculating = vi.fn(() => true)
+  const postValuationListingHandoffPendingRef = { current: false }
   const rendered = renderHook(() => {
     const [messages, setMessages] = useState<ChatMessage[]>([createChatMessage()])
     const { handleManualSubmit, lastSubmittedDataRef } = useManualSubmitController({
@@ -334,7 +342,7 @@ function renderApprovedRunWiring(liveData: Partial<ValuationFormData> | null) {
       isStartupAssistantRoute: false,
       lastSubmittedDataRef,
       mercuryLocale: 'nl',
-      postValuationListingHandoffPendingRef: { current: false },
+      postValuationListingHandoffPendingRef,
       reportId: null,
       resolvedReportId: null,
       resultValuationId: null,
@@ -343,7 +351,7 @@ function renderApprovedRunWiring(liveData: Partial<ValuationFormData> | null) {
     })
     return { actions, messages }
   })
-  return { ...rendered, trySetCalculating }
+  return { ...rendered, postValuationListingHandoffPendingRef, trySetCalculating }
 }
 
 describe('useManualAiProposalActions approved valuation run', () => {
@@ -361,7 +369,8 @@ describe('useManualAiProposalActions approved valuation run', () => {
   // E-04a: this run skips the panel's field check, and it used to fill an unknown
   // headcount with 0 — with one owner, a sole trader to the engine.
   it('refuses the run with a toast when no source gave a headcount', async () => {
-    const { result, trySetCalculating } = renderApprovedRunWiring(null)
+    const { result, postValuationListingHandoffPendingRef, trySetCalculating } =
+      renderApprovedRunWiring(null)
 
     await act(async () => {
       result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
@@ -372,10 +381,16 @@ describe('useManualAiProposalActions approved valuation run', () => {
     })
     expect(trySetCalculating).not.toHaveBeenCalled()
     expect(calculationMocks.runManualCalculationExecution).not.toHaveBeenCalled()
+    // Nothing ran, so the proposal stays open and the next calculation the advisor starts
+    // by hand does not inherit the listing handoff.
+    expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBeUndefined()
+    expect(postValuationListingHandoffPendingRef.current).toBe(false)
   })
 
   it('calculates with the headcount the advisor typed, 0 included', async () => {
-    const { result } = renderApprovedRunWiring({ fteEmployees: 0 })
+    const { result, postValuationListingHandoffPendingRef } = renderApprovedRunWiring({
+      fteEmployees: 0,
+    })
 
     await act(async () => {
       result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
@@ -387,5 +402,7 @@ describe('useManualAiProposalActions approved valuation run', () => {
     expect(calculationMocks.runManualCalculationExecution.mock.calls[0]?.[0].request).toMatchObject(
       { number_of_employees: 0, number_of_owners: 1 }
     )
+    expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBe('approved')
+    expect(postValuationListingHandoffPendingRef.current).toBe(true)
   })
 })
