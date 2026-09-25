@@ -26,10 +26,16 @@ export function ManualLayoutContextBar({
   translate,
 }: ManualLayoutContextBarProps) {
   if (!isAccountantMode || (!clientContextName && !businessName)) return null
+  // An unclaimed client is named after its company: "upswitch-test › upswitch-test"
+  // says one thing twice, so the client crumb drops out when it repeats the company.
+  const sameName =
+    Boolean(clientContextName && businessName) &&
+    clientContextName?.trim().toLowerCase() === businessName?.trim().toLowerCase()
+  const clientCrumb = sameName ? undefined : clientContextName?.split(' ')[0]
 
   return (
     <ContextBar
-      clientName={clientContextName?.split(' ')[0]}
+      clientName={clientCrumb}
       businessName={businessName}
       draftStatus={draftStatus}
       lastSaved={lastSaved}

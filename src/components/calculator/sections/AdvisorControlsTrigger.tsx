@@ -111,7 +111,6 @@ export function AdvisorControlsTrigger({
       >
         <SlidersHorizontal className="h-3.5 w-3.5 text-foreground/55" aria-hidden />
         <span>{t('openModalButton')}</span>
-        <span className="text-xs text-foreground/45">— {t('openModalButtonHint')}</span>
       </AuroraButton>
 
       {/*
