@@ -28,7 +28,6 @@ export function deriveMercuryOriginFromTrustedVenusHostname(hostname: string): s
   if (host === 'preview.valuation.upswitch.app') return 'https://preview.upswitch.app'
   if (host === 'staging.valuation.upswitch.app') return 'https://staging.upswitch.app'
   if (host === 'valuation.upswitch.app') return MERCURY_SITE_WWW_CANONICAL
-  if (host === 'valuation.upswitch.biz') return 'https://upswitch.biz'
 
   return null
 }

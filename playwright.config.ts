@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright Configuration for Cross-Browser Auth Testing (Valuation Subdomain)
  * Tests auth flows across Chromium, Firefox, WebKit (Safari), and mobile browsers
- * Focus: Cross-subdomain authentication (upswitch.biz → valuation.upswitch.biz)
+ * Focus: Cross-subdomain authentication (upswitch.app → valuation.upswitch.app)
  */
 export default defineConfig({
   testDir: './tests/e2e',

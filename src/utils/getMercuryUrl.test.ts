@@ -14,6 +14,12 @@ describe('deriveMercuryOriginFromTrustedVenusHostname', () => {
     )
   })
 
+  // The domain is not renewed: Venus served there must not point anyone at it. Callers
+  // fall back to the .app Mercury origin.
+  it('derives no Mercury origin on the retired upswitch.biz domain', () => {
+    expect(deriveMercuryOriginFromTrustedVenusHostname('valuation.upswitch.biz')).toBeNull()
+  })
+
   it('rejects valuation-like attacker hosts instead of deriving a parent domain', () => {
     expect(
       deriveMercuryOriginFromTrustedVenusHostname('valuation.evil-phishing.example')
