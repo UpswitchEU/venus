@@ -89,6 +89,20 @@ function isEmployeeCountMissing(data: ManualSubmitValidationData): boolean {
 }
 
 /**
+ * The headcount rule of the submit check on its own, for runs that recalculate a report
+ * without Calculate (normalization and tax-latency changes). They send the same form, so
+ * they need the same count; the other blockers stay with Calculate, where the check sees
+ * the whole form.
+ */
+export function getManualEmployeeCountIssue(
+  data: ManualSubmitValidationData,
+  effectiveMethod: string | null | undefined
+): 'employeeCountMissing' | null {
+  if (isVenturePathMethodKey(effectiveMethod)) return null
+  return isEmployeeCountMissing(data) ? 'employeeCountMissing' : null
+}
+
+/**
  * Validates only the minimum submit blockers. Every valuation path needs a
  * resolved business-type identity; venture-path methods only skip the SME
  * headcount and historical-financial blockers because their engine is

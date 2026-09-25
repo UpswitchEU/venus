@@ -5,6 +5,7 @@ import en from '../../../../messages/en.json'
 import fr from '../../../../messages/fr.json'
 import nl from '../../../../messages/nl.json'
 import {
+  getManualEmployeeCountIssue,
   getManualSubmitValidationIssue,
   MANUAL_SUBMIT_VALIDATION_TOAST_KEYS,
 } from './manualSubmitValidation'
@@ -384,5 +385,19 @@ describe('getManualSubmitValidationIssue', () => {
       expect(toastCopy[description], description).toEqual(expect.any(String))
       expect(String(toastCopy[description]).trim(), description).not.toBe('')
     }
+  })
+})
+
+// Recalculations that bypass Calculate apply this on its own: it must be the same rule,
+// exemptions included, not a stricter or looser copy.
+describe('getManualEmployeeCountIssue', () => {
+  it.each([
+    ['an unknown headcount', { ownerManagers: 1 }, 'upswitch_adaptive', 'employeeCountMissing'],
+    ['a cleared owner count', { ownerManagers: 0 }, 'upswitch_adaptive', 'employeeCountMissing'],
+    ['a typed 0', { ownerManagers: 1, fteEmployees: 0 }, 'upswitch_adaptive', null],
+    ['a sole trader', { businessStructure: 'sole-trader' }, 'upswitch_adaptive', null],
+    ['a startup method', { ownerManagers: 1 }, 'startup_valuation', null],
+  ])('treats %s like the submit check does', (_label, data, method, expected) => {
+    expect(getManualEmployeeCountIssue(data, method)).toBe(expected)
   })
 })

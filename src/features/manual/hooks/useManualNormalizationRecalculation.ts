@@ -25,6 +25,10 @@ import { buildManualNormalizationRecalcSource } from '../utils/manualNormalizati
 import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
 import { buildManualReportAssets } from '../utils/manualReportAssets'
 import { applyPostCalculateHtmlRecovery } from '../utils/manualReportHtmlRecoveryUtil'
+import {
+  getManualEmployeeCountIssue,
+  MANUAL_SUBMIT_VALIDATION_TOAST_KEYS,
+} from '../utils/manualSubmitValidation'
 import { buildManualTaxLatencySignature } from '../utils/manualTaxLatencySignature'
 import {
   buildManualCalculationRequest,
@@ -110,19 +114,26 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       const acceptedNorms = normalizations.filter(
         (normalization) => normalization.status === 'accepted'
       )
+      const recalcForm = { ...collectedData, ...latestFormDataRef.current }
+      const recalcMethod = preSelectedMethod ?? selectedMethod
 
       try {
+        // This run sends the form's headcount like Calculate does, so the same rule applies:
+        // an unknown count is asked for, not sent. The changes that triggered it stay saved.
+        const headcountIssue = getManualEmployeeCountIssue(recalcForm, recalcMethod)
+        if (headcountIssue) {
+          const toastKeys = MANUAL_SUBMIT_VALIDATION_TOAST_KEYS[headcountIssue]
+          toast.warning(translate(toastKeys.title), {
+            description: translate(toastKeys.description),
+          })
+          return
+        }
+
         const recalcLocale =
           currentLocale === 'en' || currentLocale === 'nl' || currentLocale === 'fr'
             ? currentLocale
             : 'nl'
-        const latestFinancialOverrides = mapClarityFormToVenusStore(
-          {
-            ...collectedData,
-            ...latestFormDataRef.current,
-          },
-          formStoreData
-        )
+        const latestFinancialOverrides = mapClarityFormToVenusStore(recalcForm, formStoreData)
         const requestSource = buildManualNormalizationRecalcSource({
           formStoreData,
           latestFinancialOverrides,
@@ -132,7 +143,7 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
           normalizations,
           locale: recalcLocale,
           accountantCustomerId,
-          selectedMethod: preSelectedMethod ?? selectedMethod,
+          selectedMethod: recalcMethod,
           identifiers: calculationRequestIdentifiers,
           synthesisSelection,
         })
