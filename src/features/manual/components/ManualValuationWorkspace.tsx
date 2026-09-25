@@ -788,10 +788,13 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     restorationComplete,
   })
   const lastFullYear = getCurrentFilingYear()
+  const outputStale = React.useMemo(
+    () => persistedFinancialInputsDiffer(formStoreData, result),
+    [formStoreData, result]
+  )
   return (
     <>
       <ManualLayoutChrome
-        financialInputsChanged={persistedFinancialInputsDiffer(formStoreData, result)}
         chatDrawerOpen={chatDrawerOpen}
         isMobile={isMobile}
         navProps={{
@@ -890,6 +893,9 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
           isMobile,
           manualInputProps,
           outputLabel: tReport('workspace.output'),
+          outputStale: outputStale
+            ? { label: tReport('workspace.outdated'), hint: tReport('workspace.outdatedHint') }
+            : null,
           reportId,
           workspaceProps: {
             isCalculating,

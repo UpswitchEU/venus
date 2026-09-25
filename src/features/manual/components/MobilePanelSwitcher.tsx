@@ -20,6 +20,8 @@ interface MobilePanelSwitcherProps {
   onPanelChange: (panel: 'form' | 'preview') => void
   /** Human readable label for the output panel */
   outputLabel: string
+  /** Set when the shown valuation no longer matches the form; marks the output tab. */
+  outputStaleLabel?: string
 }
 
 /**
@@ -30,7 +32,7 @@ interface MobilePanelSwitcherProps {
  * PERFORMANCE: Memoized to prevent unnecessary re-renders
  */
 export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.memo(
-  ({ activePanel, inputLabel, onPanelChange, outputLabel }) => {
+  ({ activePanel, inputLabel, onPanelChange, outputLabel, outputStaleLabel }) => {
     return (
       <div
         aria-label={`${inputLabel} and ${outputLabel}`}
@@ -62,6 +64,15 @@ export const MobilePanelSwitcher: React.FC<MobilePanelSwitcherProps> = React.mem
           }`}
         >
           {outputLabel}
+          {outputStaleLabel ? (
+            <>
+              <span
+                className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 align-middle"
+                aria-hidden
+              />
+              <span className="sr-only"> ({outputStaleLabel})</span>
+            </>
+          ) : null}
         </button>
       </div>
     )

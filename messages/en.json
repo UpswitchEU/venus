@@ -692,8 +692,10 @@
 			"time": "Most connected valuations take under 5 minutes"
 		},
 		"workspace": {
-			"input": "Input",
-			"output": "Output"
+			"input": "Inputs",
+			"output": "Report",
+			"outdated": "Out of date",
+			"outdatedHint": "The figures changed. Update the value to refresh this report."
 		},
 		"generating": {
 			"title": "Generating report",
@@ -1413,22 +1415,20 @@
 		"normalizations": "{count, plural, one {normalization} other {normalizations}}",
 		"appliedNormalizations": "{count, plural, one {# normalization applied} other {# normalizations applied}}",
 		"sourceEvidence": {
-			"ariaLabel": "Source evidence for fiscal year {year}",
-			"statusReady": "Source verified",
-			"statusWarning": "Source verified · unusual margin",
-			"statusReview": "Review warning",
+			"ariaLabel": "Source status for fiscal year {year}",
+			"statusWarning": "Unusual margin",
+			"statusReview": "Needs review",
 			"statusBlocked": "Not used in valuation",
-			"statusAttested": "Source confirmed",
-			"statusCorrected": "Source correction active",
-			"statusAvailable": "Source evidence available",
-			"providerUnknown": "Accounting source",
-			"yearSetSummary": "{source} source years · {eligible} valuation-ready · {excluded} technically excluded",
+			"statusAttested": "Confirmed",
+			"statusCorrected": "Corrected",
+			"statusEdited": "Edited after import",
+			"sourceLine": "{source} · synced {date}",
+			"sourceLineNoDate": "From {source}",
+			"yearsExcluded": "{count, plural, one {# year not used} other {# years not used}}",
 			"periodRange": "Period {start} – {end}",
-			"periodId": "Source period {id}",
-			"syncedAt": "Synced {date}",
 			"coverage": "{value}% of accounts mapped",
-			"sourceValues": "Imported source",
-			"effectiveValues": "Used in calculation",
+			"sourceValues": "Imported",
+			"effectiveValues": "Used",
 			"revenueShort": "Revenue",
 			"ebitdaShort": "EBITDA"
 		},

@@ -692,8 +692,10 @@
 			"time": "La plupart des valorisations connectées prennent moins de 5 minutes"
 		},
 		"workspace": {
-			"input": "Entrée",
-			"output": "Résultat"
+			"input": "Données",
+			"output": "Rapport",
+			"outdated": "Pas à jour",
+			"outdatedHint": "Les chiffres ont changé. Mettez à jour la valeur pour actualiser ce rapport."
 		},
 		"generating": {
 			"title": "Génération du rapport",
@@ -1413,22 +1415,20 @@
 		"normalizations": "{count, plural, one {normalisation} other {normalisations}}",
 		"appliedNormalizations": "{count, plural, one {# normalisation appliquée} other {# normalisations appliquées}}",
 		"sourceEvidence": {
-			"ariaLabel": "Preuve source pour l’exercice {year}",
-			"statusReady": "Source vérifiée",
-			"statusWarning": "Source vérifiée · marge inhabituelle",
-			"statusReview": "Avertissement à vérifier",
+			"ariaLabel": "Statut de la source pour l’exercice {year}",
+			"statusWarning": "Marge inhabituelle",
+			"statusReview": "À vérifier",
 			"statusBlocked": "Non utilisé dans l’évaluation",
-			"statusAttested": "Source confirmée",
-			"statusCorrected": "Correction de source active",
-			"statusAvailable": "Preuve source disponible",
-			"providerUnknown": "Source comptable",
-			"yearSetSummary": "{source} exercices source · {eligible} prêts pour l’évaluation · {excluded} exclus techniquement",
+			"statusAttested": "Confirmé",
+			"statusCorrected": "Corrigé",
+			"statusEdited": "Modifié après import",
+			"sourceLine": "{source} · synchronisé le {date}",
+			"sourceLineNoDate": "Depuis {source}",
+			"yearsExcluded": "{count, plural, one {# exercice non utilisé} other {# exercices non utilisés}}",
 			"periodRange": "Période {start} – {end}",
-			"periodId": "Période source {id}",
-			"syncedAt": "Synchronisé {date}",
 			"coverage": "{value}% des comptes rapprochés",
-			"sourceValues": "Source importée",
-			"effectiveValues": "Utilisé dans le calcul",
+			"sourceValues": "Importé",
+			"effectiveValues": "Utilisé",
 			"revenueShort": "Revenus",
 			"ebitdaShort": "EBITDA"
 		},

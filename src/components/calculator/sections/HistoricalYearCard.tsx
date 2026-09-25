@@ -380,6 +380,7 @@ export function HistoricalYearCard({
       </div>
 
       <AccountingYearEvidence
+        attentionExplained={Boolean(yearReviewReason)}
         formatCurrency={formatCurrency}
         importQuality={importQuality}
         yearData={yearData}
