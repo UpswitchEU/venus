@@ -123,7 +123,7 @@
     "@biomejs/biome": "^2.3.8",
     "@playwright/test": "^1.57.0",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.1",
     "@types/d3-array": "^3.2.1",
     "@types/eventsource": "^1.1.15",
