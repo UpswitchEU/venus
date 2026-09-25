@@ -477,8 +477,8 @@ Transparency **DOES** expose:
 ## Contact Information
 
 **Project Lead**: Development Team  
-**Technical Contact**: dev-team@upswitch.biz  
-**Documentation**: docs@upswitch.biz  
+**Technical Contact**: hello@upswitch.app  
+**Documentation**: hello@upswitch.app  
 
 ---
 

@@ -444,7 +444,7 @@ Larger responses increase network transfer time and bandwidth usage.
 
 ### How to Report Limitations
 
-- **Email**: dev-team@upswitch.biz
+- **Email**: hello@upswitch.app
 - **Issue Tracker**: GitHub Issues
 - **Feature Requests**: Product Board
 

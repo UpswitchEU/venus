@@ -237,10 +237,10 @@ test.describe('Cookie Domain Tests', () => {
     
     expect(authCookie).toBeDefined();
     
-    // In production, domain should be .upswitch.biz
+    // In production, domain should be .upswitch.app
     // This allows cookie to be accessible on all subdomains
     if (process.env.NODE_ENV === 'production') {
-      expect(authCookie?.domain, 'Cookie domain should be .upswitch.biz').toBe('.upswitch.biz');
+      expect(authCookie?.domain, 'Cookie domain should be .upswitch.app').toBe('.upswitch.app');
     }
     
     // sameSite should be Lax (allows same-site subdomain navigation)
