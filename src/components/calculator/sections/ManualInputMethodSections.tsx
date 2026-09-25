@@ -19,17 +19,9 @@ import type { ManualInputNormalizedData } from '../utils/manualInputNormalizedDa
 import { AdaptiveSections } from './AdaptiveSections'
 import { AdvisorControlsTrigger, type AdvisorDefaultAppliedField } from './AdvisorControlsTrigger'
 import type { TerminalValueMethod } from './DcfGlobalAssumptions'
-import {
-  HistoricalYearWeightingSection,
-  RealEstateCarveOutSection,
-  SynthesisWeightingSection,
-} from './index'
+import { RealEstateCarveOutSection, SynthesisWeightingSection } from './index'
 import { MethodDataPlanPanel } from './MethodDataPlanPanel'
 import { buildManualInputAdvisorControlsModel } from './manualInputAdvisorControlsModel'
-
-// Methods valued purely off the balance sheet — they ignore the weighted
-// EBITDA/revenue basis, so the per-year weighting panel is irrelevant for them.
-const ASSET_ONLY_VALUATION_METHODS = new Set(['adjusted_nav', 'liquidation_analysis'])
 
 interface ManualInputMethodSectionsProps {
   adaptiveHeaderSteps: ManualInputAdaptiveHeaderSteps
@@ -116,13 +108,7 @@ export function ManualInputMethodSections({
   const advisorExpertModeEnabled = advisorExpertModeOverride ?? advisorExpertModeDefault
   const synthesisPanelAnchorRef = useRef<HTMLDivElement>(null)
   const prevSynthesisMethodCountRef = useRef(0)
-  // The weighted-year basis feeds earnings/multiples and DCF methods; a purely
-  // asset-based selection (NAV / liquidation) ignores it, so hide the inline panel
-  // there rather than offer a knob that does nothing.
   const activeValuationMethods = effectiveMethods.length > 0 ? effectiveMethods : [effectiveMethod]
-  const methodsUseWeightedEarningsBasis = activeValuationMethods.some(
-    (method) => !ASSET_ONLY_VALUATION_METHODS.has(method)
-  )
   const { advisorControlsPreviewEbitda, advisorWeightingYears, sectorAverageMultiple } = useMemo(
     () =>
       buildManualInputAdvisorControlsModel({
@@ -377,22 +363,8 @@ export function ManualInputMethodSections({
           )}
         </AnimatePresence>
 
-        {advisorExpertModeEnabled &&
-          advisorWeightingYears.length >= 1 &&
-          methodsUseWeightedEarningsBasis && (
-            <div className="border-t border-foreground/[0.06] pt-6">
-              <HistoricalYearWeightingSection
-                historicalYears={advisorWeightingYears}
-                historicalEbitdaWeightingMode={formData.historical_ebitda_weighting_mode}
-                historicalEbitdaWeights={formData.historical_ebitda_weights}
-                onFieldChange={(field, value) => {
-                  setFormData((prev) => ({ ...prev, [field]: value }))
-                }}
-                disabled={disabled}
-                variant="inline"
-              />
-            </div>
-          )}
+        {/* Year weighting lives in the Calibration dialog (AdvisorControlsTrigger); the
+            panel no longer repeats it inline. */}
       </div>
     </>
   )

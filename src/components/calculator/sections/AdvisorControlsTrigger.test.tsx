@@ -36,13 +36,11 @@ describe('AdvisorControlsTrigger', () => {
     cleanup()
   })
 
-  it('renders the trigger button with the localised label + hint', () => {
+  it('renders the trigger button with the localised label only', () => {
     render(<AdvisorControlsTrigger {...baseProps} />)
     const button = screen.getByTestId('advisor-controls-trigger')
-    // Both the headline label and the secondary hint are present so the
-    // user sees "what does this open?" without clicking.
     expect(button.textContent).toContain('openModalButton')
-    expect(button.textContent).toContain('openModalButtonHint')
+    expect(button.textContent).not.toContain('openModalButtonHint')
   })
 
   it('clicking the trigger dispatches setOpen(true) on the shared store', () => {
