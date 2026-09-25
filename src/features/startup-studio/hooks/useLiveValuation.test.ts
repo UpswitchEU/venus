@@ -4,7 +4,11 @@ vi.mock('@/services/backendApi', () => ({
   backendAPI: { calculateStartupPreview: vi.fn() },
 }))
 
-import { valuationIqPreviewToLiveValuation } from './useLiveValuation'
+import type { ValuationRequest } from '@/types/valuation'
+import {
+  startupPreviewHasBusinessType,
+  valuationIqPreviewToLiveValuation,
+} from './useLiveValuation'
 
 const canonicalResponse = {
   valuation_authority: {
@@ -92,5 +96,25 @@ describe('valuationIqPreviewToLiveValuation', () => {
     const incomplete = structuredClone(canonicalResponse)
     incomplete.valuation_results.startup_valuation.details.canonical.pre_money_high = null as never
     expect(valuationIqPreviewToLiveValuation(incomplete).blended).toBeNull()
+  })
+})
+
+describe('startupPreviewHasBusinessType', () => {
+  const base = { selected_method: 'startup_valuation' } as unknown as ValuationRequest
+
+  it('waits while no business type is chosen (Titan answers 400 otherwise)', () => {
+    expect(startupPreviewHasBusinessType(base)).toBe(false)
+    expect(startupPreviewHasBusinessType({ ...base, business_type_id: '  ' })).toBe(false)
+    expect(startupPreviewHasBusinessType({ ...base, business_type_segments: [] })).toBe(false)
+  })
+
+  it('asks once a business type or a weighted mix exists', () => {
+    expect(startupPreviewHasBusinessType({ ...base, business_type_id: 'saas' })).toBe(true)
+    expect(
+      startupPreviewHasBusinessType({
+        ...base,
+        business_type_segments: [{ business_type_id: 'saas', weight: 1 }],
+      } as unknown as ValuationRequest)
+    ).toBe(true)
   })
 })
