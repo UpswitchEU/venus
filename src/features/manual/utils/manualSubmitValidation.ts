@@ -8,6 +8,7 @@ import {
 export type ManualSubmitValidationIssue =
   | 'companyNameMissing'
   | 'businessTypeMissing'
+  | 'employeeCountMissing'
   | 'financialDataIncomplete'
   | 'dcfNotReady'
 
@@ -19,6 +20,10 @@ export const MANUAL_SUBMIT_VALIDATION_TOAST_KEYS = {
   businessTypeMissing: {
     title: 'businessTypeMissing',
     description: 'businessTypeMissingDesc',
+  },
+  employeeCountMissing: {
+    title: 'employeeCountMissing',
+    description: 'employeeCountMissingDesc',
   },
   financialDataIncomplete: {
     title: 'financialDataIncomplete',
@@ -37,6 +42,9 @@ export interface ManualSubmitValidationData {
   businessTypeId?: string | null
   business_type_id?: string | null
   business_type_segments?: Array<{ business_type_id?: string | null } | null> | null
+  businessStructure?: string | null
+  ownerManagers?: number | null
+  fteEmployees?: number | null
   yearlyFinancials?: Array<
     YearlyFinancialLike & { isForecast?: boolean; is_forecast?: boolean }
   > | null
@@ -68,9 +76,37 @@ function hasResolvedBusinessType(
 }
 
 /**
+ * The engine reads the headcount against the owners (owner concentration, sole-trader
+ * detection), so a company needs a real count: asked for, never assumed. 0 is a valid
+ * answer; sole traders send none.
+ */
+function isEmployeeCountMissing(data: ManualSubmitValidationData): boolean {
+  // The request always carries at least one owner (the mapper sends `ownerManagers || 1`),
+  // so a cleared or zero owner count does not make the headcount optional.
+  const hasOwnerManagers = (data.ownerManagers || 1) > 0
+  if (data.businessStructure === 'sole-trader' || !hasOwnerManagers) return false
+  return typeof data.fteEmployees !== 'number' || !Number.isFinite(data.fteEmployees)
+}
+
+/**
+ * The headcount rule of the submit check on its own, for runs that recalculate a report
+ * without Calculate (normalization and tax-latency changes). They send the same form, so
+ * they need the same count; the other blockers stay with Calculate, where the check sees
+ * the whole form.
+ */
+export function getManualEmployeeCountIssue(
+  data: ManualSubmitValidationData,
+  effectiveMethod: string | null | undefined
+): 'employeeCountMissing' | null {
+  if (isVenturePathMethodKey(effectiveMethod)) return null
+  return isEmployeeCountMissing(data) ? 'employeeCountMissing' : null
+}
+
+/**
  * Validates only the minimum submit blockers. Every valuation path needs a
- * resolved business-type identity; venture-path methods only skip SME
- * historical-financial blockers because their engine is milestone driven.
+ * resolved business-type identity; venture-path methods only skip the SME
+ * headcount and historical-financial blockers because their engine is
+ * milestone driven.
  */
 export function getManualSubmitValidationIssue(
   data: ManualSubmitValidationData,
@@ -84,6 +120,8 @@ export function getManualSubmitValidationIssue(
   }
 
   if (isVenturePath) return null
+
+  if (isEmployeeCountMissing(data)) return 'employeeCountMissing'
 
   if (!getLatestCompleteYearlyFinancial(data.yearlyFinancials ?? [])) {
     return 'financialDataIncomplete'

@@ -678,5 +678,5 @@ self.dcf_engine = DCFEngine(..., transparency_collector=self.transparency_collec
 **Document Status**: Living Document  
 **Next Review**: November 27, 2025  
 **Owner**: Backend Team  
-**Contact**: dev-team@upswitch.biz
+**Contact**: hello@upswitch.app
 

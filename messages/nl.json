@@ -1610,7 +1610,7 @@
 			"marginLow": "EBITDA-marge {margin}% — ongebruikelijk laag",
 			"marginHigh": "EBITDA-marge {margin}% — ongebruikelijk hoog",
 			"minZero": "Minimaal 0",
-			"fteRequired": "Vul aantal werknemers in (0 indien alleen eigenaar)",
+			"fteRequired": "Vul het totaal aantal FTE in, eigenaars meegeteld",
 			"fteOver10k": "Meer dan 10.000 FTE — controleer",
 			"yearRange": "Moet tussen 1800 en {year} liggen",
 			"fcffRequired": "Vul een geldige FCFF voor elk prognosejaar in"
@@ -2314,6 +2314,8 @@
 		"companyNameMissingDesc": "Vul een bedrijfsnaam in of zoek via KBO.",
 		"businessTypeMissing": "Bedrijfstype ontbreekt",
 		"businessTypeMissingDesc": "Selecteer een bedrijfstype om verder te gaan.",
+		"employeeCountMissing": "Totaal FTE ontbreekt",
+		"employeeCountMissingDesc": "Vul het totaal aantal FTE in, eigenaars meegeteld, om verder te gaan.",
 		"startProposalSkipped": "Startvoorstel niet aangemaakt",
 		"startProposalSkippedDesc": "Controleer de cijfers en klik op Berekenen wanneer het past.",
 		"financialDataIncomplete": "Financiële gegevens onvolledig",

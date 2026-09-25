@@ -32,7 +32,9 @@ export function buildManualInputInitialFormData(
     yearFounded: initialData.yearFounded || '',
     businessStructure: initialData.businessStructure || '',
     ownerManagers: initialData.ownerManagers || 1,
-    fteEmployees: initialData.fteEmployees ?? 5,
+    // No invented headcount: the engine would treat it as the company's own. When no
+    // source gives one the field stays empty and Calculate asks for it (0 is valid).
+    fteEmployees: initialData.fteEmployees,
     yearlyFinancials: getSeedYearlyFinancials(initialData),
     current_year_data: getSeedCurrentYearData(initialData),
     historical_years_data: normalizeHistoricalYearsForFiling(

@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
  * Cross-Subdomain Authentication E2E Tests
  * 
  * Tests authentication flows from main domain to valuation subdomain:
- * - upswitch.biz → valuation.upswitch.biz
+ * - upswitch.app → valuation.upswitch.app
  * 
  * Critical scenarios:
  * 1. Cookie propagation across subdomains
@@ -59,7 +59,7 @@ test.describe('Cross-Subdomain Authentication', () => {
     
     // Step 5: Verify we're authenticated on valuation subdomain
     // The app should either:
-    // - Read the cookie (if domain=.upswitch.biz)
+    // - Read the cookie (if domain=.upswitch.app)
     // - Exchange token for cookie (if cookie not readable)
     // - Show as authenticated user
     
@@ -237,10 +237,10 @@ test.describe('Cookie Domain Tests', () => {
     
     expect(authCookie).toBeDefined();
     
-    // In production, domain should be .upswitch.biz
+    // In production, domain should be .upswitch.app
     // This allows cookie to be accessible on all subdomains
     if (process.env.NODE_ENV === 'production') {
-      expect(authCookie?.domain, 'Cookie domain should be .upswitch.biz').toBe('.upswitch.biz');
+      expect(authCookie?.domain, 'Cookie domain should be .upswitch.app').toBe('.upswitch.app');
     }
     
     // sameSite should be Lax (allows same-site subdomain navigation)
@@ -258,7 +258,7 @@ test.describe('Safari ITP Tests', () => {
     test.skip(browserName !== 'webkit', 'Safari-specific test');
     
     // Safari ITP blocks 3rd-party cookies but allows 1st-party cookies
-    // Our implementation uses same-domain subdomains (.upswitch.biz)
+    // Our implementation uses same-domain subdomains (.upswitch.app)
     // This should bypass ITP
     
     await page.request.post(`${API_URL}/api/auth/register`, {

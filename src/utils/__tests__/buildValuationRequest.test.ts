@@ -954,4 +954,15 @@ describe('buildValuationRequest core registry and financial contract', () => {
     })
     expect(result.historical_years_data).toEqual([])
   })
+
+  // E-04a: an owner-only company's 0 is an answer, not a missing value.
+  it('sends a typed headcount of 0 as 0', () => {
+    const result = buildValuationRequest(
+      makeFormData({ business_type: 'company', number_of_owners: 1, number_of_employees: 0 }),
+      []
+    )
+
+    expect(result.number_of_employees).toBe(0)
+    expect(result.number_of_owners).toBe(1)
+  })
 })

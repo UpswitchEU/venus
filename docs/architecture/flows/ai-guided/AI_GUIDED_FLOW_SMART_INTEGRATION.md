@@ -2,7 +2,7 @@
 
 ## 🎯 Problem Statement
 
-The AI-guided valuation flow at [https://valuation.upswitch.biz/ai-guided](https://valuation.upswitch.biz/ai-guided) was showing generic company suggestions like "Proximus Belgium" and "Delhaize" instead of leveraging the user's actual business data that's already available from their profile.
+The AI-guided valuation flow at [https://valuation.upswitch.app/ai-guided](https://valuation.upswitch.app/ai-guided) was showing generic company suggestions like "Proximus Belgium" and "Delhaize" instead of leveraging the user's actual business data that's already available from their profile.
 
 ## 🔍 Root Cause Analysis
 

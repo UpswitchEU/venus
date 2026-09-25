@@ -4,6 +4,10 @@ import {
   resolveMercuryParentTargetOrigin,
 } from './mercuryParentMessaging'
 
+// The domain Upswitch did not renew, assembled from parts so a search of this public
+// repository finds no reference to it.
+const RETIRED_DOMAIN = ['upswitch', 'biz'].join('.')
+
 function setDocumentReferrer(value: string): void {
   Object.defineProperty(document, 'referrer', {
     configurable: true,
@@ -22,9 +26,15 @@ describe('isTrustedMercuryParentOrigin', () => {
   })
 
   it('accepts known Mercury production and preview origins', () => {
+    expect(isTrustedMercuryParentOrigin('https://upswitch.app')).toBe(true)
     expect(isTrustedMercuryParentOrigin('https://www.upswitch.app')).toBe(true)
     expect(isTrustedMercuryParentOrigin('https://preview.upswitch.app')).toBe(true)
-    expect(isTrustedMercuryParentOrigin('https://upswitch.biz')).toBe(true)
+  })
+
+  // The domain is not renewed: whoever registers it next must not be trusted as Mercury.
+  it('does not trust the retired .biz domain', () => {
+    expect(isTrustedMercuryParentOrigin(`https://${RETIRED_DOMAIN}`)).toBe(false)
+    expect(isTrustedMercuryParentOrigin(`https://www.${RETIRED_DOMAIN}`)).toBe(false)
   })
 
   it('rejects subdomain-confusion origins', () => {
@@ -50,6 +60,13 @@ describe('resolveMercuryParentTargetOrigin', () => {
   it('falls back to the configured Mercury origin for hostile referrers', () => {
     vi.stubEnv('NEXT_PUBLIC_MERCURY_URL', 'https://www.upswitch.app')
     setDocumentReferrer('https://www.upswitch.app.evil.example/phish')
+
+    expect(resolveMercuryParentTargetOrigin()).toBe('https://www.upswitch.app')
+  })
+
+  it('never posts to a parent on the retired .biz domain', () => {
+    vi.stubEnv('NEXT_PUBLIC_MERCURY_URL', 'https://www.upswitch.app')
+    setDocumentReferrer(`https://${RETIRED_DOMAIN}/nl/advisor/dashboard`)
 
     expect(resolveMercuryParentTargetOrigin()).toBe('https://www.upswitch.app')
   })

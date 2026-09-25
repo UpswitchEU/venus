@@ -6,7 +6,6 @@ const STATIC_TRUSTED_MERCURY_PARENT_HOSTS = new Set([
   'www.upswitch.app',
   'preview.upswitch.app',
   'staging.upswitch.app',
-  'upswitch.biz',
   'mercury-git-main-upswitch.vercel.app',
   'mercury-git-staging-upswitch.vercel.app',
 ])

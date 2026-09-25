@@ -110,7 +110,9 @@ export function buildManualLiveValuationSubmitData({
     country: live.country ?? initialData.country ?? '',
     yearFounded: live.yearFounded ?? initialData.yearFounded ?? '',
     ownerManagers: live.ownerManagers ?? initialData.ownerManagers ?? 1,
-    fteEmployees: live.fteEmployees ?? initialData.fteEmployees ?? 0,
+    // Unknown stays unknown: a fallback 0 with one owner reads as a sole trader to the
+    // engine. The shared submit check asks for the count instead.
+    fteEmployees: live.fteEmployees ?? initialData.fteEmployees,
     current_year_data: live.current_year_data ?? initialData.current_year_data,
     historical_years_data: live.historical_years_data ?? initialData.historical_years_data,
     forecast_years_data: live.forecast_years_data ?? initialData.forecast_years_data,

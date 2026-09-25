@@ -386,11 +386,12 @@ export function appendManualChatToolCardsToMessages(
   )
 }
 
+/** `undefined` returns the proposal to pending, e.g. when an approved run did not complete. */
 export function markManualChatProposalDecision(
   messages: ChatMessage[],
   key: ProposalCardKey,
   proposalId: string,
-  decision: 'approved' | 'rejected'
+  decision: 'approved' | 'rejected' | undefined
 ): ChatMessage[] {
   return messages.map((message) => ({
     ...message,

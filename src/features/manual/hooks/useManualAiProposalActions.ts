@@ -20,8 +20,12 @@ import {
 } from '../utils/manualMercuryNavigation'
 import { runManualSellabilityScore } from '../utils/manualSellabilityScore'
 import { resolveManualCanonicalReportId } from '../utils/manualSessionIdentifiers'
+import type { ManualSubmitOptions } from './useManualSubmitController'
 
-type ManualSubmitHandler = (data: ValuationFormData) => void | Promise<unknown>
+type ManualSubmitHandler = (
+  data: ValuationFormData,
+  options?: ManualSubmitOptions
+) => void | Promise<unknown>
 type PdfExportHandler = (() => Promise<unknown>) | null | undefined
 
 export interface UseManualAiProposalActionsParams {
@@ -110,10 +114,28 @@ export function useManualAiProposalActions({
         return
       }
 
-      markApproved()
       const submitData = lastSubmittedDataRef.current ?? buildLiveValuationSubmitData()
-      postValuationListingHandoffPendingRef.current = true
-      void handleManualSubmit(submitData)
+      // Approve and arm the listing handoff only once the run really starts, and take both
+      // back unless it completes: a refused submit (e.g. a missing headcount) never approves,
+      // and a run that stops or fails afterwards (stale run, engine error, failed save)
+      // reopens the proposal. Either way no later calculation inherits the handoff.
+      let runStarted = false
+      const reopenUnlessCompleted = (completed: unknown) => {
+        if (!runStarted || completed === true) return
+        postValuationListingHandoffPendingRef.current = false
+        setChatMessages((prev) =>
+          markManualChatProposalDecision(prev, 'valuationRunRequests', proposalId, undefined)
+        )
+      }
+      void Promise.resolve(
+        handleManualSubmit(submitData, {
+          onWillSubmit: () => {
+            runStarted = true
+            postValuationListingHandoffPendingRef.current = true
+            markApproved()
+          },
+        })
+      ).then(reopenUnlessCompleted, () => reopenUnlessCompleted(false))
     },
     [
       buildLiveValuationSubmitData,

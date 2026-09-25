@@ -152,8 +152,29 @@ describe('manualInputData', () => {
       country: '',
       yearFounded: '',
       ownerManagers: 1,
-      fteEmployees: 0,
       yearlyFinancials: [{ year: '2025', revenue: 100, ebitda: 10 }],
     })
+  })
+
+  // E-04a: this fallback used to be 0, so an assistant-approved run for a company with no
+  // known headcount went out as 0 employees and 1 owner: a sole trader to the engine.
+  it('leaves an unknown headcount empty instead of inventing 0', () => {
+    const submitData = buildManualLiveValuationSubmitData({
+      initialData: { ownerManagers: 1 },
+      liveData: null,
+      fallbackYearlyFinancials: [],
+    })
+
+    expect(submitData.fteEmployees).toBeUndefined()
+  })
+
+  it('keeps a typed 0 over the initial headcount', () => {
+    expect(
+      buildManualLiveValuationSubmitData({
+        initialData: { fteEmployees: 5 },
+        liveData: { fteEmployees: 0 },
+        fallbackYearlyFinancials: [],
+      }).fteEmployees
+    ).toBe(0)
   })
 })

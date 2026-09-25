@@ -159,4 +159,67 @@ describe('naceBusinessTypeService', () => {
       'BUSINESS_TYPE_FETCH_FAILED'
     )
   })
+
+  // E-05a: Titan's last-resort tiers answer "some type from the same sector" (e.g. arts &
+  // crafts for a manufacturer). Applied silently, that picked the wrong peer group.
+  it.each([
+    ['a same-sector fallback', { resolver_path: 'section_category', confidence: 0.35 }],
+    ['the generic default', { resolver_path: 'global_default', confidence: 0.2 }],
+    ['a low-confidence match without a resolver path', { confidence: 0.3 }],
+  ])('returns and caches null for %s', async (_label, resolution) => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          business_type_id: 'arts-crafts',
+          business_type: { id: 'arts-crafts', title: 'Arts & Crafts', category_id: 'creative' },
+          ...resolution,
+        }),
+        { status: 200 }
+      )
+    )
+
+    const first = await naceBusinessTypeService.getBusinessTypeForNaceCode(
+      '25.11',
+      undefined,
+      'BE',
+      { guaranteeResolution: true }
+    )
+    const second = await naceBusinessTypeService.getBusinessTypeForNaceCode(
+      '25.11',
+      undefined,
+      'BE',
+      { guaranteeResolution: true }
+    )
+
+    expect(first).toBeNull()
+    expect(second).toBeNull()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['a database mapping at 0.9', { resolver_path: 'db_mapping', confidence: 0.9 }],
+    ['a label keyword at 0.5', { resolver_path: 'label_keyword', confidence: 0.5 }],
+    ['a response without resolver path', { confidence: 0.75 }],
+    ['a response without resolver path or confidence', {}],
+  ])('applies %s', async (_label, resolution) => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          business_type_id: 'software',
+          business_type: { id: 'software', title: 'Software', category_id: 'software' },
+          ...resolution,
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await naceBusinessTypeService.getBusinessTypeForNaceCode(
+      '62.01',
+      undefined,
+      'BE',
+      { guaranteeResolution: true }
+    )
+
+    expect(result).toMatchObject({ id: 'software', name: 'Software', category: 'software' })
+  })
 })

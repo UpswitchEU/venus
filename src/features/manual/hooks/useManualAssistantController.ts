@@ -55,6 +55,7 @@ import { formatManualStartupAssistantPrompt } from '../utils/manualStartupAssist
 import { getManualStartupLauncherScopeId } from '../utils/manualStartupAssistantSurface'
 import { useManualAiProposalActions } from './useManualAiProposalActions'
 import { useManualAssistantIssueActions } from './useManualAssistantIssueActions'
+import type { ManualSubmitOptions } from './useManualSubmitController'
 
 type ChatDrawerProps = ComponentProps<typeof ChatAssistantDrawer>
 type ManualInputProps = ComponentProps<typeof StartupAwareInputPanel>
@@ -94,7 +95,10 @@ export interface UseManualAssistantControllerParams {
   handleChatMessage: ChatSendHandler
   handleFieldHelpRequest: ManualInputProps['onFieldHelpRequest']
   handleFormDataChange: ManualInputProps['onFormDataChange']
-  handleManualSubmit: (data: ValuationFormData) => void | Promise<unknown>
+  handleManualSubmit: (
+    data: ValuationFormData,
+    options?: ManualSubmitOptions
+  ) => void | Promise<unknown>
   handleNewConversation: NonNullable<ChatDrawerProps['onNewConversation']>
   handleShowNormalisationReview: ManualInputProps['onViewAllNormalizations']
   handleRejectNormalisation: NonNullable<ChatDrawerProps['onRejectNormalisation']>

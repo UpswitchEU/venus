@@ -1,13 +1,17 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChatMessage, ValuationFormData } from '@/components/calculator'
 import {
   STARTUP_SUBMIT_REVIEW_REQUEST_EVENT,
   type StartupSubmitReviewRequestDetail,
 } from '@/features/startup-studio/utils/startupSubmitReviewRequest'
+import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
+import { buildManualLiveValuationSubmitData } from '../utils/manualInputData'
 import { useManualAiProposalActions } from './useManualAiProposalActions'
+import { useManualSubmitController } from './useManualSubmitController'
 
 vi.mock('sonner', () => ({
   toast: {
@@ -22,7 +26,34 @@ vi.mock('@/lib/analytics', () => ({
   trackReturnToMercury: vi.fn(),
 }))
 
+// Only the engine call and what follows it are stubbed: the approved-run tests below
+// drive the real submit controller up to the point where it would calculate.
+const calculationMocks = vi.hoisted(() => ({
+  completeManualCalculation: vi.fn(),
+  runManualCalculationExecution: vi.fn(),
+  handleManualSubmitError: vi.fn(),
+}))
+
+vi.mock('./useManualCalculationExecution', () => ({
+  useManualCalculationExecution: () => ({
+    runManualCalculationExecution: calculationMocks.runManualCalculationExecution,
+  }),
+}))
+
+vi.mock('./useManualCalculationCompletion', () => ({
+  useManualCalculationCompletion: () => ({
+    completeManualCalculation: calculationMocks.completeManualCalculation,
+  }),
+}))
+
+vi.mock('./useManualSubmitErrorHandler', () => ({
+  useManualSubmitErrorHandler: () => ({
+    handleManualSubmitError: calculationMocks.handleManualSubmitError,
+  }),
+}))
+
 const initialManualResultsSnapshot = useManualResultsStore.getState()
+const initialManualFormSnapshot = useManualFormStore.getState()
 const startupSubmitReviewListeners = new Set<EventListener>()
 
 function createChatMessage(): ChatMessage {
@@ -134,9 +165,15 @@ describe('useManualAiProposalActions', () => {
     expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBe('approved')
   })
 
-  it('keeps the existing direct submit path for non-startup valuation approvals', () => {
+  it('keeps the existing direct submit path for non-startup valuation approvals', async () => {
     const submitData = createSubmitData()
-    const handleManualSubmit = vi.fn()
+    // Stands in for the submit controller starting the run and completing it.
+    const handleManualSubmit = vi.fn(
+      (_data: ValuationFormData, options?: { onWillSubmit?: () => void }) => {
+        options?.onWillSubmit?.()
+        return Promise.resolve(true)
+      }
+    )
     const buildLiveValuationSubmitData = vi.fn(() => submitData)
     const lastSubmittedDataRef = { current: null }
     const postValuationListingHandoffPendingRef = { current: false }
@@ -163,13 +200,113 @@ describe('useManualAiProposalActions', () => {
       return { actions, messages }
     })
 
-    act(() => {
+    await act(async () => {
       result.current.actions.handleApproveValuationRun('proposal-1', undefined, ['dcf'])
     })
 
-    expect(handleManualSubmit).toHaveBeenCalledWith(submitData)
+    expect(handleManualSubmit).toHaveBeenCalledWith(submitData, {
+      onWillSubmit: expect.any(Function),
+    })
     expect(postValuationListingHandoffPendingRef.current).toBe(true)
     expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBe('approved')
+  })
+
+  it('leaves a running approved run alone when a second approval is refused', async () => {
+    // The first submit starts and keeps running; the second is refused before it starts
+    // (e.g. the run lock), which must not disarm or reopen the first.
+    const handleManualSubmit = vi
+      .fn()
+      .mockImplementationOnce(
+        (_data: ValuationFormData, options?: { onWillSubmit?: () => void }) => {
+          options?.onWillSubmit?.()
+          // Never settles: the first run is still going.
+          return new Promise(() => undefined)
+        }
+      )
+      .mockResolvedValueOnce(false)
+    const postValuationListingHandoffPendingRef = { current: false }
+    const twoProposals: ChatMessage = {
+      ...createChatMessage(),
+      valuationRunRequests: [
+        { id: 'proposal-1', status: 'pending_approval', methods: ['dcf'] },
+        { id: 'proposal-2', status: 'pending_approval', methods: ['dcf'] },
+      ],
+    }
+
+    const { result } = renderHook(() => {
+      const [messages, setMessages] = useState<ChatMessage[]>([twoProposals])
+      const actions = useManualAiProposalActions({
+        activeSessionKey: null,
+        buildLiveValuationSubmitData: createSubmitData,
+        clientContextId: null,
+        contextRelationshipId: null,
+        handlePdfExport: null,
+        handleManualSubmit,
+        isStartupAssistantRoute: false,
+        lastSubmittedDataRef: { current: null },
+        mercuryLocale: 'nl',
+        postValuationListingHandoffPendingRef,
+        reportId: null,
+        resolvedReportId: null,
+        resultValuationId: null,
+        session: null,
+        setChatMessages: setMessages,
+      })
+      return { actions, messages }
+    })
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, ['dcf'])
+    })
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-2', undefined, ['dcf'])
+    })
+
+    const [first, second] = result.current.messages[0]?.valuationRunRequests ?? []
+    expect(first?.decision).toBe('approved')
+    expect(second?.decision).toBeUndefined()
+    expect(postValuationListingHandoffPendingRef.current).toBe(true)
+  })
+
+  it('reopens the proposal when the submit rejects after the run started', async () => {
+    const handleManualSubmit = vi.fn(
+      (_data: ValuationFormData, options?: { onWillSubmit?: () => void }) => {
+        options?.onWillSubmit?.()
+        return Promise.reject(new Error('submit crashed'))
+      }
+    )
+    const postValuationListingHandoffPendingRef = { current: false }
+
+    const { result } = renderHook(() => {
+      const [messages, setMessages] = useState<ChatMessage[]>([createChatMessage()])
+      const actions = useManualAiProposalActions({
+        activeSessionKey: null,
+        buildLiveValuationSubmitData: createSubmitData,
+        clientContextId: null,
+        contextRelationshipId: null,
+        handlePdfExport: null,
+        handleManualSubmit,
+        isStartupAssistantRoute: false,
+        lastSubmittedDataRef: { current: null },
+        mercuryLocale: 'nl',
+        postValuationListingHandoffPendingRef,
+        reportId: null,
+        resolvedReportId: null,
+        resultValuationId: null,
+        session: null,
+        setChatMessages: setMessages,
+      })
+      return { actions, messages }
+    })
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, ['dcf'])
+    })
+
+    await waitFor(() =>
+      expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBeUndefined()
+    )
+    expect(postValuationListingHandoffPendingRef.current).toBe(false)
   })
 
   it('routes report-generation approvals through the manual PDF export controller', async () => {
@@ -234,5 +371,230 @@ describe('useManualAiProposalActions', () => {
     })
 
     expect(result.current.messages[0]?.reportGenerationRequests?.[0]?.decision).toBeUndefined()
+  })
+})
+
+const identity = (key: string) => key
+
+/** A company the assistant may value: everything known except, per test, the headcount. */
+const approvedRunInitialData: Partial<ValuationFormData> = {
+  companyName: 'Acme',
+  businessType: 'consulting',
+  businessStructure: 'bv',
+  country: 'BE',
+  ownerManagers: 1,
+  yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 100_000 }],
+}
+
+/**
+ * The approved run as the workspace wires it: the proposal action builds the live submit
+ * data and hands it to the real submit controller, whose shared check runs first.
+ */
+function renderApprovedRunWiring(
+  liveData: Partial<ValuationFormData> | null,
+  { linkedIdentifier = null }: { linkedIdentifier?: string | null } = {}
+) {
+  const trySetCalculating = vi.fn(() => true)
+  const postValuationListingHandoffPendingRef = { current: false }
+  const rendered = renderHook(() => {
+    const [messages, setMessages] = useState<ChatMessage[]>([createChatMessage()])
+    const { handleManualSubmit, lastSubmittedDataRef } = useManualSubmitController({
+      calculationRequestIdentifiers: {},
+      createVersion: vi.fn(),
+      currentLocale: 'en',
+      durableSaveInFlightRef: { current: false },
+      getLatestVersion: () => null,
+      isAccountantMode: true,
+      lastSubmittedFinancialSnapshotRef: { current: null },
+      linkedIdentifier,
+      preSelectedMethod: null,
+      reportId: 'val_1_demo',
+      resolvedReportId: null,
+      restorationComplete: false,
+      result: null,
+      selectedMethod: 'upswitch_adaptive',
+      setCalculating: vi.fn(),
+      setCollectedData: vi.fn(),
+      setDraftStatus: vi.fn(),
+      setIsDirty: vi.fn(),
+      setIsGenerating: vi.fn(),
+      setLastSaved: vi.fn(),
+      setResult: vi.fn(),
+      startProposalVersionLabelRef: { current: null },
+      synthesisSelection: { preSelectedMethods: [], userWeights: {} },
+      translate: identity,
+      translateErrors: identity,
+      translateHistory: identity,
+      translatePreparer: identity,
+      translateReport: identity,
+      trySetCalculating,
+      updateFormData: (updates) => useManualFormStore.getState().updateFormData(updates),
+      versionSyncTimeoutRef: { current: null },
+      warnIfSubmitSynthesisSkipped: vi.fn(),
+    })
+    const actions = useManualAiProposalActions({
+      activeSessionKey: null,
+      buildLiveValuationSubmitData: () =>
+        buildManualLiveValuationSubmitData({
+          initialData: approvedRunInitialData,
+          liveData,
+          fallbackYearlyFinancials: [],
+        }),
+      clientContextId: null,
+      contextRelationshipId: null,
+      handlePdfExport: null,
+      handleManualSubmit,
+      isStartupAssistantRoute: false,
+      lastSubmittedDataRef,
+      mercuryLocale: 'nl',
+      postValuationListingHandoffPendingRef,
+      reportId: null,
+      resolvedReportId: null,
+      resultValuationId: null,
+      session: null,
+      setChatMessages: setMessages,
+    })
+    return { actions, messages }
+  })
+  return { ...rendered, postValuationListingHandoffPendingRef, trySetCalculating }
+}
+
+describe('useManualAiProposalActions approved valuation run', () => {
+  beforeEach(() => {
+    vi.mocked(toast.warning).mockClear()
+    calculationMocks.runManualCalculationExecution.mockReset().mockResolvedValue({ aborted: true })
+    calculationMocks.completeManualCalculation.mockReset()
+    calculationMocks.handleManualSubmitError.mockReset()
+  })
+
+  afterEach(() => {
+    useManualResultsStore.setState(initialManualResultsSnapshot, true)
+    useManualFormStore.setState(initialManualFormSnapshot, true)
+  })
+
+  // E-04a: this run skips the panel's field check, and it used to fill an unknown
+  // headcount with 0 — with one owner, a sole trader to the engine.
+  it('refuses the run with a toast when no source gave a headcount', async () => {
+    const { result, postValuationListingHandoffPendingRef, trySetCalculating } =
+      renderApprovedRunWiring(null)
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
+    })
+
+    expect(toast.warning).toHaveBeenCalledWith('employeeCountMissing', {
+      description: 'employeeCountMissingDesc',
+    })
+    expect(trySetCalculating).not.toHaveBeenCalled()
+    expect(calculationMocks.runManualCalculationExecution).not.toHaveBeenCalled()
+    // Nothing ran, so the proposal stays open and the next calculation the advisor starts
+    // by hand does not inherit the listing handoff.
+    expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBeUndefined()
+    expect(postValuationListingHandoffPendingRef.current).toBe(false)
+  })
+
+  // A stale run, a failed normalization save and an engine answer without a result all
+  // end the run as { aborted: true }. The card was approved when the run started; it used
+  // to stay approved, and the armed handoff then fired on the next manual calculation.
+  it('approves while the run goes, with the typed 0, and reopens when the run stops', async () => {
+    let finishRun!: (outcome: unknown) => void
+    calculationMocks.runManualCalculationExecution.mockImplementationOnce(
+      () => new Promise((resolve) => (finishRun = resolve))
+    )
+    const { result, postValuationListingHandoffPendingRef } = renderApprovedRunWiring({
+      fteEmployees: 0,
+    })
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
+    })
+
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(calculationMocks.runManualCalculationExecution).toHaveBeenCalledTimes(1)
+    expect(calculationMocks.runManualCalculationExecution.mock.calls[0]?.[0].request).toMatchObject(
+      { number_of_employees: 0, number_of_owners: 1 }
+    )
+    expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBe('approved')
+    expect(postValuationListingHandoffPendingRef.current).toBe(true)
+
+    await act(async () => finishRun({ aborted: true }))
+
+    await waitFor(() =>
+      expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBeUndefined()
+    )
+    expect(postValuationListingHandoffPendingRef.current).toBe(false)
+  })
+
+  it('reopens the proposal when the engine call fails', async () => {
+    calculationMocks.runManualCalculationExecution.mockRejectedValueOnce(new Error('engine down'))
+    const { result, postValuationListingHandoffPendingRef } = renderApprovedRunWiring({
+      fteEmployees: 4,
+    })
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
+    })
+
+    await waitFor(() =>
+      expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBeUndefined()
+    )
+    expect(calculationMocks.handleManualSubmitError).toHaveBeenCalledTimes(1)
+    expect(postValuationListingHandoffPendingRef.current).toBe(false)
+  })
+
+  it('reopens the proposal when the report could not be saved', async () => {
+    calculationMocks.runManualCalculationExecution.mockResolvedValueOnce({
+      aborted: false,
+      calculationDurationMs: 1,
+      valuationResult: { valuation_id: 'valuation-1' },
+    })
+    calculationMocks.completeManualCalculation.mockResolvedValueOnce({
+      aborted: false,
+      durableSaveSucceeded: false,
+      versionCreationFailed: false,
+    })
+    const { result, postValuationListingHandoffPendingRef } = renderApprovedRunWiring(
+      { fteEmployees: 4 },
+      { linkedIdentifier: 'val_1_demo' }
+    )
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
+    })
+
+    await waitFor(() =>
+      expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBeUndefined()
+    )
+    expect(calculationMocks.completeManualCalculation).toHaveBeenCalledTimes(1)
+    expect(postValuationListingHandoffPendingRef.current).toBe(false)
+  })
+
+  it('keeps the proposal approved when the run completes', async () => {
+    calculationMocks.runManualCalculationExecution.mockResolvedValueOnce({
+      aborted: false,
+      calculationDurationMs: 1,
+      valuationResult: { valuation_id: 'valuation-1' },
+    })
+    calculationMocks.completeManualCalculation.mockResolvedValueOnce({
+      aborted: false,
+      durableSaveSucceeded: true,
+      versionCreationFailed: false,
+    })
+    const { result, postValuationListingHandoffPendingRef } = renderApprovedRunWiring(
+      { fteEmployees: 4 },
+      { linkedIdentifier: 'val_1_demo' }
+    )
+
+    await act(async () => {
+      result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
+    })
+
+    await waitFor(() => expect(calculationMocks.completeManualCalculation).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.messages[0]?.valuationRunRequests?.[0]?.decision).toBe('approved')
+    // The real completion consumes the handoff; with it stubbed, nothing here disarms it.
+    expect(postValuationListingHandoffPendingRef.current).toBe(true)
   })
 })

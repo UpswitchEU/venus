@@ -76,13 +76,13 @@ function canApplyScalarPrefill(
   if (typeof value === 'string' && value === '') return false
 
   const current = previous[key]
+  // Only the owner count keeps a placeholder (1). The headcount has none: 5 is no longer
+  // seeded, so a 5 in the field is the advisor's own and a late prefill must not replace it.
   return (
     current === undefined ||
     current === null ||
     (typeof current === 'string' && current === '') ||
-    (typeof current === 'number' && key === 'ownerManagers' && current === 1) ||
-    (key === 'fteEmployees' &&
-      (current === undefined || (typeof current === 'number' && current === 5 && value !== 5)))
+    (typeof current === 'number' && key === 'ownerManagers' && current === 1)
   )
 }
 

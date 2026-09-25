@@ -6,7 +6,6 @@ const STATIC_TRUSTED_VENUS_REDIRECT_HOSTS = new Set([
   'valuation.upswitch.app',
   'preview.valuation.upswitch.app',
   'staging.valuation.upswitch.app',
-  'valuation.upswitch.biz',
   'venus-git-main-upswitch.vercel.app',
   'venus-git-staging-upswitch.vercel.app',
 ])
