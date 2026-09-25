@@ -62,4 +62,24 @@ describe('buildManualInputFieldValidation', () => {
 
     expect(result.errors.fteEmployees).toBe('validation.fteRequired')
   })
+
+  // Clearing the owner field (it reads as 0) used to hide this error, yet the request
+  // still goes out with one owner and then no employees.
+  it('still requires a headcount when the owner count was cleared', () => {
+    const result = buildManualInputFieldValidation(
+      {
+        companyName: 'Acme',
+        businessType: 'Consulting',
+        businessStructure: 'bv',
+        ownerManagers: 0,
+        fteEmployees: undefined,
+        yearlyFinancials: [{ year: '2025', revenue: 100_000, ebitda: 20_000 }],
+      } as ManualValuationFormData,
+      translate,
+      2026
+    )
+
+    expect(result.errors.fteEmployees).toBe('validation.fteRequired')
+    expect(result.hasErrors).toBe(true)
+  })
 })

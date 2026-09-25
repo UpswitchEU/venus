@@ -77,11 +77,13 @@ function hasResolvedBusinessType(
 
 /**
  * The engine reads the headcount against the owners (owner concentration, sole-trader
- * detection), so a company with owner-managers needs a real count: asked for, never
- * assumed. 0 is a valid answer; sole traders send none.
+ * detection), so a company needs a real count: asked for, never assumed. 0 is a valid
+ * answer; sole traders send none.
  */
 function isEmployeeCountMissing(data: ManualSubmitValidationData): boolean {
-  const hasOwnerManagers = (data.ownerManagers ?? 1) > 0
+  // The request always carries at least one owner (the mapper sends `ownerManagers || 1`),
+  // so a cleared or zero owner count does not make the headcount optional.
+  const hasOwnerManagers = (data.ownerManagers || 1) > 0
   if (data.businessStructure === 'sole-trader' || !hasOwnerManagers) return false
   return typeof data.fteEmployees !== 'number' || !Number.isFinite(data.fteEmployees)
 }

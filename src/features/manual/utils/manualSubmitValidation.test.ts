@@ -339,7 +339,9 @@ describe('getManualSubmitValidationIssue', () => {
     ).toBeNull()
   })
 
-  it('does not ask for a headcount when there are no owner-managers', () => {
+  // A cleared owner field reads as 0, but the request still goes out with one owner; the
+  // count used to be skipped then, so the run went out with one owner and no employees.
+  it('still asks for a headcount when the owner count was cleared', () => {
     expect(
       getManualSubmitValidationIssue(
         {
@@ -351,7 +353,7 @@ describe('getManualSubmitValidationIssue', () => {
         },
         'upswitch_adaptive'
       )
-    ).toBeNull()
+    ).toBe('employeeCountMissing')
   })
 
   it('does not ask for a headcount on startup methods', () => {
