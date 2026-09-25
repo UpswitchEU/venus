@@ -137,7 +137,7 @@
     "autoprefixer": "^10.4.18",
     "critters": "^0.0.23",
     "jsdom": "^26.1.0",
-    "playwright": "^1.57.0",
+    "playwright": "^1.63.0",
     "png-to-ico": "^3.0.1",
     "postcss": "^8.5.23",
     "sharp": "0.35.4",
