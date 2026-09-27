@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ValuationResponse } from '../../types/valuation'
 import {
   resetManualValuationSaveReceiptsForTests,
   wasManualValuationSavedThisVisit,
 } from '../../features/manual/utils/manualValuationSaveReceipt'
+import type { ValuationResponse } from '../../types/valuation'
 import { pendingReportAssetSaves, ReportAssetService } from './ReportAssetService'
 
 type ReportAssetServiceInternals = ReportAssetService & {
@@ -146,7 +146,8 @@ describe('ReportAssetService asset save queue', () => {
     expect(wasManualValuationSavedThisVisit(['report-7'])).toBe(false)
 
     internalSave.mockResolvedValueOnce(undefined)
-    await service.retryFailedSave('report-7')
+    expect(await service.retryFailedSave('report-7')).toBe(true)
+    expect(await service.retryFailedSave('nothing-pending')).toBe(false)
 
     expect(wasManualValuationSavedThisVisit(['report-7'])).toBe(true)
   })
