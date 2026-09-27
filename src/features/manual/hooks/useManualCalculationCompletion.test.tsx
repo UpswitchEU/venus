@@ -13,6 +13,11 @@ import {
 import { useManualCalculationCompletion } from './useManualCalculationCompletion'
 import type { ManualSubmitRun } from './useManualSubmitRunGuard'
 
+const notifyParent = vi.hoisted(() => vi.fn())
+vi.mock('../../../utils/mercuryParentMessaging', () => ({
+  postMessageToMercuryParent: notifyParent,
+}))
+
 const saveReportAssets = vi.hoisted(() => vi.fn())
 const retryFailedSave = vi.hoisted(() => vi.fn())
 const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
@@ -113,11 +118,45 @@ function savedSessionData(call = 0): Record<string, unknown> {
 }
 
 describe('useManualCalculationCompletion', () => {
+  it('notifies Mercury only after the result is durably saved', async () => {
+    let finishSave!: () => void
+    saveReportAssets.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve
+        })
+    )
+    const { complete } = renderCompletion()
+    let completion!: ReturnType<typeof complete>
+    await act(async () => {
+      completion = complete()
+    })
+    expect(notifyParent).not.toHaveBeenCalled()
+    await act(async () => {
+      finishSave()
+      await completion
+    })
+    expect(notifyParent).toHaveBeenCalledTimes(1)
+    expect(notifyParent).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { reportId: REPORT_ID, calculationId: 'val_run_1' } })
+    )
+  })
+
+  it('does not announce an unsaved calculation as complete', async () => {
+    saveReportAssets.mockRejectedValue(new Error('save unavailable'))
+    const { complete } = renderCompletion()
+    await act(async () => {
+      await complete()
+    })
+    expect(notifyParent).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
+    notifyParent.mockReset()
     saveReportAssets.mockReset()
     saveReportAssets.mockResolvedValue(undefined)
     retryFailedSave.mockReset()
-    retryFailedSave.mockResolvedValue(undefined)
+    retryFailedSave.mockResolvedValue(true)
     Object.values(toast).forEach((fn) => fn.mockReset())
     resetManualValuationSaveReceiptsForTests()
     useManualFormStore.setState({ formData: submittedForm })
@@ -152,7 +191,34 @@ describe('useManualCalculationCompletion', () => {
       })
 
       expect(retryFailedSave).toHaveBeenCalledWith(REPORT_ID)
+      expect(notifyParent).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it.each([
+    'failed',
+    'nothing-to-retry',
+    'newer-result',
+  ])('does not notify after an unmounted retry that is %s', async (outcome) => {
+    saveReportAssets.mockRejectedValueOnce(new Error('HTTP 503'))
+    let stillTarget = true
+    const { complete } = renderCompletion()
+    await act(async () => {
+      await complete(submitRun({ isStillTarget: () => stillTarget }))
+    })
+    stillTarget = false
+    if (outcome === 'failed') retryFailedSave.mockRejectedValueOnce(new Error('HTTP 503'))
+    if (outcome === 'nothing-to-retry') retryFailedSave.mockResolvedValueOnce(false)
+    if (outcome === 'newer-result')
+      retryFailedSave.mockImplementationOnce(async () => {
+        useManualResultsStore.getState().announceNewResult()
+        return true
+      })
+    await act(async () => {
+      toast.warning.mock.calls.at(-1)?.[1]?.action?.onClick()
+      await Promise.resolve()
+    })
+    expect(notifyParent).not.toHaveBeenCalled()
   })
 
   describe('edits made while the calculation runs (F-05)', () => {

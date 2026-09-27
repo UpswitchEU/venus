@@ -183,11 +183,16 @@ export class ReportAssetService {
     }
   }
 
-  async retryFailedSave(reportId: string): Promise<void> {
+  async retryFailedSave(reportId: string): Promise<boolean> {
     const pending = pendingReportAssetSave(reportId)
-    if (pending) return pending
+    if (pending) {
+      await pending
+      return true
+    }
     const failed = failedReportAssetSave(reportId)
-    if (failed) await this.saveReportAssets(reportId, failed.assets)
+    if (!failed) return false
+    await this.saveReportAssets(reportId, failed.assets)
+    return true
   }
 
   private async _saveReportAssetsInternal(

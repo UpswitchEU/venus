@@ -1,5 +1,6 @@
 import { type Dispatch, type MutableRefObject, type SetStateAction, useCallback } from 'react'
 import { toast } from 'sonner'
+import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../../../constants/crossAppMessages'
 import { MOBILE_VIEWPORT_QUERY } from '../../../hooks/useMobileViewport'
 import { reportAssetService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
@@ -14,6 +15,7 @@ import type {
   ValuationResponse,
 } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
+import { postMessageToMercuryParent } from '../../../utils/mercuryParentMessaging'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { toastSaveFailure } from '../../../utils/saveErrorHandling'
 import { MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT } from '../utils/manualAgentNextHandoff'
@@ -179,12 +181,22 @@ export function useManualCalculationCompletion({
           },
         })
       let durablySaved = false
+      const notifyDurableSave = () => {
+        if (!idForApi) return
+        recordManualValuationSaved([idForApi])
+        postMessageToMercuryParent({
+          type: ENGINE_TO_MERCURY_MESSAGE_TYPES.valuationComplete,
+          data: { reportId: idForApi, calculationId: valuationResult.valuation_id },
+          timestamp: Date.now(),
+        })
+      }
       const markDurablySaved = () => {
         durablySaved = true
         setDraftStatus('saved')
         setLastSaved(new Date())
         if (idForApi) {
           recordManualValuationSaved([idForApi, useSessionStore.getState().session?.reportId])
+          notifyDurableSave()
         }
       }
       const runVersioning = (
@@ -217,7 +229,16 @@ export function useManualCalculationCompletion({
           // session error screen, which unmounts this run: the toast's retry must
           // still re-send the failed payload instead of silently doing nothing.
           if (useManualResultsStore.getState().resultAnnouncementSeq === announcementSeq) {
-            await reportAssetService.retryFailedSave(idForApi).catch(() => undefined)
+            retryInFlight = true
+            const recovered = await reportAssetService.retryFailedSave(idForApi).catch(() => false)
+            retryInFlight = false
+            if (
+              recovered &&
+              useManualResultsStore.getState().resultAnnouncementSeq === announcementSeq
+            ) {
+              durablySaved = true
+              notifyDurableSave()
+            }
           }
           return
         }

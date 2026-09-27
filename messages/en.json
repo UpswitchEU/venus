@@ -645,7 +645,7 @@
 		},
 		"toolbar": {
 			"continueToDashboard": "Continue to Dashboard",
-			"backToClient": "Back to Client",
+			"backToClient": "Back to company",
 			"selectVersion": "Select version",
 			"returnToDashboard": "Return to dashboard",
 			"close": "Close"
@@ -731,7 +731,7 @@
 		},
 		"toolbar": {
 			"continueToDashboard": "Continue to Dashboard",
-			"backToClient": "Back to Client"
+			"backToClient": "Back to company"
 		},
 		"sections": {
 			"executiveSummary": "Executive Summary",

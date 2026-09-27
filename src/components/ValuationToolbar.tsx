@@ -11,7 +11,6 @@ import {
   Maximize,
   RefreshCw,
   Save,
-  X,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
@@ -468,7 +467,7 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                   /* Embedded Mode - Show Close Button */
                   <>
                     <Tooltip
-                      content={t('report.toolbar.returnToDashboard')}
+                      content={t('report.toolbar.backToClient')}
                       position="bottom"
                       className=""
                     >
@@ -476,8 +475,8 @@ export const ValuationToolbar: React.FC<ValuationToolbarProps> = ({
                         onClick={handleReturnToMercury}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium"
                       >
-                        <X className="w-4 h-4" />
-                        <span className="hidden sm:inline">{t('report.toolbar.close')}</span>
+                        <ArrowRight className="w-4 h-4" aria-hidden />
+                        <span>{t('report.toolbar.backToClient')}</span>
                       </button>
                     </Tooltip>
                     <div className="h-6 w-px bg-foreground/[0.08] mx-1"></div>
