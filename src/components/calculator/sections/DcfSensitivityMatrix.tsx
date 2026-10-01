@@ -24,6 +24,8 @@ interface DcfSensitivityMatrixProps {
     secondary_axis_format?: 'percent' | 'multiple' | string
     base_wacc?: unknown
     base_secondary_value?: unknown
+    value_basis?: string
+    apv_discount_rate_source?: string
     ev_matrix: unknown[][]
   } | null
 }
@@ -88,6 +90,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
       ? Math.floor(secondaryValues.length / 2)
       : secondaryValues.indexOf(baseSecondary)
   const hasUnavailableCells = evMatrix.some((row) => row.some((cell) => cell === undefined))
+  const isApv = sensitivityData.value_basis === 'apv_enterprise_value'
 
   return (
     <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-4 space-y-3">
@@ -97,9 +100,11 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
       </div>
       <p className="text-[11px] leading-snug text-foreground/55">
         {t(
-          secondaryAxisKey === 'exit_multiple'
-            ? 'sensitivityDescriptionExitMultiple'
-            : 'sensitivityDescription'
+          isApv
+            ? 'sensitivityApvDescription'
+            : secondaryAxisKey === 'exit_multiple'
+              ? 'sensitivityDescriptionExitMultiple'
+              : 'sensitivityDescription'
         )}
       </p>
 
@@ -110,9 +115,13 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
             <TableRow className="hover:bg-transparent">
               <TableHead className="h-auto px-3 py-2 text-left text-[11px] font-semibold text-foreground/60">
                 {t(
-                  secondaryAxisKey === 'exit_multiple'
-                    ? 'sensitivityWaccExitHeader'
-                    : 'sensitivityWaccHeader'
+                  isApv
+                    ? secondaryAxisKey === 'exit_multiple'
+                      ? 'sensitivityApvExitHeader'
+                      : 'sensitivityApvGrowthHeader'
+                    : secondaryAxisKey === 'exit_multiple'
+                      ? 'sensitivityWaccExitHeader'
+                      : 'sensitivityWaccHeader'
                 )}
               </TableHead>
               {secondaryValues.map((value, index) => (
@@ -162,6 +171,15 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
       {hasUnavailableCells && (
         <p className="text-[11px] leading-snug text-foreground/55">
           {t('sensitivityUnavailableNote')}
+        </p>
+      )}
+      {isApv && (
+        <p className="text-[11px] leading-snug text-foreground/55">
+          {t(
+            sensitivityData.apv_discount_rate_source === 'explicit_tax_shield_rate'
+              ? 'sensitivityApvFixedRateNote'
+              : 'sensitivityApvBaseRateNote'
+          )}
         </p>
       )}
     </div>
