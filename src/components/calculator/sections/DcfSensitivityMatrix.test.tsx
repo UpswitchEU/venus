@@ -11,6 +11,12 @@ const translations: Record<string, string> = {
   sensitivityWaccHeader: 'WACC / g',
   sensitivityWaccExitHeader: 'WACC / exit',
   sensitivityUnavailableNote: '—: scenario unavailable under the stated assumptions.',
+  sensitivityApvDescription: 'Each scenario includes the admitted financing tax shield once.',
+  sensitivityApvGrowthHeader: 'Base return / g',
+  sensitivityApvExitHeader: 'Base return / exit',
+  sensitivityApvFixedRateNote:
+    'The explicit tax-shield rate stays fixed across base-return scenarios.',
+  sensitivityApvBaseRateNote: 'The tax-shield rate follows the base return as an assumption.',
 }
 
 vi.mock('next-intl', () => ({
@@ -19,6 +25,41 @@ vi.mock('next-intl', () => ({
 }))
 
 describe('DcfSensitivityMatrix', () => {
+  it.each([
+    [
+      'terminal_growth',
+      'base_rate_assumption',
+      'Base return / g',
+      'The tax-shield rate follows the base return as an assumption.',
+    ],
+    [
+      'exit_multiple',
+      'explicit_tax_shield_rate',
+      'Base return / exit',
+      'The explicit tax-shield rate stays fixed across base-return scenarios.',
+    ],
+  ])('renders APV basis and rate policy for %s', (axis, policy, header, note) => {
+    render(
+      <DcfSensitivityMatrix
+        sensitivityData={{
+          wacc_values: [0.12],
+          secondary_values: [axis === 'exit_multiple' ? 5 : 0.02],
+          secondary_axis_key: axis,
+          ev_matrix: [[120000]],
+          value_basis: 'apv_enterprise_value',
+          apv_discount_rate_source: policy,
+        }}
+      />
+    )
+    expect(screen.getByText(header)).toBeInTheDocument()
+    expect(screen.getByText(note)).toBeInTheDocument()
+    expect(
+      screen.getByText('Each scenario includes the admitted financing tax shield once.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('WACC / g')).not.toBeInTheDocument()
+    expect(screen.getByText('€120,000')).toBeInTheDocument()
+  })
+
   it('renders nothing when no data is available', () => {
     const { container } = render(<DcfSensitivityMatrix sensitivityData={null} />)
     expect(container).toBeEmptyDOMElement()

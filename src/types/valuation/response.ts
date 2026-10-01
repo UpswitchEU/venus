@@ -203,6 +203,9 @@ export interface ValuationResponse {
     sensitivity_growth: Record<string, number>
     sensitivity_matrix_2d?: {
       schema_version?: 'dcf_sensitivity.v2'
+      value_basis?: 'operating_enterprise_value' | 'apv_enterprise_value'
+      apv_contract_version?: 'apv_tax_shield.v2'
+      apv_discount_rate_source?: 'explicit_tax_shield_rate' | 'base_rate_assumption'
       base_wacc?: number | string
       base_secondary_value?: number | string
       unavailable_reasons?: (string | null)[][]
