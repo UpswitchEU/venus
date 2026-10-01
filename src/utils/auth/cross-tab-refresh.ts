@@ -41,7 +41,11 @@ export function readLastRefreshAt(): number {
     const raw = localStorage.getItem(LAST_REFRESH_KEY)
     if (!raw) return 0
     const n = Number(raw)
-    return Number.isFinite(n) ? n : 0
+    if (!Number.isFinite(n) || n > Date.now() || Date.now() - n >= 60 * 60 * 1000) {
+      localStorage.removeItem(LAST_REFRESH_KEY)
+      return 0
+    }
+    return n
   } catch {
     return 0
   }

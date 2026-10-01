@@ -41,3 +41,29 @@ The guard fails when:
 ## Encryption
 
 Browser-side encryption is not a substitute for server persistence because keys available to JavaScript are also available to an attacker with script execution. Data that requires confidentiality at rest must be persisted server-side behind HttpOnly session auth and backend access checks. Client recovery buffers are for loss prevention only and must expire.
+
+## 1 October 2026 review
+
+The dated review is in `browser-persistence-reviews.json`. Each surface records its
+payload assessment, review deadline and SHA-256 of the reviewed source and relevant
+serialization/validation dependencies. The original expired default is retained:
+missing, changed or expired evidence fails the guard. `test-browser-persistence-guard.mjs`
+checks that all four conditions remain enforced. Review expiry is 31 December 2026;
+this records the implementation audit, not a human security certification.
+
+Startup draft recovery is now scoped to the resolved user and delegated client in
+**session storage**, limited to 24 hours and 100 kB. It is deferred until auth resolves;
+changing user/client clears the active draft. Old unscoped local drafts are discarded
+because their owner and age cannot be established. Server-saved sessions remain
+available. Recovery is temporary loss prevention and is never presented as a durable save.
+
+Version history persists only ten report/version selections under the same controls.
+Report content, financial figures, labels, names and HTML are fetched from Titan.
+Report creation returns success only after Titan acknowledges creation; the unused
+raw-session retry queue was removed. Retired analytics, auth and retry keys are deleted
+at app startup. The consented PostHog client is the remaining analytics storage surface.
+
+Signup handoff preserves only named company-form and studio inputs, consumes them once,
+and rejects expired/future-dated data. Suggestions retain no user ID or context and
+expire individually even when new entries arrive. Client-context local validation
+cannot renew the timestamp supplied by a successful server exchange.

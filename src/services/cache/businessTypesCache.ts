@@ -319,7 +319,14 @@ export class BusinessTypesCacheService {
 
   private isExpired(cacheEntry: CacheEntry<BusinessTypesCacheData>): boolean {
     const now = Date.now()
-    return now - cacheEntry.timestamp > cacheEntry.ttl
+    return (
+      !Number.isFinite(cacheEntry.timestamp) ||
+      !Number.isFinite(cacheEntry.ttl) ||
+      cacheEntry.timestamp > now ||
+      cacheEntry.ttl <= 0 ||
+      cacheEntry.ttl > CACHE_CONFIG.TTL ||
+      now - cacheEntry.timestamp >= cacheEntry.ttl
+    )
   }
 
   private loadStats(): CacheStats {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 
 const root = process.cwd()
@@ -142,20 +143,6 @@ const approvedStorageWriters = {
     allowedKeys: ['upswitch_return_url', 'upswitch_source'],
     reason: 'Carries return URL/source through auth bootstrap in one tab.',
   }),
-  'src/services/analytics.ts': reviewed({
-    classification: 'anonymous-analytics-buffer',
-    retention: 'local',
-    allowedKeys: ['upswitch-analytics'],
-    ttlExemption: 'Opt-in anonymous analytics event queue; no raw valuation/company payload.',
-    reason: 'Legacy client-only analytics buffer; no credentials or raw report payloads.',
-  }),
-  'src/services/businessTypeSuggestionApi.ts': reviewed({
-    classification: 'support-fallback-buffer',
-    retention: 'local-bounded',
-    allowedKeys: ['business_type_suggestions'],
-    ttlExemption: 'Bounded support fallback list, flushed opportunistically by service code.',
-    reason: 'Bounded local fallback for failed business-type suggestions.',
-  }),
   'src/services/cache/businessTypesCache.ts': reviewed({
     classification: 'reference-data-cache',
     retention: 'ttl',
@@ -171,19 +158,21 @@ const approvedStorageWriters = {
   }),
   'src/store/manual/useStartupValuationStore.ts': reviewed({
     classification: 'workflow-draft',
-    retention: 'local',
+    retention: 'session-ttl-24h',
+    maxRetentionHours: 24,
     allowedKeys: ['venus.startup_valuation.v1'],
     allowedExpressions: ['STARTUP_VALUATION_PERSIST_NAME'],
-    migrationTarget: 'Move to server-backed draft persistence or a TTL recovery envelope.',
+    requiredSourceIncludes: ['createWorkflowRecoveryStorage(isStartupRecoveryState, resolvedRecoveryScope)'],
     reason: 'Zustand startup valuation draft; must remain free of auth secrets.',
   }),
   'src/store/useVersionHistoryStore.ts': reviewed({
-    classification: 'workflow-version-cache',
-    retention: 'local',
+    classification: 'workflow-version-selection',
+    retention: 'session-ttl-24h',
+    maxRetentionHours: 24,
     allowedKeys: ['version-history-storage'],
     allowedExpressions: ['name'],
-    migrationTarget: 'Move version metadata to authoritative backend history storage.',
-    reason: 'Client-side version cache while backend sync remains authoritative.',
+    requiredSourceIncludes: ['createWorkflowRecoveryStorage(isVersionSelection, resolvedRecoveryScope)'],
+    reason: 'Ten opaque report IDs and selected version numbers only, scoped to a resolved user and delegated client; all report content loads from Titan.',
   }),
   'src/stores/clientContext.ts': reviewed({
     classification: 'cross-app-client-context',
@@ -199,13 +188,6 @@ const approvedStorageWriters = {
     maxRetentionHours: 1,
     reason: 'Stores last refresh timestamp only; no auth token material.',
   }),
-  'src/utils/auth/offlineAuth.ts': reviewed({
-    classification: 'offline-auth-cache',
-    retention: 'ttl-24h',
-    allowedKeys: ['upswitch_auth_cache'],
-    maxRetentionHours: 24,
-    reason: 'Caches non-token auth state for offline UI; expires after 24 hours.',
-  }),
   'src/utils/auth/sessionSync.ts': reviewed({
     classification: 'cross-tab-signal',
     retention: 'ephemeral',
@@ -217,7 +199,7 @@ const approvedStorageWriters = {
     retention: 'ttl-24h',
     allowedExpressions: ['key'],
     allowedKeyPrefixes: ['_norm_pending_', '_taxlat_pending_'],
-    allowedKeys: ['venus_pending_syncs', 'venus_accounting_reconnect_resume'],
+    allowedKeys: ['venus_accounting_reconnect_resume', 'venus.startup_valuation.v1', 'version-history-storage', 'business_type_suggestions', 'venus_landing_studio_handoff'],
     maxRetentionHours: 24,
     reason: 'Central TTL envelope for browser workflow recovery buffers.',
   }),
@@ -226,13 +208,6 @@ const approvedStorageWriters = {
     retention: 'session-one-shot',
     allowedKeys: ['venus_studio_to_saas_capital_prefill'],
     reason: 'One-shot in-tab handoff for non-credential capital-history fields.',
-  }),
-  'src/utils/landingStudioHandoff.ts': reviewed({
-    classification: 'workflow-handoff',
-    retention: 'ttl-24h',
-    allowedKeys: ['venus_landing_studio_handoff'],
-    maxRetentionHours: 24,
-    reason: 'Cross-origin signup handoff with explicit TTL and no credentials.',
   }),
   'src/utils/newValuationPrefillStorage.ts': reviewed({
     classification: 'workflow-handoff',
@@ -244,7 +219,7 @@ const approvedStorageWriters = {
   'src/utils/reportExistenceCache.ts': reviewed({
     classification: 'report-existence-cache',
     retention: 'session-ttl-30m',
-    allowedKeyPrefixes: ['report_exists_'],
+    allowedKeyPrefixes: ['upswitch_report_exists_'],
     allowedExpressions: ['getCacheKey(reportId)', 'getCacheKey(reportId'],
     maxRetentionHours: 0.5,
     reason: 'Caches report existence booleans only.',
@@ -280,17 +255,28 @@ const approvedStorageWriters = {
 }
 
 const approvedRecoveryCallers = {
+  'src/utils/workflowRecoveryStorage.ts': reviewed({
+    classification: 'scoped-workflow-recovery', retention: 'session-ttl-24h', maxRetentionHours: 24,
+    allowedExpressions: ['name'], allowedKeys: ['venus.startup_valuation.v1', 'version-history-storage'],
+    requiredSourceIncludes: ['window.sessionStorage', 'allowLegacy: false', 'maxBytes: 100_000', 'value.scope === getScope()'],
+    reason: 'Typed, bounded, tab-scoped recovery envelopes; no read or overwrite until identity resolves. Legacy local drafts are removed.',
+  }),
+  'src/services/businessTypeSuggestionApi.ts': reviewed({
+    classification: 'support-fallback-buffer', retention: 'ttl-24h', maxRetentionHours: 24,
+    allowedKeys: ['business_type_suggestions'],
+    requiredSourceIncludes: ['allowLegacy: false', 'MAX_LOCAL_SUGGESTIONS = 50', 'WORKFLOW_RECOVERY_TTL_MS'],
+    reason: 'Up to fifty suggestion labels of 500 characters; no user ID or context. Individual timestamps expire even when new suggestions arrive.',
+  }),
+  'src/utils/landingStudioHandoff.ts': reviewed({
+    classification: 'signup-workflow-handoff', retention: 'ttl-24h', maxRetentionHours: 24,
+    allowedKeys: ['venus_landing_studio_handoff'],
+    requiredSourceIncludes: ['sanitizeLandingPayload', 'maxBytes: 100_000', 'removeBrowserRecoveryValue(STORAGE_KEY)', 'WORKFLOW_RECOVERY_TTL_MS'],
+    reason: 'One-use signup inputs, restricted to named studio and company-form fields; bounded, rejects future/expired dates and strips credentials/report assets, including dated legacy envelopes.',
+  }),
   'src/features/manual/utils/accountingReconnectResume.ts': reviewed({
     classification: 'workflow-recovery-buffer', retention: 'session-ttl-30m',
     allowedKeys: ['venus_accounting_reconnect_resume'], maxRetentionHours: 0.5,
     reason: 'One bounded in-flight draft in the central TTL envelope. Identity, credentials and report assets are stripped on write/read; current bootstrap restores identity, and successful resume consumes the entry.',
-  }),
-  'src/services/reports/ReportService.ts': reviewed({
-    classification: 'workflow-recovery-buffer',
-    retention: 'ttl-24h',
-    allowedKeys: ['venus_pending_syncs'],
-    maxRetentionHours: 24,
-    reason: 'Queues bounded backend-sync retries through the central TTL envelope.',
   }),
   'src/store/useNormalizationStore.ts': reviewed({
     classification: 'workflow-recovery-buffer',
@@ -314,7 +300,8 @@ const approvedThirdPartyPersistence = {
     retention: 'local',
     allowedExpressions: ["persistence: 'localStorage+cookie'"],
     ttlExemption: 'PostHog is opt-out by default; event params are scrubbed before capture.',
-    reason: 'PostHog client storage is limited to consented analytics state.',
+    requiredSourceIncludes: ['opt_out_persistence_by_default: true', 'opt_out_capturing_by_default: true', 'scrubPostHogParams(params)'],
+    reason: 'PostHog client storage and capture are disabled until consent; revoked consent clears SDK persistence.',
   }),
 }
 
@@ -521,6 +508,12 @@ function hasAllowedSelector(policy) {
   )
 }
 
+const reviewEvidence = JSON.parse(fs.readFileSync(path.join(root, 'docs/security/browser-persistence-reviews.json'), 'utf8'))
+function sourceHash(file) {
+  return fs.existsSync(path.join(root, file))
+    ? createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex') : null
+}
+
 function policyFindingsForGroup(groupName, policies) {
   const findings = []
   const requiredStringFields = [
@@ -563,12 +556,23 @@ function policyFindingsForGroup(groupName, policies) {
       })
     }
 
-    if (policy.reviewBy < today) {
+    const evidence = reviewEvidence.surfaces[file]
+    const evidenceMatches = evidence && /^\d{4}-\d{2}-\d{2}$/.test(evidence.reviewBy ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(evidence.reviewedAt ?? '') && evidence.reviewedAt <= today &&
+      evidence.reviewBy >= evidence.reviewedAt && typeof evidence.assessment === 'string' &&
+      evidence.assessment.length > 0 && evidence.sourceSha256 === sourceHash(file) &&
+      Object.entries(evidence.dependencies ?? {}).every(([dependency, hash]) => sourceHash(dependency) === hash)
+    const reviewBy = evidenceMatches ? evidence.reviewBy : policy.reviewBy
+    if (evidence && !evidenceMatches) {
+      findings.push({ file, line: 1, rule: 'changed-browser-persistence-review',
+        excerpt: 'Storage source or reviewed dependency changed; review the actual payload and retention controls again.' })
+    }
+    if (reviewBy < today) {
       findings.push({
         file,
         line: 1,
         rule: 'expired-browser-persistence-review',
-        excerpt: `${groupName} policy review date ${policy.reviewBy} has expired.`,
+        excerpt: `${groupName} policy review date ${reviewBy} has expired.`,
       })
     }
 

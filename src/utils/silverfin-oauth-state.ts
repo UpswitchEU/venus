@@ -59,7 +59,13 @@ export function consumeSilverfinOAuthState(
   } catch {
     return { ok: false, reason: 'no-stored' }
   }
-  if (typeof stored.expiresAt !== 'number' || stored.expiresAt < Date.now()) {
+  if (
+    !stored ||
+    typeof stored.expiresAt !== 'number' ||
+    !Number.isFinite(stored.expiresAt) ||
+    stored.expiresAt <= Date.now() ||
+    stored.expiresAt > Date.now() + SILVERFIN_OAUTH_STATE_TTL_MS
+  ) {
     return { ok: false, reason: 'expired' }
   }
   if (!receivedNonce?.trim()) return { ok: false, reason: 'missing' }

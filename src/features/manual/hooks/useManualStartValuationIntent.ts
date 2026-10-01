@@ -23,7 +23,11 @@ function startValuationReservation(now: number): string {
 function activeStartValuationReservation(value: string | null, now: number): boolean {
   if (!value?.startsWith(START_VALUATION_RESERVED_PREFIX)) return false
   const reservedAt = Number(value.slice(START_VALUATION_RESERVED_PREFIX.length))
-  return Number.isFinite(reservedAt) && now - reservedAt < START_VALUATION_RESERVATION_TTL_MS
+  return (
+    Number.isFinite(reservedAt) &&
+    reservedAt <= now &&
+    now - reservedAt < START_VALUATION_RESERVATION_TTL_MS
+  )
 }
 
 function readStartValuationIntentState(storageKey: string): string | null {

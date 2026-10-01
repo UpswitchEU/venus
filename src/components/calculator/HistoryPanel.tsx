@@ -155,8 +155,10 @@ export function HistoryPanel({
     }
   }, [selectedForCompare, historyVersions])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Selection and pending UI belong to one report.
+  const selectionReportRef = useRef<string | null | undefined>(null)
   useEffect(() => {
+    if (selectionReportRef.current === reportId) return
+    selectionReportRef.current = reportId
     restoreAttempt.current = null
     didAutoExpand.current = false
     setRestoringVersion(null)

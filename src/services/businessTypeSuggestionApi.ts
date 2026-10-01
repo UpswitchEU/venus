@@ -6,6 +6,11 @@
  */
 
 import axios, { type AxiosInstance } from 'axios'
+import {
+  readBrowserRecoveryValue,
+  WORKFLOW_RECOVERY_TTL_MS,
+  writeBrowserRecoveryValue,
+} from '../utils/browserRecoveryStorage'
 import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 
@@ -76,9 +81,16 @@ function normalizeStoredSuggestion(value: unknown): StoredBusinessTypeSuggestion
   const suggestion = normalizeSuggestion(value)
   const timestamp = optionalString(value.timestamp)
   if (!suggestion || !timestamp) return null
+  const createdAt = Date.parse(timestamp)
+  if (
+    !Number.isFinite(createdAt) ||
+    createdAt > Date.now() ||
+    Date.now() - createdAt >= WORKFLOW_RECOVERY_TTL_MS
+  )
+    return null
 
   return {
-    ...suggestion,
+    suggestion: suggestion.suggestion.slice(0, 500),
     timestamp,
   }
 }
@@ -160,12 +172,15 @@ class BusinessTypeSuggestionService {
       const nextSuggestions = [
         ...suggestions,
         {
-          ...suggestion,
+          suggestion: suggestion.suggestion.slice(0, 500),
           timestamp: new Date().toISOString(),
         },
       ].slice(-MAX_LOCAL_SUGGESTIONS)
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSuggestions))
+      writeBrowserRecoveryValue(STORAGE_KEY, nextSuggestions, {
+        allowLegacy: false,
+        maxBytes: 50_000,
+      })
     } catch (error) {
       generalLogger.error('[BusinessTypeSuggestion] Failed to log locally', {
         error,
@@ -181,11 +196,13 @@ class BusinessTypeSuggestionService {
     if (typeof localStorage === 'undefined') return []
 
     try {
-      const existing = localStorage.getItem(STORAGE_KEY)
-      if (!existing) return []
-
-      const parsed: unknown = JSON.parse(existing)
-      if (!Array.isArray(parsed)) return []
+      const parsed = readBrowserRecoveryValue(
+        STORAGE_KEY,
+        (value): value is unknown[] =>
+          Array.isArray(value) && value.length <= MAX_LOCAL_SUGGESTIONS,
+        { allowLegacy: false, maxBytes: 50_000 }
+      )
+      if (!parsed) return []
 
       return parsed.flatMap((item) => {
         const normalized = normalizeStoredSuggestion(item)

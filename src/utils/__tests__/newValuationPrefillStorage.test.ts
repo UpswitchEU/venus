@@ -325,3 +325,23 @@ describe('clearNewValuationPrefill', () => {
     expect(() => clearNewValuationPrefill()).not.toThrow()
   })
 })
+
+it('removes nested credentials and report assets from new and legacy prefills', () => {
+  writeNewValuationPrefill({
+    company_name: 'Acme',
+    revenue: 100,
+    nested: { access_token: 'credential', htmlReport: '<p>private</p>', ebitda: 10 },
+  })
+  expect(storage.getItem(STORAGE_KEY)).not.toContain('credential')
+  expect(storage.getItem(STORAGE_KEY)).not.toContain('<p>')
+  storage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      _fromNewValuation: true,
+      company_name: 'Acme',
+      revenue: 100,
+      nested: { password: 'credential', htmlReport: '<p>private</p>', ebitda: 10 },
+    })
+  )
+  expect(readNewValuationPrefill(undefined)?.data).toEqual({ revenue: 100, nested: { ebitda: 10 } })
+})
