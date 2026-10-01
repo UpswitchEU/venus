@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { DcfSensitivityMatrix } from './DcfSensitivityMatrix'
@@ -10,6 +10,7 @@ const translations: Record<string, string> = {
     'Enterprise value under +/-1 point changes in WACC and exit multiple.',
   sensitivityWaccHeader: 'WACC / g',
   sensitivityWaccExitHeader: 'WACC / exit',
+  sensitivityUnavailableNote: '—: scenario unavailable under the stated assumptions.',
 }
 
 vi.mock('next-intl', () => ({
@@ -88,5 +89,75 @@ describe('DcfSensitivityMatrix', () => {
     expect(screen.getByText('10%')).toBeInTheDocument()
     expect(screen.getAllByText('€3M').length).toBeGreaterThan(0)
     expect(document.body.textContent).not.toContain('NaN')
+    expect(screen.queryByText('€0')).not.toBeInTheDocument()
+    expect(screen.getAllByText('—')).toHaveLength(4)
+  })
+
+  it('keeps missing cells and rows at their original positions and retains real zero', () => {
+    render(
+      <DcfSensitivityMatrix
+        sensitivityData={{
+          wacc_values: [0.02, 0.03, 0.04],
+          growth_values: [0.01, 0.02, 0.03],
+          ev_matrix: [
+            [0, null, 250_000],
+            [undefined, 500_000],
+          ],
+        }}
+      />
+    )
+    const rows = screen.getAllByRole('row').slice(1)
+    expect(
+      within(rows[0])
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent)
+    ).toEqual(['2%', '€0', '—', '€250,000'])
+    expect(
+      within(rows[1])
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent)
+    ).toEqual(['3%', '—', '€500,000', '—'])
+    expect(
+      within(rows[2])
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent)
+    ).toEqual(['4%', '—', '—', '—'])
+    expect(screen.getByText(translations.sensitivityUnavailableNote)).toBeInTheDocument()
+  })
+
+  it.each([
+    'wacc_values',
+    'growth_values',
+  ])('rejects a malformed %s without shifting values', (axis) => {
+    const data = {
+      wacc_values: [0.02, 0.03],
+      growth_values: [0.01, 0.02],
+      ev_matrix: [
+        [1, 2],
+        [3, 4],
+      ],
+      [axis]: [null, 0.02],
+    }
+    const { container } = render(<DcfSensitivityMatrix sensitivityData={data} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('highlights the persisted base coordinates when they are not the middle cell', () => {
+    render(
+      <DcfSensitivityMatrix
+        sensitivityData={{
+          wacc_values: [0.02, 0.03],
+          growth_values: [0.01, 0.02],
+          base_wacc: '0.02',
+          base_secondary_value: '0.01',
+          ev_matrix: [
+            [123_000, null],
+            [234_000, 345_000],
+          ],
+        }}
+      />
+    )
+    expect(screen.getByText('€123,000')).toHaveClass('bg-primary/10')
+    expect(screen.getByText('€345,000')).not.toHaveClass('bg-primary/10')
   })
 })

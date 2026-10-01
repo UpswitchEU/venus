@@ -4064,6 +4064,7 @@
 		"multiplePipeline": "Pipeline multiple",
 		"comparablesCount": "Comparables",
 		"comparablesQuality": "Qualité comparable",
+		"sensitivityUnavailableNote": "— : scénario non disponible avec les hypothèses indiquées.",
 		"sensitivityTitle": "Matrice de sensibilité DCF",
 		"sensitivityDescription": "Valeur d'entreprise inférieure à +/-1 point de variation du WACC et de la croissance terminale.",
 		"sensitivityDescriptionExitMultiple": "Valeur d'entreprise sous une variation de +/-1 point du WACC et du multiple de sortie.",

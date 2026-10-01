@@ -4064,6 +4064,7 @@
 		"multiplePipeline": "Multiple-pijplijn",
 		"comparablesCount": "Vergelijkbare bedrijven",
 		"comparablesQuality": "Kwaliteit vergelijkbaren",
+		"sensitivityUnavailableNote": "—: scenario niet beschikbaar met de vermelde aannames.",
 		"sensitivityTitle": "DCF-gevoeligheidsmatrix",
 		"sensitivityDescription": "Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en terminale groei.",
 		"sensitivityDescriptionExitMultiple": "Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.",
