@@ -64,7 +64,11 @@ export function resolveAdvisorSectorAverageMultiple(businessContext: unknown): n
   ]
 
   for (const candidate of candidates) {
-    const value = toPositiveNumber(candidate)
+    // Benchmark observations may use a display multiple suffix. Keep this
+    // allowance local: financial amount parsing must still reject unknown units.
+    const value = toPositiveNumber(
+      typeof candidate === 'string' ? candidate.trim().replace(/[x×]$/i, '') : candidate
+    )
     if (value != null) return value
   }
 

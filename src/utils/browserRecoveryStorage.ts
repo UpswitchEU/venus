@@ -115,7 +115,8 @@ export function readBrowserRecoveryValue<T>(
         parsed.expiresAtMs <= now ||
         parsed.writtenAtMs > now ||
         parsed.expiresAtMs <= parsed.writtenAtMs ||
-        parsed.expiresAtMs - parsed.writtenAtMs > (options.ttlMs ?? WORKFLOW_RECOVERY_TTL_MS)
+        parsed.expiresAtMs - parsed.writtenAtMs >
+          Math.min(options.ttlMs ?? WORKFLOW_RECOVERY_TTL_MS, WORKFLOW_RECOVERY_TTL_MS)
       ) {
         removeRecoveryValueFrom(storage, key)
         return null

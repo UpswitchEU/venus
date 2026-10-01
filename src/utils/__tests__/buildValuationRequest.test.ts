@@ -477,7 +477,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
   })
 
   it('preserves an explicitly confirmed newer year for current_year_data', () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
 
     const result = buildValuationRequest(
@@ -496,7 +496,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
   })
 
   it('rejects confirmed-year leakage into historical_years_data', () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-03-26T12:00:00Z'))
 
     expect(() =>
@@ -827,7 +827,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
   })
 
   it('uses populated current-year accounting data when stale top-level mirrors remain zero', () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-06-28T12:00:00.000Z'))
 
     const result = buildValuationRequest(
@@ -901,7 +901,7 @@ describe('buildValuationRequest core registry and financial contract', () => {
   })
 
   it('builds the Upswitch one-year valuation payload without zero-revenue historical rows', () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-05-31T12:00:00Z'))
 
     const result = buildValuationRequest(

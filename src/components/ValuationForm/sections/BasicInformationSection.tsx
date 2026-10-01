@@ -430,19 +430,21 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
         {/* Business Type Selector - replaces Industry, Sub-Industry, and Business Model */}
         {/* MOVED TO TOP: Aligns with AI-guided flow & enables intelligent triage from question 1 */}
         <AuroraFullWidthField>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <SegmentedControl<'default' | 'expert'>
-              value={expertModeEnabled ? 'expert' : 'default'}
-              onChange={(value) => setExpertModeOverride(value === 'expert')}
-              options={[
-                { value: 'default', label: t('manualInput.advisorExpertMode.default') },
-                { value: 'expert', label: t('manualInput.advisorExpertMode.expert') },
-              ]}
-              size="sm"
-              variant="pills"
-              aria-label={t('manualInput.advisorExpertMode.ariaLabel')}
-            />
-          </div>
+          {formData.company_name?.trim() ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <SegmentedControl<'default' | 'expert'>
+                value={expertModeEnabled ? 'expert' : 'default'}
+                onChange={(value) => setExpertModeOverride(value === 'expert')}
+                options={[
+                  { value: 'default', label: t('manualInput.advisorExpertMode.default') },
+                  { value: 'expert', label: t('manualInput.advisorExpertMode.expert') },
+                ]}
+                size="sm"
+                variant="pills"
+                aria-label={t('manualInput.advisorExpertMode.ariaLabel')}
+              />
+            </div>
+          ) : null}
           <BusinessTypeSelector
             value={visibleBusinessTypeIds}
             onChange={() => undefined}

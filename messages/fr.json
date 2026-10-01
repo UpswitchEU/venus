@@ -1,4 +1,12 @@
 {
+	"navigationSave": {
+		"saving": "Enregistrement avant de quitter…",
+		"failed": "Vos dernières modifications n’ont pas pu être enregistrées.",
+		"busy": "Votre valorisation est encore en cours de mise à jour.",
+		"keptOpen": "Votre rapport est toujours ouvert. Réessayez ou poursuivez vos modifications.",
+		"retry": "Réessayer",
+		"navigationFailed": "Vos modifications ont été enregistrées, mais la destination n’a pas pu être ouverte."
+	},
 	"common": {
 		"cancel": "Annuler",
 		"optional": "Facultatif",
@@ -684,12 +692,14 @@
 		"defaultFilename": "Rapport",
 		"pdfSuffix": "Rapport d'évaluation",
 		"placeholder": {
-			"title": "Pas encore d’évaluation",
-			"description": "Vérifiez les données, puis choisissez Déterminer la valeur.",
+			"title": "Votre valorisation commence par l’entreprise",
+			"description": "Choisissez une entreprise et ajoutez ses chiffres financiers. La fourchette de valorisation et le rapport apparaîtront ici.",
 			"context": "Contexte de l’entreprise chargé",
 			"financials": "Preuves financières préremplies",
-			"result": "Valeur et rapport après vérification",
-			"time": "La plupart des valorisations connectées prennent moins de 5 minutes"
+			"result": "Calculez la valorisation, puis examinez la fourchette et les hypothèses.",
+			"time": "La plupart des valorisations connectées prennent moins de 5 minutes",
+			"company": "Choisissez ou saisissez l’entreprise.",
+			"figures": "Ajoutez les chiffres financiers et vérifiez leur source."
 		},
 		"workspace": {
 			"input": "Données",
@@ -980,6 +990,7 @@
 			"exitWithoutSaving": "Quitter sans sauvegarder",
 			"saving": "Sauvegarde...",
 			"saveAndExit": "Enregistrer et quitter",
+			"saveFailed": "L’enregistrement n’a pas pu être confirmé. Votre rapport est toujours ouvert. Réessayez d’enregistrer avant de quitter.",
 			"confirm": "Aller au tableau de bord"
 		},
 		"flowSwitch": {
@@ -1536,7 +1547,7 @@
 		"removeForecastDescription": "Les années de prévision et toutes les données que vous avez saisies seront supprimées de votre évaluation.",
 		"calculating": "Calcul...",
 		"calculateEstimate": "Calculer l'estimation",
-		"determineValue": "Déterminer la valeur",
+		"determineValue": "Calculer la valorisation",
 		"updateValue": "Mettre à jour la valeur",
 		"determiningValue": "Détermination de la valeur...",
 		"updatingValue": "Mise à jour de la valeur...",
@@ -2214,7 +2225,9 @@
 				"modalDescription": "Prime supérieure à la moyenne du secteur, pondération risque/decote, pondération historique de l'EBITDA et si le rapport rend compte du pont entreprise-équité. Ces choix s'appliquent uniquement à cette valorisation.",
 				"openModalButton": "Calibrage et pondération",
 				"openModalButtonHint": "Risque, prime, pont",
-				"kebabMenuItem": "Contrôles du conseiller"
+				"kebabMenuItem": "Contrôles du conseiller",
+				"loadingControls": "Chargement du calibrage et de la pondération…",
+				"closeControls": "Fermer le calibrage et la pondération"
 			},
 			"terminalGrowthHighWarning": "Une croissance perpétuelle supérieure au PIB à long terme est rare ; les auditeurs remettent souvent en question les taux supérieurs à 3 %. Utilisez un taux plus élevé uniquement si vous pouvez le défendre dans le dossier.",
 			"terminalGrowthWaccSpreadWarning": "La croissance terminale doit rester inférieure au WACC ({wacc} %) pour un DCF à croissance perpétuelle.",
@@ -2322,7 +2335,7 @@
 		"employeeCountMissing": "ETP total manquant",
 		"employeeCountMissingDesc": "Entrez l'ETP total, propriétaires inclus, pour continuer.",
 		"startProposalSkipped": "Proposition initiale non générée",
-		"startProposalSkippedDesc": "Complétez les chiffres, puis choisissez Déterminer la valeur.",
+		"startProposalSkippedDesc": "Complétez les chiffres, puis choisissez Calculer la valorisation.",
 		"financialDataIncomplete": "Données financières incomplètes",
 		"financialDataIncompleteDesc": "Entrez au moins 1 an avec les revenus et l'EBITDA.",
 		"dcfNotReady": "Données DCF incomplètes",
@@ -2405,6 +2418,10 @@
 		"normalizationsSaved": "Normalisations enregistrées",
 		"versionRestored": "Version {version} restaurée",
 		"versionRestoreFailed": "La restauration de la version a échoué",
+		"versionRestoreInProgress": "Une version est déjà en cours de restauration. Attendez la fin avant d’en choisir une autre.",
+		"versionRestoreEditsKept": "Vos saisies et ajustements plus récents ont été conservés. Recalculez pour mettre le rapport à jour avec ces modifications.",
+		"versionRestoreEditsSaveFailed": "La version a été restaurée, mais vos modifications plus récentes n’ont pas pu être enregistrées. Gardez ce rapport ouvert et réessayez.",
+		"versionRestoreRetrySave": "Réessayer l’enregistrement",
 		"importStarted": "L'importation {source} a démarré",
 		"importStartedDesc": "Les normalisations sont en cours d'analyse...",
 		"importAnalyzed": "J'ai analysé {source} et trouvé des normalisations potentielles {count}.",
@@ -2413,7 +2430,7 @@
 		"normNormalized": "{label} normalisé à €{value}",
 		"readyForRecalculation": "Prêt pour le recalcul",
 		"unnamed": "Sans nom",
-		"newEstimation": "Nouvelle estimation",
+		"newEstimation": "Nouvelle valorisation",
 		"company": "Entreprise",
 		"reportPreview": "Aperçu du rapport",
 		"reportPreviewDesc": "Le modèle de rapport complet sera affiché ici.",
@@ -2440,21 +2457,24 @@
 		"typeMethodology": "Méthodologie",
 		"typeRevision": "Révision",
 		"restore": "Restaurer",
-		"swap": "Changer de version",
+		"swap": "Inverser les versions",
 		"version": "Version",
 		"changes": "Changements",
-		"valuation": "Estimation indicative",
+		"valuation": "Valorisation indicative",
 		"ebitda": "BAIIA",
 		"multiple": "Multiple",
 		"title": "Comparaison des versions",
 		"current": "ACTUEL",
 		"comparisonDetails": "Modifications détaillées",
-		"older": "Plus âgé",
-		"newer": "Plus récent",
+		"older": "Version antérieure",
+		"newer": "Version plus récente",
 		"enterpriseValue": "Valeur d'entreprise",
-		"bandwidth": "Bande passante",
+		"bandwidth": "Fourchette de valorisation",
 		"close": "Fermer",
-		"restoreTo": "Restaurer vers v{version}"
+		"restoreTo": "Restaurer vers v{version}",
+		"metric": "Indicateur",
+		"unavailable": "Non disponible",
+		"description": "Comparez la version {from} à la version {to}. Les variations sont calculées de la première version à la seconde."
 	},
 	"historyPanel": {
 		"startProposalVersionLabel": "v1 · Première estimation",
@@ -2481,7 +2501,7 @@
 		"invalidDate": "Date invalide",
 		"loadMore": "Charger plus ({displayed} ou {total})",
 		"valuationFlow": "Progression de l'estimation",
-		"indicativeEV": "Valeur d'entreprise indicative (VE)",
+		"indicativeValuation": "Valorisation indicative",
 		"current": "ACTUEL",
 		"bandwidth": "Gamme",
 		"normalizedEbitda": "EBITDA normalisé",
@@ -3692,6 +3712,7 @@
 		"methodologyDesc": "Cette estimation indicative d'activité est basée sur une analyse de transactions comparables avec des multiples d'EBITDA sectoriels (Damodaran). La fourchette tient compte des conditions actuelles du marché, des facteurs de risque spécifiques à l’entreprise et de la trajectoire de croissance.",
 		"disclaimer": "Avertissement : Ce document est une estimation commerciale indicative et ne constitue pas une évaluation formelle conforme aux normes internationales. Pour les transactions formelles, une évaluation certifiée par un expert accrédité doit être réalisée.",
 		"waterfall": {
+			"unavailable": "Le pont de valeur n’est pas encore disponible. Complétez et vérifiez ses données avant d’afficher ce graphique.",
 			"title": "Pont valeur d’entreprise → capitaux propres",
 			"subtitle": "Les ajustements de trésorerie, de dette et de fonds de roulement utilisent les mêmes entrées de bilan que votre importation comptable ou votre saisie manuelle.",
 			"ariaLabel": "Graphique en cascade de la valeur d'entreprise en capitaux propres"

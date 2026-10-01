@@ -254,7 +254,7 @@ describe('versionHistoryModel', () => {
     })
   })
 
-  it('persists only lightweight version metadata', () => {
+  it('persists only version selections without any report payload', () => {
     const fullVersion = version({
       htmlReport: '<main>Large report</main>',
       formData: {
@@ -278,22 +278,6 @@ describe('versionHistoryModel', () => {
         versions: { 'report-1': [fullVersion] },
         activeVersions: { 'report-1': 1 },
       })
-    ).toMatchObject({
-      activeVersions: { 'report-1': 1 },
-      versions: {
-        'report-1': [
-          {
-            htmlReport: null,
-            normalization_data: undefined,
-            _hasHtmlReport: true,
-            formData: {
-              country_code: 'BE',
-              company_name: 'Acme BV',
-              current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 200_000 },
-            },
-          },
-        ],
-      },
-    })
+    ).toEqual({ activeVersions: { 'report-1': 1 } })
   })
 })

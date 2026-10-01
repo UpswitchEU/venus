@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockApiPost, mockAxiosCreate, mockLogger } = vi.hoisted(() => {
   const mockApiPost = vi.fn()
@@ -32,6 +32,7 @@ vi.mock('../utils/logger', () => ({
 const STORAGE_KEY = 'business_type_suggestions'
 
 describe('suggestionService', () => {
+  afterEach(() => vi.useRealTimers())
   beforeEach(() => {
     mockApiPost.mockReset()
     mockLogger.debug.mockClear()
@@ -79,7 +80,7 @@ describe('suggestionService', () => {
     )
   })
 
-  it('stores a validated local fallback when backend submission fails', async () => {
+  it('drops unbounded legacy data and stores a TTL fallback when submission fails', async () => {
     const { suggestionService } = await import('./businessTypeSuggestionApi')
     mockApiPost.mockRejectedValueOnce(new Error('offline'))
     localStorage.setItem(
@@ -94,10 +95,6 @@ describe('suggestionService', () => {
     await suggestionService.submitSuggestion({ suggestion: '  New vertical  ' })
 
     expect(suggestionService.getLocalSuggestions()).toEqual([
-      {
-        suggestion: 'Existing',
-        timestamp: '2026-01-01T00:00:00.000Z',
-      },
       expect.objectContaining({
         suggestion: 'New vertical',
         timestamp: expect.any(String),
@@ -118,4 +115,27 @@ describe('suggestionService', () => {
     expect(suggestions[0].suggestion).toBe('Suggestion 2')
     expect(suggestions.at(-1)?.suggestion).toBe('Suggestion 51')
   })
+})
+
+it('never retains identity/context and expires individual suggestions even when new items arrive', async () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-10-01T00:00:00Z'))
+  const { suggestionService } = await import('./businessTypeSuggestionApi')
+  mockApiPost.mockRejectedValue(new Error('offline'))
+  localStorage.clear()
+  await suggestionService.submitSuggestion({
+    suggestion: 'Old',
+    user_id: 'private-user',
+    context: { description: 'Private company' },
+  })
+  expect(localStorage.getItem(STORAGE_KEY)).not.toContain('private-user')
+  expect(localStorage.getItem(STORAGE_KEY)).not.toContain('Private company')
+  vi.advanceTimersByTime(23 * 60 * 60 * 1000)
+  await suggestionService.submitSuggestion({ suggestion: 'New' })
+  vi.advanceTimersByTime(2 * 60 * 60 * 1000)
+  expect(suggestionService.getLocalSuggestions().map((item) => item.suggestion)).toEqual(['New'])
+  vi.advanceTimersByTime(24 * 60 * 60 * 1000)
+  expect(suggestionService.getLocalSuggestions()).toEqual([])
+  expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  vi.useRealTimers()
 })

@@ -11,7 +11,7 @@
     "src/utils/logger.ts"
   ],
   "totals": {
-    "console": 53,
+    "console": 49,
     "alert": 0,
     "debugger": 0
   },
@@ -259,14 +259,6 @@
         "warn": 1
       }
     },
-    "src/services/analytics.ts": {
-      "console": 1,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "log": 1
-      }
-    },
     "src/services/ebitdaNormalizationService.ts": {
       "console": 1,
       "alert": 0,
@@ -282,14 +274,6 @@
       "consoleMethods": {
         "error": 1,
         "warn": 1
-      }
-    },
-    "src/utils/auth/offlineAuth.ts": {
-      "console": 3,
-      "alert": 0,
-      "debugger": 0,
-      "consoleMethods": {
-        "warn": 3
       }
     },
     "src/utils/decimal.ts": {

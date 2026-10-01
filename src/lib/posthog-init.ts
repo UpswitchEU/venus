@@ -42,6 +42,7 @@ export function initVenusPostHog(): void {
       api_host: host,
       defaults: '2026-01-30',
       opt_out_capturing_by_default: true,
+      opt_out_persistence_by_default: true,
       person_profiles: 'identified_only',
       persistence: 'localStorage+cookie',
       autocapture: false,
@@ -120,10 +121,10 @@ export function isPostHogCaptureAllowed(): boolean {
   }
   try {
     const ph = posthog as { has_opted_out_capturing?: () => boolean }
-    if (typeof ph.has_opted_out_capturing !== 'function') return true
+    if (typeof ph.has_opted_out_capturing !== 'function') return false
     return !ph.has_opted_out_capturing()
   } catch {
-    return true
+    return false
   }
 }
 

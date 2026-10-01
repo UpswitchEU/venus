@@ -6,16 +6,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
-function readNumber(value: unknown, fallback = 0): number {
-  return parseFlexibleNumber(value) ?? fallback
-}
-
 function readOptionalNumber(value: unknown): number | undefined {
   return parseFlexibleNumber(value)
 }
 
 function rowHasFinancials(row: Record<string, unknown>): boolean {
-  return readNumber(row.revenue) > 0 || readNumber(row.ebitda) !== 0
+  return (
+    readOptionalNumber(row.revenue) !== undefined || readOptionalNumber(row.ebitda) !== undefined
+  )
 }
 
 function forecastRowHasFinancials(row: Record<string, unknown>): boolean {
@@ -30,8 +28,8 @@ function forecastRowHasFinancials(row: Record<string, unknown>): boolean {
 function toSubmittedYear(row: Record<string, unknown>, isForecast = false): SubmittedFinancialYear {
   return {
     year: String(row.year),
-    revenue: readNumber(row.revenue),
-    ebitda: getReportedFinancialEbitda(row) ?? readNumber(row.ebitda),
+    revenue: readOptionalNumber(row.revenue),
+    ebitda: getReportedFinancialEbitda(row) ?? readOptionalNumber(row.ebitda),
     capex: readOptionalNumber(row.capex),
     nwc_change: readOptionalNumber(row.nwc_change),
     ...(isForecast ? { isForecast: true } : {}),
@@ -72,11 +70,12 @@ export function buildManualRestoredFinancialSnapshot(
   return {
     revenue:
       currentYearData && 'revenue' in currentYearData
-        ? readNumber(currentYearData.revenue)
+        ? readOptionalNumber(currentYearData.revenue)
         : readOptionalNumber(formRecord.revenue),
     ebitda:
       currentYearData && 'ebitda' in currentYearData
-        ? (getReportedFinancialEbitda(currentYearData) ?? readNumber(currentYearData.ebitda))
+        ? (getReportedFinancialEbitda(currentYearData) ??
+          readOptionalNumber(currentYearData.ebitda))
         : readOptionalNumber(formRecord.ebitda),
     yearlyFinancials,
   }

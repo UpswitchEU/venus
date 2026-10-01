@@ -23,4 +23,16 @@ describe('isFiniteNumeric', () => {
     expect(isFiniteNumeric('n/a')).toBe(false)
     expect(isFiniteNumeric(Number.NaN)).toBe(false)
   })
+
+  it('preserves exponents and rejects prose or malformed grouping', () => {
+    expect(parseFlexibleNumber('1e6')).toBe(1000000)
+    expect(parseFlexibleNumber('-2.5e3')).toBe(-2500)
+    expect(parseFlexibleNumber('0.125')).toBe(0.125)
+    expect(parseFlexibleNumber('0,125')).toBe(0.125)
+    expect(parseFlexibleNumber('1e999')).toBeUndefined()
+    for (const value of ['about 100', '100k', '1/2', '12.34,56', '1,23.45', '1€2']) {
+      expect(parseFlexibleNumber(value)).toBeUndefined()
+    }
+    expect(parseFlexibleNumber('(€ 1.234,56)')).toBe(-1234.56)
+  })
 })

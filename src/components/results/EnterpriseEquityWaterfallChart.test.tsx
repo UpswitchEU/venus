@@ -3,10 +3,39 @@ import { describe, expect, it, vi } from 'vitest'
 import { EnterpriseEquityWaterfallChart } from './EnterpriseEquityWaterfallChart'
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
   useTranslations: () => (key: string) => key,
 }))
 
 describe('EnterpriseEquityWaterfallChart', () => {
+  it('withholds a chart with an unavailable endpoint instead of inventing zero', () => {
+    const { container } = render(
+      <EnterpriseEquityWaterfallChart
+        steps={[{ kind: 'total', label: 'Equity', end_value: undefined }]}
+      />
+    )
+    expect(screen.getByRole('status')).toHaveTextContent('unavailable')
+    expect(container.querySelector('svg')).toBeNull()
+  })
+  it('retains a genuinely calculated zero endpoint', () => {
+    const { container } = render(
+      <EnterpriseEquityWaterfallChart steps={[{ kind: 'total', label: 'Equity', end_value: 0 }]} />
+    )
+    expect(container.querySelector('svg')).not.toBeNull()
+  })
+  it('labels a known adjustment by its change when the delta is omitted', () => {
+    render(
+      <EnterpriseEquityWaterfallChart
+        steps={[
+          { kind: 'base', label: 'Enterprise value', end_value: 1000 },
+          { kind: 'decrease', label: 'Debt', end_value: 800 },
+          { kind: 'total', label: 'Equity', end_value: 800 },
+        ]}
+      />
+    )
+    expect(screen.getAllByText('-€200').length).toBeGreaterThan(0)
+  })
+
   it('renders a running EV-to-equity bridge without invalid SVG geometry', () => {
     const { container } = render(
       <EnterpriseEquityWaterfallChart

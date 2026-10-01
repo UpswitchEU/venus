@@ -121,7 +121,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const cached = {
         session: incompleteSession,
         cachedAt: Date.now() - 15 * 60 * 1000, // 15 minutes ago
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        expiresAt: Date.now() + (24 * 60 - 15) * 60 * 1000,
         version: incompleteSession.updatedAt?.toString() || Date.now().toString(),
       }
 
@@ -147,7 +147,7 @@ describe('SessionCacheManager - Cache Versioning & Completeness', () => {
       const cached = {
         session: completeSession,
         cachedAt: Date.now() - 15 * 60 * 1000, // 15 minutes ago
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        expiresAt: Date.now() + (24 * 60 - 15) * 60 * 1000,
         version: completeSession.updatedAt?.toString() || Date.now().toString(),
       }
 

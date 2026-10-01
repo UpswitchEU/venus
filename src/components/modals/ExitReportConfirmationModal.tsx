@@ -1,8 +1,7 @@
 import { AlertTriangle, Home, Save } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import React, { useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { useScrollLock } from '@/hooks/useScrollLock'
+import { type RefObject, useId, useRef } from 'react'
+import { Modal, ModalContent, ModalTitle } from '@/design-system/components/Modal'
 
 interface ExitReportConfirmationModalProps {
   isOpen: boolean
@@ -12,17 +11,11 @@ interface ExitReportConfirmationModalProps {
   hasUnsavedChanges: boolean
   hasValuationResults: boolean
   isSaving?: boolean
+  saveFailed?: boolean
+  returnFocusRef?: RefObject<HTMLElement | null>
 }
 
-/**
- * ExitReportConfirmationModal Component
- *
- * Confirms exiting a report with different scenarios:
- * - Empty report: Just exit (no confirmation needed, handled by parent)
- * - Unsaved changes: "Save and exit?" with save option
- * - Saved with results: "Are you sure you want to exit?"
- */
-export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalProps> = ({
+export function ExitReportConfirmationModal({
   isOpen,
   onClose,
   onConfirm,
@@ -30,142 +23,113 @@ export const ExitReportConfirmationModal: React.FC<ExitReportConfirmationModalPr
   hasUnsavedChanges,
   hasValuationResults,
   isSaving = false,
-}) => {
-  const t = useTranslations()
+  saveFailed = false,
+  returnFocusRef,
+}: ExitReportConfirmationModalProps) {
+  const t = useTranslations('modals.exit')
+  const descriptionId = useId()
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
 
-  // Robust scroll lock (iOS Safari + Android)
-  useScrollLock(isOpen)
-
-  // Close modal on Escape key
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isSaving) {
-        onClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleEscapeKey)
-    return () => {
-      document.removeEventListener('keydown', handleEscapeKey)
-    }
-  }, [isOpen, isSaving, onClose])
-
-  if (!isOpen) {
-    return null
-  }
-
-  // Determine modal content based on state
-  const showSaveOption = hasUnsavedChanges && onSaveAndExit
-  const title = showSaveOption ? t('modals.exit.titleSave') : t('modals.exit.title')
+  const showSaveOption = Boolean((hasUnsavedChanges || saveFailed) && onSaveAndExit)
+  const title = showSaveOption ? t('titleSave') : t('title')
   const message = showSaveOption
-    ? t('modals.exit.messageUnsaved')
+    ? t('messageUnsaved')
     : hasValuationResults
-      ? t('modals.exit.messageWithResults')
-      : t('modals.exit.message')
+      ? t('messageWithResults')
+      : t('message')
+  const buttonClass =
+    'min-h-11 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed'
 
-  const modal = (
-    <div className="fixed inset-0 z-[100000]">
-      {/* Backdrop - touch-none/overscroll-none prevent background scroll on iOS */}
-      <div
-        className="absolute inset-0 bg-black/65 touch-none overscroll-none"
-        onClick={onClose}
-        onTouchMove={(e) => e.preventDefault()}
-        aria-hidden="true"
-      />
-
-      {/* Modal */}
-      <div
-        className="absolute inset-0 flex items-center justify-center p-4"
-        aria-hidden="false"
-        aria-modal="true"
-        role="dialog"
+  return (
+    <Modal open={isOpen} onOpenChange={(open) => !open && !isSaving && onClose()}>
+      <ModalContent
+        showClose={false}
+        aria-describedby={descriptionId}
+        aria-busy={isSaving || undefined}
+        className="w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        onOpenAutoFocus={(event) => {
+          previousFocusRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null
+          event.preventDefault()
+          cancelRef.current?.focus()
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          const target = returnFocusRef?.current ?? previousFocusRef.current
+          if (target?.isConnected) target.focus()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isSaving) event.preventDefault()
+        }}
+        onInteractOutside={(event) => {
+          if (isSaving) event.preventDefault()
+        }}
       >
-        <div
-          className="bg-popover rounded-2xl shadow-2xl border border-foreground/10 max-w-md w-full"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="px-6 py-5 border-b border-foreground/10">
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                {showSaveOption ? (
-                  <Save className="w-5 h-5 text-primary" />
-                ) : (
-                  <AlertTriangle className="w-5 h-5 text-primary" />
-                )}
-              </div>
-              <h2 className="text-xl font-semibold text-white">{title}</h2>
-            </div>
+        <div className="flex items-center gap-3">
+          <div
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+            aria-hidden="true"
+          >
+            {showSaveOption ? <Save className="size-5" /> : <AlertTriangle className="size-5" />}
           </div>
-
-          {/* Content */}
-          <div className="px-6 py-5 space-y-3">
-            <p className="text-foreground leading-relaxed">{message}</p>
-            {showSaveOption && (
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                {t('modals.exit.saveNote')}
-              </p>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="px-6 py-4 bg-muted/50 rounded-b-2xl flex items-center justify-end gap-3">
-            <button
-              onClick={onClose}
-              disabled={isSaving}
-              className="px-4 py-2 text-sm font-medium text-foreground hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t('modals.exit.cancel')}
-            </button>
-            {showSaveOption && (
-              <button
-                onClick={onConfirm}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium text-foreground hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {t('modals.exit.exitWithoutSaving')}
-              </button>
-            )}
-            {showSaveOption ? (
-              <button
-                onClick={onSaveAndExit}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium bg-accent-600 hover:bg-accent-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {t('modals.exit.saving')}
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {t('modals.exit.saveAndExit')}
-                  </>
-                )}
-              </button>
-            ) : (
-              <button
-                onClick={onConfirm}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium bg-accent-600 hover:bg-accent-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <Home className="w-4 h-4" />
-                {t('modals.exit.confirm')}
-              </button>
-            )}
-          </div>
+          <ModalTitle>{title}</ModalTitle>
         </div>
-      </div>
-    </div>
+        <p id={descriptionId} className="mt-5 leading-relaxed text-foreground">
+          {message}
+        </p>
+        {showSaveOption && (
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('saveNote')}</p>
+        )}
+        {saveFailed && (
+          <p
+            role="alert"
+            className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-foreground"
+          >
+            {t('saveFailed')}
+          </p>
+        )}
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            ref={cancelRef}
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className={`${buttonClass} border border-foreground/15 text-foreground hover:bg-muted`}
+          >
+            {t('cancel')}
+          </button>
+          {showSaveOption && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isSaving}
+              className={`${buttonClass} text-muted-foreground hover:bg-muted hover:text-foreground`}
+            >
+              {t('exitWithoutSaving')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={showSaveOption ? onSaveAndExit : onConfirm}
+            disabled={isSaving}
+            aria-busy={isSaving || undefined}
+            className={`${buttonClass} flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 ${showSaveOption ? 'sm:col-span-2' : ''}`}
+          >
+            {isSaving ? (
+              <span
+                className="size-4 shrink-0 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+            ) : showSaveOption ? (
+              <Save className="size-4 shrink-0" aria-hidden="true" />
+            ) : (
+              <Home className="size-4 shrink-0" aria-hidden="true" />
+            )}
+            <span>{isSaving ? t('saving') : showSaveOption ? t('saveAndExit') : t('confirm')}</span>
+          </button>
+        </div>
+      </ModalContent>
+    </Modal>
   )
-
-  // Render via portal so the overlay never reflows the main layout.
-  if (typeof document !== 'undefined' && document.body) {
-    return createPortal(modal, document.body)
-  }
-
-  return modal
 }

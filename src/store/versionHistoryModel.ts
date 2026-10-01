@@ -6,13 +6,11 @@ import type {
 } from '../types/ValuationVersion'
 import type { ValuationRequest } from '../types/valuation'
 import { dateLikeToUnixMs } from '../utils/date-like'
-import { normalizeCurrentYearForFiling } from '../utils/fiscalYear'
 import { getRenderableReportHtml } from '../utils/safetyNetReportHtml'
 import { createRandomId } from '../utils/secureRandom'
 import { getFinalValuation as getAccessibleFinalValuation } from '../utils/valuationResultAccess'
 import { resolveFormEbitda, resolveFormRevenue } from '../utils/versionDiffDetection'
 import { buildVersionDisplayList } from '../utils/versionDisplayModel'
-import { buildCurrentYearData } from '../utils/yearData'
 
 export type PersistedVersionMetadata = ValuationVersion & { _hasHtmlReport?: boolean }
 
@@ -270,65 +268,42 @@ export function partializeVersionHistoryState(state: {
   activeVersions: Record<string, number>
   versions: Record<string, ValuationVersion[]>
 }) {
-  const MAX_VERSIONS_PER_REPORT = 15
-  const MAX_REPORTS = 10
-  const lightweight: Record<string, ValuationVersion[]> = {}
-
   const reportIds = Object.entries(state.versions)
     .map(([id, versions]) => ({
       id,
       latest: Math.max(0, ...versions.map((version) => dateLikeToUnixMs(version.createdAt) ?? 0)),
     }))
     .sort((a, b) => b.latest - a.latest)
-    .slice(0, MAX_REPORTS)
+    .slice(0, 10)
     .map((report) => report.id)
-
-  for (const reportId of reportIds) {
-    const versions = state.versions[reportId] || []
-    const trimmed = versions.slice(-MAX_VERSIONS_PER_REPORT).map((version) => {
-      const formData = version.formData
-      const lightweightFormData = {
-        country_code: formData?.country_code || '',
-        company_name: formData?.company_name,
-        current_year_data: formData?.current_year_data
-          ? buildCurrentYearData({
-              year: normalizeCurrentYearForFiling(
-                formData.current_year_data.year,
-                formData?.filing_year_confirmed
-              ),
-              revenue: formData.current_year_data.revenue,
-              ebitda: formData.current_year_data.ebitda,
-              currentYearData: formData.current_year_data,
-            })
-          : undefined,
-        number_of_employees: formData?.number_of_employees,
-        number_of_owners: formData?.number_of_owners,
-        industry: formData?.industry,
-        business_type: formData?.business_type,
-      } as unknown as ValuationVersion['formData']
-      const versionMetadata = version as PersistedVersionMetadata
-      return {
-        ...version,
-        formData: lightweightFormData,
-        valuationResult: null,
-        htmlReport: null,
-        normalization_data: undefined,
-        tax_latency_data: undefined,
-        _hasHtmlReport: !!versionMetadata._hasHtmlReport || !!version.htmlReport,
-      }
-    })
-    lightweight[reportId] = trimmed
-  }
-
-  const activeVersionsFiltered: Record<string, number> = {}
-  for (const reportId of reportIds) {
-    if (state.activeVersions[reportId] != null) {
-      activeVersionsFiltered[reportId] = state.activeVersions[reportId]
-    }
-  }
-
   return {
-    versions: lightweight,
-    activeVersions: activeVersionsFiltered,
+    activeVersions: Object.fromEntries(
+      reportIds.flatMap((id) => {
+        const selected = state.activeVersions[id]
+        return Number.isSafeInteger(selected) && selected > 0 ? [[id, selected]] : []
+      })
+    ),
   }
+}
+
+export function isVersionSelection(
+  value: unknown
+): value is { activeVersions: Record<string, number> } {
+  if (!value || typeof value !== 'object' || !('activeVersions' in value)) return false
+  const selected = value.activeVersions
+  return (
+    !!selected &&
+    typeof selected === 'object' &&
+    !Array.isArray(selected) &&
+    Object.keys(value).length === 1 &&
+    Object.keys(selected).length <= 10 &&
+    Object.entries(selected).every(
+      ([id, number]) =>
+        id.length > 0 &&
+        id.length <= 200 &&
+        typeof number === 'number' &&
+        Number.isSafeInteger(number) &&
+        number > 0
+    )
+  )
 }

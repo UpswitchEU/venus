@@ -67,6 +67,21 @@ describe('manualVersionRestorePlan', () => {
     })
   })
 
+  it.each([
+    0,
+    -1,
+    1.5,
+    '1.5',
+    NaN,
+    Infinity,
+    true,
+    false,
+    '',
+    null,
+  ])('rejects an invalid version number: %s', (versionNumber) => {
+    expect(buildManualVersionRestorePlan({ versionNumber })?.versionNumber).toBeUndefined()
+  })
+
   it('returns null for non-object input', () => {
     expect(buildManualVersionRestorePlan(null)).toBeNull()
     expect(buildManualVersionRestorePlan('nope')).toBeNull()

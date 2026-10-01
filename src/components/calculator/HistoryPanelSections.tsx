@@ -112,7 +112,7 @@ export function ValuationSummaryCard({
   return (
     <div className="-mx-4 mb-4 border-y border-foreground/[0.06] bg-foreground/[0.025]">
       <div className="px-4 py-4">
-        <p className="text-[11px] font-semibold text-foreground/50">{hp('indicativeEV')}</p>
+        <p className="text-[11px] font-semibold text-foreground/50">{hp('indicativeValuation')}</p>
 
         <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-mono text-2xl font-bold leading-none tracking-normal text-foreground tabular-nums">

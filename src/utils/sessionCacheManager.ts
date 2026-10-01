@@ -127,10 +127,11 @@ export class SessionCacheManager {
 
       const sessionMetadataOnly = this.stripSessionForStorage(session)
 
+      const cachedAt = Date.now()
       const cached: CachedSession = {
         session: sessionMetadataOnly,
-        cachedAt: Date.now(),
-        expiresAt: Date.now() + CACHE_TTL_MS,
+        cachedAt,
+        expiresAt: cachedAt + CACHE_TTL_MS,
         version: session.updatedAt?.toString() || Date.now().toString(), // Track version for staleness detection
         payloadClassification: SESSION_CACHE_PAYLOAD_CLASSIFICATION,
       }
@@ -162,8 +163,8 @@ export class SessionCacheManager {
             try {
               const minimalCached: CachedSession = {
                 session: sessionMetadataOnly,
-                cachedAt: Date.now(),
-                expiresAt: Date.now() + CACHE_TTL_MS,
+                cachedAt,
+                expiresAt: cachedAt + CACHE_TTL_MS,
                 version: session.updatedAt?.toString() || Date.now().toString(),
                 payloadClassification: SESSION_CACHE_PAYLOAD_CLASSIFICATION,
               }
@@ -221,7 +222,15 @@ export class SessionCacheManager {
       const parsed: CachedSession = JSON.parse(cached)
 
       // Check expiry
-      if (Date.now() > parsed.expiresAt) {
+      if (
+        !parsed ||
+        !Number.isFinite(parsed.cachedAt) ||
+        !Number.isFinite(parsed.expiresAt) ||
+        parsed.cachedAt > Date.now() ||
+        parsed.expiresAt <= Date.now() ||
+        parsed.expiresAt <= parsed.cachedAt ||
+        parsed.expiresAt - parsed.cachedAt > CACHE_TTL_MS
+      ) {
         cacheLogger.info('Cached session expired, removing', { reportId })
         this.delete(reportId)
         return null
@@ -337,7 +346,15 @@ export class SessionCacheManager {
 
           const parsed: CachedSession = JSON.parse(cached)
 
-          if (Date.now() > parsed.expiresAt) {
+          if (
+            !parsed ||
+            !Number.isFinite(parsed.cachedAt) ||
+            !Number.isFinite(parsed.expiresAt) ||
+            parsed.cachedAt > Date.now() ||
+            parsed.expiresAt <= Date.now() ||
+            parsed.expiresAt <= parsed.cachedAt ||
+            parsed.expiresAt - parsed.cachedAt > CACHE_TTL_MS
+          ) {
             localStorage.removeItem(key)
             cleanedCount++
           }

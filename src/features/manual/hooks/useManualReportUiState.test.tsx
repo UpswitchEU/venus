@@ -2,6 +2,11 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useManualReportUiState } from './useManualReportUiState'
 
+const resultSave = vi.hoisted(() => ({ failure: undefined as { error: string } | undefined }))
+vi.mock('../../../hooks/useReportAssetSaveFailure', () => ({
+  useReportAssetSaveFailure: () => resultSave.failure,
+}))
+
 const session = vi.hoisted(() => ({
   isSaving: false,
   hasUnsavedChanges: false,
@@ -13,6 +18,7 @@ vi.mock('../../../store/useSessionStore', () => ({
 }))
 
 beforeEach(() => {
+  resultSave.failure = undefined
   Object.assign(session, {
     isSaving: false,
     hasUnsavedChanges: false,
@@ -22,6 +28,39 @@ beforeEach(() => {
 })
 
 describe('manual report persistence indicator', () => {
+  it('keeps a failed result save visible even when draft autosave succeeds', () => {
+    session.lastSaved = new Date('2026-09-19T06:00:00Z')
+    const { result, rerender } = renderHook(() => useManualReportUiState({ initialTab: 'preview' }))
+    resultSave.failure = { error: 'result save failed' }
+    rerender()
+    expect(result.current.draftStatus).toBe('unsaved')
+    session.isSaving = true
+    rerender()
+    expect(result.current.draftStatus).toBe('unsaved')
+    session.isSaving = false
+    session.lastSaved = new Date('2026-09-19T06:05:00Z')
+    rerender()
+    expect(result.current.draftStatus).toBe('unsaved')
+    act(() => result.current.setDraftStatus('saving'))
+    expect(result.current.draftStatus).toBe('unsaved')
+    act(() => result.current.setDraftStatus('draft'))
+    // Recovery from another save surface clears the service failure too.
+    resultSave.failure = undefined
+    rerender()
+    expect(result.current.draftStatus).toBe('saved')
+  })
+
+  it('uses the latest acknowledgement time across draft and result saves', () => {
+    session.lastSaved = new Date('2026-09-19T06:00:00Z')
+    const { result, rerender } = renderHook(() => useManualReportUiState({ initialTab: 'preview' }))
+    const resultSavedAt = new Date('2026-09-19T06:05:00Z')
+    act(() => result.current.setLastSaved(resultSavedAt))
+    expect(result.current.lastSaved).toEqual(resultSavedAt)
+    session.lastSaved = new Date('2026-09-19T06:10:00Z')
+    rerender()
+    expect(result.current.lastSaved).toEqual(session.lastSaved)
+  })
+
   it('a failed autosave overrides an earlier successful calculation save and says so', () => {
     const { result, rerender } = renderHook(() => useManualReportUiState({ initialTab: 'preview' }))
     act(() => result.current.setDraftStatus('saved'))

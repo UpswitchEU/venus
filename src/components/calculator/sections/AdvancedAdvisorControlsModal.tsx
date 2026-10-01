@@ -16,17 +16,34 @@
  * the form store), so the modal close button is the explicit dismiss.
  */
 
+import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
+import { useRef } from 'react'
 import {
   Modal,
   ModalContent,
   ModalHeader,
   ModalTitle,
 } from '../../../design-system/components/Modal'
-import {
-  AdvancedAdvisorControlsSection,
-  type AdvancedAdvisorControlsSectionProps,
-} from './AdvancedAdvisorControlsSection'
+import type { AdvancedAdvisorControlsSectionProps } from './AdvancedAdvisorControlsSection'
+
+function ControlsLoading() {
+  const t = useTranslations('manualInput.methodSelector.advancedAdvisorControls')
+  return (
+    <p role="status" className="min-h-24 text-sm text-muted-foreground">
+      {t('loadingControls')}
+    </p>
+  )
+}
+
+// Radix mounts the dialog content only while open. Keep expert form code off the initial input path.
+const AdvancedAdvisorControlsSection = dynamic(
+  () =>
+    import('./AdvancedAdvisorControlsSection').then(
+      (module) => module.AdvancedAdvisorControlsSection
+    ),
+  { loading: ControlsLoading }
+)
 
 interface AdvancedAdvisorControlsModalProps
   extends Omit<AdvancedAdvisorControlsSectionProps, 'chrome' | 'step'> {
@@ -40,12 +57,24 @@ export function AdvancedAdvisorControlsModal({
   ...controlProps
 }: AdvancedAdvisorControlsModalProps) {
   const t = useTranslations('manualInput.methodSelector.advancedAdvisorControls')
+  const returnFocusRef = useRef<HTMLElement | null>(null)
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalContent
         size="xl"
         description={t('modalDescription')}
+        closeLabel={t('closeControls')}
+        onOpenAutoFocus={() => {
+          returnFocusRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null
+        }}
+        onCloseAutoFocus={(event) => {
+          if (returnFocusRef.current?.isConnected) {
+            event.preventDefault()
+            returnFocusRef.current.focus()
+          }
+        }}
         // The `xl` size sets max-w-xl (~576px) but does not clamp against
         // the viewport — on phones with `fixed left-1/2 -translate-x-1/2`
         // centering, the modal can sit wider than the screen and force a

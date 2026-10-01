@@ -68,7 +68,12 @@ export function clearPersistedClientContextStorage(): void {
 export function discardStalePersistedClientContextOnRehydrate(
   state: PersistedClientContextSlice | undefined
 ): void {
-  if (!state || !isPersistedContextStaleForUrl(state.relationshipId)) return
+  if (!state) return
+  if (
+    !isPersistedContextStaleForUrl(state.relationshipId) &&
+    (!state.isActingAsClient || isClientContextTimestampFresh(state.lastValidatedAt))
+  )
+    return
 
   state.isActingAsClient = false
   state.accountant = null
@@ -96,4 +101,52 @@ export function clearDelegatedClientContext(clearStore: () => void): void {
       m.resetDelegatedClientContextRefreshState()
     })
     .catch(() => undefined)
+}
+
+const CONTEXT_TTL_MS = 24 * 60 * 60 * 1000
+export function isClientContextTimestampFresh(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value <= Date.now() &&
+    Date.now() - value < CONTEXT_TTL_MS
+  )
+}
+
+/** Only explicitly typed display/navigation data may enter the store from disk. */
+export function validatedPersistedClientContext(value: unknown) {
+  const record = (v: unknown): v is Record<string, unknown> =>
+    !!v && typeof v === 'object' && !Array.isArray(v)
+  const text = (v: unknown): v is string => typeof v === 'string' && v.length <= 1_000
+  const person = (v: unknown) => {
+    if (!record(v) || !text(v.id) || !v.id || !text(v.email) || !text(v.fullName)) return null
+    return { id: v.id, email: v.email, fullName: v.fullName }
+  }
+  if (
+    !record(value) ||
+    value.isActingAsClient !== true ||
+    !isClientContextTimestampFresh(value.lastValidatedAt) ||
+    !text(value.relationshipId) ||
+    !value.relationshipId ||
+    isPersistedContextStaleForUrl(value.relationshipId)
+  ) {
+    clearPersistedClientContextStorage()
+    return {}
+  }
+  const accountant = person(value.accountant)
+  const client = value.client === null ? null : person(value.client)
+  if (!accountant || (value.client !== null && !client)) {
+    clearPersistedClientContextStorage()
+    return {}
+  }
+  return {
+    isActingAsClient: true,
+    accountant,
+    client: client ? { ...client, avatarUrl: null } : null,
+    relationshipId: value.relationshipId,
+    relationshipCustomerName: text(value.relationshipCustomerName)
+      ? value.relationshipCustomerName
+      : null,
+    lastValidatedAt: value.lastValidatedAt,
+  }
 }

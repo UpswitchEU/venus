@@ -20,8 +20,9 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function readVersionNumber(version: Record<string, unknown>): number | undefined {
   const raw = version.versionNumber ?? version.version
+  if (typeof raw !== 'number' && typeof raw !== 'string') return undefined
   const numeric = typeof raw === 'number' ? raw : Number(raw)
-  return Number.isFinite(numeric) ? numeric : undefined
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : undefined
 }
 
 function readString(value: unknown): string | undefined {

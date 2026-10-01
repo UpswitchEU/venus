@@ -89,6 +89,12 @@ describe('manual input advisor controls model', () => {
     ).toBe(6.25)
   })
 
+  it('accepts known multiple units without stripping arbitrary suffixes', () => {
+    expect(resolveAdvisorSectorAverageMultiple({ benchmark_multiple: '5,5×' })).toBe(5.5)
+    expect(resolveAdvisorSectorAverageMultiple({ benchmark_multiple: '5.5xjunk' })).toBeNull()
+    expect(resolveAdvisorSectorAverageMultiple({ benchmark_multiple: '5.5xx' })).toBeNull()
+  })
+
   it('prefers normalized EBITDA and falls back to persisted EBITDA strings', () => {
     expect(
       resolveAdvisorControlsPreviewEbitda({

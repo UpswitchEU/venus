@@ -1,12 +1,12 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useId, useMemo } from 'react'
 import { cn } from '@/design-system/utils'
 import type { EvEquityWaterfallStep } from '../../types/valuation'
 
-function formatCompactEur(value: number): string {
-  return new Intl.NumberFormat('nl-BE', {
+function formatCompactEur(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'EUR',
     maximumFractionDigits: 0,
@@ -56,9 +56,15 @@ export function EnterpriseEquityWaterfallChart({
   className?: string
 }) {
   const t = useTranslations('reportPreview.waterfall')
+  const locale = useLocale()
   const titleId = useId()
 
   const chart = useMemo(() => {
+    // Missing endpoints are unavailable evidence, not a zero or a carried-forward value.
+    if (
+      steps.some((step) => typeof step.end_value !== 'number' || !Number.isFinite(step.end_value))
+    )
+      return null
     const chartW = 560
     const chartH = 190
     const paddingTop = 28
@@ -71,8 +77,8 @@ export function EnterpriseEquityWaterfallChart({
     const normalized = steps.map((step, index) => {
       const previousEnd = index > 0 ? toFiniteNumber(steps[index - 1]?.end_value) : 0
       const start = toFiniteNumber(step.start_value, previousEnd)
-      const delta = toFiniteNumber(step.delta_value, 0)
-      const end = toFiniteNumber(step.end_value, start + delta)
+      const end = toFiniteNumber(step.end_value)
+      const delta = toFiniteNumber(step.delta_value, end - start)
       const kind = step.kind ?? ''
       const isTotal = kind === 'base' || kind === 'subtotal' || kind === 'total'
       const top = isTotal ? Math.max(0, end) : Math.max(start, end)
@@ -122,6 +128,15 @@ export function EnterpriseEquityWaterfallChart({
   }, [steps])
 
   if (!steps.length) return null
+  if (!chart)
+    return (
+      <p
+        role="status"
+        className={cn('mb-6 rounded-xl border p-4 text-sm text-muted-foreground', className)}
+      >
+        {t('unavailable')}
+      </p>
+    )
 
   return (
     <section
@@ -169,7 +184,7 @@ export function EnterpriseEquityWaterfallChart({
                 className="fill-muted-foreground text-[8px] font-mono"
                 style={{ fontFamily: 'ui-monospace, monospace' }}
               >
-                {formatCompactEur(value)}
+                {formatCompactEur(value, locale)}
               </text>
             </g>
           )
@@ -234,7 +249,7 @@ export function EnterpriseEquityWaterfallChart({
                 className="fill-foreground text-[8px] font-mono tabular-nums"
                 style={{ fontFamily: 'ui-monospace, monospace' }}
               >
-                {formatCompactEur(labelValue)}
+                {formatCompactEur(labelValue, locale)}
               </text>
             </g>
           )
@@ -254,9 +269,9 @@ export function EnterpriseEquityWaterfallChart({
           {chart.normalized.map((row, index) => (
             <tr key={`${row.step.label}-${index}`}>
               <th scope="row">{row.step.label}</th>
-              <td>{formatCompactEur(row.start)}</td>
-              <td>{formatCompactEur(row.end)}</td>
-              <td>{formatCompactEur(row.isTotal ? row.end : row.delta)}</td>
+              <td>{formatCompactEur(row.start, locale)}</td>
+              <td>{formatCompactEur(row.end, locale)}</td>
+              <td>{formatCompactEur(row.isTotal ? row.end : row.delta, locale)}</td>
             </tr>
           ))}
         </tbody>

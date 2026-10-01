@@ -79,6 +79,7 @@ vi.mock('../../../stores/clientContext', () => {
   const useClientContext = (selector?: (state: typeof mocks.clientContextState) => unknown) =>
     selector ? selector(mocks.clientContextState) : mocks.clientContextState
   useClientContext.getState = () => mocks.clientContextState
+  useClientContext.subscribe = vi.fn(() => () => undefined)
   return { useClientContext }
 })
 

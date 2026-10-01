@@ -25,7 +25,7 @@
 
   /* Primary: Aurora Teal (30% - tech-forward) */
   --primary: 172 55% 45%;
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 225 18% 8%;
 
   /* Secondary: Burnt Clay (10% - human warmth, CTA) */
   --secondary: 17 50% 59%;
@@ -120,7 +120,7 @@
   --popover-foreground: 224 17% 15%;
 
   --primary: 172 45% 38%;
-  --primary-foreground: 0 0% 100%;
+  --primary-foreground: 225 18% 8%;
 
   --secondary: 17 50% 55%;
   --secondary-foreground: 0 0% 100%;

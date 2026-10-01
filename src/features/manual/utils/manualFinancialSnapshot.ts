@@ -4,8 +4,8 @@ import { yearlyFinancialRowHasNonPlaceholderData } from '@/utils/yearlyFinancial
 
 export interface SubmittedFinancialYear {
   year: string
-  revenue: number
-  ebitda: number
+  revenue?: number
+  ebitda?: number
   capex?: number
   nwc_change?: number
   isForecast?: boolean

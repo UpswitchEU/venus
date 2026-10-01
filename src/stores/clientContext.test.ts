@@ -32,6 +32,9 @@ const delegatedContext = {
   },
 }
 
+const originalValidateContext = useClientContext.getState().validateContext
+afterEach(() => useClientContext.setState({ validateContext: originalValidateContext }))
+
 describe('clientContext auto validation', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -135,5 +138,45 @@ describe('client context headers', () => {
     expect(useClientContext.getState().getContextHeaders()).toMatchObject({
       'X-Accountant-User-Id': 'accountant-1',
     })
+  })
+})
+
+describe('client context freshness', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    useClientContext.getState().clearClientContext()
+  })
+  it('does not renew server freshness during local validation', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-01T00:00:00Z'))
+    useClientContext.getState().setClientContext(delegatedContext)
+    const validatedAt = useClientContext.getState().lastValidatedAt
+    vi.advanceTimersByTime(23 * 60 * 60 * 1000)
+    await expect(useClientContext.getState().validateContext()).resolves.toBe(true)
+    expect(useClientContext.getState().lastValidatedAt).toBe(validatedAt)
+    vi.advanceTimersByTime(60 * 60 * 1000)
+    expect(useClientContext.getState().getContextHeaders()).toEqual({})
+    expect(useClientContext.getState().isActingAsClient).toBe(false)
+  })
+
+  it('discards future-dated contexts and injected store actions on rehydrate', async () => {
+    useClientContext.getState().clearClientContext()
+    localStorage.setItem(
+      'client-context',
+      JSON.stringify({
+        state: {
+          isActingAsClient: true,
+          accountant: { id: 'id', email: '', fullName: '' },
+          client: null,
+          relationshipId: 'relationship',
+          lastValidatedAt: Date.now() + 100_000,
+          getContextHeaders: null,
+        },
+      })
+    )
+    await useClientContext.persist.rehydrate()
+    expect(useClientContext.getState().isActingAsClient).toBe(false)
+    expect(typeof useClientContext.getState().getContextHeaders).toBe('function')
+    expect(localStorage.getItem('client-context')).toBeNull()
   })
 })
