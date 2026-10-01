@@ -4064,6 +4064,7 @@
 		"multiplePipeline": "Multiple pipeline",
 		"comparablesCount": "Comparables",
 		"comparablesQuality": "Comparable quality",
+		"sensitivityUnavailableNote": "—: scenario unavailable under the stated assumptions.",
 		"sensitivityTitle": "DCF sensitivity matrix",
 		"sensitivityDescription": "Enterprise value under +/-1 point changes in WACC and terminal growth.",
 		"sensitivityDescriptionExitMultiple": "Enterprise value under +/-1 point changes in WACC and exit multiple.",

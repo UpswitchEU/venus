@@ -22,23 +22,29 @@ interface DcfSensitivityMatrixProps {
     secondary_values?: unknown[]
     secondary_axis_key?: 'terminal_growth' | 'exit_multiple' | string
     secondary_axis_format?: 'percent' | 'multiple' | string
+    base_wacc?: unknown
+    base_secondary_value?: unknown
     ev_matrix: unknown[][]
   } | null
 }
 
 function normalizeNumberArray(values: unknown): number[] {
-  return Array.isArray(values)
-    ? values
-        .map((value) => parseFlexibleNumber(value))
-        .filter((value): value is number => value !== undefined)
-    : []
+  if (!Array.isArray(values)) return []
+  const parsed = values.map((value) => parseFlexibleNumber(value))
+  // Filtering a bad axis value would move cells beneath different assumptions.
+  return parsed.every((value): value is number => value !== undefined) ? parsed : []
 }
 
-function normalizeMatrixRows(values: unknown, rowCount: number, columnCount: number): number[][] {
+function normalizeMatrixRows(
+  values: unknown,
+  rowCount: number,
+  columnCount: number
+): (number | undefined)[][] {
   if (!Array.isArray(values)) return []
-  return values.slice(0, rowCount).map((row) => {
+  return Array.from({ length: rowCount }, (_, rowIndex) => {
+    const row = values[rowIndex]
     const cells = Array.isArray(row) ? row : []
-    return Array.from({ length: columnCount }, (_, index) => parseFlexibleNumber(cells[index]) ?? 0)
+    return Array.from({ length: columnCount }, (_, index) => parseFlexibleNumber(cells[index]))
   })
 }
 
@@ -73,8 +79,15 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   const formatSecondaryValue = (value: number) =>
     secondaryAxisFormat === 'multiple' ? `${ratioFormatter.format(value)}×` : formatPercent(value)
 
-  const centerRowIndex = Math.floor(waccValues.length / 2)
-  const centerColumnIndex = Math.floor(secondaryValues.length / 2)
+  const baseWacc = parseFlexibleNumber(sensitivityData.base_wacc)
+  const baseSecondary = parseFlexibleNumber(sensitivityData.base_secondary_value)
+  const centerRowIndex =
+    baseWacc === undefined ? Math.floor(waccValues.length / 2) : waccValues.indexOf(baseWacc)
+  const centerColumnIndex =
+    baseSecondary === undefined
+      ? Math.floor(secondaryValues.length / 2)
+      : secondaryValues.indexOf(baseSecondary)
+  const hasUnavailableCells = evMatrix.some((row) => row.some((cell) => cell === undefined))
 
   return (
     <div className="rounded-lg border border-primary/15 bg-primary/[0.03] px-4 py-4 space-y-3">
@@ -136,7 +149,9 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
                         'bg-primary/10 text-primary'
                     )}
                   >
-                    {formatEurCompact(evMatrix[rowIndex]?.[columnIndex] ?? 0)}
+                    {evMatrix[rowIndex]?.[columnIndex] === undefined
+                      ? '—'
+                      : formatEurCompact(evMatrix[rowIndex][columnIndex] as number)}
                   </TableCell>
                 ))}
               </TableRow>
@@ -144,6 +159,11 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
           </TableBody>
         </TableRoot>
       </div>
+      {hasUnavailableCells && (
+        <p className="text-[11px] leading-snug text-foreground/55">
+          {t('sensitivityUnavailableNote')}
+        </p>
+      )}
     </div>
   )
 }

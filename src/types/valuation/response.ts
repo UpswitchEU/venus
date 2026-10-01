@@ -202,12 +202,16 @@ export interface ValuationResponse {
     sensitivity_wacc: Record<string, number>
     sensitivity_growth: Record<string, number>
     sensitivity_matrix_2d?: {
+      schema_version?: 'dcf_sensitivity.v2'
+      base_wacc?: number | string
+      base_secondary_value?: number | string
+      unavailable_reasons?: (string | null)[][]
       wacc_values: number[]
       growth_values?: number[]
       secondary_values?: number[]
       secondary_axis_key?: 'terminal_growth' | 'exit_multiple' | string
       secondary_axis_format?: 'percent' | 'multiple' | string
-      ev_matrix: number[][]
+      ev_matrix: (number | string | null)[][]
     }
     confidence: string
     confidence_score: number
