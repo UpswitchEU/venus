@@ -50,7 +50,8 @@ export function resolveMercuryLocale(pathname: string | null | undefined): strin
 }
 
 export function isReportPathname(pathname: string | null | undefined): boolean {
-  return Boolean(pathname?.startsWith('/reports/') && pathname !== '/reports/new')
+  const reportSegment = pathname?.match(/^\/(?:en\/|nl\/|fr\/)?reports\/([^/?#]+)/)?.[1]
+  return Boolean(reportSegment && reportSegment !== 'new')
 }
 
 export function resolveReportId({

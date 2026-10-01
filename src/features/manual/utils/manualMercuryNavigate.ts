@@ -3,6 +3,7 @@ import { EMBEDDED_STORAGE_KEY } from '@/hooks/useEmbeddedMode'
 import {
   getSafeMercuryNavigationUrl,
   isLegacyReturnUrl,
+  isSafeMercuryReturnUrlInput,
   isTrustedUpswitchHostname,
 } from '@/lib/return-url'
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
@@ -24,13 +25,23 @@ export function readManualMercuryHandoffFromBrowser(): ManualMercuryHandoff {
   if (typeof window === 'undefined') {
     return { returnUrl: null, sourceApp: null }
   }
-  try {
-    const urlParams = new URLSearchParams(window.location.search)
+  const urlParams = new URLSearchParams(window.location.search)
+  // A new handoff owns its complete context; never mix it with a previous company's return URL.
+  if (urlParams.has('return_url') || urlParams.has('source')) {
+    const returnUrl = urlParams.get('return_url')
     return {
-      returnUrl: sessionStorage.getItem('upswitch_return_url') ?? urlParams.get('return_url'),
-      sourceApp: sessionStorage.getItem('upswitch_source') ?? urlParams.get('source'),
+      returnUrl: isSafeMercuryReturnUrlInput(returnUrl) ? returnUrl.trim() : null,
+      sourceApp: urlParams.get('source'),
+    }
+  }
+  try {
+    const returnUrl = sessionStorage.getItem('upswitch_return_url')
+    return {
+      returnUrl: isSafeMercuryReturnUrlInput(returnUrl) ? returnUrl.trim() : null,
+      sourceApp: sessionStorage.getItem('upswitch_source'),
     }
   } catch {
+    // URL context above remains usable even when the browser disallows session storage.
     return { returnUrl: null, sourceApp: null }
   }
 }

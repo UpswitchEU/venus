@@ -8,13 +8,14 @@
  * @module components/skeletons/ReportPlaceholder
  */
 
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { FileText } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import React from 'react'
 
 export function ReportPlaceholder() {
   const t = useTranslations('report')
+  const reducedMotion = useReducedMotion()
 
   return (
     <div className="relative h-full flex flex-col items-center justify-center p-8 text-center overflow-hidden bg-card">
@@ -26,7 +27,7 @@ export function ReportPlaceholder() {
         }}
       />
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={reducedMotion ? false : { opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="relative z-10 w-full max-w-md"
       >
@@ -34,9 +35,22 @@ export function ReportPlaceholder() {
           <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
         </div>
         <h3 className="mt-4 text-lg font-semibold text-foreground">{t('placeholder.title')}</h3>
-        <p className="mt-2 text-sm text-foreground/50 max-w-sm mx-auto leading-relaxed">
+        <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
           {t('placeholder.description')}
         </p>
+        <ol className="mt-6 space-y-3 text-left text-sm text-muted-foreground">
+          {(['company', 'figures', 'result'] as const).map((step, index) => (
+            <li key={step} className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary"
+              >
+                {index + 1}
+              </span>
+              <span>{t(`placeholder.${step}`)}</span>
+            </li>
+          ))}
+        </ol>
       </motion.div>
     </div>
   )

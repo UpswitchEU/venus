@@ -23,7 +23,8 @@ import {
   User,
 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { AuroraButton as Button } from '@/design-system'
 import { springDefault, springSnappy } from '@/design-system/components/motion'
 import { cn } from '@/design-system/utils'
@@ -51,7 +52,7 @@ export interface HistoryPanelProps {
   /** Session key or report ID for version fetching. Use when report is null (new session). */
   reportId?: string
   // Receives the full ValuationVersion from the store (not the stripped HistoryVersion)
-  onVersionRestore?: (version: ValuationVersion | HistoryVersion) => void
+  onVersionRestore?: (version: ValuationVersion | HistoryVersion) => void | Promise<void>
 }
 
 const historyTypeLabelKeys: Record<HistoryVersion['type'], string> = {
@@ -73,6 +74,11 @@ export function HistoryPanel({
 }: HistoryPanelProps) {
   const { user } = useAuth()
   const hp = useTranslations('historyPanel')
+  const tToast = useTranslations('toast')
+  const panelId = useId()
+  const restoreAttempt = useRef<symbol | null>(null)
+  const didAutoExpand = useRef(false)
+  const compareTriggerRef = useRef<HTMLButtonElement>(null)
   const rawLocale = useLocale()
   const locale: HistoryLocale = rawLocale === 'fr' ? 'fr' : rawLocale === 'nl' ? 'nl' : 'en'
   // ── Real version data from store ──
@@ -107,14 +113,6 @@ export function HistoryPanel({
 
   const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set())
   const [restoringVersion, setRestoringVersion] = useState<string | null>(null)
-
-  // Auto-expand the current version on first load
-  useEffect(() => {
-    const current = historyVersions.find((v) => v.isCurrent)
-    if (current && expandedVersions.size === 0) {
-      setExpandedVersions(new Set([current.id]))
-    }
-  }, [historyVersions, expandedVersions.size])
 
   // Compare mode state
   const [compareMode, setCompareMode] = useState(false)
@@ -157,16 +155,47 @@ export function HistoryPanel({
     }
   }, [selectedForCompare, historyVersions])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Selection and pending UI belong to one report.
+  useEffect(() => {
+    restoreAttempt.current = null
+    didAutoExpand.current = false
+    setRestoringVersion(null)
+    setExpandedVersions(new Set())
+    setSelectedForCompare(new Set())
+    setCompareMode(false)
+    setCompareModalOpen(false)
+    return () => {
+      restoreAttempt.current = null
+    }
+  }, [reportId])
+
+  // Expand once when this report's current version arrives; respect later collapse actions.
+  useEffect(() => {
+    const current = historyVersions.find((v) => v.isCurrent)
+    if (current && !didAutoExpand.current) {
+      didAutoExpand.current = true
+      setExpandedVersions(new Set([current.id]))
+    }
+  }, [historyVersions])
+
   const handleRestoreVersion = async (version: HistoryVersion) => {
+    if (restoreAttempt.current || !onVersionRestore) return
+    const attempt = Symbol('restore-version')
+    restoreAttempt.current = attempt
     setRestoringVersion(version.id)
     trackVersionRestore(version.version)
     try {
       const fullVersion = storeVersions.find(
         (v) => v.id === version.id || v.versionNumber === version.version
       )
-      await onVersionRestore?.(fullVersion || version)
+      await onVersionRestore(fullVersion || version)
+    } catch {
+      if (restoreAttempt.current === attempt) toast.error(tToast('versionRestoreFailed'))
     } finally {
-      setRestoringVersion(null)
+      if (restoreAttempt.current === attempt) {
+        restoreAttempt.current = null
+        setRestoringVersion(null)
+      }
     }
   }
 
@@ -202,7 +231,7 @@ export function HistoryPanel({
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="shrink-0 px-4 sm:px-6 py-4 sm:py-5 border-b border-foreground/[0.06]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg sm:text-xl font-semibold text-foreground">{hp('title')}</h2>
             <p className="text-xs sm:text-sm text-foreground/50 mt-1">
@@ -216,15 +245,21 @@ export function HistoryPanel({
 
           {/* Compare Toggle - only show when 2+ versions exist */}
           {historyVersions.length >= 2 && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {compareMode && selectedForCompare.size === 2 && (
-                <Button size="sm" onClick={handleStartCompare} className="gap-1.5">
+                <Button
+                  ref={compareTriggerRef}
+                  size="sm"
+                  onClick={handleStartCompare}
+                  className="gap-1.5"
+                >
                   <ArrowLeftRight className="w-4 h-4" />
                   {hp('compare')} ({selectedForCompare.size})
                 </Button>
               )}
               <Button
                 variant={compareMode ? 'primary' : 'outline'}
+                aria-pressed={compareMode}
                 size="sm"
                 onClick={() => {
                   setCompareMode(!compareMode)
@@ -301,6 +336,7 @@ export function HistoryPanel({
           {historyVersions.map((version, index) => {
             const typeLabelKey = historyTypeLabelKeys[version.type]
             const isExpanded = expandedVersions.has(version.id)
+            const detailsId = `${panelId}-${version.id}-details`
             const prevVersion = historyVersions[index + 1]
             const valuationDiff =
               version.valuation && prevVersion?.valuation
@@ -325,8 +361,13 @@ export function HistoryPanel({
               >
                 {/* Version Header - Clickable */}
                 <button
+                  type="button"
+                  aria-expanded={compareMode ? undefined : isExpanded}
+                  aria-controls={!compareMode && isExpanded ? detailsId : undefined}
+                  aria-pressed={compareMode ? isSelectedForCompare : undefined}
+                  disabled={compareMode && selectedForCompare.size === 2 && !isSelectedForCompare}
                   onClick={() => toggleVersion(version.id)}
-                  className="w-full p-3 sm:p-4 flex items-start gap-3 sm:gap-4 text-left min-h-[56px]"
+                  className="w-full p-3 sm:p-4 grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 sm:gap-4 text-left min-h-[56px] rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset disabled:opacity-50"
                 >
                   {/* Compare Checkbox or Version Badge */}
                   {compareMode ? (
@@ -376,22 +417,22 @@ export function HistoryPanel({
                       )}
                     </div>
                     <h4 className="text-sm font-medium text-foreground/90">{version.summary}</h4>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-foreground/40">
-                      <span className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-foreground/40">
+                      <span className="flex items-center gap-1 min-w-0 break-all">
+                        <User className="w-3 h-3 shrink-0" />
                         {version.author}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
+                      <span className="flex items-center gap-1 whitespace-nowrap">
+                        <Calendar className="w-3 h-3 shrink-0" />
                         {formatHistoryTime(version.timestamp, hp, locale)}
                       </span>
                     </div>
                   </div>
 
                   {/* Right side - Valuation + Expand */}
-                  <div className="shrink-0 flex items-center gap-3">
+                  <div className="col-start-2 sm:col-start-auto flex items-center justify-between sm:justify-start gap-3">
                     {version.valuation && (
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <p className="text-sm font-semibold text-foreground/90 font-mono tabular-nums">
                           {formatHistoryCurrency(version.valuation, locale)}
                         </p>
@@ -424,6 +465,7 @@ export function HistoryPanel({
                 <AnimatePresence>
                   {isExpanded && !compareMode && (
                     <motion.div
+                      id={detailsId}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -503,20 +545,25 @@ export function HistoryPanel({
                                 <Check className="w-4 h-4" />
                                 {hp('currentVersion')}
                               </div>
-                            ) : (
+                            ) : onVersionRestore ? (
                               /* Restore Version - Only on non-current versions */
                               <button
+                                type="button"
+                                aria-busy={restoringVersion === version.id}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleRestoreVersion(version)
                                 }}
-                                disabled={restoringVersion === version.id}
-                                className="flex-1 flex items-center justify-center gap-2 h-9 px-4 rounded-lg border border-foreground/[0.15] bg-transparent text-foreground/80 hover:bg-foreground/[0.06] hover:border-foreground/[0.25] transition-colors text-sm font-medium disabled:opacity-50"
+                                disabled={restoringVersion !== null}
+                                className="flex-1 flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-lg border border-foreground/[0.15] bg-transparent text-foreground/80 hover:bg-foreground/[0.06] hover:border-foreground/[0.25] transition-colors text-sm font-medium disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 {restoringVersion === version.id ? (
                                   <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    {hp('restoring')}
+                                    <Loader2
+                                      aria-hidden="true"
+                                      className="w-4 h-4 animate-spin motion-reduce:animate-none"
+                                    />
+                                    <span role="status">{hp('restoring')}</span>
                                   </>
                                 ) : (
                                   <>
@@ -525,7 +572,7 @@ export function HistoryPanel({
                                   </>
                                 )}
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -544,8 +591,10 @@ export function HistoryPanel({
         onOpenChange={setCompareModalOpen}
         versionA={versionsToCompare.versionA}
         versionB={versionsToCompare.versionB}
-        onRestore={handleRestoreVersion}
+        onRestore={onVersionRestore ? handleRestoreVersion : undefined}
+        restoring={restoringVersion !== null}
         onSwap={handleSwapVersions}
+        returnFocusRef={compareTriggerRef}
       />
     </div>
   )

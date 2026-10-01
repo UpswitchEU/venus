@@ -10,6 +10,15 @@ describe('buildValuationRequest normalization integrity guards', () => {
     vi.useRealTimers()
   })
 
+  it('does not fabricate break-even EBITDA from an absent financial observation', () => {
+    const form = makeFormData({
+      ebitda: undefined,
+      historical_years_data: [],
+      current_year_data: { year: getCurrentFilingYear(), revenue: 100000, ebitda: undefined },
+    })
+    expect(() => buildValuationRequest(form)).toThrow('EBITDA is not available')
+  })
+
   // ─── Pending normalization handling ────────────────────────────────────────
   // Pending suggestions are advisory. They should not silently alter EBITDA, but
   // they also should not trap the advisor when the intended path is to continue
@@ -214,7 +223,7 @@ describe('buildValuationRequest normalization integrity guards', () => {
   })
 
   it('uses the latest imported actual year instead of a stale zero filing-year placeholder', () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))
 
     const result = buildValuationRequest(
@@ -245,7 +254,7 @@ describe('buildValuationRequest normalization integrity guards', () => {
   })
 
   it('applies a reviewed imported addback to the promoted actual year', () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))
 
     const result = buildValuationRequest(

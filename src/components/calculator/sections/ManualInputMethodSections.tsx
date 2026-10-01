@@ -207,32 +207,34 @@ export function ManualInputMethodSections({
        * point; the same modal is also reachable from the kebab menu on the
        * active valuation in ManualLayoutNav.
        */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <SegmentedControl<'default' | 'expert'>
-          value={advisorExpertModeEnabled ? 'expert' : 'default'}
-          onChange={(value) => setAdvisorExpertModeOverride(value === 'expert')}
-          options={[
-            { value: 'default', label: mi('advisorExpertMode.default') },
-            { value: 'expert', label: mi('advisorExpertMode.expert') },
-          ]}
-          size="sm"
-          variant="pills"
-          aria-label={mi('advisorExpertMode.ariaLabel')}
-        />
-        {advisorExpertModeEnabled && (
-          <AdvisorControlsTrigger
-            advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
-            sectorAverageMultiple={sectorAverageMultiple}
-            previewEbitda={advisorControlsPreviewEbitda}
-            previewCurrencyFormatter={previewCurrencyFormatter}
-            advisorWeightingYears={advisorWeightingYears}
-            formData={formData}
-            setFormData={setFormData}
-            disabled={disabled}
-            className="flex flex-wrap items-center gap-2"
+      {formData.company_name?.trim() ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <SegmentedControl<'default' | 'expert'>
+            value={advisorExpertModeEnabled ? 'expert' : 'default'}
+            onChange={(value) => setAdvisorExpertModeOverride(value === 'expert')}
+            options={[
+              { value: 'default', label: mi('advisorExpertMode.default') },
+              { value: 'expert', label: mi('advisorExpertMode.expert') },
+            ]}
+            size="sm"
+            variant="pills"
+            aria-label={mi('advisorExpertMode.ariaLabel')}
           />
-        )}
-      </div>
+          {advisorExpertModeEnabled && (
+            <AdvisorControlsTrigger
+              advisorDefaultsAppliedFields={advisorDefaultsAppliedFields}
+              sectorAverageMultiple={sectorAverageMultiple}
+              previewEbitda={advisorControlsPreviewEbitda}
+              previewCurrencyFormatter={previewCurrencyFormatter}
+              advisorWeightingYears={advisorWeightingYears}
+              formData={formData}
+              setFormData={setFormData}
+              disabled={disabled}
+              className="flex flex-wrap items-center gap-2"
+            />
+          )}
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-col gap-6">
         <MethodDataPlanPanel methodDataPlan={methodDataPlan ?? null} />

@@ -49,6 +49,8 @@ interface UseManualNormalizationControllerParams {
   selectedMethod?: string | null
   sessionName?: string | null
   durableSaveInFlightRef: MutableRefObject<boolean>
+  versionRestoreInFlightRef: MutableRefObject<boolean>
+  flushFormAfterRestore: () => Promise<void>
   setChatDrawerOpen: Dispatch<SetStateAction<boolean>>
   setChatMessages: Dispatch<SetStateAction<ChatMessage[]>>
   setDraftStatus: (status: 'draft' | 'saved' | 'saving') => void
@@ -100,6 +102,8 @@ export function useManualNormalizationController({
   selectedMethod,
   sessionName,
   durableSaveInFlightRef,
+  versionRestoreInFlightRef,
+  flushFormAfterRestore,
   setChatDrawerOpen,
   setChatMessages,
   setDraftStatus,
@@ -166,6 +170,8 @@ export function useManualNormalizationController({
     })
 
   const { handleVersionRestore } = useManualVersionRestoreAction({
+    restoreInFlightRef: versionRestoreInFlightRef,
+    flushFormAfterRestore,
     normalizationActions,
     reportId,
     resolvedReportId,

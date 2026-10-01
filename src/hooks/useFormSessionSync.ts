@@ -43,6 +43,7 @@ import {
 } from '../utils/mergeOptionalSessionPrefillFields'
 import { NameGenerator } from '../utils/nameGenerator'
 import { reportAccessScope, watchReportAccessScope } from '../utils/reportAccessScope'
+import { isSameReportIdentity } from '../utils/reportIdentityPromotion'
 import { canonicalizeTaxLatencyWireArray, TaxLatencyBoundaryError } from '../utils/taxLatencyWire'
 import {
   buildCurrentYearData,
@@ -323,6 +324,13 @@ interface UseFormSessionSyncOptions {
   formData: ValuationFormData
 }
 
+interface FormSyncConfirmation {
+  target: string
+  generation: number
+  data: ValuationFormData
+  taxItems: unknown[]
+}
+
 /**
  * Hook for synchronizing form data changes TO session store
  *
@@ -332,10 +340,11 @@ interface UseFormSessionSyncOptions {
  */
 export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOptions) => {
   const _taxLatencyItems = useTaxLatencyStore((s) => s.items)
+  const engineRevision = useSessionStore((state) => state.engineRevision)
   const deferRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reportIdRef = useRef(reportId)
   reportIdRef.current = reportId
-  const syncTarget = `${reportAccessScope()}:${reportId ?? ''}`
+  const syncTarget = `${reportAccessScope()}:${engineRevision}:${reportId ?? ''}`
   const syncTargetRef = useRef(syncTarget)
   const syncGeneration = useRef(0)
   if (syncTargetRef.current !== syncTarget) {
@@ -344,6 +353,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
   }
   const formDataRef = useRef(formData)
   formDataRef.current = formData
+  const confirmedSync = useRef<FormSyncConfirmation | null>(null)
   const isDataEqual = useCallback(
     (fd: unknown, sd: unknown, tax: unknown[] | undefined) =>
       areFormAndSessionDataEqualForAutosync(fd, sd, tax),
@@ -359,7 +369,8 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       const matchesTarget = () =>
         target === syncTargetRef.current &&
         generation === syncGeneration.current &&
-        target === `${reportAccessScope()}:${reportIdRef.current ?? ''}`
+        target ===
+          `${reportAccessScope()}:${useSessionStore.getState().engineRevision}:${reportIdRef.current ?? ''}`
       if (!matchesTarget()) return
       // Guard: don't sync while restoration is in progress to avoid overwriting restored data
       if (!useSessionStore.getState().restorationComplete) {
@@ -400,17 +411,28 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
       const currentSession = sessionState.session
       const updateSessionData = sessionState.updateSessionData
 
-      if (!currentSession || !activeReportId || currentSession.reportId !== activeReportId) {
+      if (
+        !currentSession ||
+        !activeReportId ||
+        !isSameReportIdentity(currentSession.reportId, activeReportId)
+      ) {
         return
       }
 
       if (!data || Object.keys(data).length === 0) {
+        confirmedSync.current = {
+          target,
+          generation,
+          data,
+          taxItems: useTaxLatencyStore.getState().items,
+        }
         return
       }
 
       const taxItems = useTaxLatencyStore.getState().items
       // Skip sync if data matches what's already in session (prevents loops during restoration)
       if (currentSession.sessionData && isDataEqual(data, currentSession.sessionData, taxItems)) {
+        confirmedSync.current = { target, generation, data, taxItems }
         generalLogger.debug('Skipping sync - form data matches session data', {
           reportId: currentSession.reportId,
         })
@@ -537,8 +559,10 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
           Object.entries(sessionUpdate).every(([key, value]) =>
             deepEqual(value, persistedFields[key])
           )
-        )
+        ) {
+          confirmedSync.current = { target, generation, data, taxItems }
           return
+        }
 
         // ✅ LOGGING: Verify historical data is synced
         const histForLog = sessionUpdate.historical_years_data
@@ -609,6 +633,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         try {
           const { saveSession } = useSessionStore.getState()
           await saveSession('autosave') // ✅ FIX: Mark as autosave (debounced form sync)
+          if (isCurrent()) confirmedSync.current = { target, generation, data, taxItems }
           generalLogger.debug('Synced form data to session and persisted to backend', {
             reportId: currentSession.reportId,
             fieldsUpdated: Object.keys(sessionUpdate).length,
@@ -660,21 +685,102 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     }
   }, [syncTarget])
 
+  // Controlled navigation can await this while the form is still mounted.
+  // Lifecycle/unload events cannot guarantee asynchronous persistence completes.
+  const flushForNavigation = useCallback(async () => {
+    const target = syncTargetRef.current
+    const generation = syncGeneration.current
+    const isCurrent = () =>
+      target === syncTargetRef.current && generation === syncGeneration.current
+    const state = useSessionStore.getState()
+    const deferMs = getSessionAutosaveDeferRemainingMs({
+      reportId: reportIdRef.current,
+      restorationComplete: state.restorationComplete,
+      sessionStatus: state.status,
+      sourceApp: getMercurySourceApp(),
+    })
+    // Respect restoration and backpressure. A short restoration settle can finish
+    // behind the saving notice; an unavailable session must never count as saved.
+    if (deferMs > 3000) throw new Error('Session is not ready to save')
+    if (deferMs > 0) await new Promise((resolve) => setTimeout(resolve, deferMs + 25))
+    if (!isCurrent()) throw new Error('Report changed before saving')
+    if (deferRetryTimerRef.current) {
+      clearTimeout(deferRetryTimerRef.current)
+      deferRetryTimerRef.current = null
+    }
+    confirmedSync.current = null
+    void debouncedSyncToSession(formDataRef.current, target, generation)
+    await debouncedSyncToSession.flush()
+    const confirmed = confirmedSync.current as FormSyncConfirmation | null
+    const confirmCurrentForm = () => {
+      if (
+        !isCurrent() ||
+        !confirmed ||
+        confirmed.target !== target ||
+        confirmed.generation !== generation ||
+        !deepEqual(confirmed.data, formDataRef.current) ||
+        !deepEqual(confirmed.taxItems, useTaxLatencyStore.getState().items)
+      ) {
+        throw new Error('The latest form edits have not been confirmed saved')
+      }
+    }
+    confirmCurrentForm()
+    const pending = useSessionStore.getState()
+    // A previous failed write can leave the local session equal to the form.
+    // Equality avoids another patch; it must not prevent retrying persistence.
+    if (pending.hasUnsavedChanges || pending.isSaving || pending.saveErrorMessage) {
+      await pending.saveSession('user')
+      confirmCurrentForm()
+    }
+    const saved = useSessionStore.getState()
+    if (saved.saveErrorMessage || saved.hasUnsavedChanges || saved.isSaving) {
+      throw new Error('The latest form edits have not been confirmed saved')
+    }
+  }, [debouncedSyncToSession])
+
   // Flush pending debounced sync on page unload and tab hide to prevent data loss.
-  // NOTE: We do NOT flush in cleanup — that can race with unmount and cause async work after
-  // unmount (React Strict Mode, fast navigation). beforeunload/pagehide/visibilitychange suffice.
+  // Do not flush in cleanup: the report may already have changed. Workspace
+  // actions await flushForNavigation before unmount; browser exits get a warning.
   useEffect(() => {
     const flush = () => debouncedSyncToSession.flush?.()
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      const state = useSessionStore.getState()
+      const confirmed = confirmedSync.current
+      const formConfirmed =
+        confirmed?.target === syncTargetRef.current &&
+        confirmed.generation === syncGeneration.current &&
+        deepEqual(confirmed.data, formDataRef.current) &&
+        deepEqual(confirmed.taxItems, useTaxLatencyStore.getState().items)
+      if (
+        state.restorationComplete &&
+        (state.hasUnsavedChanges ||
+          state.isSaving ||
+          state.saveErrorMessage ||
+          (!formConfirmed &&
+            Object.keys(formDataRef.current).length > 0 &&
+            !isDataEqual(
+              formDataRef.current,
+              state.session?.sessionData,
+              useTaxLatencyStore.getState().items
+            )))
+      ) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+      void flush()
+    }
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flush()
     }
-    window.addEventListener('beforeunload', flush)
+    window.addEventListener('beforeunload', beforeUnload)
     window.addEventListener('pagehide', flush)
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
-      window.removeEventListener('beforeunload', flush)
+      window.removeEventListener('beforeunload', beforeUnload)
       window.removeEventListener('pagehide', flush)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [debouncedSyncToSession])
+  }, [debouncedSyncToSession, isDataEqual])
+
+  return flushForNavigation
 }

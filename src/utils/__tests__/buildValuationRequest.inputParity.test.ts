@@ -11,7 +11,7 @@ describe('Venus valuation input parity sentinel', () => {
   })
 
   it('serializes the complete evidence-first Venus payload without losing priced inputs', () => {
-    vi.useFakeTimers()
+    vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-08-12T10:00:00Z'))
 
     const normalizations: NormalizationItem[] = [

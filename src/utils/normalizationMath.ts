@@ -23,8 +23,8 @@ export function normalizationItemTouchesYear(item: NormalizationItem, year: numb
 
 export function getFirstFiniteNumber(...candidates: unknown[]): number | undefined {
   for (const candidate of candidates) {
-    const parsed = Number(candidate)
-    if (Number.isFinite(parsed)) {
+    const parsed = parseFlexibleNumber(candidate)
+    if (parsed !== undefined) {
       return parsed
     }
   }

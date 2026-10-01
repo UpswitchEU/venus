@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "runner": "node_modules/vitest/vitest.mjs",
+  "args": [
+    "run",
+    "--maxWorkers=2"
+  ],
+  "snapshots": {
+    "vendor/contracts/valuation-certification-sentinel.v1.json": {
+      "source": "UpswitchEU/venus/vendor/contracts/valuation-certification-sentinel.v1.json",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "8ade964fc603a6ef7db77bcc2800d09b096c457e7516437b9f19f552314c0fbb"
+    },
+    "vendor/contracts/ai-conversation-key-contract.json": {
+      "source": "UpswitchEU/venus/vendor/contracts/ai-conversation-key-contract.json",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "49857fb007fc39a908aebc2ca1e3f38e3b1ee1cf497a21d351488c006773c1fb"
+    },
+    "vendor/contracts/auth-fetch-timeout-contract.json": {
+      "source": "UpswitchEU/venus/vendor/contracts/auth-fetch-timeout-contract.json",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "473a19a5df3f78b6679c8c6cc56153e27d18792b3419277668a9dbcc55164c35"
+    },
+    "vendor/contracts/internal-email-contract.json": {
+      "source": "UpswitchEU/venus/vendor/contracts/internal-email-contract.json",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "b54890d696e5092fb8e74239ac18c2c5a9a3fb8002e35787d466c272734022fd"
+    },
+    "vendor/contracts/preparer-multiple-contract.json": {
+      "source": "UpswitchEU/venus/vendor/contracts/preparer-multiple-contract.json",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "a9f74599192b2f17efd271cf1c2e01444bf6c344768130eef1d33aded2a74287"
+    },
+    "vendor/types/src/normalization.ts": {
+      "source": "UpswitchEU/venus/vendor/types/src/normalization.ts",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "bb2d0c85da928e1c93040f04f5fdea41fb6b4ed22514b292d78ffc570ba2c2e2"
+    },
+    "vendor/types/src/ai-actions.ts": {
+      "source": "UpswitchEU/venus/vendor/types/src/ai-actions.ts",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "3fd04505ebb8beaf54ab54c19b7aebde9979979c9865afefd75c802922e0d7d0"
+    },
+    "vendor/types/src/valuation-methods.ts": {
+      "source": "UpswitchEU/valuation-iq/src/domain/method_keys.py",
+      "revision": "03dba78b2ab7bdd42d1f9cc6ec03442fcaae86ea",
+      "sha256": "d97459210c493860aec8275463c803fbf60ef8f31cbdfd02a39a3010e1f60aa3"
+    },
+    "vendor/types/src/index.ts": {
+      "source": "UpswitchEU/venus/vendor/types/src/index.ts",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "fba140b18f2562a19b57566c485dd935826b46230cc1e0843b351d5830e5f585"
+    },
+    "vendor/ai-actions/src/conversation-keys.ts": {
+      "source": "UpswitchEU/venus/vendor/ai-actions/src/conversation-keys.ts",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "3f20a02462cb590964ac264b5c98130cc48a169c2f31ccbaefe9e52e6c5088a8"
+    },
+    "vendor/ai-actions/src/index.ts": {
+      "source": "UpswitchEU/venus/vendor/ai-actions/src/index.ts",
+      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
+      "sha256": "de50a55dfc9482daa98936dffc5121d7ee9836d55c9240d97c2abab57c2a1f45"
+    },
+    "tests/contracts/valuation-methods.v1.json": {
+      "source": "UpswitchEU/valuation-iq/src/domain/method_keys.py",
+      "revision": "03dba78b2ab7bdd42d1f9cc6ec03442fcaae86ea",
+      "sha256": "bdedd211d0bb3d9b73d94ff7159af1a868bfdfae7e7aab03083e80073f7f2c1e"
+    }
+  },
+  "checks": {
+    "verify:preparer-multiple-contracts": [
+      "src/store/manual/__tests__/usePreparerMultipleStore.test.ts"
+    ],
+    "verify:ai-conversation-key-contracts": [
+      "src/utils/__tests__/aiConversationKey.test.ts"
+    ],
+    "verify:ai-tool-result-contracts": [
+      "src/services/ai/__tests__/tool-results-parser.test.ts",
+      "src/services/ai/__tests__/tool-results-parser.agentic.test.ts"
+    ],
+    "verify:internal-email-contracts": [
+      "src/lib/__tests__/is-internal-user.test.ts"
+    ],
+    "verify:auth-fetch-timeout-contracts": [
+      "src/utils/auth-fetch-timeout.test.ts"
+    ],
+    "verify:valuation-extract": [
+      "src/utils/extractValuationResultsMap.test.ts"
+    ],
+    "verify:business-type-selector": [
+      "src/components/BusinessTypeMultiSelect.selected.test.tsx",
+      "src/components/BusinessTypeMultiSelect.multiples.test.tsx"
+    ],
+    "verify:valuation-method-contracts": [
+      "src/utils/valuation-method-contract.test.ts"
+    ]
+  }
+}

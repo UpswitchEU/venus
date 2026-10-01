@@ -1,37 +1,17 @@
 'use client'
 
-/**
- * Version Compare Modal
- *
- * World-class Figma/GitHub-inspired diff visualization.
- * Side-by-side comparison of two valuation versions with
- * clear visual indicators for changes.
- */
-
-import { AnimatePresence, motion } from 'framer-motion'
-import {
-  ArrowLeftRight,
-  ArrowRight,
-  Calculator,
-  Check,
-  ChevronRight,
-  Clock,
-  FileText,
-  Minus,
-  RotateCcw,
-  Settings2,
-  TrendingDown,
-  TrendingUp,
-  User,
-  X,
-} from 'lucide-react'
+import { ArrowLeftRight, RotateCcw } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
+import type { RefObject } from 'react'
 import { AuroraButton, Modal, ModalContent, ModalHeader, ModalTitle } from '@/design-system'
 import { cn } from '@/design-system/utils'
-
-// ─────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────
+import { currencyLocaleFor, formatHistoryCurrency, type HistoryLocale } from './HistoryPanelModel'
+import {
+  formatComparisonRange,
+  metricChange,
+  percentageChange,
+  validMetric,
+} from './VersionCompareModel'
 
 export interface VersionChange {
   field: string
@@ -64,273 +44,10 @@ export interface VersionCompareModalProps {
   versionA: HistoryVersion | null
   versionB: HistoryVersion | null
   onRestore?: (version: HistoryVersion) => void
+  restoring?: boolean
   onSwap?: () => void
+  returnFocusRef?: RefObject<HTMLElement | null>
 }
-
-// ─────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────
-
-const typeIcons: Record<HistoryVersion['type'], typeof Clock> = {
-  initial: FileText,
-  normalization: Settings2,
-  data_update: Calculator,
-  methodology: TrendingUp,
-  revision: User,
-}
-
-// ─────────────────────────────────────────
-// COMPONENTS
-// ─────────────────────────────────────────
-
-function VersionCard({
-  version,
-  label,
-  isOlder,
-  comparison,
-  typeLabel,
-  formatCurrency,
-  formatTime,
-  t,
-}: {
-  version: HistoryVersion
-  label: string
-  isOlder?: boolean
-  comparison?: HistoryVersion | null
-  typeLabel: string
-  formatCurrency: (n: number) => string
-  formatTime: (d: Date) => string
-  t: (k: string) => string
-}) {
-  const _TypeIcon = typeIcons[version.type]
-
-  // Calculate diff with comparison
-  const valuationDiff =
-    comparison?.valuation && version.valuation ? version.valuation - comparison.valuation : null
-  const ebitdaDiff =
-    comparison?.ebitda && version.ebitda ? version.ebitda - comparison.ebitda : null
-  const multipleDiff =
-    comparison?.multiple && version.multiple ? version.multiple - comparison.multiple : null
-
-  return (
-    <div
-      className={cn(
-        'flex-1 rounded-xl border p-4',
-        version.isCurrent
-          ? 'border-primary/30 bg-primary/[0.02]'
-          : 'border-foreground/[0.08] bg-foreground/[0.02]'
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span
-          className={cn(
-            'text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full',
-            isOlder ? 'bg-foreground/[0.08] text-foreground/50' : 'bg-primary/10 text-primary'
-          )}
-        >
-          {label}
-        </span>
-        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-foreground/[0.06] text-foreground/50">
-          {typeLabel}
-        </span>
-        {version.isCurrent && (
-          <span className="text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
-            {t('current')}
-          </span>
-        )}
-      </div>
-
-      {/* Version Badge */}
-      <div className="flex items-center gap-3 mb-4">
-        <div
-          className={cn(
-            'w-10 h-10 rounded-xl flex items-center justify-center font-semibold text-sm',
-            version.isCurrent
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-foreground/[0.08] text-foreground/60'
-          )}
-        >
-          {version.isCurrent ? <Check className="w-5 h-5" /> : `v${version.version}`}
-        </div>
-        <div>
-          <h4 className="text-sm font-medium text-foreground">{version.summary}</h4>
-          <p className="text-xs text-foreground/50">
-            {version.author} · {formatTime(version.timestamp)}
-          </p>
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      {version.valuation && (
-        <div className="space-y-3 p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
-          {/* Valuation */}
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-foreground/40">
-              Ondernemingswaarde
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold font-mono text-foreground">
-                {formatCurrency(version.valuation)}
-              </span>
-              {valuationDiff !== null && valuationDiff !== 0 && (
-                <span
-                  className={cn(
-                    'text-[10px] font-mono px-1.5 py-0.5 rounded flex items-center gap-0.5',
-                    valuationDiff > 0
-                      ? 'text-success bg-success/10'
-                      : 'text-secondary bg-secondary/10'
-                  )}
-                >
-                  {valuationDiff > 0 ? (
-                    <TrendingUp className="w-3 h-3" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3" />
-                  )}
-                  {valuationDiff > 0 ? '+' : ''}
-                  {formatCurrency(valuationDiff)}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* EBITDA */}
-          {version.ebitda && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-foreground/40">
-                EBITDA
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium font-mono text-foreground/80">
-                  {formatCurrency(version.ebitda)}
-                </span>
-                {ebitdaDiff !== null && ebitdaDiff !== 0 && (
-                  <span
-                    className={cn(
-                      'text-[10px] font-mono px-1.5 py-0.5 rounded',
-                      ebitdaDiff > 0
-                        ? 'text-success bg-success/10'
-                        : 'text-secondary bg-secondary/10'
-                    )}
-                  >
-                    {ebitdaDiff > 0 ? '+' : ''}
-                    {formatCurrency(ebitdaDiff)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Multiple */}
-          {version.multiple && (
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-foreground/40">
-                Multiple
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium font-mono text-foreground/80">
-                  {version.multiple.toFixed(2)}×
-                </span>
-                {multipleDiff !== null && multipleDiff !== 0 && (
-                  <span
-                    className={cn(
-                      'text-[10px] font-mono px-1.5 py-0.5 rounded',
-                      multipleDiff > 0
-                        ? 'text-success bg-success/10'
-                        : 'text-secondary bg-secondary/10'
-                    )}
-                  >
-                    {multipleDiff > 0 ? '+' : ''}
-                    {multipleDiff.toFixed(2)}×
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Changes List */}
-      {version.changes.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-            {t('changes')} ({version.changes.length})
-          </p>
-          <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-hide">
-            {version.changes.map((change, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between text-xs p-2 rounded-lg bg-foreground/[0.02] border border-foreground/[0.04]"
-              >
-                <span className="text-foreground/60 truncate flex-1">{change.field}</span>
-                <span className="font-mono text-foreground/80 text-[11px]">{change.newValue}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function DiffRow({
-  label,
-  valueA,
-  valueB,
-  isImpact,
-}: {
-  label: string
-  valueA?: string
-  valueB?: string
-  isImpact?: boolean
-}) {
-  const isDifferent = valueA !== valueB
-
-  return (
-    <div
-      className={cn(
-        'grid grid-cols-[1fr_auto_1fr] gap-4 py-2.5 px-3 rounded-lg transition-colors',
-        isDifferent ? 'bg-warning/[0.03] border border-warning/10' : 'bg-foreground/[0.01]'
-      )}
-    >
-      {/* Old Value */}
-      <div className="text-right">
-        <span
-          className={cn(
-            'text-xs font-mono',
-            isDifferent ? 'text-foreground/40 line-through' : 'text-foreground/60'
-          )}
-        >
-          {valueA || '—'}
-        </span>
-      </div>
-
-      {/* Label */}
-      <div className="flex items-center justify-center">
-        <span className="text-[10px] font-medium text-foreground/50 whitespace-nowrap px-2">
-          {label}
-        </span>
-        {isDifferent && <ChevronRight className="w-3 h-3 text-warning/70" />}
-      </div>
-
-      {/* New Value */}
-      <div className="text-left">
-        <span
-          className={cn(
-            'text-xs font-mono',
-            isDifferent ? 'text-foreground font-medium' : 'text-foreground/60'
-          )}
-        >
-          {valueB || '—'}
-        </span>
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────
 
 const typeLabelKeys: Record<HistoryVersion['type'], string> = {
   initial: 'typeInitial',
@@ -340,214 +57,401 @@ const typeLabelKeys: Record<HistoryVersion['type'], string> = {
   revision: 'typeRevision',
 }
 
+function MetricRow({
+  label,
+  value,
+  change,
+  format,
+  unavailable,
+}: {
+  label: string
+  value?: number
+  change: number | null
+  format: (value: number) => string
+  unavailable: string
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+      <dt className="text-xs text-foreground/60">{label}</dt>
+      <dd className="min-w-0 flex flex-wrap justify-end items-center gap-2 text-sm font-mono tabular-nums text-foreground">
+        <span className="break-words">{validMetric(value) ? format(value) : unavailable}</span>
+        {change !== null && change !== 0 && (
+          <span
+            className={cn(
+              'text-[11px] px-1.5 py-0.5 rounded',
+              change > 0 ? 'text-success bg-success/10' : 'text-secondary bg-secondary/10'
+            )}
+          >
+            {change > 0 ? '+' : ''}
+            {format(change)}
+          </span>
+        )}
+      </dd>
+    </div>
+  )
+}
+
+function VersionCard({
+  version,
+  comparison,
+  label,
+  formatCurrency,
+  formatMultiple,
+  formatTime,
+  t,
+}: {
+  version: HistoryVersion
+  comparison?: HistoryVersion
+  label: string
+  formatCurrency: (value: number) => string
+  formatMultiple: (value: number) => string
+  formatTime: (value: Date) => string
+  t: (key: string) => string
+}) {
+  const unavailable = t('unavailable')
+  return (
+    <section
+      aria-label={`${t('version')} ${version.version}`}
+      className={cn(
+        'min-w-0 rounded-xl border p-4',
+        version.isCurrent
+          ? 'border-primary/30 bg-primary/[0.02]'
+          : 'border-foreground/[0.08] bg-foreground/[0.02]'
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-[10px] font-medium">
+        <span className="px-2 py-0.5 rounded-full bg-foreground/[0.08] text-foreground/70">
+          {label}
+        </span>
+        <span className="px-2 py-0.5 rounded-full bg-foreground/[0.06] text-foreground/60">
+          {t(typeLabelKeys[version.type])}
+        </span>
+        {version.isCurrent && (
+          <span className="text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
+            {t('current')}
+          </span>
+        )}
+      </div>
+      <div className="flex items-start gap-3 mb-4">
+        <div
+          className={cn(
+            'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-semibold text-sm',
+            version.isCurrent
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-foreground/[0.08] text-foreground/60'
+          )}
+        >
+          <span>v{version.version}</span>
+        </div>
+        <div className="min-w-0">
+          <h4 className="text-sm font-medium text-foreground break-words">{version.summary}</h4>
+          <p className="text-xs text-foreground/60 mt-1 break-words">{version.author}</p>
+          <p className="text-xs text-foreground/60 mt-1">{formatTime(version.timestamp)}</p>
+        </div>
+      </div>
+      <dl className="space-y-3 p-3 rounded-lg bg-foreground/[0.02] border border-foreground/[0.06]">
+        <MetricRow
+          label={t('valuation')}
+          value={version.valuation}
+          change={metricChange(comparison?.valuation, version.valuation)}
+          format={formatCurrency}
+          unavailable={unavailable}
+        />
+        <MetricRow
+          label={t('ebitda')}
+          value={version.ebitda}
+          change={metricChange(comparison?.ebitda, version.ebitda)}
+          format={formatCurrency}
+          unavailable={unavailable}
+        />
+        <MetricRow
+          label={t('multiple')}
+          value={version.multiple}
+          change={metricChange(comparison?.multiple, version.multiple)}
+          format={formatMultiple}
+          unavailable={unavailable}
+        />
+      </dl>
+      {version.changes.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-medium text-foreground/60">
+            {t('changes')} ({version.changes.length})
+          </p>
+          <ul className="space-y-1.5">
+            {version.changes.map((change, index) => (
+              <li
+                key={`${change.field}-${index}`}
+                className="flex flex-wrap justify-between gap-2 text-xs p-2 rounded-lg bg-foreground/[0.02] border border-foreground/[0.04]"
+              >
+                <span className="text-foreground/60 break-words">{change.field}</span>
+                <span className="font-mono text-foreground/80 break-words">{change.newValue}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function DiffRow({
+  label,
+  valueA,
+  valueB,
+  unavailable,
+}: {
+  label: string
+  valueA?: string
+  valueB?: string
+  unavailable: string
+}) {
+  const isDifferent = valueA !== undefined && valueB !== undefined && valueA !== valueB
+  return (
+    <tr className={cn('border-b border-foreground/[0.06]', isDifferent && 'bg-warning/[0.03]')}>
+      <th
+        scope="row"
+        className="w-1/3 py-3 pr-2 text-left font-medium text-xs text-foreground/60 break-words"
+      >
+        {label}
+      </th>
+      <td className="w-1/3 p-2 text-right text-xs font-mono tabular-nums text-foreground/70 break-words">
+        <ComparisonValue value={valueA} unavailable={unavailable} />
+      </td>
+      <td className="w-1/3 py-3 pl-2 text-right text-xs font-mono tabular-nums text-foreground break-words">
+        <ComparisonValue value={valueB} unavailable={unavailable} />
+      </td>
+    </tr>
+  )
+}
+
+function ComparisonValue({ value, unavailable }: { value?: string; unavailable: string }) {
+  if (value === undefined) return <>{unavailable}</>
+  return (
+    <>
+      {value.split(' – ').map((part, index) => (
+        <span key={`${index}-${part}`}>
+          {index > 0 && ' – '}
+          <span className="inline-block whitespace-nowrap">{part}</span>
+        </span>
+      ))}
+    </>
+  )
+}
+
 export function VersionCompareModal({
   open,
   onOpenChange,
   versionA,
   versionB,
   onRestore,
+  restoring = false,
   onSwap,
+  returnFocusRef,
 }: VersionCompareModalProps) {
   const t = useTranslations('versionCompare')
-  const locale = useLocale()
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
-    if (amount >= 1000) return `€${Math.round(amount / 1000)}K`
-    return new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
+  const hp = useTranslations('historyPanel')
+  const rawLocale = useLocale()
+  const locale: HistoryLocale = rawLocale === 'fr' ? 'fr' : rawLocale === 'nl' ? 'nl' : 'en'
+  const formatCurrency = (amount: number) => formatHistoryCurrency(amount, locale)
+  const formatDecimal = (value: number, digits: number) =>
+    new Intl.NumberFormat(locale === 'en' ? 'en-GB' : currencyLocaleFor(locale), {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(value)
+  const formatMultiple = (amount: number) => `${formatDecimal(amount, 2)}×`
   const formatTime = (date: Date) =>
-    date.toLocaleDateString(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-
+    Number.isFinite(date.getTime())
+      ? date.toLocaleString(currencyLocaleFor(locale), {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : t('unavailable')
   if (!versionA || !versionB) return null
 
-  // Ensure A is older, B is newer
-  const older = versionA.version < versionB.version ? versionA : versionB
-  const newer = versionA.version < versionB.version ? versionB : versionA
-
-  const valuationChange = newer.valuation && older.valuation ? newer.valuation - older.valuation : 0
-  const percentChange =
-    older.valuation && valuationChange ? (valuationChange / older.valuation) * 100 : 0
+  // Respect selection order so swapping reverses both the comparison and restore target.
+  const valuationChange = metricChange(versionA.valuation, versionB.valuation)
+  const percentChange = percentageChange(versionA.valuation, versionB.valuation)
+  const aIsOlder = versionA.version < versionB.version
+  const unavailable = t('unavailable')
+  const formatted = (value: number | undefined, format: (n: number) => string) =>
+    validMetric(value) ? format(value) : undefined
+  const comparisonRows = [
+    {
+      key: 'valuation',
+      valueA: formatted(versionA.valuation, formatCurrency),
+      valueB: formatted(versionB.valuation, formatCurrency),
+    },
+    {
+      key: 'ebitda',
+      valueA: formatted(versionA.ebitda, formatCurrency),
+      valueB: formatted(versionB.ebitda, formatCurrency),
+    },
+    {
+      key: 'multiple',
+      valueA: formatted(versionA.multiple, formatMultiple),
+      valueB: formatted(versionB.multiple, formatMultiple),
+    },
+    {
+      key: 'bandwidth',
+      valueA: formatComparisonRange(versionA.valuationLow, versionA.valuationHigh, formatCurrency),
+      valueB: formatComparisonRange(versionB.valuationLow, versionB.valuationHigh, formatCurrency),
+    },
+  ]
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
-      <ModalContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
-        {/* Header */}
-        <ModalHeader className="p-4 border-b border-foreground/[0.06]">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <ArrowLeftRight className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <ModalTitle className="text-base">{t('title')}</ModalTitle>
-                <p className="text-xs text-foreground/50 mt-0.5">
-                  v{older.version} → v{newer.version}
+      <ModalContent
+        onCloseAutoFocus={(event) => {
+          const trigger = returnFocusRef?.current
+          if (trigger) {
+            event.preventDefault()
+            trigger.focus({ preventScroll: true })
+          }
+        }}
+        closeLabel={t('close')}
+        description={t('description', { from: versionA.version, to: versionB.version })}
+        className="w-[calc(100vw-1.5rem)] max-w-4xl max-h-[90dvh] flex flex-col p-0"
+      >
+        <ModalHeader className="p-4 pr-14 border-b border-foreground/[0.06] shrink-0">
+          <div className="flex flex-wrap items-start justify-between gap-3 w-full">
+            <div className="flex items-center gap-3 min-w-0">
+              <ArrowLeftRight aria-hidden="true" className="w-5 h-5 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <ModalTitle className="text-base break-words">{t('title')}</ModalTitle>
+                <p className="text-xs text-foreground/60 mt-0.5">
+                  v{versionA.version} → v{versionB.version}
                 </p>
               </div>
             </div>
-
-            {/* Change Summary */}
-            <div className="flex items-center gap-4">
-              {valuationChange !== 0 && (
-                <div
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg',
-                    valuationChange > 0
-                      ? 'bg-success/10 text-success'
-                      : 'bg-secondary/10 text-secondary'
-                  )}
-                >
-                  {valuationChange > 0 ? (
-                    <TrendingUp className="w-4 h-4" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4" />
-                  )}
-                  <span className="text-sm font-semibold font-mono">
-                    {valuationChange > 0 ? '+' : ''}
-                    {formatCurrency(valuationChange)}
-                  </span>
-                  <span className="text-xs opacity-70">
-                    ({percentChange > 0 ? '+' : ''}
-                    {percentChange.toFixed(1)}%)
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </ModalHeader>
-
-        {/* Visual Timeline */}
-        <div className="px-4 py-3 bg-foreground/[0.01] border-b border-foreground/[0.06]">
-          <div className="flex items-center gap-3">
-            {/* Version A Badge */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-foreground/[0.08] flex items-center justify-center text-xs font-semibold text-foreground/60">
-                v{older.version}
-              </div>
-              <span className="text-xs text-foreground/50">{formatTime(older.timestamp)}</span>
-            </div>
-
-            {/* Timeline Track */}
-            <div className="flex-1 relative h-2">
-              <div className="absolute inset-0 bg-foreground/[0.06] rounded-full" />
-              <motion.div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-foreground/20 to-primary rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: '100%' }}
-                transition={{ type: 'spring', stiffness: 170, damping: 26, mass: 1 }}
-              />
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-foreground/30 border-2 border-background" />
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background" />
-            </div>
-
-            {/* Version B Badge */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-foreground/50">{formatTime(newer.timestamp)}</span>
+            {valuationChange !== null && valuationChange !== 0 && (
               <div
                 className={cn(
-                  'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-semibold',
-                  newer.isCurrent
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-foreground/[0.08] text-foreground/60'
+                  'flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg font-mono',
+                  valuationChange > 0
+                    ? 'bg-success/10 text-success'
+                    : 'bg-secondary/10 text-secondary'
                 )}
               >
-                {newer.isCurrent ? <Check className="w-4 h-4" /> : `v${newer.version}`}
+                <span className="text-sm font-semibold">
+                  {valuationChange > 0 ? '+' : ''}
+                  {formatCurrency(valuationChange)}
+                </span>
+                {percentChange !== null && (
+                  <span className="text-xs">
+                    ({percentChange > 0 ? '+' : ''}
+                    {formatDecimal(percentChange, 1)}%)
+                  </span>
+                )}
               </div>
-            </div>
+            )}
           </div>
-        </div>
-
-        {/* Side by Side Comparison */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="flex gap-4">
+        </ModalHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <VersionCard
-              version={older}
-              label={t('older')}
-              isOlder
-              comparison={null}
-              typeLabel={t(typeLabelKeys[older.type])}
+              version={versionA}
+              label={t(aIsOlder ? 'older' : 'newer')}
               formatCurrency={formatCurrency}
+              formatMultiple={formatMultiple}
               formatTime={formatTime}
               t={t}
             />
-            <div className="flex items-center">
-              <div className="w-px h-full bg-foreground/[0.06]" />
-            </div>
             <VersionCard
-              version={newer}
-              label={t('newer')}
-              comparison={older}
-              typeLabel={t(typeLabelKeys[newer.type])}
+              version={versionB}
+              comparison={versionA}
+              label={t(aIsOlder ? 'newer' : 'older')}
               formatCurrency={formatCurrency}
+              formatMultiple={formatMultiple}
               formatTime={formatTime}
               t={t}
             />
           </div>
-
-          {/* Detailed Diff Table */}
-          <div className="mt-6 space-y-2">
+          <div className="sm:hidden mt-6">
             <h3 className="text-sm font-semibold text-foreground mb-3">{t('comparisonDetails')}</h3>
-            <div className="space-y-1">
-              <DiffRow
-                label={t('enterpriseValue')}
-                valueA={older.valuation ? formatCurrency(older.valuation) : undefined}
-                valueB={newer.valuation ? formatCurrency(newer.valuation) : undefined}
-              />
-              <DiffRow
-                label={t('ebitda')}
-                valueA={older.ebitda ? formatCurrency(older.ebitda) : undefined}
-                valueB={newer.ebitda ? formatCurrency(newer.ebitda) : undefined}
-              />
-              <DiffRow
-                label={t('multiple')}
-                valueA={older.multiple ? `${older.multiple.toFixed(2)}×` : undefined}
-                valueB={newer.multiple ? `${newer.multiple.toFixed(2)}×` : undefined}
-              />
-              {older.valuationLow && newer.valuationLow && (
-                <DiffRow
-                  label={t('bandwidth')}
-                  valueA={`${formatCurrency(older.valuationLow)} — ${formatCurrency(older.valuationHigh || 0)}`}
-                  valueB={`${formatCurrency(newer.valuationLow)} — ${formatCurrency(newer.valuationHigh || 0)}`}
-                />
-              )}
-            </div>
+            <dl className="space-y-4">
+              {comparisonRows.map((row) => (
+                <div key={row.key} className="border-b border-foreground/[0.06] pb-3">
+                  <dt className="text-xs font-medium text-foreground/70 mb-2">{t(row.key)}</dt>
+                  <dd className="grid grid-cols-2 gap-3 text-xs font-mono tabular-nums text-foreground">
+                    <div className="min-w-0">
+                      <span className="block text-foreground/60 mb-1">v{versionA.version}</span>
+                      <ComparisonValue value={row.valueA} unavailable={unavailable} />
+                    </div>
+                    <div className="min-w-0 text-right">
+                      <span className="block text-foreground/60 mb-1">v{versionB.version}</span>
+                      <ComparisonValue value={row.valueB} unavailable={unavailable} />
+                    </div>
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </div>
+          <table className="hidden sm:table w-full table-fixed mt-6">
+            <caption className="text-sm font-semibold text-foreground mb-3 text-left">
+              {t('comparisonDetails')}
+            </caption>
+            <thead>
+              <tr className="text-xs text-foreground/60">
+                <th scope="col" className="text-left pb-2">
+                  {t('metric')}
+                </th>
+                <th scope="col" className="text-right p-2">
+                  v{versionA.version}
+                </th>
+                <th scope="col" className="text-right pb-2 pl-2">
+                  v{versionB.version}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => (
+                <DiffRow
+                  key={row.key}
+                  label={t(row.key)}
+                  valueA={row.valueA}
+                  valueB={row.valueB}
+                  unavailable={unavailable}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        {/* Footer Actions */}
         <div className="shrink-0 px-4 py-3 border-t border-foreground/[0.06] bg-foreground/[0.01]">
-          <div className="flex items-center justify-between">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] sm:flex items-center gap-2">
             <AuroraButton
               variant="ghost"
               size="sm"
               onClick={() => onOpenChange(false)}
-              className="text-foreground/60"
+              className="text-foreground/70 min-h-[44px] justify-self-start sm:mr-auto"
             >
               {t('close')}
             </AuroraButton>
-
-            <div className="flex items-center gap-2">
+            <div className="contents">
               {onSwap && (
-                <AuroraButton variant="outline" size="sm" onClick={onSwap} className="gap-1.5">
-                  <ArrowLeftRight className="w-4 h-4" />
+                <AuroraButton
+                  variant="outline"
+                  size="sm"
+                  disabled={restoring}
+                  onClick={onSwap}
+                  className="gap-1.5 min-h-[44px] justify-self-end"
+                >
+                  <ArrowLeftRight aria-hidden="true" className="w-4 h-4" />
                   {t('swap')}
                 </AuroraButton>
               )}
-              {onRestore && !newer.isCurrent && (
-                <AuroraButton size="sm" onClick={() => onRestore(newer)} className="gap-1.5">
-                  <RotateCcw className="w-4 h-4" />
-                  {t('restoreTo', { version: newer.version })}
+              {onRestore && !versionB.isCurrent && (
+                <AuroraButton
+                  size="sm"
+                  onClick={() => onRestore(versionB)}
+                  loading={restoring}
+                  loadingScreenReaderLabel={hp('restoring')}
+                  className="col-span-2 gap-1.5 min-h-[44px] motion-reduce:[&_svg]:animate-none"
+                >
+                  <RotateCcw aria-hidden="true" className="w-4 h-4" />
+                  {t('restoreTo', { version: versionB.version })}
                 </AuroraButton>
               )}
             </div>

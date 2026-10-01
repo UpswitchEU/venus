@@ -39,7 +39,7 @@ describe('ManualLayoutContextBar', () => {
       />
     )
     expect(contextBar).toHaveBeenLastCalledWith(
-      expect.objectContaining({ businessName: 'Bakkerij Peeters', clientName: 'Jan' })
+      expect.objectContaining({ businessName: 'Bakkerij Peeters', clientName: 'Jan Peeters' })
     )
   })
 })

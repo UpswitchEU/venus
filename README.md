@@ -1,5 +1,7 @@
 # 🌟 Venus - UpSwitch Valuation Calculator Frontend
 
+[Current code-audit findings and reproducible checks](docs/architecture/CODE_AUDIT.md).
+
 **Venus - The Oracle's wisdom for business insights**
 
 Venus is the valuation calculator frontend application that provides an intuitive interface for business valuations powered by ValuationIQ. It offers real-time valuation calculations, detailed reports, and comprehensive business analysis tools.
@@ -31,7 +33,7 @@ cockpit and Titan remains the workflow source of truth.
 cd apps/venus
 nvm use
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 ### Development

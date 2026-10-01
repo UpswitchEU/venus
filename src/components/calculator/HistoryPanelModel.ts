@@ -73,7 +73,7 @@ export const currencyLocaleFor = (locale: HistoryLocale) =>
   locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE'
 
 export const formatHistoryCurrency = (amount: number, locale: HistoryLocale) => {
-  if (amount >= 1000000) return `€${(amount / 1000000).toFixed(2)}M`
+  if (!Number.isFinite(amount)) return '—'
   return new Intl.NumberFormat(currencyLocaleFor(locale), {
     style: 'currency',
     currency: 'EUR',

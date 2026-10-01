@@ -2,7 +2,7 @@
  * GENERATED FILE - DO NOT EDIT DIRECTLY.
  *
  * Source: apps/valuation-iq/src/domain/method_keys.py
- * Regenerate with: upswitch-platform sync:valuation-method-contracts
+ * Source fixture: tests/contracts/valuation-methods.v1.json; see docs/architecture/CODE_AUDIT.md
  */
 export const VALUATION_RESULT_METHOD_KEYS = [
     'dcf',
@@ -21,6 +21,7 @@ export const VALUATION_RESULT_METHOD_KEYS = [
     'custom_weighted',
     'real_estate_yield',
     'upswitch_adaptive_multiples_only',
+    'holding_sotp',
 ];
 export const VALUATION_METHOD_KEYS = [
     'upswitch_adaptive',

@@ -64,28 +64,33 @@ export function debounceWithFlush<Args extends unknown[], Result>(
     reject: (error: unknown) => void
   }[] = []
 
-  const drainQueue = async (args: Args): Promise<Result> => {
-    inFlight = fn(...args)
-    try {
-      const result = await inFlight
-      inFlight = null
-      if (lastArgs) {
+  // `inFlight` owns the entire drain, including edits queued while a write is
+  // pending. Awaiting only fn(...) let flush resolve before those edits saved.
+  const drainQueue = (args: Args): Promise<Result> => {
+    const drain = async (): Promise<Result> => {
+      let result = await fn(...args)
+      while (lastArgs) {
         const queued = lastArgs
         lastArgs = null
-        return drainQueue(queued)
+        if (timeoutId) clearTimeout(timeoutId)
+        timeoutId = null
+        result = await fn(...queued)
       }
       return result
-    } catch (err) {
-      inFlight = null
-      throw err
     }
-  }
-
-  const settleAll = (resultPromise: Promise<Result>) => {
-    const captured = pendingResolvers.splice(0)
-    for (const { resolve, reject } of captured) {
-      resultPromise.then(resolve, reject)
-    }
+    inFlight = drain().then(
+      (result) => {
+        inFlight = null
+        for (const { resolve } of pendingResolvers.splice(0)) resolve(result)
+        return result
+      },
+      (error) => {
+        inFlight = null
+        for (const { reject } of pendingResolvers.splice(0)) reject(error)
+        throw error
+      }
+    )
+    return inFlight
   }
 
   const debounced = ((...args: Args) => {
@@ -102,8 +107,8 @@ export function debounceWithFlush<Args extends unknown[], Result>(
           lastArgs = argsToUse
           return
         }
-        const p = drainQueue(argsToUse)
-        settleAll(p)
+        // Callers own their individual rejection; the timer has no caller.
+        void drainQueue(argsToUse).catch(() => undefined)
       }, delay)
     })
   }) as DebouncedWithFlush<Args, Result>
@@ -119,15 +124,11 @@ export function debounceWithFlush<Args extends unknown[], Result>(
       if (inFlight) {
         lastArgs = argsToUse
         const existing = inFlight
-        settleAll(existing)
         await existing
         return
       }
-      const p = drainQueue(argsToUse)
-      settleAll(p)
-      await p
+      await drainQueue(argsToUse)
     } else if (inFlight) {
-      settleAll(inFlight)
       await inFlight
     }
   }

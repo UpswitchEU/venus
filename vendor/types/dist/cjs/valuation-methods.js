@@ -3,7 +3,7 @@
  * GENERATED FILE - DO NOT EDIT DIRECTLY.
  *
  * Source: apps/valuation-iq/src/domain/method_keys.py
- * Regenerate with: upswitch-platform sync:valuation-method-contracts
+ * Source fixture: tests/contracts/valuation-methods.v1.json; see docs/architecture/CODE_AUDIT.md
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OMNI_CALC_PATCHABLE_METHODS = exports.VALUATION_PRIMARY_OMNI_METHOD_ORDER = exports.NON_COMBINABLE_VALUATION_METHOD_KEYS = exports.USER_WEIGHT_VALUATION_METHOD_KEYS = exports.REVENUE_METHOD_KEYS = exports.VALUATION_METHOD_ALIAS_KEYS = exports.VALUATION_METHOD_ALIASES = exports.DISTINCT_VALUATION_METHOD_COUNT = exports.VALUATION_METHOD_KEYS = exports.VALUATION_RESULT_METHOD_KEYS = void 0;
@@ -28,6 +28,7 @@ exports.VALUATION_RESULT_METHOD_KEYS = [
     'custom_weighted',
     'real_estate_yield',
     'upswitch_adaptive_multiples_only',
+    'holding_sotp',
 ];
 exports.VALUATION_METHOD_KEYS = [
     'upswitch_adaptive',

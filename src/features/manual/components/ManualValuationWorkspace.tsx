@@ -83,6 +83,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   initialSelectedMethodFromUrl,
   initialSelectedMethodsFromUrl,
 }) => {
+  const versionRestoreInFlightRef = React.useRef(false)
   const t = useTranslations('toast')
   const tReport = useTranslations('report')
   const tHistory = useTranslations('historyPanel')
@@ -344,7 +345,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   // background PDF in useResultToReportBridge. Assigned in exactly one place,
   // at submit time, inside useManualSubmitController.
   const valuationRunTriggerRef = React.useRef<ValuationRunTrigger | null>(null)
-  useFormSessionSync({
+  const flushFormBeforeNavigation = useFormSessionSync({
     reportId: resolvedReportId || reportId || undefined,
     formData: formStoreData,
   })
@@ -586,6 +587,13 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     recentValuations,
     showNewValuationModal,
   } = useManualNavigationController({
+    flushFormBeforeNavigation,
+    isNavigationBusy: () =>
+      isCalculating ||
+      isGenerating ||
+      isMethodSwitchRendering ||
+      durableSaveInFlightRef.current ||
+      versionRestoreInFlightRef.current,
     activeSessionKey,
     canDownloadPdf,
     clientCompanyName: identity.clientContext?.clientCompanyName,
@@ -647,6 +655,8 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     handleVersionRestore,
     handleCSVImportComplete,
   } = useManualNormalizationController({
+    versionRestoreInFlightRef,
+    flushFormAfterRestore: flushFormBeforeNavigation,
     accountantCustomerId: requestAccountantCustomerId,
     calculationRequestIdentifiers,
     collectedData,
