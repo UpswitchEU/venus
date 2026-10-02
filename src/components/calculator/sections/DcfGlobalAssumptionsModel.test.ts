@@ -118,7 +118,7 @@ describe('DcfGlobalAssumptionsModel', () => {
     })
   })
 
-  it('repairs a restored zero EBITDA margin placeholder when history implies a positive margin', () => {
+  it('preserves zero EBITDA margin when a legacy caller requests placeholder repair', () => {
     const patch = buildDcfGlobalAssumptionsSeedPatch({
       variant: 'forecastDefaultsOnly',
       dcfInputMode: 'ebitda',
@@ -138,9 +138,7 @@ describe('DcfGlobalAssumptionsModel', () => {
       },
     })
 
-    expect(patch).toEqual({
-      dcf_ebitda_margin_pct: 10,
-    })
+    expect(patch).toEqual({})
   })
 
   it('keeps an explicit zero EBITDA margin when zero-placeholder repair is not active', () => {

@@ -40,7 +40,8 @@ describe('manual DCF forecast transforms', () => {
     expect(result.dcf_terminal_value_method).toBe('perpetual_growth')
     expect(result.yearlyFinancials[0]).toMatchObject({ year: '2024', revenue: 1_000_000 })
     const forecast = result.yearlyFinancials.find((row) => row.year === '2025')
-    expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
+    expect(forecast?.revenue).toBeGreaterThan(0)
+    expect(forecast?.ebitda).toBeGreaterThan(0)
     expect(forecast?.free_cash_flow).toBe(122_875)
   })
 
@@ -62,7 +63,8 @@ describe('manual DCF forecast transforms', () => {
     )
 
     const forecast = result.yearlyFinancials.find((row) => row.isForecast)
-    expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
+    expect(forecast?.revenue).toBeGreaterThan(0)
+    expect(forecast?.ebitda).toBeGreaterThan(0)
     expect(forecast?.free_cash_flow).toBe(122_875)
     expect(forecast?.capex).toBeUndefined()
     expect(forecast?.depreciation).toBeUndefined()
@@ -90,12 +92,13 @@ describe('manual DCF forecast transforms', () => {
     )
 
     const forecast = result.yearlyFinancials.find((row) => row.isForecast)
-    expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
+    expect(forecast?.revenue).toBe('1.100.000')
+    expect(forecast?.ebitda).toBe('220.000')
     expect(forecast?.free_cash_flow).toBe(127_750)
     expect(Number.isFinite(forecast?.free_cash_flow)).toBe(true)
   })
 
-  it('switches back to EBITDA mode by clearing FCFF and applying projection rows', () => {
+  it('switches back to EBITDA mode without replacing retained zero earnings', () => {
     const result = switchManualDcfInputMode(
       makeForm({
         dcf_input_mode: 'fcff_only',
@@ -116,8 +119,8 @@ describe('manual DCF forecast transforms', () => {
     const forecast = result.yearlyFinancials.find((row) => row.isForecast)
     expect(result.dcf_input_mode).toBe('ebitda')
     expect(forecast?.free_cash_flow).toBeUndefined()
-    expect(forecast?.revenue).toBeGreaterThan(1_000_000)
-    expect(forecast?.ebitda).toBeGreaterThan(0)
+    expect(forecast?.revenue).toBe(0)
+    expect(forecast?.ebitda).toBe(0)
   })
 
   it('counts only forecast-side manual FCFF bridge edits', () => {
@@ -167,11 +170,12 @@ describe('manual DCF forecast transforms', () => {
 
     expect(result.yearlyFinancials[0]).toEqual(form.yearlyFinancials[0])
     const forecast = result.yearlyFinancials.find((row) => row.isForecast)
-    expect(forecast).toMatchObject({ revenue: 0, ebitda: 0 })
+    expect(forecast?.revenue).toBeGreaterThan(0)
+    expect(forecast?.ebitda).toBeGreaterThan(0)
     expect(forecast?.free_cash_flow).toBe(128_250)
-    expect(forecast?.capex).toBeUndefined()
-    expect(forecast?.depreciation).toBeUndefined()
-    expect(forecast?.nwc_change).toBeUndefined()
+    expect(forecast?.capex).toBe(99_999)
+    expect(forecast?.depreciation).toBe(99_999)
+    expect(forecast?.nwc_change).toBe(99_999)
   })
 
   it('hydrates suggested CapEx only into blank forecast rows', () => {
@@ -189,7 +193,7 @@ describe('manual DCF forecast transforms', () => {
 
     expect(result.changed).toBe(true)
     expect(result.yearlyFinancials[0].capex).toBe(15_000)
-    expect(result.yearlyFinancials[1].capex).toBe(42_000)
+    expect(result.yearlyFinancials[1].capex).toBe(0)
     expect(result.yearlyFinancials[2].capex).toBe(50_000)
     expect(result.yearlyFinancials[3].capex).toBe(42_000)
   })
@@ -212,7 +216,20 @@ describe('manual DCF forecast transforms', () => {
     const result = syncManualDcfForecastRowsFromProjection({
       yearlyFinancials: [
         { year: '2024', revenue: 1_000_000, ebitda: 200_000 },
-        { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
+        {
+          year: '2025',
+          revenue: 0,
+          ebitda: 0,
+          isForecast: true,
+          dcf_model_snapshot: {
+            schema_version: 'dcf_forecast_inputs.v2',
+            revenue: 0,
+            ebitda: 0,
+            capex: null,
+            depreciation: null,
+            nwc_change: null,
+          },
+        },
       ] as YearlyFinancials[],
       projectionRows: [
         {

@@ -1,7 +1,7 @@
 export interface DcfForecastRow {
   year: string
-  revenue: number
-  ebitda: number
+  revenue?: number
+  ebitda?: number
   capex?: number
   depreciation?: number
   nwc_change?: number

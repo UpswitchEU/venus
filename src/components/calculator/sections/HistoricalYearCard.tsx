@@ -547,6 +547,8 @@ export function HistoricalYearCard({
             : yearData.ebitda
         const margin =
           !isPartial &&
+          typeof yearData.revenue === 'number' &&
+          typeof marginEbitda === 'number' &&
           Number.isFinite(yearData.revenue) &&
           Number.isFinite(yearData.ebitda) &&
           yearData.revenue > 0

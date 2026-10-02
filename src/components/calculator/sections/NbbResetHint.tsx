@@ -5,8 +5,8 @@ import { useNbbPrefillStore } from '../../../store/useNbbPrefillStore'
 
 interface NbbResetHintProps {
   fiscalYear: string
-  currentRevenue: number
-  currentEbitda: number
+  currentRevenue?: number
+  currentEbitda?: number
   onReset: (field: 'revenue' | 'ebitda', value: number) => void
 }
 
