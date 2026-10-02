@@ -17,7 +17,8 @@ describe('dcfForecastModelSync', () => {
       depreciation: 30_000,
       nwc_change: 15_000,
     })
-    expect(snapshotsClose(a, b)).toBe(true)
+    expect(snapshotsClose(a, b)).toBe(false)
+    expect(snapshotsClose(a, b, 1)).toBe(true)
   })
 
   it('detects user overrides outside tolerance', () => {

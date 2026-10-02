@@ -64,17 +64,6 @@ export interface UseDcfForecastSyncParams {
   translate: DcfTranslator
 }
 
-function autoProjectionEbitdaMarginPct(
-  value: unknown,
-  smartDefault: number | undefined
-): number | undefined {
-  const parsed = parseFlexibleNumber(value)
-  if (parsed === 0 && smartDefault != null && smartDefault > 0) {
-    return undefined
-  }
-  return parsed
-}
-
 export function useDcfForecastSync({
   effectiveMethod,
   hasDcfSelected,
@@ -123,10 +112,7 @@ export function useDcfForecastSync({
           yearlyFinancials: nextFinancials,
           smartDefaults: smart,
           revenueGrowthPct: current.dcf_revenue_growth_pct as number | undefined,
-          ebitdaMarginPct: autoProjectionEbitdaMarginPct(
-            current.dcf_ebitda_margin_pct,
-            smart?.ebitdaMarginPct
-          ),
+          ebitdaMarginPct: parseFlexibleNumber(current.dcf_ebitda_margin_pct),
           capexPct: current.dcf_capex_pct as number | undefined,
           daPct: current.dcf_da_pct as number | undefined,
           nwcPct: current.dcf_nwc_pct as number | undefined,

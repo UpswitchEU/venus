@@ -1880,7 +1880,8 @@
 			"showAdvancedDrivers": "Edit FCFF drivers",
 			"hideAdvancedDrivers": "Hide FCFF drivers",
 			"advancedDriversTitle": "Advanced FCFF drivers",
-			"advancedDriversHelp": "Most advisors can leave these on sector defaults and only adjust them when a specific case needs it.",
+			"dcfCashTaxInputHelp": "Enter a cash-tax modeling rate for this dossier. When blank, the valuation uses the applicable country policy; this preview leaves tax and cash flow blank.",
+			"advancedDriversHelp": "These are modeling assumptions. Adjust them to the dossier’s forecasts and cash-tax regime.",
 			"advancedDriversSummary": "CapEx {capex}%, D&A {da}%, NWC ratio {nwc}%, tax {tax}%.",
 			"fcffOnlyForecastDefaultsNotice": "In “Without EBITDA” mode you enter yearly FCFF in the forecast table below, so growth, margin, and bridge-driver percentages are not used here.",
 			"dcfCapexFootnote": "CapEx is cash investments. If historical capex is missing in your data, the valuation engine may use depreciation as a maintenance-capex proxy when deriving defaults.",
@@ -2266,10 +2267,10 @@
 			"waccBreakdown": {
 				"expand": "Show inputs",
 				"collapse": "Hide inputs",
-				"sectorBand": "Sector range: {min}%–{max}% (median {median}%, {sector})",
-				"sectorBandSource": "Damodaran 2026, EU SMB cohort",
+				"sectorBand": "Illustrative modeling range: {min}%–{max}% (center {median}%, {sector})",
+				"sectorBandSource": "Modeling heuristic; no empirical coverage established",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
-				"manualOverride": "WACC {wacc}% — manual / sector median (CAPM build-up below differs)",
+				"manualOverride": "WACC {wacc}% — supplied or illustrative modeling input (CAPM build-up below differs)",
 				"outOfBandHigh": "Above sector range — flag for reviewer.",
 				"outOfBandLow": "Below sector range — flag for reviewer."
 			},

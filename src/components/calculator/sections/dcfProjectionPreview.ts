@@ -1,24 +1,21 @@
+import Decimal from 'decimal.js'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import { isYearRowForecast } from '../../../utils/yearData'
-import {
-  DCF_DEFAULT_CAPEX_PCT,
-  DCF_DEFAULT_DA_PCT,
-  DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
-} from './dcfEngineDefaults'
+import { DCF_DEFAULT_CAPEX_PCT, DCF_DEFAULT_DA_PCT, DCF_DEFAULT_NWC_PCT } from './dcfEngineDefaults'
+import { dcfHistoricalBasis } from './dcfHistoricalBasis'
 import type { DcfSmartDefaults, DcfYearlyFinancialsLike } from './dcfSmartDefaults'
 
 export interface DcfProjectionPreviewRow {
   year: number
-  revenue: number
-  ebitda: number
-  da: number
-  ebit: number
-  taxes: number
-  nopat: number
-  capex: number
-  nwcChange: number
-  fcff: number
+  revenue: number | null
+  ebitda: number | null
+  da: number | null
+  ebit: number | null
+  taxes: number | null
+  nopat: number | null
+  capex: number | null
+  nwcChange: number | null
+  fcff: number | null
 }
 
 export interface DcfProjectionAutofillRow {
@@ -37,8 +34,17 @@ function toFinite(value: unknown): number | null {
   return parseFlexibleNumber(value) ?? null
 }
 
-function roundCurrency(value: number): number {
-  return Math.round(value)
+// Preview arithmetic stays unrounded; display formatters own display rounding.
+// These are modeling inputs, not a substitute for ValuationIQ's saved calculation.
+const PreviewDecimal = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN })
+
+function taxRateFraction(value: unknown): Decimal | null {
+  const parsed = toFinite(value)
+  return parsed == null || parsed < 0 || parsed > 100 ? null : new PreviewDecimal(parsed).div(100)
+}
+
+function asDecimal(value: number): Decimal {
+  return new PreviewDecimal(value)
 }
 
 /**
@@ -51,8 +57,8 @@ function roundCurrency(value: number): number {
 export function buildProjectionRowFromForecastRow(
   row: {
     year: string
-    revenue: number
-    ebitda: number
+    revenue?: number
+    ebitda?: number
     capex?: number
     depreciation?: number
     nwc_change?: number
@@ -63,86 +69,117 @@ export function buildProjectionRowFromForecastRow(
     daPct: number
     capexPct: number
     nwcPct: number
-    taxRatePct: number
+    taxRatePct?: number
     previousRevenue?: number
   }
 ): DcfProjectionPreviewRow {
   const parsedYear = Number.parseInt(String(row.year), 10)
   const year = Number.isFinite(parsedYear) ? parsedYear : 0
-  const revenue = toFinite(row.revenue) ?? 0
-  const ebitda = toFinite(row.ebitda) ?? 0
+  const revenue = toFinite(row.revenue)
+  const ebitda = toFinite(row.ebitda)
   const explicitFcff = toFinite(row.free_cash_flow)
+  const suppliedDa = toFinite(row.depreciation)
+  const suppliedCapex = toFinite(row.capex)
+  const suppliedNwc = toFinite(row.nwc_change)
 
   if (explicitFcff != null) {
     return {
       year,
       revenue,
       ebitda,
-      da: 0,
-      ebit: 0,
-      taxes: 0,
-      nopat: 0,
-      capex: 0,
-      nwcChange: 0,
-      fcff: roundCurrency(explicitFcff),
+      da: suppliedDa,
+      ebit:
+        ebitda != null && suppliedDa != null
+          ? asDecimal(ebitda).minus(suppliedDa).toNumber()
+          : null,
+      taxes: null,
+      nopat: null,
+      capex: suppliedCapex,
+      nwcChange: suppliedNwc,
+      fcff: explicitFcff,
     }
   }
-  const taxRate = (toFinite(globals.taxRatePct) ?? DCF_DEFAULT_TAX_RATE_PCT) / 100
+  if (revenue == null || ebitda == null) {
+    return {
+      year,
+      revenue,
+      ebitda,
+      da: suppliedDa,
+      ebit: null,
+      taxes: null,
+      nopat: null,
+      capex: suppliedCapex,
+      nwcChange: suppliedNwc,
+      fcff: null,
+    }
+  }
   const daPct = toFinite(globals.daPct) ?? DCF_DEFAULT_DA_PCT
   const capexPct = toFinite(globals.capexPct) ?? DCF_DEFAULT_CAPEX_PCT
   const nwcPct = toFinite(globals.nwcPct) ?? DCF_DEFAULT_NWC_PCT
   const previousRevenue = toFinite(globals.previousRevenue)
-  const da = toFinite(row.depreciation) ?? Math.round(revenue * (daPct / 100))
-  const capex = toFinite(row.capex) ?? Math.round(revenue * (capexPct / 100))
-  const nwcChange =
-    toFinite(row.nwc_change) ??
-    (previousRevenue != null ? Math.round((revenue - previousRevenue) * (nwcPct / 100)) : 0)
-  const ebit = ebitda - da
-  const taxes = Math.round(Math.max(0, ebit) * taxRate)
-  const nopat = ebit - taxes
-  const fcff = Math.round(nopat + da - capex - nwcChange)
   return {
     year,
     revenue,
     ebitda,
-    da,
-    ebit,
-    taxes,
-    nopat,
-    capex,
-    nwcChange,
-    fcff,
+    ...computeFcffBridge(
+      asDecimal(ebitda),
+      suppliedDa != null ? asDecimal(suppliedDa) : asDecimal(revenue).mul(daPct).div(100),
+      suppliedCapex != null ? asDecimal(suppliedCapex) : asDecimal(revenue).mul(capexPct).div(100),
+      suppliedNwc != null
+        ? asDecimal(suppliedNwc)
+        : asDecimal(revenue)
+            .minus(previousRevenue ?? revenue)
+            .mul(nwcPct)
+            .div(100),
+      taxRateFraction(globals.taxRatePct)
+    ),
   }
 }
 
-function computeFcffRow(
-  revenue: number,
-  previousRevenue: number,
-  ebitda: number,
-  daPct: number,
-  capexPct: number,
-  nwcPct: number,
-  taxRate: number
+function computeFcffBridge(
+  ebitda: Decimal,
+  da: Decimal,
+  capex: Decimal,
+  nwcChange: Decimal,
+  taxRate: Decimal | null
 ): Pick<
   DcfProjectionPreviewRow,
   'da' | 'ebit' | 'taxes' | 'nopat' | 'capex' | 'nwcChange' | 'fcff'
 > {
-  const daRaw = revenue * (daPct / 100)
-  const ebitRaw = ebitda - daRaw
-  const taxesRaw = Math.max(0, ebitRaw) * taxRate
-  const nopatRaw = ebitRaw - taxesRaw
-  const capexRaw = revenue * (capexPct / 100)
-  const nwcChangeRaw = (revenue - previousRevenue) * (nwcPct / 100)
-  const fcffRaw = nopatRaw + daRaw - capexRaw - nwcChangeRaw
+  const ebit = ebitda.minus(da)
+  const taxes = taxRate == null ? null : PreviewDecimal.max(0, ebit).mul(taxRate)
+  const nopat = taxes == null ? null : ebit.minus(taxes)
+  const fcff = nopat == null ? null : nopat.plus(da).minus(capex).minus(nwcChange)
   return {
-    da: roundCurrency(daRaw),
-    ebit: roundCurrency(ebitRaw),
-    taxes: roundCurrency(taxesRaw),
-    nopat: roundCurrency(nopatRaw),
-    capex: roundCurrency(capexRaw),
-    nwcChange: roundCurrency(nwcChangeRaw),
-    fcff: roundCurrency(fcffRaw),
+    da: da.toNumber(),
+    ebit: ebit.toNumber(),
+    taxes: taxes?.toNumber() ?? null,
+    nopat: nopat?.toNumber() ?? null,
+    capex: capex.toNumber(),
+    nwcChange: nwcChange.toNumber(),
+    fcff: fcff?.toNumber() ?? null,
   }
+}
+
+function computeFcffRow(
+  revenue: Decimal,
+  previousRevenue: Decimal,
+  ebitda: Decimal,
+  daPct: number,
+  capexPct: number,
+  nwcPct: number,
+  taxRate: Decimal | null
+): Pick<
+  DcfProjectionPreviewRow,
+  'da' | 'ebit' | 'taxes' | 'nopat' | 'capex' | 'nwcChange' | 'fcff'
+> {
+  return computeFcffBridge(
+    ebitda,
+    revenue.mul(daPct).div(100),
+    revenue.mul(capexPct).div(100),
+    revenue.minus(previousRevenue).mul(nwcPct).div(100),
+    taxRate
+  )
 }
 
 /**
@@ -164,21 +201,7 @@ export function deriveDcfProjectionPreview(args: {
   years?: number
   forecastYears?: number[]
 }): DcfProjectionPreviewRow[] {
-  const historical = (args.yearlyFinancials ?? [])
-    .filter((row) => !isYearRowForecast(row))
-    .map((row) => {
-      const revenue = toFinite(row.revenue)
-      const ebitda = toFinite(row.ebitda)
-      const year = Number.parseInt(row.year, 10)
-      return revenue == null || ebitda == null || !Number.isFinite(year)
-        ? null
-        : { year, revenue, ebitda }
-    })
-    .filter(
-      (row): row is { year: number; revenue: number; ebitda: number } =>
-        row != null && row.revenue > 0
-    )
-    .sort((a, b) => a.year - b.year)
+  const historical = dcfHistoricalBasis(args.yearlyFinancials)
 
   const latest = historical[historical.length - 1]
   if (!latest) return []
@@ -190,25 +213,22 @@ export function deriveDcfProjectionPreview(args: {
 
   if (revenueGrowthPct == null || ebitdaMarginPct == null) return []
 
-  const growthRate = revenueGrowthPct / 100
-  const marginRate = ebitdaMarginPct / 100
+  const growthFactor = asDecimal(revenueGrowthPct).div(100).plus(1)
+  const marginRate = asDecimal(ebitdaMarginPct).div(100)
   const capexPct =
     toFinite(args.capexPct) ?? toFinite(args.smartDefaults?.capexPct) ?? DCF_DEFAULT_CAPEX_PCT
   const daPct = toFinite(args.daPct) ?? toFinite(args.smartDefaults?.daPct) ?? DCF_DEFAULT_DA_PCT
   const nwcPct =
     toFinite(args.nwcPct) ?? toFinite(args.smartDefaults?.nwcPct) ?? DCF_DEFAULT_NWC_PCT
-  const taxRate =
-    (toFinite(args.taxRatePct) ??
-      toFinite(args.smartDefaults?.taxRatePct) ??
-      DCF_DEFAULT_TAX_RATE_PCT) / 100
+  const taxRate = taxRateFraction(args.taxRatePct)
 
-  const explicitForecastYears = (args.forecastYears ?? [])
+  const explicitForecastYears = [...new Set(args.forecastYears ?? [])]
     .map((year) => Math.trunc(toFinite(year) ?? Number.NaN))
     .filter((year) => Number.isFinite(year) && year > latest.year)
     .sort((a, b) => a - b)
 
   const rows: DcfProjectionPreviewRow[] = []
-  let revenue = latest.revenue
+  let revenue = asDecimal(latest.revenue)
   if (explicitForecastYears.length > 0) {
     let projectedYear = latest.year
     for (const forecastYear of explicitForecastYears) {
@@ -216,11 +236,11 @@ export function deriveDcfProjectionPreview(args: {
       while (projectedYear < forecastYear) {
         projectedYear += 1
         previousRevenue = revenue
-        revenue = revenue * (1 + growthRate)
+        revenue = revenue.mul(growthFactor)
       }
-      const rev = roundCurrency(revenue)
-      const ebitdaRaw = revenue * marginRate
-      const ebitda = roundCurrency(ebitdaRaw)
+      const rev = revenue.toNumber()
+      const ebitdaRaw = revenue.mul(marginRate)
+      const ebitda = ebitdaRaw.toNumber()
       rows.push({
         year: forecastYear,
         revenue: rev,
@@ -234,10 +254,10 @@ export function deriveDcfProjectionPreview(args: {
   const years = Math.max(1, args.years ?? 3)
   for (let offset = 1; offset <= years; offset += 1) {
     const previousRevenue = revenue
-    revenue = revenue * (1 + growthRate)
-    const rev = roundCurrency(revenue)
-    const ebitdaRaw = revenue * marginRate
-    const ebitda = roundCurrency(ebitdaRaw)
+    revenue = revenue.mul(growthFactor)
+    const rev = revenue.toNumber()
+    const ebitdaRaw = revenue.mul(marginRate)
+    const ebitda = ebitdaRaw.toNumber()
     rows.push({
       year: latest.year + offset,
       revenue: rev,
@@ -263,16 +283,21 @@ export function applyDcfProjectionPreviewToForecastRows<T extends DcfProjectionA
     if (!projection) return row
 
     if (options?.mode === 'fcff_only') {
+      if (projection.fcff == null) return row
       return {
         ...row,
-        revenue: 0,
-        ebitda: 0,
-        capex: undefined,
-        depreciation: undefined,
-        nwc_change: undefined,
         free_cash_flow: projection.fcff,
       }
     }
+
+    if (
+      projection.revenue == null ||
+      projection.ebitda == null ||
+      projection.capex == null ||
+      projection.da == null ||
+      projection.nwcChange == null
+    )
+      return row
 
     return {
       ...row,

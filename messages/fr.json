@@ -1880,7 +1880,8 @@
 			"showAdvancedDrivers": "Modifier les pilotes FCFF",
 			"hideAdvancedDrivers": "Masquer les pilotes FCFF",
 			"advancedDriversTitle": "Pilotes FCFF avancés",
-			"advancedDriversHelp": "La plupart des conseillers peuvent les laisser sur les défauts du secteur et les ajuster uniquement lorsqu'un cas spécifique le nécessite.",
+			"dcfCashTaxInputHelp": "Saisissez un taux de trésorerie fiscale pour ce dossier. Sans saisie, la valorisation utilise la politique du pays applicable ; cet aperçu laisse les impôts et les flux de trésorerie vides.",
+			"advancedDriversHelp": "Il s’agit d’hypothèses de modélisation. Adaptez-les aux prévisions et au régime de trésorerie fiscale du dossier.",
 			"advancedDriversSummary": "CapEx {capex}%, D&A {da}%, ratio NWC {nwc}%, taxe {tax}%.",
 			"fcffOnlyForecastDefaultsNotice": "En mode « Sans EBITDA », vous saisissez le FCFF annuel dans le tableau de prévisions ci-dessous. Les pourcentages de croissance, de marge et de facteurs de transition ne sont donc pas utilisés ici.",
 			"dcfCapexFootnote": "Les CapEx sont des investissements en espèces. Si l'historique des investissements est manquant dans vos données, le moteur de valorisation peut utiliser la dépréciation comme proxy des investissements de maintenance lors du calcul des défauts.",
@@ -2266,10 +2267,10 @@
 			"waccBreakdown": {
 				"expand": "Afficher les entrées",
 				"collapse": "Masquer les entrées",
-				"sectorBand": "Plage sectorielle : {min}% – {max}% (médiane {median}%, {sector})",
-				"sectorBandSource": "Damodaran 2026, cohorte PME de l'UE",
+				"sectorBand": "Plage de modélisation illustrative : {min}%–{max}% (centre {median}%, {sector})",
+				"sectorBandSource": "Hypothèse de modélisation ; couverture empirique non établie",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
-				"manualOverride": "WACC {wacc}% — médiane manuelle/sectorielle (la constitution du CAPM ci-dessous diffère)",
+				"manualOverride": "WACC {wacc}% — donnée fournie ou hypothèse de modélisation illustrative (la construction CAPM ci-dessous diffère)",
 				"outOfBandHigh": "Au-dessus de la plage sectorielle – indicateur pour l’examinateur.",
 				"outOfBandLow": "En dessous de la plage sectorielle – indicateur pour l'évaluateur."
 			},

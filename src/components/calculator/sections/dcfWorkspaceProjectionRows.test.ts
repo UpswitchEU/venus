@@ -33,7 +33,7 @@ describe('buildDcfWorkspaceProjectionRows', () => {
       derivedProjectionPreview: [derivedRow],
     })
 
-    expect(rows).toEqual([derivedRow])
+    expect(rows[0]).toMatchObject({ revenue: 0, ebitda: 0, fcff: null })
   })
 
   it('does not let stale FCFF override a stored EBITDA bridge row', () => {

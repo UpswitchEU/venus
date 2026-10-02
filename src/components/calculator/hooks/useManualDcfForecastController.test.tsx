@@ -58,11 +58,11 @@ describe('useManualDcfForecastController', () => {
       expect(formStateRef.current.dcf_capex_pct).toBeDefined()
       expect(formStateRef.current.dcf_da_pct).toBeDefined()
       expect(formStateRef.current.dcf_nwc_pct).toBeDefined()
-      expect(formStateRef.current.dcf_tax_rate_pct).toBeDefined()
+      expect(formStateRef.current.dcf_tax_rate_pct).toBeUndefined()
     })
   })
 
-  it('repairs stale zero-margin forecast rows from the latest historical base', async () => {
+  it('keeps an explicit zero-margin forecast scenario', async () => {
     const { formStateRef } = setup({
       dcf_revenue_growth_pct: 5,
       dcf_ebitda_margin_pct: 0,
@@ -80,11 +80,11 @@ describe('useManualDcfForecastController', () => {
     })
 
     await waitFor(() => {
-      expect(formStateRef.current.dcf_ebitda_margin_pct).toBe(10)
+      expect(formStateRef.current.dcf_ebitda_margin_pct).toBe(0)
       const forecast = formStateRef.current.yearlyFinancials.find((row) => row.year === '2026')
       expect(forecast).toMatchObject({
         revenue: 1_050_000,
-        ebitda: 105_000,
+        ebitda: 0,
       })
     })
   })
@@ -120,8 +120,8 @@ describe('useManualDcfForecastController', () => {
     expect(formStateRef.current.dcf_input_mode).toBe('fcff_only')
     expect(formStateRef.current.dcf_terminal_value_method).toBe('perpetual_growth')
     const forecast = formStateRef.current.yearlyFinancials.find((row) => row.isForecast)
-    expect(forecast?.revenue).toBe(0)
-    expect(forecast?.ebitda).toBe(0)
+    expect(forecast?.revenue).toBeGreaterThan(0)
+    expect(forecast?.ebitda).toBeGreaterThan(0)
     expect(forecast?.free_cash_flow).toEqual(expect.any(Number))
   })
 })
