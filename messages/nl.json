@@ -3554,6 +3554,13 @@
 		}
 	},
 	"calculationBreakdown": {
+		"reportedEbitdaDescription": "Resultaat uit de financiële brongegevens, vóór waarderingscorrecties.",
+		"appliedMultiple": "Toegepaste multiple",
+		"appliedMultipleDescription": "De multiple van de geselecteerde berekening, indien van toepassing.",
+		"valuationResult": "Waarderingsresultaat",
+		"equityValue": "Aandeelhouderswaarde",
+		"valuationResultDescription": "Het geselecteerde resultaat op de waardebasis die in het rapport staat.",
+		"evidenceNote": "Raadpleeg het rapport voor bronnen, aannames, methodetoepasbaarheid en de brug van ondernemingswaarde naar aandeelhouderswaarde. Ontbrekende waarden worden als een streepje weergegeven.",
 		"title": "Berekeningsdetails",
 		"noCalculationAvailable": "Geen berekening beschikbaar",
 		"noCalculationDesc": "Vul de bedrijfsgegevens in en bereken de schatting om de berekeningsdetails te zien.",

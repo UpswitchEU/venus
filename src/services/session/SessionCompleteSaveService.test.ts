@@ -68,7 +68,7 @@ describe('saveCompleteValuationSession', () => {
     vi.stubGlobal('window', {})
   })
 
-  it('broadcasts a positive midpoint when the saved result has zero midpoint and asking price', async () => {
+  it('broadcasts the saved zero midpoint and asking price without synthesizing a price', async () => {
     const valuationResult = {
       valuation_id: 'val_range_restore',
       equity_value_low: 12_800_000,
@@ -95,9 +95,9 @@ describe('saveCompleteValuationSession', () => {
         reportName: 'Range BV',
         valuationResult: expect.objectContaining({
           equity_value_low: 12_800_000,
-          equity_value_mid: 15_600_000,
+          equity_value_mid: 0,
           equity_value_high: 18_400_000,
-          recommended_asking_price: 15_600_000,
+          recommended_asking_price: 0,
           confidence_score: 0.8,
           methodology: 'hybrid',
         }),

@@ -23,9 +23,8 @@ import {
   Minus,
   User,
 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useState } from 'react'
-import { formatCurrency } from '../config/countries'
 import type { ValuationVersion } from '../types/ValuationVersion'
 import { formatChangesSummary } from '../utils/versionDiffDetection'
 import {
@@ -186,6 +185,7 @@ function VersionTimelineItem({
   formatAuthor,
 }: VersionTimelineItemProps) {
   const t = useTranslations('historyPanel')
+  const locale = useLocale()
   const formatDate = (date: Date | string) => {
     try {
       const dateObj = date instanceof Date ? date : new Date(date)
@@ -213,6 +213,13 @@ function VersionTimelineItem({
   } = itemModel
 
   const countryCode = version.formData.country_code || 'BE'
+  const formatCurrency = (amount: number | null, _countryCode?: string) =>
+    amount == null || !valuationCard?.currency || !/^[A-Z]{3}$/.test(valuationCard.currency)
+      ? '—'
+      : new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency: valuationCard.currency,
+        }).format(amount)
   const changeSummaries = hasChanges
     ? formatChangesSummary(version.changesSummary, countryCode)
     : []
@@ -322,64 +329,73 @@ function VersionTimelineItem({
                         </td>
 
                         {/* Suggested Listing Price */}
-                        {valuationCard.recommendedAskingPrice > 0 && (
-                          <td className="w-1/2 align-top pl-4">
-                            <p
-                              className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
-                              style={{ color: '#94A3B8', opacity: 0.6 }}
-                            >
-                              {t('suggestedListingPrice')}
-                            </p>
-                            <div className="mb-1">
-                              <span
-                                className="text-lg font-semibold mr-2"
-                                style={{ color: '#FFFFFF' }}
+                        {valuationCard.recommendedAskingPrice != null &&
+                          valuationCard.recommendedAskingPrice > 0 && (
+                            <td className="w-1/2 align-top pl-4">
+                              <p
+                                className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3"
+                                style={{ color: '#94A3B8', opacity: 0.6 }}
                               >
-                                {formatCurrency(valuationCard.recommendedAskingPrice, countryCode)}
-                              </span>
-                              {valuationCard.premiumPercent > 0 && (
+                                {t('suggestedListingPrice')}
+                              </p>
+                              <div className="mb-1">
                                 <span
-                                  className="inline-block align-middle text-xs font-bold px-2 py-1 rounded border"
-                                  style={{
-                                    backgroundColor: 'rgba(52, 211, 153, 0.2)',
-                                    color: '#6EE7B7',
-                                    borderColor: 'rgba(52, 211, 153, 0.3)',
-                                  }}
+                                  className="text-lg font-semibold mr-2"
+                                  style={{ color: '#FFFFFF' }}
                                 >
-                                  {t('premiumLabel', {
-                                    percent: valuationCard.premiumPercent,
-                                  })}
+                                  {formatCurrency(
+                                    valuationCard.recommendedAskingPrice,
+                                    countryCode
+                                  )}
                                 </span>
-                              )}
-                            </div>
-                            <p className="text-xs" style={{ color: '#94A3B8' }}>
-                              {t('strategicBuffer')}
-                            </p>
-                          </td>
-                        )}
+                                {valuationCard.premiumPercent > 0 && (
+                                  <span
+                                    className="inline-block align-middle text-xs font-bold px-2 py-1 rounded border"
+                                    style={{
+                                      backgroundColor: 'rgba(52, 211, 153, 0.2)',
+                                      color: '#6EE7B7',
+                                      borderColor: 'rgba(52, 211, 153, 0.3)',
+                                    }}
+                                  >
+                                    {t('premiumLabel', {
+                                      percent: valuationCard.premiumPercent,
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs" style={{ color: '#94A3B8' }}>
+                                {t('strategicBuffer')}
+                              </p>
+                            </td>
+                          )}
                       </tr>
                     </tbody>
                   </table>
 
                   {/* Opinion of Value Badge */}
-                  {valuationCard.equityValueLow > 0 && valuationCard.equityValueHigh > 0 && (
-                    <div
-                      className="inline-block mt-4 px-4 py-2 rounded-md border"
-                      style={{
-                        backgroundColor: 'rgba(255,255,255,0.1)',
-                        borderColor: 'rgba(255,255,255,0.1)',
-                      }}
-                    >
-                      <p className="text-sm m-0" style={{ color: '#E2E8F0' }}>
-                        {t('opinionOfValue')}:{' '}
-                        <strong>{formatCurrency(valuationCard.equityValueLow, countryCode)}</strong>{' '}
-                        —{' '}
-                        <strong>
-                          {formatCurrency(valuationCard.equityValueHigh, countryCode)}
-                        </strong>
-                      </p>
-                    </div>
-                  )}
+                  {valuationCard.equityValueLow != null &&
+                    valuationCard.equityValueHigh != null &&
+                    valuationCard.equityValueLow <= valuationCard.equityValueMid &&
+                    valuationCard.equityValueMid <= valuationCard.equityValueHigh && (
+                      <div
+                        className="inline-block mt-4 px-4 py-2 rounded-md border"
+                        style={{
+                          backgroundColor: 'rgba(255,255,255,0.1)',
+                          borderColor: 'rgba(255,255,255,0.1)',
+                        }}
+                      >
+                        <p className="text-sm m-0" style={{ color: '#E2E8F0' }}>
+                          {t('opinionOfValue')}:{' '}
+                          <strong>
+                            {formatCurrency(valuationCard.equityValueLow, countryCode)}
+                          </strong>{' '}
+                          —{' '}
+                          <strong>
+                            {formatCurrency(valuationCard.equityValueHigh, countryCode)}
+                          </strong>
+                        </p>
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -404,9 +420,14 @@ function VersionTimelineItem({
                 <Minus className="w-4 h-4" />
               )}
               <span>
-                {formatCurrency(Math.abs(priceChange), countryCode)}(
-                {priceChangePercent > 0 ? '+' : ''}
-                {priceChangePercent.toFixed(1)}%)
+                {formatCurrency(Math.abs(priceChange), countryCode)}
+                {priceChangePercent != null && (
+                  <>
+                    {' '}
+                    ({priceChangePercent > 0 ? '+' : ''}
+                    {priceChangePercent.toFixed(1)}%)
+                  </>
+                )}
               </span>
             </div>
           )}

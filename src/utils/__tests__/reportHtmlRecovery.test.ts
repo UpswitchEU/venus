@@ -43,7 +43,7 @@ describe('reportHtmlRecovery', () => {
     ).toBe(true)
   })
 
-  it('repairs zero recovery midpoint from a positive valuation range', () => {
+  it('preserves a saved zero instead of substituting a positive range midpoint', () => {
     const session = {
       reportId: 'val_zero_mid_recovery',
       valuationResult: {
@@ -56,7 +56,35 @@ describe('reportHtmlRecovery', () => {
 
     const enriched = enrichRecoveryValuationSnapshot(session, null)
 
-    expect(enriched?.equity_value_mid).toBe(750_000)
+    expect(enriched?.equity_value_mid).toBe(0)
+  })
+
+  it('never fills a saved conclusion with an unrelated cached session range', () => {
+    const saved = { equity_value_mid: 0, currency: 'USD', equity_value_low: null }
+    const session = {
+      valuationResult: saved,
+      sessionData: { _pricingRange: { min: 100, mid: 200, max: 300, currency: 'EUR' } },
+    } as unknown as ValuationSession
+    expect(enrichRecoveryValuationSnapshot(session, null)).toBe(saved)
+  })
+
+  it('does not manufacture equity fields for a saved enterprise conclusion', () => {
+    const saved = { value: 1000, value_basis: 'enterprise_value', currency: 'EUR' }
+    const session = {
+      valuationResult: saved,
+      sessionData: { _pricingRange: { min: 100, mid: 200, max: 300, currency: 'EUR' } },
+    } as unknown as ValuationSession
+    expect(enrichRecoveryValuationSnapshot(session, null)).toBe(saved)
+    expect(sessionNeedsRenderableHtmlRecovery(session)).toBe(true)
+  })
+
+  it.each([
+    { min: true, mid: 200, max: 300, currency: 'EUR' },
+    { min: 100, mid: 400, max: 300, currency: 'EUR' },
+    { min: 100, mid: 200, max: 300 },
+  ])('does not lift an invalid legacy pricing-only snapshot %j', (range) => {
+    const session = { sessionData: { _pricingRange: range } } as unknown as ValuationSession
+    expect(enrichRecoveryValuationSnapshot(session, null)).toBeNull()
   })
 
   it('merges recovered HTML into both top-level and details fields', () => {
@@ -147,6 +175,31 @@ describe('reportHtmlRecovery', () => {
 
     expect(merged.htmlReport).toBe(recoveredHtml)
     expect(merged.reportReady).toBe(true)
+  })
+
+  it.each([
+    { equity_value_mid: 760_000 },
+    { currency: 'USD' },
+    { evidence_snapshot_hash: 'different' },
+    { selected_valuation_method: 'dcf' },
+  ])('does not attach recovered HTML to a different saved financial result %j', (changed) => {
+    const saved = {
+      equity_value_mid: 750_000,
+      currency: 'EUR',
+      evidence_snapshot_hash: 'original',
+      selected_valuation_method: 'ebitda_multiple',
+    }
+    const server = {
+      reportId: 'same-report',
+      valuationResult: saved,
+      reportReady: false,
+    } as unknown as ValuationSession
+    const client = {
+      reportId: 'same-report',
+      valuationResult: { ...saved, ...changed },
+      htmlReport: '<main>Different saved result</main>',
+    } as unknown as ValuationSession
+    expect(preserveClientRecoveredHtmlWhenServerSessionStale(server, client)).toBe(server)
   })
 
   it('clears html_report from missing restoration assets after recovery', () => {

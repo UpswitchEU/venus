@@ -120,9 +120,14 @@ export function useManualReportRefreshAfterEdit({
             ...prev,
             htmlReport: nextHtmlReport,
             valuation: presentation.valuation,
+            valueBasis: presentation.valueBasis,
             valuationLow: presentation.valuationLow,
             valuationHigh: presentation.valuationHigh,
-            ...(alignAsk ? { recommendedAskingPrice: presentation.valuation } : {}),
+            ...(presentation.valuation == null || presentation.valueBasis === 'enterprise_value'
+              ? { recommendedAskingPrice: undefined }
+              : alignAsk
+                ? { recommendedAskingPrice: presentation.valuation }
+                : {}),
             ...pdfMeta,
           }
         })

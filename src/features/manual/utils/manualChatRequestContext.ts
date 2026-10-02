@@ -1,3 +1,4 @@
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import type {
   ChatMessage,
   FieldContext,
@@ -111,15 +112,15 @@ export function buildManualChatValuationSummary(
   report: ValuationReportData | null | undefined
 ): ManualChatValuationSummary | null {
   if (!report) return null
-  const valuation = Number(report.valuation)
-  const valuationLow = Number(report.valuationLow)
-  const valuationHigh = Number(report.valuationHigh)
-  const recommendedAskingPrice = Number(report.recommendedAskingPrice)
-  const normalizedEbitda = Number(report.normalizedEbitda)
-  const reportedEbitda = Number(
+  const valuation = parseFinancialTransportNumber(report.valuation)
+  const valuationLow = parseFinancialTransportNumber(report.valuationLow)
+  const valuationHigh = parseFinancialTransportNumber(report.valuationHigh)
+  const recommendedAskingPrice = parseFinancialTransportNumber(report.recommendedAskingPrice)
+  const normalizedEbitda = parseFinancialTransportNumber(report.normalizedEbitda)
+  const reportedEbitda = parseFinancialTransportNumber(
     (report as ValuationReportData & { reportedEbitda?: number }).reportedEbitda ?? report.ebitda
   )
-  const multiple = Number(report.multiple)
+  const multiple = parseFinancialTransportNumber(report.multiple)
   const generatedAtDate = report.generatedAt ? new Date(report.generatedAt) : null
   const generatedAt =
     generatedAtDate && Number.isFinite(generatedAtDate.getTime())
@@ -127,15 +128,15 @@ export function buildManualChatValuationSummary(
       : undefined
 
   return {
-    ...(Number.isFinite(valuation) ? { valuation } : {}),
-    ...(Number.isFinite(valuationLow) ? { valuationLow } : {}),
-    ...(Number.isFinite(valuationHigh) ? { valuationHigh } : {}),
-    ...(Number.isFinite(recommendedAskingPrice) && recommendedAskingPrice > 0
+    ...(valuation != null ? { valuation } : {}),
+    ...(valuationLow != null ? { valuationLow } : {}),
+    ...(valuationHigh != null ? { valuationHigh } : {}),
+    ...(recommendedAskingPrice != null && recommendedAskingPrice > 0
       ? { recommendedAskingPrice }
       : {}),
-    ...(Number.isFinite(normalizedEbitda) ? { normalizedEbitda } : {}),
-    ...(Number.isFinite(reportedEbitda) ? { reportedEbitda } : {}),
-    ...(Number.isFinite(multiple) ? { multiple } : {}),
+    ...(normalizedEbitda != null ? { normalizedEbitda } : {}),
+    ...(reportedEbitda != null ? { reportedEbitda } : {}),
+    ...(multiple != null ? { multiple } : {}),
     ...(generatedAt ? { generatedAt } : {}),
   }
 }
