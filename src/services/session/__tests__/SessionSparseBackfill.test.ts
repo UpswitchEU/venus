@@ -87,3 +87,23 @@ describe('backfillSparseSessionFromStoreSeed', () => {
     expect(sparse.partialData.company_graph_context).toBe(companyGraphContext)
   })
 })
+
+describe('evidenced zero session restore', () => {
+  it('preserves a recorded zero current year over a stale nonzero seed', async () => {
+    const reportId = 'val_observed_zero_restore'
+    useSessionStore.setState({
+      session: session(reportId, {
+        current_year_data: { year: 2023, revenue: 1000, ebitda: 100 },
+      }),
+    })
+    const current = {
+      year: 2023,
+      revenue: 0,
+      ebitda: 0,
+      financial_observations: { revenue: 'observed' as const, ebitda: 'observed' as const },
+    }
+    const target = session(reportId, { current_year_data: current })
+    await backfillSparseSessionFromStoreSeed(reportId, target)
+    expect(target.sessionData.current_year_data).toEqual(current)
+  })
+})

@@ -18,6 +18,7 @@ import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { coerceIso2OrNull } from './coerceIso2Country'
 import { resolveCurrentYearFinancialBasis } from './currentYearFinancialBasis'
 import { convertDataResponsesToFormData } from './dataCollectionUtils'
+import { hasEvidencedFinancialValue } from './financialObservations'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from './fiscalYear'
 import { generalLogger } from './logger'
 import { compileRecoveryInputsDraft } from './negativeEbitdaRecovery'
@@ -111,10 +112,13 @@ export function buildValuationRequest(
   }
 
   // Respect an explicitly selected filing year when the accountant confirms a newer year.
-  const normalizedCurrentFiscalYear = normalizeCurrentYearForFiling(
-    formData.current_year_data?.year,
-    formData.filing_year_confirmed
-  )
+  const normalizedCurrentFiscalYear =
+    formData.current_year_data && hasEvidencedFinancialValue(formData.current_year_data)
+      ? formData.current_year_data.year
+      : normalizeCurrentYearForFiling(
+          formData.current_year_data?.year,
+          formData.filing_year_confirmed
+        )
   const normalizedHistoricalData = normalizeHistoricalYearsForFiling(
     formData.historical_years_data?.filter((y) => !isYearRowForecast(y)),
     formData.filing_year_confirmed
@@ -125,10 +129,13 @@ export function buildValuationRequest(
       normalizedCurrentYear: normalizedCurrentFiscalYear,
       normalizedHistoricalData,
     })
-  const currentFiscalYear = normalizeCurrentYearForFiling(
-    effectiveCurrentYearData?.year ?? normalizedCurrentFiscalYear,
-    formData.filing_year_confirmed
-  )
+  const currentFiscalYear =
+    effectiveCurrentYearData && hasEvidencedFinancialValue(effectiveCurrentYearData)
+      ? effectiveCurrentYearData.year
+      : normalizeCurrentYearForFiling(
+          effectiveCurrentYearData?.year ?? normalizedCurrentFiscalYear,
+          formData.filing_year_confirmed
+        )
 
   // Normalize founding year (1900-2100)
   const foundingYear = Math.min(

@@ -6,6 +6,12 @@ import {
   resolveCurrentYearFinancialBasis,
 } from '../../utils/currentYearFinancialBasis'
 import {
+  copyFinancialObservation,
+  hasEvidencedFinancialValue,
+  isEvidencedFinancialField,
+  readFinancialObservations,
+} from '../../utils/financialObservations'
+import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
@@ -16,6 +22,7 @@ import {
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
   SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
 } from '../../utils/optionalSessionPrefillKeys'
+import { OPTIONAL_YEAR_DATA_FIELDS } from '../../utils/yearData'
 import { normalizeDcfSessionFields } from './SessionDcfFieldNormalizer'
 
 type SessionRecord = Record<string, unknown>
@@ -43,7 +50,11 @@ function isPlaceholderNumeric(value: unknown): boolean {
 function hasRealRevenueOrEbitda(row: { revenue?: unknown; ebitda?: unknown }): boolean {
   const revenue = toOptionalNumeric(row.revenue)
   const ebitda = toOptionalNumeric(row.ebitda)
-  return (revenue != null && revenue !== 0) || (ebitda != null && ebitda !== 0)
+  return (
+    hasEvidencedFinancialValue(row) ||
+    (revenue != null && revenue !== 0) ||
+    (ebitda != null && ebitda !== 0)
+  )
 }
 
 function buildYearRowsFromMap(yearData: unknown): Map<number, SessionYearRow> {
@@ -81,9 +92,8 @@ function mergeYearDataIntoHistoricalRows(
         .map((year) => {
           const data = yearRowsFromMap.get(year)
           return {
+            ...data,
             year,
-            revenue: data?.revenue ?? 0,
-            ebitda: data?.ebitda ?? 0,
           }
         })
     }
@@ -112,11 +122,21 @@ function mergeYearDataIntoHistoricalRows(
         continue
       }
       const next = { ...existing }
-      if (isPlaceholderNumeric(next.revenue) && incoming.revenue != null) {
+      if (
+        !isEvidencedFinancialField(next, 'revenue') &&
+        isPlaceholderNumeric(next.revenue) &&
+        incoming.revenue != null
+      ) {
         next.revenue = incoming.revenue
+        copyFinancialObservation(next, incoming, 'revenue')
       }
-      if (isPlaceholderNumeric(next.ebitda) && incoming.ebitda != null) {
+      if (
+        !isEvidencedFinancialField(next, 'ebitda') &&
+        isPlaceholderNumeric(next.ebitda) &&
+        incoming.ebitda != null
+      ) {
         next.ebitda = incoming.ebitda
+        copyFinancialObservation(next, incoming, 'ebitda')
       }
       mergedByYear.set(year, next)
     }
@@ -155,10 +175,7 @@ function promoteLatestHistoricalRowToCurrentIfNeeded(fd: Record<string, unknown>
     | undefined
   const currentYear = Number(cyd?.year)
   const currentMissing = !cyd
-  const currentPlaceholder = !hasRealRevenueOrEbitda({
-    revenue: cyd?.revenue,
-    ebitda: cyd?.ebitda,
-  })
+  const currentPlaceholder = !hasRealRevenueOrEbitda(cyd ?? {})
   const currentIsUnconfirmedFuturePlaceholder =
     currentPlaceholder &&
     !isFilingYearConfirmedValue(fd.filing_year_confirmed) &&
@@ -168,13 +185,12 @@ function promoteLatestHistoricalRowToCurrentIfNeeded(fd: Record<string, unknown>
 
   fd.current_year_data = {
     ...(cyd && Number(cyd.year) === latest.year ? cyd : {}),
+    ...latest,
     year: latest.year,
-    revenue: latest.revenue ?? 0,
-    ebitda: latest.ebitda ?? 0,
   }
   fd.historical_years_data = historicalRows.filter((row) => row.year !== latest.year)
-  fd.revenue = latest.revenue ?? 0
-  fd.ebitda = latest.ebitda ?? 0
+  fd.revenue = latest.revenue
+  fd.ebitda = latest.ebitda
 }
 
 function removeCurrentYearFromHistoricalRows(fd: Record<string, unknown>): void {
@@ -185,7 +201,17 @@ function removeCurrentYearFromHistoricalRows(fd: Record<string, unknown>): void 
   if (!Number.isFinite(currentYear) || !hasRealRevenueOrEbitda(cyd ?? {})) return
 
   const historicalRows = readHistoricalRows(fd)
-  if (!historicalRows.some((row) => row.year === currentYear)) return
+  const sameYear = historicalRows.find((row) => row.year === currentYear)
+  if (!sameYear || !cyd) return
+  const current = cyd as Record<string, unknown>
+  for (const field of OPTIONAL_YEAR_DATA_FIELDS) {
+    if (current[field] != null) continue
+    const status = readFinancialObservations(sameYear.financial_observations)[field]
+    if (status === 'missing' || status === 'placeholder') continue
+    if (toOptionalNumeric(sameYear[field]) === undefined) continue
+    current[field] = sameYear[field]
+    copyFinancialObservation(current, sameYear, field)
+  }
   fd.historical_years_data = historicalRows.filter((row) => row.year !== currentYear)
 }
 
@@ -206,15 +232,27 @@ function normalizeFinancialRows(
     | { year?: number; revenue?: number | null; ebitda?: number | null }
     | undefined
   if (cyd) {
-    cyd.year = normalizeCurrentYearForFiling(cyd.year, fd.filing_year_confirmed)
+    if (!hasEvidencedFinancialValue(cyd)) {
+      cyd.year = normalizeCurrentYearForFiling(cyd.year, fd.filing_year_confirmed)
+    }
     if (cyd.year != null) {
       const candidate = yearRowsFromMap.get(cyd.year)
       if (candidate && hasRealRevenueOrEbitda(candidate)) {
-        if (isPlaceholderNumeric(cyd.revenue) && candidate.revenue != null) {
+        if (
+          !isEvidencedFinancialField(cyd, 'revenue') &&
+          isPlaceholderNumeric(cyd.revenue) &&
+          candidate.revenue != null
+        ) {
           cyd.revenue = candidate.revenue
+          copyFinancialObservation(cyd, candidate, 'revenue')
         }
-        if (isPlaceholderNumeric(cyd.ebitda) && candidate.ebitda != null) {
+        if (
+          !isEvidencedFinancialField(cyd, 'ebitda') &&
+          isPlaceholderNumeric(cyd.ebitda) &&
+          candidate.ebitda != null
+        ) {
           cyd.ebitda = candidate.ebitda
+          copyFinancialObservation(cyd, candidate, 'ebitda')
         }
       }
     }
@@ -494,7 +532,7 @@ export function extractFormData(sessionData: SessionRecord): Partial<ValuationRe
     }
 
     if (value !== undefined && value !== null) {
-      formDataRecord[primaryKey] = value
+      formDataRecord[primaryKey] = typeof value === 'object' ? structuredClone(value) : value
     }
   }
 

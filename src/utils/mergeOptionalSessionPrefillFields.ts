@@ -16,6 +16,7 @@ import type {
   ValuationFormData,
   YearDataInput,
 } from '../types/valuation'
+import { hasEvidencedFinancialValue, isEvidencedFinancialField } from './financialObservations'
 import { normalizeCurrentYearForFiling, normalizeHistoricalYearsForFiling } from './fiscalYear'
 import { hasUsableOfficialFinancialsContent } from './officialFinancialsContent'
 import { stripBlockedUntrustedOperatingFinancialSurface } from './officialValuationInputPolicy'
@@ -99,6 +100,7 @@ function isPlaceholderCurrentYearData(existing: unknown): boolean {
   if (existing == null) return true
   if (typeof existing !== 'object' || Array.isArray(existing)) return false
   const row = existing as Record<string, unknown>
+  if (hasEvidencedFinancialValue(row)) return false
   return !yearlyFinancialRowHasNonPlaceholderData({
     year: row.year as string | number | null | undefined,
     revenue: row.revenue as number | null | undefined,
@@ -112,12 +114,14 @@ function latestNonPlaceholderYearRow(
 ): { year: number; revenue?: number; ebitda?: number } | null {
   return (
     rows
-      .filter((row) =>
-        yearlyFinancialRowHasNonPlaceholderData({
-          year: row.year,
-          revenue: row.revenue,
-          ebitda: row.ebitda,
-        })
+      .filter(
+        (row) =>
+          hasEvidencedFinancialValue(row) ||
+          yearlyFinancialRowHasNonPlaceholderData({
+            year: row.year,
+            revenue: row.revenue,
+            ebitda: row.ebitda,
+          })
       )
       .sort((a, b) => b.year - a.year)[0] ?? null
   )
@@ -435,6 +439,7 @@ export function mergeOptionalSessionPrefillFields(
           : null
       if (yearDataCurrent) {
         out.current_year_data = {
+          ...yearDataCurrent,
           year: yearDataCurrent.year,
           revenue: yearDataCurrent.revenue ?? 0,
           ebitda: yearDataCurrent.ebitda ?? 0,
@@ -464,6 +469,7 @@ export function mergeOptionalSessionPrefillFields(
       const cur = next[key]
       if (!isEmptySlot(cur)) {
         const canBackfillZeroPlaceholder =
+          !isEvidencedFinancialField(next, key) &&
           typeof cur === 'number' &&
           cur === 0 &&
           typeof value === 'number' &&
