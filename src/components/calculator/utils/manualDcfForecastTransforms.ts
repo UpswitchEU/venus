@@ -82,7 +82,7 @@ export function applyManualDcfSuggestedCapexToBlankForecastRows({
   let changed = false
   const nextYearlyFinancials = yearlyFinancials.map((row) => {
     const capex = parseFlexibleNumber(row.capex)
-    if (row.isForecast && (capex == null || capex === 0)) {
+    if (row.isForecast && capex == null) {
       changed = true
       return { ...row, capex: suggestedCapex }
     }
@@ -124,7 +124,15 @@ export function syncManualDcfForecastRowsFromProjection({
     if (!yearlyFinancial.isForecast) return yearlyFinancial
 
     const projection = projectionByYear.get(String(yearlyFinancial.year))
-    if (!projection) return yearlyFinancial
+    if (
+      !projection ||
+      projection.revenue == null ||
+      projection.ebitda == null ||
+      projection.capex == null ||
+      projection.da == null ||
+      projection.nwcChange == null
+    )
+      return yearlyFinancial
 
     const modelSnapshot: DcfForecastModelSnapshot = {
       revenue: projection.revenue,
@@ -134,10 +142,14 @@ export function syncManualDcfForecastRowsFromProjection({
       nwc_change: projection.nwcChange,
     }
     const yearKey = String(yearlyFinancial.year)
-    const lastSnapshot = modelSnapshots[yearKey]
+    const recorded = yearlyFinancial.dcf_model_snapshot
+    const lastSnapshot =
+      recorded?.schema_version === 'dcf_forecast_inputs.v2' ? recorded : undefined
     const currentSnapshot = snapshotFromForecastRowLike(yearlyFinancial)
 
-    if (lastSnapshot && !snapshotsClose(currentSnapshot, lastSnapshot)) {
+    // Legacy/restored manual inputs have no model ownership commitment.
+    // Only an explicit autofill or a previously committed model baseline grants it.
+    if (!lastSnapshot || !snapshotsClose(currentSnapshot, lastSnapshot)) {
       return yearlyFinancial
     }
 
@@ -149,14 +161,18 @@ export function syncManualDcfForecastRowsFromProjection({
       depreciation: projection.da,
       nwc_change: projection.nwcChange,
       free_cash_flow: undefined,
+      dcf_model_snapshot: {
+        schema_version: 'dcf_forecast_inputs.v2' as const,
+        ...modelSnapshot,
+      },
     }
 
     if (
       merged.revenue !== yearlyFinancial.revenue ||
       merged.ebitda !== yearlyFinancial.ebitda ||
-      (merged.capex ?? 0) !== (yearlyFinancial.capex ?? 0) ||
-      (merged.depreciation ?? 0) !== (yearlyFinancial.depreciation ?? 0) ||
-      (merged.nwc_change ?? 0) !== (yearlyFinancial.nwc_change ?? 0)
+      merged.capex !== yearlyFinancial.capex ||
+      merged.depreciation !== yearlyFinancial.depreciation ||
+      merged.nwc_change !== yearlyFinancial.nwc_change
     ) {
       changed = true
     }
@@ -176,6 +192,8 @@ export function switchManualDcfInputMode(
   formData: ManualValuationFormData,
   mode: ManualDcfInputMode
 ): ManualValuationFormData {
+  if ((formData.dcf_input_mode ?? 'ebitda') === mode) return formData
+
   if (mode === 'fcff_only') {
     const globals = {
       daPct: numberOrDefault(formData.dcf_da_pct, DCF_DEFAULT_DA_PCT),
@@ -218,12 +236,7 @@ export function switchManualDcfInputMode(
         ).fcff
         return {
           ...row,
-          revenue: 0,
-          ebitda: 0,
-          capex: undefined,
-          depreciation: undefined,
-          nwc_change: undefined,
-          free_cash_flow: fcff,
+          free_cash_flow: fcff ?? undefined,
         }
       }),
     }
@@ -232,21 +245,5 @@ export function switchManualDcfInputMode(
   const cleared = formData.yearlyFinancials.map((row) =>
     row.isForecast ? { ...row, free_cash_flow: undefined } : row
   ) as YearlyFinancials[]
-  const projectionRows = deriveManualDcfProjectionRowsFromForm(formData, cleared)
-
-  if (projectionRows.length === 0) {
-    return {
-      ...formData,
-      dcf_input_mode: 'ebitda',
-      yearlyFinancials: cleared,
-    }
-  }
-
-  return {
-    ...formData,
-    dcf_input_mode: 'ebitda',
-    yearlyFinancials: applyDcfProjectionPreviewToForecastRows(cleared, projectionRows, {
-      mode: 'ebitda',
-    }) as YearlyFinancials[],
-  }
+  return { ...formData, dcf_input_mode: 'ebitda', yearlyFinancials: cleared }
 }
