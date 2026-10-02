@@ -204,3 +204,92 @@ describe('pdfGenerationClient', () => {
     await expect(start).rejects.not.toBeInstanceOf(PdfRequestRefusedError)
   })
 })
+
+describe('indicative V2 PDF download', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const hash = 'a'.repeat(64)
+  const savedReport = {
+    valuation_result: {
+      valuation_run: {
+        schema_version: 'valuation_run.v2',
+        run_hash: hash,
+        response_snapshot: { data_tier: 'indicative' },
+      },
+    },
+  }
+  const identity = {
+    expected_run_hash: hash,
+    expected_updated_at: '2026-10-02T06:00:00.000Z',
+    language: 'fr',
+    include_pdf: true,
+  }
+  it('loads the exact persisted identity and forwards delegated context to automatic export', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(identity))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          pdf_base64: btoa('%PDF-1.7\n'),
+          report_manifest: {
+            report_id: 'report-1',
+            valuation_run_hash: hash,
+            report_scope: 'automated_indicative',
+          },
+        })
+      )
+    vi.stubGlobal('fetch', fetcher)
+    const result = await requestPdfDownload({
+      headers,
+      reportId: 'report-1',
+      signal: new AbortController().signal,
+      savedReport,
+      language: 'fr',
+    })
+    expect(await result.text()).toBe('%PDF-1.7\n')
+    expect(fetcher.mock.calls[0]?.[0]).toBe(
+      '/api/valuations/reports/report-1/indicative-export?language=fr'
+    )
+    expect(fetcher).toHaveBeenLastCalledWith(
+      '/api/valuations/reports/report-1/indicative-export',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining(headers),
+        body: JSON.stringify(identity),
+        credentials: 'include',
+      })
+    )
+  })
+  it('refuses a different saved run before rendering or using legacy fallback', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ ...identity, expected_run_hash: 'b'.repeat(64) }))
+    vi.stubGlobal('fetch', fetcher)
+    await expect(
+      requestPdfDownload({
+        headers,
+        reportId: 'report-1',
+        signal: new AbortController().signal,
+        savedReport,
+        language: 'fr',
+      })
+    ).rejects.toThrow('Saved calculation changed')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+  it('preserves stale export refusal without legacy fallback', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(identity))
+      .mockResolvedValueOnce(jsonResponse({ message: 'revision changed' }, 409))
+    vi.stubGlobal('fetch', fetcher)
+    await expect(
+      requestPdfDownload({
+        headers,
+        reportId: 'report-1',
+        signal: new AbortController().signal,
+        savedReport,
+        language: 'fr',
+      })
+    ).rejects.toThrow('Reload before exporting')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+})

@@ -1,4 +1,9 @@
 import { APIError } from '../types/errors'
+import {
+  parseIndicativeExportRequest,
+  reportRecord,
+  savedIndicativeRun,
+} from '../utils/indicativeReportExport'
 import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import {
   buildPdfAccessErrorContext,
@@ -20,6 +25,8 @@ type PdfRequestParams = {
 
 type ReportPdfRequestParams = PdfRequestParams & {
   reportId: string
+  savedReport?: unknown
+  language?: string
 }
 
 type JobPdfRequestParams = PdfRequestParams & {
@@ -122,13 +129,63 @@ export async function requestPdfDownload({
   headers,
   reportId,
   signal,
+  savedReport,
+  language,
 }: ReportPdfRequestParams): Promise<Response> {
-  const response = await fetch(buildPdfDownloadUrl(reportId), {
-    credentials: 'include',
-    headers,
-    signal,
-    cache: 'no-store',
-  })
+  const indicative = savedIndicativeRun(savedReport)
+  let response: Response
+  if (indicative) {
+    const exportUrl = `/api/valuations/reports/${encodeURIComponent(reportId)}/indicative-export`
+    const identityResponse = await fetch(
+      `${exportUrl}?language=${encodeURIComponent(language ?? '')}`,
+      { headers, credentials: 'include', signal, cache: 'no-store' }
+    )
+    if (!identityResponse.ok) {
+      if (isPdfTransientUpstreamStatus(identityResponse.status))
+        throw new APIError('PDF download temporarily unavailable', identityResponse.status)
+      const body = reportRecord(await identityResponse.json().catch(() => null))
+      throw new Error(
+        typeof body.error === 'string'
+          ? body.error
+          : 'Saved report unavailable. Reload before exporting.'
+      )
+    }
+    const identity = parseIndicativeExportRequest(await identityResponse.json())
+    if (identity.expected_run_hash !== indicative.run_hash)
+      throw new Error('Saved calculation changed. Reload before exporting.')
+    response = await fetch(exportUrl, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(identity),
+      credentials: 'include',
+      signal,
+      cache: 'no-store',
+    })
+    if (response.ok) {
+      const body = reportRecord(await response.json())
+      const manifest = reportRecord(body.report_manifest)
+      if (
+        manifest.valuation_run_hash !== identity.expected_run_hash ||
+        manifest.report_id !== reportId ||
+        manifest.report_scope !== 'automated_indicative' ||
+        typeof body.pdf_base64 !== 'string'
+      )
+        throw new Error('Export does not match the saved report.')
+      const raw = atob(body.pdf_base64)
+      return new Response(
+        Uint8Array.from(raw, (char) => char.charCodeAt(0)),
+        { headers: { 'Content-Type': 'application/pdf' } }
+      )
+    }
+    if (response.status === 409)
+      throw new Error('Report revision changed. Reload before exporting.')
+  } else
+    response = await fetch(buildPdfDownloadUrl(reportId), {
+      credentials: 'include',
+      headers,
+      signal,
+      cache: 'no-store',
+    })
 
   if (!response.ok) {
     const errBody = await response.json().catch(() => ({}))
