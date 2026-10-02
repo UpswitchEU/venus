@@ -1,8 +1,11 @@
+import Decimal from 'decimal.js'
 import type { YearDataInput, YearlyFinancials } from '../types/valuation'
+import { hasEvidencedFinancialValue, readFinancialObservations } from './financialObservations'
 import { getCurrentFilingYear } from './fiscalYear'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 
 export interface YearlyFinancialLike {
+  financial_observations?: YearDataInput['financial_observations']
   year?: string | number | null
   revenue?: unknown
   ebitda?: unknown
@@ -37,7 +40,9 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
   historical: YearDataInput[] | null | undefined
 ): YearlyFinancials[] {
   const byYear = new Map<number, YearlyFinancials>()
-  const upsert = (yearRaw: unknown, revenue: unknown, ebitda: unknown) => {
+  const upsert = (row: YearDataInput) => {
+    const { year: yearRaw, ebitda } = row
+    const revenue = turnoverOf(row)
     // `revenue` arrives via `turnoverOf` so the panel shows the figure the
     // engine values on — see the helper below.
     const y =
@@ -51,14 +56,28 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
       year: String(y),
       revenue: parsedRevenue ?? 0,
       ebitda: parsedEbitda ?? 0,
+      ...(row.financial_observations
+        ? {
+            financial_observations: {
+              ...readFinancialObservations(row.financial_observations),
+              ...(revenue !== row.revenue
+                ? {
+                    revenue:
+                      readFinancialObservations(row.financial_observations).operating_revenue ??
+                      'unknown',
+                  }
+                : {}),
+            },
+          }
+        : {}),
     })
   }
-  if (current?.year != null) upsert(current.year, turnoverOf(current), current.ebitda)
   if (Array.isArray(historical)) {
     for (const row of historical) {
-      if (row?.year != null) upsert(row.year, turnoverOf(row), row.ebitda)
+      if (row?.year != null) upsert(row)
     }
   }
+  if (current?.year != null) upsert(current)
   return [...byYear.values()].sort((a, b) => Number(b.year) - Number(a.year))
 }
 
@@ -82,13 +101,15 @@ export function turnoverOf(row: unknown): unknown {
   const r = row as Record<string, unknown>
   const operating = parseFlexibleNumber(r.operating_revenue)
   if (operating === undefined || !Number.isFinite(operating) || operating < 0) return r.revenue
+  const status = readFinancialObservations(r.financial_observations).operating_revenue
+  if (status === 'missing' || status === 'placeholder') return r.revenue
   const gross = parseFlexibleNumber(r.revenue)
   if (gross !== undefined && Number.isFinite(gross)) {
     const financialIncome = parseFlexibleNumber(r.financial_income) ?? 0
     const extraordinaryIncome = parseFlexibleNumber(r.extraordinary_income) ?? 0
-    const impliedTurnover = gross - financialIncome - extraordinaryIncome
-    const tolerance = Math.max(1, Math.abs(operating) * 0.01)
-    if (Math.abs(impliedTurnover - operating) > tolerance) return r.revenue
+    const impliedTurnover = new Decimal(gross).minus(financialIncome).minus(extraordinaryIncome)
+    if (!impliedTurnover.toDecimalPlaces(2).equals(new Decimal(operating).toDecimalPlaces(2)))
+      return r.revenue
   }
   return operating
 }
@@ -109,7 +130,8 @@ export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T
   const ebitda = ebitE ? parseFlexibleNumber(year.ebitda) : undefined
   const fcff = fcffE ? parseFlexibleNumber(year.free_cash_flow) : undefined
 
-  const revEbitComplete = revE && ebitE && (revenue !== 0 || ebitda !== 0)
+  const revEbitComplete =
+    revE && ebitE && (revenue !== 0 || ebitda !== 0 || hasEvidencedFinancialValue(year))
   if (revEbitComplete) return true
 
   if (fcffE && fcff !== undefined) {
@@ -126,7 +148,7 @@ export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T
 export function yearlyFinancialRowHasNonPlaceholderData(
   row: YearlyFinancialLike & { isForecast?: boolean }
 ): boolean {
-  if (row.isForecast) return true
+  if (row.isForecast || hasEvidencedFinancialValue(row)) return true
   const rev = parseFlexibleNumber(row.revenue)
   const ebit = parseFlexibleNumber(row.ebitda)
   const fcff = parseFlexibleNumber(row.free_cash_flow)

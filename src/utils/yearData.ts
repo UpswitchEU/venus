@@ -1,4 +1,5 @@
 import type { YearDataInput } from '../types/valuation'
+import { readFinancialObservations } from './financialObservations'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 
 /** True when a year row is marked as forecast (camelCase UI or snake_case API). */
@@ -101,6 +102,9 @@ export function pickYearSourceMetadata(
     if (typeof value === 'string' || value === null) {
       ;(result as Record<string, unknown>)[field] = value
     }
+  }
+  if (source.financial_observations) {
+    result.financial_observations = readFinancialObservations(source.financial_observations)
   }
   if (source._source_reconciled === true) {
     result._source_reconciled = true

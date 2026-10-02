@@ -1,6 +1,7 @@
 import type { CustomAdjustment, NormalizationAdjustment } from '../types/ebitdaNormalization'
 import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest, YearDataInput } from '../types/valuation'
+import { hasEvidencedFinancialValue } from './financialObservations'
 import {
   isFilingYearConfirmedValue,
   normalizeCurrentYearForFiling,
@@ -305,7 +306,11 @@ function hasMaterialBalanceSheetEvidence(source: YearDataInput | undefined): boo
 }
 
 export function hasUsableHistoricalEvidence(source: YearDataInput): boolean {
-  return hasRealRevenueOrEbitda(source) || hasMaterialBalanceSheetEvidence(source)
+  return (
+    hasEvidencedFinancialValue(source) ||
+    hasRealRevenueOrEbitda(source) ||
+    hasMaterialBalanceSheetEvidence(source)
+  )
 }
 
 function getLatestRealHistoricalRow(rows: YearDataInput[]): YearDataInput | null {
@@ -332,10 +337,12 @@ export function resolveCurrentYearFromHistoricalBackstop(args: {
   })
   const currentMissing = !current && !topLevelHasRealFigures
   const currentPlaceholder =
+    !hasEvidencedFinancialValue(current) &&
     !hasRealRevenueOrEbitda({
       revenue: current?.revenue,
       ebitda: current?.ebitda,
-    }) && !hasMaterialBalanceSheetEvidence(current)
+    }) &&
+    !hasMaterialBalanceSheetEvidence(current)
   const canTreatCurrentAsStalePlaceholder =
     currentPlaceholder &&
     !topLevelHasRealFigures &&
