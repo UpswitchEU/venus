@@ -81,7 +81,7 @@ describe('useDcfForecastSync', () => {
       expect(forecastRows.length).toBeGreaterThan(0)
     })
 
-    it('uses historical smart margin instead of stale restored 0% margin during injection', () => {
+    it('preserves a supplied zero margin during injection', () => {
       const { formStateRef } = setup(
         {
           effectiveMethod: 'dcf',
@@ -106,7 +106,7 @@ describe('useDcfForecastSync', () => {
       expect(forecastRows[0]).toMatchObject({
         year: '2026',
         revenue: 1_050_000,
-        ebitda: 105_000,
+        ebitda: 0,
       })
     })
 

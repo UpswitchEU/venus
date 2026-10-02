@@ -81,7 +81,7 @@ describe('DcfGlobalAssumptions — smart-defaults seed effect', () => {
     expect(onFieldChange).toHaveBeenCalledWith('dcf_capex_pct', 4.4)
     expect(onFieldChange).toHaveBeenCalledWith('dcf_da_pct', 3.3)
     expect(onFieldChange).toHaveBeenCalledWith('dcf_nwc_pct', 1.2)
-    expect(onFieldChange).toHaveBeenCalledWith('dcf_tax_rate_pct', 25)
+    expect(onFieldChange.mock.calls.some(([field]) => field === 'dcf_tax_rate_pct')).toBe(false)
   })
 
   it('prefers integration overrides over smart defaults for CapEx and D&A', () => {

@@ -5,7 +5,6 @@ import {
   DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
   DCF_DEFAULT_NWC_PCT,
   DCF_DEFAULT_REVENUE_GROWTH_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
   DCF_DEFAULT_TERMINAL_GROWTH_PCT,
   DCF_DEFAULT_WACC_PCT,
 } from './dcfEngineDefaults'
@@ -109,14 +108,10 @@ function seedIfMissing(
   patch: DcfGlobalAssumptionsSeedPatch,
   current: number | undefined,
   field: DcfGlobalAssumptionsSeedField,
-  value: number | undefined,
-  options?: { treatZeroAsMissing?: boolean }
+  value: number | undefined
 ) {
   const currentParsed = toFinite(current)
-  if (
-    currentParsed !== undefined &&
-    !(options?.treatZeroAsMissing === true && currentParsed === 0 && (value ?? 0) > 0)
-  ) {
+  if (currentParsed !== undefined) {
     if (current !== currentParsed) patch[field] = currentParsed
     return
   }
@@ -178,7 +173,6 @@ export function buildDcfGlobalAssumptionsSeedPatch({
   variant,
   dcfInputMode,
   terminalValueMethod,
-  repairZeroEbitdaMarginPlaceholder,
   currentValues,
   smartDefaults,
   integrationCapexPct,
@@ -201,8 +195,7 @@ export function buildDcfGlobalAssumptionsSeedPatch({
       patch,
       currentValues.dcfEbitdaMarginPct,
       'dcf_ebitda_margin_pct',
-      pickFinite(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT),
-      { treatZeroAsMissing: repairZeroEbitdaMarginPlaceholder }
+      pickFinite(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT)
     )
     seedIfMissing(
       patch,
@@ -222,12 +215,7 @@ export function buildDcfGlobalAssumptionsSeedPatch({
       'dcf_nwc_pct',
       pickFinite(smartDefaults?.nwcPct, DCF_DEFAULT_NWC_PCT)
     )
-    seedIfMissing(
-      patch,
-      currentValues.dcfTaxRatePct,
-      'dcf_tax_rate_pct',
-      pickFinite(smartDefaults?.taxRatePct, DCF_DEFAULT_TAX_RATE_PCT)
-    )
+    seedIfMissing(patch, currentValues.dcfTaxRatePct, 'dcf_tax_rate_pct', undefined)
   }
 
   if (inDiscountBlock) {

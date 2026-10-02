@@ -5,7 +5,6 @@ import {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
   DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
 } from '../sections/dcfEngineDefaults'
 import {
   type DcfForecastModelSnapshot,
@@ -82,7 +81,7 @@ export function applyManualDcfSuggestedCapexToBlankForecastRows({
   let changed = false
   const nextYearlyFinancials = yearlyFinancials.map((row) => {
     const capex = parseFlexibleNumber(row.capex)
-    if (row.isForecast && (capex == null || capex === 0)) {
+    if (row.isForecast && capex == null) {
       changed = true
       return { ...row, capex: suggestedCapex }
     }
@@ -124,7 +123,15 @@ export function syncManualDcfForecastRowsFromProjection({
     if (!yearlyFinancial.isForecast) return yearlyFinancial
 
     const projection = projectionByYear.get(String(yearlyFinancial.year))
-    if (!projection) return yearlyFinancial
+    if (
+      !projection ||
+      projection.revenue == null ||
+      projection.ebitda == null ||
+      projection.capex == null ||
+      projection.da == null ||
+      projection.nwcChange == null
+    )
+      return yearlyFinancial
 
     const modelSnapshot: DcfForecastModelSnapshot = {
       revenue: projection.revenue,
@@ -176,12 +183,14 @@ export function switchManualDcfInputMode(
   formData: ManualValuationFormData,
   mode: ManualDcfInputMode
 ): ManualValuationFormData {
+  if ((formData.dcf_input_mode ?? 'ebitda') === mode) return formData
+
   if (mode === 'fcff_only') {
     const globals = {
       daPct: numberOrDefault(formData.dcf_da_pct, DCF_DEFAULT_DA_PCT),
       capexPct: numberOrDefault(formData.dcf_capex_pct, DCF_DEFAULT_CAPEX_PCT),
       nwcPct: numberOrDefault(formData.dcf_nwc_pct, DCF_DEFAULT_NWC_PCT),
-      taxRatePct: numberOrDefault(formData.dcf_tax_rate_pct, DCF_DEFAULT_TAX_RATE_PCT),
+      taxRatePct: parseFlexibleNumber(formData.dcf_tax_rate_pct),
     }
     const previousRevenueByYear = new Map<string, number>()
     let previousRevenue: number | undefined
@@ -218,12 +227,7 @@ export function switchManualDcfInputMode(
         ).fcff
         return {
           ...row,
-          revenue: 0,
-          ebitda: 0,
-          capex: undefined,
-          depreciation: undefined,
-          nwc_change: undefined,
-          free_cash_flow: fcff,
+          free_cash_flow: fcff ?? undefined,
         }
       }),
     }
@@ -232,21 +236,5 @@ export function switchManualDcfInputMode(
   const cleared = formData.yearlyFinancials.map((row) =>
     row.isForecast ? { ...row, free_cash_flow: undefined } : row
   ) as YearlyFinancials[]
-  const projectionRows = deriveManualDcfProjectionRowsFromForm(formData, cleared)
-
-  if (projectionRows.length === 0) {
-    return {
-      ...formData,
-      dcf_input_mode: 'ebitda',
-      yearlyFinancials: cleared,
-    }
-  }
-
-  return {
-    ...formData,
-    dcf_input_mode: 'ebitda',
-    yearlyFinancials: applyDcfProjectionPreviewToForecastRows(cleared, projectionRows, {
-      mode: 'ebitda',
-    }) as YearlyFinancials[],
-  }
+  return { ...formData, dcf_input_mode: 'ebitda', yearlyFinancials: cleared }
 }

@@ -40,7 +40,6 @@ describe('manual DCF default seeding', () => {
       dcf_capex_pct: 6.5,
       dcf_da_pct: 3.5,
       dcf_nwc_pct: 1.5,
-      dcf_tax_rate_pct: 24,
     })
   })
 
@@ -58,7 +57,7 @@ describe('manual DCF default seeding', () => {
     expect(patch.dcf_ebitda_margin_pct).toBe(17.5)
   })
 
-  it('replaces a stale restored 0% EBITDA margin with the positive historical margin', () => {
+  it('preserves a supplied zero EBITDA margin despite positive historical earnings', () => {
     const patch = buildManualDcfDefaultsPatch({
       formData: makeForm({ dcf_revenue_growth_pct: 5, dcf_ebitda_margin_pct: 0 }),
       hasForecastRows: true,
@@ -70,7 +69,7 @@ describe('manual DCF default seeding', () => {
     })
 
     expect(patch.dcf_revenue_growth_pct).toBeUndefined()
-    expect(patch.dcf_ebitda_margin_pct).toBe(10)
+    expect(patch.dcf_ebitda_margin_pct).toBeUndefined()
   })
 
   it('does not seed forecast assumptions in FCFF-only mode', () => {

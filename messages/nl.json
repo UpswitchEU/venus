@@ -1880,7 +1880,8 @@
 			"showAdvancedDrivers": "Bewerk FCFF-drivers",
 			"hideAdvancedDrivers": "Verberg FCFF-drivers",
 			"advancedDriversTitle": "Geavanceerde FCFF-drivers",
-			"advancedDriversHelp": "De meeste adviseurs kunnen deze sectorstandaarden laten staan en ze alleen aanpassen als een specifiek dossier dat vraagt.",
+			"dcfCashTaxInputHelp": "Vul een modeltarief voor de kasbelasting van dit dossier in. Zonder invoer gebruikt de waardering het toepasselijke landenbeleid; deze preview toont geen belasting of kasstroom.",
+			"advancedDriversHelp": "Dit zijn modelaannames. Stem ze af op de prognoses en het kasbelastingregime van het dossier.",
 			"advancedDriversSummary": "CapEx {capex}%, afschrijvingen {da}%, NWC-ratio {nwc}%, belasting {tax}%.",
 			"fcffOnlyForecastDefaultsNotice": "In de modus ‘Zonder EBITDA’ vul je jaarlijkse FCFF in de prognosetabel hieronder in, dus groei-, marge- en brugpercentages worden hier niet gebruikt.",
 			"dcfCapexFootnote": "CapEx zijn kasuitgaven voor investeringen. Ontbreken historische cijfers, dan kan de waarderingsmotor afschrijvingen als benadering voor onderhoudscapex gebruiken.",
@@ -2266,10 +2267,10 @@
 			"waccBreakdown": {
 				"expand": "Toon aannames",
 				"collapse": "Verberg aannames",
-				"sectorBand": "Sectorbandbreedte: {min}%–{max}% (mediaan {median}%, {sector})",
-				"sectorBandSource": "Damodaran 2026, EU SMB-cohort",
+				"sectorBand": "Illustratieve modelbandbreedte: {min}%–{max}% (midden {median}%, {sector})",
+				"sectorBandSource": "Modelaanname; empirische dekking niet vastgesteld",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
-				"manualOverride": "WACC {wacc}% — handmatig / sector mediaan (CAPM-opbouw hieronder wijkt af)",
+				"manualOverride": "WACC {wacc}% — aangeleverde of illustratieve modelaanname (CAPM-opbouw hieronder wijkt af)",
 				"outOfBandHigh": "Boven de sectorbandbreedte — laat reviewer dit aftekenen.",
 				"outOfBandLow": "Onder de sectorbandbreedte — laat reviewer dit aftekenen."
 			},

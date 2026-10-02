@@ -9,6 +9,43 @@ import { getCurrentFilingYear } from '../fiscalYear'
 import { makeFormData } from './buildValuationRequest.testUtils'
 
 describe('buildValuationRequest advisor controls and DCF contract', () => {
+  it.each([
+    'AT',
+    'BE',
+    'CH',
+    'DE',
+    'DK',
+    'EE',
+    'ES',
+    'FI',
+    'FR',
+    'GB',
+    'IE',
+    'IT',
+    'LT',
+    'LU',
+    'NL',
+    'NO',
+    'PL',
+    'PT',
+    'SE',
+    'SK',
+  ])('leaves an absent cash-tax rate to the engine policy for %s', (country_code) => {
+    const request = buildValuationRequest(
+      makeFormData({ country_code, dcf_tax_rate_pct: undefined }),
+      []
+    )
+    expect(request.country_code).toBe(country_code)
+    expect(request.business_context ?? {}).not.toHaveProperty('dcf_tax_rate_pct')
+  })
+
+  it.each([
+    0, 0.5, 1, 25.8, 100,
+  ])('forwards supplied tax percentage points %s without conversion', (dcf_tax_rate_pct) => {
+    const request = buildValuationRequest(makeFormData({ dcf_tax_rate_pct }), [])
+    expect(request.business_context).toHaveProperty('dcf_tax_rate_pct', dcf_tax_rate_pct)
+  })
+
   it('forwards direct WACC evidence and preserves unresolved completion-account nulls', () => {
     const waccEvidence = {
       schema_version: 'wacc_evidence.v1' as const,

@@ -65,9 +65,9 @@ describe('deriveDcfProjectionPreview', () => {
     expect(rows[0].nwcChange).not.toBe(15_750)
     expect(rows[4]).toMatchObject({
       year: 2030,
-      revenue: 1_276_282,
-      nwcChange: 912,
-      fcff: 75_665,
+      revenue: 1_276_281.5625,
+      nwcChange: 911.6296875,
+      fcff: 75_665.2640625,
     })
   })
 
@@ -152,7 +152,7 @@ describe('deriveDcfProjectionPreview', () => {
       { daPct: 3, capexPct: 4, nwcPct: 1.5, taxRatePct: 25, previousRevenue: 1_000_000 }
     )
     expect(row.fcff).toBe(125_000)
-    expect(row.da).toBe(0)
+    expect(row.da).toBeNull()
   })
 
   it('applyDcfProjectionPreviewToForecastRows maps FCFF-only mode to free_cash_flow', () => {
@@ -160,6 +160,7 @@ describe('deriveDcfProjectionPreview', () => {
       yearlyFinancials: [{ year: '2025', revenue: 1_000_000, ebitda: 150_000 }],
       revenueGrowthPct: 10,
       ebitdaMarginPct: 20,
+      taxRatePct: 25,
       forecastYears: [2026],
     })
     const result = applyDcfProjectionPreviewToForecastRows(
@@ -223,7 +224,7 @@ describe('deriveDcfProjectionPreview', () => {
     expect(rows[0].ebitda).toBe(220_000)
   })
 
-  it('ignores non-positive actual rows when choosing the projection base', () => {
+  it('does not rewind past a latest zero-revenue actual year', () => {
     const rows = deriveDcfProjectionPreview({
       yearlyFinancials: [
         { year: '2024', revenue: 900_000, ebitda: 90_000 },
@@ -234,10 +235,7 @@ describe('deriveDcfProjectionPreview', () => {
       forecastYears: [2025],
     })
 
-    expect(rows).toHaveLength(1)
-    expect(rows[0].year).toBe(2025)
-    expect(rows[0].revenue).toBe(990_000)
-    expect(rows[0].ebitda).toBe(198_000)
+    expect(rows).toEqual([])
   })
 
   it('accepts persisted numeric strings when deriving projections', () => {
@@ -266,10 +264,10 @@ describe('deriveDcfProjectionPreview', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0].revenue).toBe(994_500)
-    expect(rows[0].ebitda).toBe(203_873)
+    expect(rows[0].ebitda).toBe(203_872.5)
     expect(rows[0].capex).toBe(39_780)
     expect(rows[0].da).toBe(29_835)
-    expect(rows[0].nwcChange).toBe(1_418)
+    expect(rows[0].nwcChange).toBe(1_417.5)
     expect(Number.isFinite(rows[0].fcff)).toBe(true)
   })
 

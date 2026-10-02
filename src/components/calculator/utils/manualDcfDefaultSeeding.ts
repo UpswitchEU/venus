@@ -6,7 +6,6 @@ import {
   DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
   DCF_DEFAULT_NWC_PCT,
   DCF_DEFAULT_REVENUE_GROWTH_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
   DCF_DEFAULT_TERMINAL_GROWTH_PCT,
   DCF_DEFAULT_WACC_PCT,
 } from '../sections/dcfEngineDefaults'
@@ -16,11 +15,10 @@ function assignParsedOrDefault<TField extends keyof ManualValuationFormData>(
   patch: Partial<ManualValuationFormData>,
   formData: ManualValuationFormData,
   field: TField,
-  fallback: number,
-  options?: { treatZeroAsMissing?: boolean }
+  fallback: number
 ) {
   const parsed = parseFlexibleNumber(formData[field])
-  if (parsed == null || (options?.treatZeroAsMissing && parsed === 0)) {
+  if (parsed == null) {
     patch[field] = fallback as ManualValuationFormData[TField]
     return
   }
@@ -98,9 +96,7 @@ export function buildManualDcfDefaultsPatch({
       latestHistoricalEbitda,
     })
 
-  assignParsedOrDefault(patch, formData, 'dcf_ebitda_margin_pct', ebitdaMarginFallback, {
-    treatZeroAsMissing: ebitdaMarginFallback > 0,
-  })
+  assignParsedOrDefault(patch, formData, 'dcf_ebitda_margin_pct', ebitdaMarginFallback)
   assignParsedOrDefault(
     patch,
     formData,
@@ -114,12 +110,11 @@ export function buildManualDcfDefaultsPatch({
     integrationDerivedDaPct ?? smartDefaults?.daPct ?? DCF_DEFAULT_DA_PCT
   )
   assignParsedOrDefault(patch, formData, 'dcf_nwc_pct', DCF_DEFAULT_NWC_PCT)
-  assignParsedOrDefault(
-    patch,
-    formData,
-    'dcf_tax_rate_pct',
-    smartDefaults?.taxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT
-  )
+  // Tax eligibility and country policy cannot be inferred from historical earnings.
+  const suppliedTax = parseFlexibleNumber(formData.dcf_tax_rate_pct)
+  if (suppliedTax !== undefined && formData.dcf_tax_rate_pct !== suppliedTax) {
+    patch.dcf_tax_rate_pct = suppliedTax
+  }
 
   return patch
 }

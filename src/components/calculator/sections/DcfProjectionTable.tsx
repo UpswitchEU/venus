@@ -38,7 +38,7 @@ interface WaterfallRow {
   isBold?: boolean
   isHighlight?: boolean
   editable?: 'revenue' | 'ebitda' | 'capex' | 'depreciation' | 'nwc_change'
-  getValue: (proj: DcfProjectionPreviewRow, forecast: DcfForecastRow) => number
+  getValue: (proj: DcfProjectionPreviewRow, forecast: DcfForecastRow) => number | null
 }
 
 const WATERFALL_ROWS: WaterfallRow[] = [
@@ -137,7 +137,10 @@ export function DcfProjectionTable({
     [showBreakdown]
   )
 
-  const fmt = useCallback((value: number) => currency.format(value), [currency])
+  const fmt = useCallback(
+    (value: number | null) => (value == null ? '—' : currency.format(value)),
+    [currency]
+  )
 
   const sortedForecastRows = useMemo(
     () => [...forecastRows].sort((a, b) => Number(a.year) - Number(b.year)),
@@ -231,7 +234,7 @@ export function DcfProjectionTable({
                 >
                   <td
                     className={cn(
-                      'sticky left-0 z-10 whitespace-nowrap bg-background px-4 py-2.5',
+                      'sticky left-0 z-10 max-w-[180px] whitespace-normal bg-background px-3 py-2.5 sm:px-4',
                       wRow.isHighlight && 'bg-primary/[0.06]',
                       wRow.isBold ? 'font-semibold text-foreground' : 'text-foreground/70'
                     )}
@@ -275,7 +278,7 @@ export function DcfProjectionTable({
                         <td key={fRow.year} className="px-2 py-1 align-middle">
                           <div className="ml-auto flex w-full max-w-[140px] justify-end">
                             <InlineCurrencyInput
-                              value={value !== 0 ? value : undefined}
+                              value={value ?? undefined}
                               onChange={(v) => handleCellChange(fRow.year, editableField, v)}
                               allowNegative={wRow.key === 'nwcChange'}
                               ariaLabel={`${wRow.labelKey} ${fRow.year}`}
@@ -291,7 +294,7 @@ export function DcfProjectionTable({
                       <td
                         key={fRow.year}
                         className={cn(
-                          'px-4 py-2.5 text-right tabular-nums',
+                          'whitespace-nowrap px-3 py-2.5 text-right tabular-nums sm:px-4',
                           wRow.isBold ? 'font-semibold text-foreground' : 'text-foreground/80',
                           wRow.isHighlight && 'font-bold text-primary',
                           canEdit &&
