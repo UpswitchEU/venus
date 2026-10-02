@@ -129,6 +129,7 @@ describe('HistoryPanel', () => {
         report={{
           id: 'report-1',
           companyName: 'Restaurant Decan',
+          currency: 'EUR',
           valuation: 293_000,
           valuationLow: 220_000,
           valuationHigh: 367_000,
@@ -146,7 +147,7 @@ describe('HistoryPanel', () => {
     expect(screen.getAllByText('HUIDIG').length).toBeGreaterThan(0)
   })
 
-  it('uses the live report valuation when the current snapshot is zero-only metadata', async () => {
+  it('retains the saved zero result when the current live report is positive', async () => {
     useVersionHistoryStore.setState({
       activeVersions: { 'report-1': 1 },
       versions: {
@@ -160,6 +161,7 @@ describe('HistoryPanel', () => {
             isActive: true,
             formData: {},
             valuationResult: {
+              currency: 'EUR',
               equity_value_high: 0,
               equity_value_low: 0,
               equity_value_mid: 0,
@@ -175,6 +177,7 @@ describe('HistoryPanel', () => {
         report={{
           id: 'report-1',
           companyName: 'Restaurant Decan',
+          currency: 'EUR',
           valuation: 293_000,
           valuationLow: 220_000,
           valuationHigh: 367_000,
@@ -186,10 +189,8 @@ describe('HistoryPanel', () => {
     )
 
     expect(await screen.findByText('Version 1')).toBeInTheDocument()
-    expect(screen.getAllByText(/€\s*293\.000/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/€\s*220\.000/)).toBeInTheDocument()
-    expect(screen.getByText(/€\s*367\.000/)).toBeInTheDocument()
-    expect(screen.queryByText(/€\s*0\b/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/€\s*0\b/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/€\s*293\.000/)).not.toBeInTheDocument()
   })
   function setupHistory() {
     useVersionHistoryStore.setState({
@@ -204,7 +205,11 @@ describe('HistoryPanel', () => {
               versionLabel: `Version ${versionNumber}`,
               createdAt: new Date(),
               formData: {},
-              valuationResult: { equity_value_mid: versionNumber * 100000 },
+              valuationResult: {
+                currency: 'EUR',
+                value_basis: 'equity_value',
+                equity_value_mid: versionNumber * 100000,
+              },
               isActive: versionNumber === 3,
             }) as unknown as ValuationVersion
         ),

@@ -7,11 +7,12 @@
  * These types match the ValuationReportData schema from ValuationIQ.
  */
 
-import { coalesceFiniteNumber } from '../../../lib/omniPreview'
+import { parseFinancialTransportNumber } from '../../../utils/financialTransport'
 import {
   getEquityValueHigh,
   getEquityValueLow,
   getFinalValuation,
+  getFinancialValueBasis,
   getRecommendedAskingPrice,
 } from '../../../utils/valuationResultAccess'
 
@@ -127,12 +128,14 @@ export interface ValuationReportData {
   generatedAt: Date | string
 
   // Valuation results
-  valuation: number
+  valuation: number | null
   valuationLow?: number
   valuationHigh?: number
+  currency?: string
+  valueBasis?: 'equity_value' | 'enterprise_value' | null
 
   // EBITDA data (single year or weighted average)
-  ebitda: number // Sustainable EBITDA (weighted average if multi-year)
+  ebitda: number | null // Sustainable EBITDA (weighted average if multi-year)
   reportedEbitda?: number // Latest year reported (before normalization)
   latestNormalizedEbitda?: number // Latest year after normalization (for context)
   ebitdaAdjustments?: EBITDAAdjustment[]
@@ -141,7 +144,7 @@ export interface ValuationReportData {
   multiYearEbitda?: YearlyEBITDA[]
 
   // Multiple data
-  multiple: number
+  multiple: number | null
   multipleRange?: {
     low: number
     high: number
@@ -204,15 +207,21 @@ export function convertApiResponseToReportData(
 ): ValuationReportData {
   const multiples = apiResponse.multiples_valuation as Record<string, unknown> | undefined
   const currentYear = apiResponse.current_year_data as Record<string, unknown> | undefined
-  const ebitda = coalesceFiniteNumber(currentYear?.ebitda)
-  const revenueOptional =
-    currentYear?.revenue != null && Number.isFinite(Number(currentYear.revenue))
-      ? Number(currentYear.revenue)
-      : undefined
-  const ebitdaMultiple = coalesceFiniteNumber(multiples?.ebitda_multiple)
+  const ebitda = parseFinancialTransportNumber(currentYear?.ebitda) ?? null
+  const revenueOptional = parseFinancialTransportNumber(currentYear?.revenue)
+  const ebitdaMultiple = parseFinancialTransportNumber(multiples?.ebitda_multiple) ?? null
+  const valuation = getFinalValuation(apiResponse)
   const valuationLow = getEquityValueLow(apiResponse)
   const valuationHigh = getEquityValueHigh(apiResponse)
+  const coherentRange =
+    valuation != null &&
+    valuationLow != null &&
+    valuationHigh != null &&
+    valuationLow <= valuation &&
+    valuation <= valuationHigh
   const recommendedAskingPrice = getRecommendedAskingPrice(apiResponse)
+  const multipleLow = parseFinancialTransportNumber(multiples?.p25_ebitda_multiple)
+  const multipleHigh = parseFinancialTransportNumber(multiples?.p75_ebitda_multiple)
 
   return {
     id: String(apiResponse.valuation_id || apiResponse.id || ''),
@@ -223,38 +232,49 @@ export function convertApiResponseToReportData(
         ? new Date(String(apiResponse.generated_at))
         : new Date(),
 
-    valuation: getFinalValuation(apiResponse) ?? coalesceFiniteNumber(apiResponse.equity_value_mid),
-    valuationLow: valuationLow ?? undefined,
-    valuationHigh: valuationHigh ?? undefined,
+    valuation,
+    valuationLow: coherentRange ? valuationLow : undefined,
+    valuationHigh: coherentRange ? valuationHigh : undefined,
+    valueBasis: getFinancialValueBasis(apiResponse),
+    currency:
+      typeof apiResponse.currency === 'string' && /^[A-Z]{3}$/.test(apiResponse.currency)
+        ? apiResponse.currency
+        : undefined,
 
     ebitda,
-    reportedEbitda:
-      apiResponse.reported_ebitda != null ? Number(apiResponse.reported_ebitda) : undefined,
-    latestNormalizedEbitda:
-      apiResponse.latest_normalized_ebitda != null
-        ? Number(apiResponse.latest_normalized_ebitda)
-        : undefined,
+    reportedEbitda: parseFinancialTransportNumber(apiResponse.reported_ebitda),
+    latestNormalizedEbitda: parseFinancialTransportNumber(apiResponse.latest_normalized_ebitda),
     ebitdaAdjustments: Array.isArray(apiResponse.ebitda_adjustments)
-      ? apiResponse.ebitda_adjustments.map((adj: Record<string, unknown>) => ({
-          id: String(adj.id || ''),
-          label: String(adj.label || ''),
-          value: coalesceFiniteNumber(adj.value),
-          type: String(adj.type || 'add') as EBITDAAdjustment['type'],
-          category: String(adj.category || 'normalization') as EBITDAAdjustment['category'],
-          description: adj.description ? String(adj.description) : undefined,
-          source: adj.source ? (String(adj.source) as EBITDAAdjustment['source']) : undefined,
-          sourceRef: adj.source_ref ? String(adj.source_ref) : undefined,
-          status: adj.status ? (String(adj.status) as EBITDAAdjustment['status']) : undefined,
-          approvedBy: adj.approved_by ? String(adj.approved_by) : undefined,
-        }))
+      ? apiResponse.ebitda_adjustments.flatMap((adj: Record<string, unknown>) => {
+          const amount = parseFinancialTransportNumber(adj?.value)
+          if (amount === undefined) return []
+          return [
+            {
+              id: String(adj.id || ''),
+              label: String(adj.label || ''),
+              value: amount,
+              type: String(adj.type || 'add') as EBITDAAdjustment['type'],
+              category: String(adj.category || 'normalization') as EBITDAAdjustment['category'],
+              description: adj.description ? String(adj.description) : undefined,
+              source: adj.source ? (String(adj.source) as EBITDAAdjustment['source']) : undefined,
+              sourceRef: adj.source_ref ? String(adj.source_ref) : undefined,
+              status: adj.status ? (String(adj.status) as EBITDAAdjustment['status']) : undefined,
+              approvedBy: adj.approved_by ? String(adj.approved_by) : undefined,
+            },
+          ]
+        })
       : [],
 
     multiple: ebitdaMultiple,
     multipleRange:
-      multiples?.p25_ebitda_multiple != null && multiples?.p75_ebitda_multiple != null
+      multipleLow != null &&
+      multipleHigh != null &&
+      ebitdaMultiple != null &&
+      multipleLow <= ebitdaMultiple &&
+      ebitdaMultiple <= multipleHigh
         ? {
-            low: Number(multiples.p25_ebitda_multiple),
-            high: Number(multiples.p75_ebitda_multiple),
+            low: multipleLow,
+            high: multipleHigh,
           }
         : undefined,
 

@@ -9,9 +9,7 @@ function getRecordValue(value: unknown, key: string): unknown {
 }
 
 function toFiniteNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : null
+  return parseFinancialTransportNumber(value) ?? null
 }
 
 function firstFiniteNumber(...values: unknown[]): number | null {
@@ -22,19 +20,6 @@ function firstFiniteNumber(...values: unknown[]): number | null {
   return null
 }
 
-function firstPositiveFiniteNumber(...values: unknown[]): number | null {
-  for (const value of values) {
-    const numeric = toFiniteNumber(value)
-    if (numeric !== null && numeric > 0) return numeric
-  }
-  return null
-}
-
-function midpointFromPositiveRange(low: number | null, high: number | null): number | null {
-  if (low == null || high == null || low <= 0 || high <= 0) return null
-  return Math.round((low + high) / 2)
-}
-
 function valuationSummary(value: unknown): Record<string, unknown> | null {
   return asRecord(getRecordValue(value, 'valuation_summary'))
 }
@@ -43,19 +28,33 @@ function details(value: unknown): Record<string, unknown> | null {
   return asRecord(getRecordValue(value, 'details'))
 }
 
-export function getFinalValuation(value: unknown): number | null {
-  const summary = valuationSummary(value)
-  const detail = details(value)
+export function getFinancialValueBasis(value: unknown): 'equity_value' | 'enterprise_value' | null {
+  const record = asRecord(value)
+  const explicit = record?.value_basis ?? record?.valueBasis
+  if (explicit === 'equity_value' || explicit === 'enterprise_value') return explicit
+  return firstFiniteNumber(
+    record?.equity_value_mid,
+    record?.valuation_midpoint,
+    valuationSummary(value)?.final_valuation
+  ) != null
+    ? 'equity_value'
+    : null
+}
+
+export function financialResultsComparable(a: unknown, b: unknown): boolean {
+  const currency = asRecord(a)?.currency
+  const basis = getFinancialValueBasis(a)
   return (
-    firstPositiveFiniteNumber(
-      summary?.final_valuation,
-      getRecordValue(value, 'value'),
-      getRecordValue(value, 'equity_value_mid'),
-      getRecordValue(value, 'valuation_midpoint'),
-      detail?.valuation_midpoint,
-      detail?.equity_value_mid
-    ) ?? midpointFromPositiveRange(getEquityValueLow(value), getEquityValueHigh(value))
+    typeof currency === 'string' &&
+    /^[A-Z]{3}$/.test(currency) &&
+    currency === asRecord(b)?.currency &&
+    basis != null &&
+    basis === getFinancialValueBasis(b)
   )
+}
+
+export function getFinalValuation(value: unknown): number | null {
+  return getRawFinalValuation(value)
 }
 
 export function getRawFinalValuation(value: unknown): number | null {
@@ -72,6 +71,7 @@ export function getRawFinalValuation(value: unknown): number | null {
 }
 
 export function getEquityValueLow(value: unknown): number | null {
+  if (getFinancialValueBasis(value) === 'enterprise_value') return null
   const summary = valuationSummary(value)
   const detail = details(value)
   return firstFiniteNumber(
@@ -84,15 +84,12 @@ export function getEquityValueLow(value: unknown): number | null {
 }
 
 export function getEquityValueMid(value: unknown): number | null {
-  return (
-    firstPositiveFiniteNumber(
-      getRecordValue(value, 'equity_value_mid'),
-      getRawFinalValuation(value)
-    ) ?? getFinalValuation(value)
-  )
+  if (getFinancialValueBasis(value) === 'enterprise_value') return null
+  return firstFiniteNumber(getRecordValue(value, 'equity_value_mid'), getRawFinalValuation(value))
 }
 
 export function getEquityValueHigh(value: unknown): number | null {
+  if (getFinancialValueBasis(value) === 'enterprise_value') return null
   const summary = valuationSummary(value)
   const detail = details(value)
   return firstFiniteNumber(
@@ -105,11 +102,13 @@ export function getEquityValueHigh(value: unknown): number | null {
 }
 
 export function getRecommendedAskingPrice(value: unknown): number | null {
+  if (getFinancialValueBasis(value) === 'enterprise_value') return null
   const summary = valuationSummary(value)
-  return firstPositiveFiniteNumber(
+  const amount = firstFiniteNumber(
     getRecordValue(value, 'recommended_asking_price'),
     summary?.recommended_asking_price
   )
+  return amount != null && amount >= 0 ? amount : null
 }
 
 export function getBaseValuation(value: unknown): number | null {
@@ -139,3 +138,5 @@ export function getValuationMultiple(value: unknown): number | null {
     detail?.revenue_multiple
   )
 }
+
+import { parseFinancialTransportNumber } from './financialTransport'

@@ -1,3 +1,5 @@
+import { parseFinancialTransportNumber } from './financialTransport'
+
 export type UnknownRecord = Record<string, unknown>
 
 export function isRecord(value: unknown): value is UnknownRecord {
@@ -16,9 +18,7 @@ export function nestedRecord(
 }
 
 export function toFiniteNumber(value: unknown): number | null {
-  if (value == null || value === '') return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
+  return parseFinancialTransportNumber(value) ?? null
 }
 
 export function toPositiveFiniteNumber(value: unknown): number | null {

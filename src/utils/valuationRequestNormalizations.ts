@@ -9,9 +9,10 @@ import {
   type NormYearEntry,
   toFiniteNumber,
 } from './buildValuationRequest.helpers'
+import { FinancialDecimal as Decimal } from './financialDecimal'
 import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { generalLogger } from './logger'
-import { getNormalizationAmountForBase } from './normalizationMath'
+import { getNormalizationAmountForBase, getNormalizationTargetYears } from './normalizationMath'
 
 export interface BuildValuationRequestNormalizationsParams {
   rawNormalizationItems: readonly NormalizationItem[]
@@ -91,7 +92,7 @@ export function buildCanonicalNormalizationDecisions({
       category: item.category,
       label: item.label || item.category,
       original_value: reportedEbitda,
-      adjusted_value: reportedEbitda + item.amount,
+      adjusted_value: new Decimal(reportedEbitda).plus(item.amount).toNumber(),
       adjustment_amount: item.amount,
       reason: item.note || item.label || item.category,
       source: item.source,
@@ -169,11 +170,7 @@ export function buildValuationRequestNormalizations({
   }
 
   for (const n of acceptedNorms) {
-    const yearsToApply: number[] = n.applyAllYears
-      ? allDataYears
-      : n.applyYears && n.applyYears.length > 0
-        ? n.applyYears
-        : [n.year]
+    const yearsToApply = getNormalizationTargetYears(n, allDataYears)
     const validYearsToApply = yearsToApply.filter((y) => allDataYearsSet.has(y))
     if (validYearsToApply.length === 0 && yearsToApply.length > 0) {
       orphanItems.push({
@@ -200,7 +197,7 @@ export function buildValuationRequestNormalizations({
       )
       const ruleVersion =
         n.ruleVersion ?? (n.reviewedAt ? VENUS_NORMALIZATION_REVIEW_POLICY_VERSION : undefined)
-      yearEntry.totalAdjustment += amount
+      yearEntry.totalAdjustment = new Decimal(yearEntry.totalAdjustment).plus(amount).toNumber()
       yearEntry.count++
       if (n.confidence === 'high') yearEntry.confidence = 'high'
       if (n.source === 'manual') yearEntry.hasCustomAdjustments = true
@@ -226,11 +223,7 @@ export function buildValuationRequestNormalizations({
   // engine reads the explicit status, keeps these rows in the audit ledger and
   // excludes them from normalized EBITDA until a reviewer accepts them.
   for (const n of unpricedNorms) {
-    const yearsToApply: number[] = n.applyAllYears
-      ? allDataYears
-      : n.applyYears && n.applyYears.length > 0
-        ? n.applyYears
-        : [n.year]
+    const yearsToApply = getNormalizationTargetYears(n, allDataYears)
     for (const y of yearsToApply.filter((year) => allDataYearsSet.has(year))) {
       const rawYearEbitda = yearEbitdaMap[y] ?? 0
       const yearEbitda = Number.isFinite(rawYearEbitda) ? rawYearEbitda : 0
@@ -292,7 +285,9 @@ export function buildValuationRequestNormalizations({
   const legacyOrphanYears: Array<{ year: number; totalAdjustment: number }> = []
   for (const [yearKey, legacy] of Object.entries(legacyNormalizations)) {
     const year = Number(yearKey)
-    if (!Number.isFinite(year) || (normByYear[year]?.count ?? 0) > 0) continue
+    // Unified decisions supersede the legacy mirror even when the advisor has
+    // rejected every item or left them pending; otherwise old addbacks reappear.
+    if (!Number.isFinite(year) || normByYear[year]) continue
 
     const adjustmentCount =
       (legacy.adjustments?.length || 0) + (legacy.custom_adjustments?.length || 0)

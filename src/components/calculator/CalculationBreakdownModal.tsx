@@ -19,9 +19,12 @@ export interface CalculationBreakdownModalProps {
   onOpenChange: (open: boolean) => void
   report?: {
     companyName: string
-    valuation: number
-    ebitda: number
-    multiple: number
+    currency?: string | null
+    valuation: number | null
+    ebitda: number | null
+    normalizedEbitda?: number
+    valueBasis?: 'enterprise_value' | 'equity_value' | null
+    multiple: number | null
   } | null
 }
 
@@ -32,34 +35,40 @@ export function CalculationBreakdownModal({
 }: CalculationBreakdownModalProps) {
   const t = useTranslations('calculationBreakdown')
   const locale = useLocale()
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-GB', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+  const formatCurrency = (amount: number | null) =>
+    amount == null || !report?.currency
+      ? '—'
+      : new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-GB', {
+          style: 'currency',
+          currency: report.currency,
+        }).format(amount)
 
   if (!report) return null
 
   const steps = [
     {
       icon: Calculator,
-      label: t('stepEbitda'),
-      value: formatCurrency(report.ebitda),
-      description: t('stepEbitdaDesc'),
+      label: report.normalizedEbitda == null ? t('reportedEbitda') : t('stepEbitda'),
+      value: formatCurrency(report.normalizedEbitda ?? report.ebitda),
+      description:
+        report.normalizedEbitda == null ? t('reportedEbitdaDescription') : t('stepEbitdaDesc'),
     },
     {
       icon: TrendingUp,
-      label: t('stepMultiple'),
-      value: `${report.multiple.toFixed(1)}×`,
-      description: t('stepMultipleDesc'),
+      label: t('appliedMultiple'),
+      value: report.multiple == null ? '—' : `${report.multiple.toFixed(1)}×`,
+      description: t('appliedMultipleDescription'),
     },
     {
       icon: Scale,
-      label: t('stepValue'),
+      label:
+        report.valueBasis === 'enterprise_value'
+          ? t('enterpriseValue')
+          : report.valueBasis === 'equity_value'
+            ? t('equityValue')
+            : t('valuationResult'),
       value: formatCurrency(report.valuation),
-      description: t('stepValueDesc'),
+      description: t('valuationResultDescription'),
       highlight: true,
     },
   ]
@@ -123,15 +132,7 @@ export function CalculationBreakdownModal({
             ))}
           </div>
 
-          <div className="px-4 py-3 rounded-lg bg-muted/50 border border-foreground/[0.06]">
-            <p className="text-xs text-foreground/50 mb-2">{t('formula')}</p>
-            <code className="text-sm font-mono text-foreground">
-              {formatCurrency(report.ebitda)} × {report.multiple.toFixed(1)} ={' '}
-              {formatCurrency(report.valuation)}
-            </code>
-          </div>
-
-          <p className="text-xs text-foreground/40 px-1">{t('multipleNote')}</p>
+          <p className="text-xs text-foreground/40 px-1">{t('evidenceNote')}</p>
         </div>
 
         <div className="flex justify-end pt-2 border-t border-foreground/[0.06]">

@@ -16,6 +16,7 @@ import {
   appliesToYear,
   getNormalizationAmountForBase,
   normalizationItemTouchesYear,
+  summarizeAcceptedNormalizations,
 } from '../utils/normalizationMath'
 
 type SessionWithNormalizations = {
@@ -208,7 +209,7 @@ export function computeNormalizedEbitda(
 ): number {
   const base = Number(originalEbitda)
   const safeBase = Number.isFinite(base) ? base : 0
-  return safeBase + sumNormalizationAdjustments(selectAcceptedNormalizations(items))
+  return summarizeAcceptedNormalizations(items, safeBase).normalized
 }
 
 export function extractSessionNormalizationItems(sessionData: unknown): NormalizationItem[] {

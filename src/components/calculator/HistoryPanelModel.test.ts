@@ -131,7 +131,7 @@ describe('HistoryPanelModel', () => {
     expect(history.find((item) => item.id === 'version-3')?.isCurrent).toBe(false)
   })
 
-  it('falls back to live report metrics only for the current zero-only snapshot', () => {
+  it('retains saved zero results instead of overlaying the current live report', () => {
     const history = buildHistoryVersions({
       activeVersionNumber: 2,
       report: {
@@ -168,20 +168,20 @@ describe('HistoryPanelModel', () => {
 
     expect(history.find((item) => item.id === 'version-2')).toEqual(
       expect.objectContaining({
-        ebitda: 70_000,
-        multiple: 4.19,
-        valuation: 293_000,
-        valuationHigh: 367_000,
-        valuationLow: 220_000,
+        ebitda: undefined,
+        multiple: undefined,
+        valuation: 0,
+        valuationHigh: 0,
+        valuationLow: 0,
       })
     )
     expect(history.find((item) => item.id === 'version-1')).toEqual(
       expect.objectContaining({
         ebitda: undefined,
         multiple: undefined,
-        valuation: undefined,
-        valuationHigh: undefined,
-        valuationLow: undefined,
+        valuation: 0,
+        valuationHigh: 0,
+        valuationLow: 0,
       })
     )
   })

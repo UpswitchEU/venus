@@ -4,6 +4,7 @@ import type { ValuationVersion } from '../types/ValuationVersion'
 import { VersionTimeline } from './VersionTimeline'
 
 vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
   useTranslations: () => (key: string, values?: Record<string, number>) => {
     const translations: Record<string, string> = {
       invalidDate: 'Invalid date',
@@ -56,7 +57,7 @@ describe('VersionTimeline', () => {
     expect(screen.getByText('Version 1').closest('[aria-current="step"]')).not.toBeInTheDocument()
   })
 
-  it('does not render a fake zero valuation card for zero-only snapshots', () => {
+  it('renders an observed zero valuation without replacing it with a positive snapshot', () => {
     render(
       <VersionTimeline
         activeVersion={2}
@@ -67,6 +68,7 @@ describe('VersionTimeline', () => {
             versionLabel: 'Version 2',
             versionNumber: 2,
             valuationResult: {
+              currency: 'EUR',
               equity_value_high: 0,
               equity_value_low: 0,
               equity_value_mid: 0,
@@ -79,6 +81,7 @@ describe('VersionTimeline', () => {
             versionLabel: 'Version 1',
             versionNumber: 1,
             valuationResult: {
+              currency: 'EUR',
               equity_value_high: 480_000,
               equity_value_low: 320_000,
               equity_value_mid: 400_000,
@@ -92,7 +95,7 @@ describe('VersionTimeline', () => {
 
     expect(screen.getByText('Version 2')).toBeInTheDocument()
     expect(screen.getByText('Version 1')).toBeInTheDocument()
-    expect(screen.getByText(/€\s*400\.000/)).toBeInTheDocument()
-    expect(screen.queryByText(/€\s*0\b/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/€\s*400,000/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('€0.00').length).toBeGreaterThan(0)
   })
 })

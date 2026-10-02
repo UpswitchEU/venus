@@ -112,11 +112,11 @@ export function CalculatorNav({
   const activeVersionId = activeVersion?.id
   const rawDisplaySummary =
     valuationSummary ||
-    (activeVersion
+    (activeVersion?.priceRange && activeVersion.askPrice != null
       ? {
           priceRange: activeVersion.priceRange,
           askPrice: activeVersion.askPrice,
-          confidence: 'high' as const,
+          currency: activeVersion.currency,
         }
       : null)
   const displaySummary = normalizeCalculatorNavDisplaySummary(rawDisplaySummary)
@@ -431,7 +431,7 @@ export function CalculatorNav({
                 >
                   <span className={confidenceDotClassName(displaySummary.confidence)} aria-hidden />
                   <span className="min-w-0 truncate font-mono text-[11px] font-semibold tracking-normal">
-                    {formatPrice(displaySummary.askPrice)}
+                    {formatPrice(displaySummary.askPrice, displaySummary.currency)}
                   </span>
                   <ArrowRight className="w-3 h-3 shrink-0" />
                 </motion.button>

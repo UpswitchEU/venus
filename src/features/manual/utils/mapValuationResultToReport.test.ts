@@ -20,6 +20,7 @@ function makeResult(partial: Partial<ValuationResponse> = {}): ValuationResponse
   return {
     valuation_id: 'val_xyz',
     company_name: 'Test BV',
+    currency: 'EUR',
     current_year_data: { revenue: 2_000_000, ebitda: 400_000 },
     ...partial,
   } as ValuationResponse
@@ -206,7 +207,7 @@ describe('mapValuationResultToReport', () => {
       expect(report.recommendedAskingPrice).toBe(400_000)
     })
 
-    it('sets recommendedAskingPrice to synthesis headline when weighted_valuation is present', () => {
+    it('preserves the engine asking price separately from the weighted valuation headline', () => {
       const report = mapValuationResultToReport({
         result: {
           recommended_asking_price: 384_000,
@@ -222,10 +223,10 @@ describe('mapValuationResultToReport', () => {
       })
 
       expect(report.valuation).toBe(567_771)
-      expect(report.recommendedAskingPrice).toBe(567_771)
+      expect(report.recommendedAskingPrice).toBe(384_000)
     })
 
-    it('ignores zero recommended_asking_price when the presentation has a positive range', () => {
+    it('does not manufacture a point or asking price from a range', () => {
       const report = mapValuationResultToReport({
         result: {
           recommended_asking_price: 0,
@@ -246,8 +247,8 @@ describe('mapValuationResultToReport', () => {
         tReport: translate,
       })
 
-      expect(report.valuation).toBe(15_600_000)
-      expect(report.recommendedAskingPrice).toBe(15_600_000)
+      expect(report.valuation).toBeNull()
+      expect(report.recommendedAskingPrice).toBeUndefined()
     })
 
     it('uses presentation.multipleRange when present (via deriveManualReportPresentation)', () => {
@@ -355,7 +356,7 @@ describe('mapValuationResultToReport', () => {
       expect(report.confidenceLevel).toBe('high')
     })
 
-    it('falls back to "medium" when overall_confidence is missing', () => {
+    it('leaves confidence absent when it has not been assessed', () => {
       const report = mapValuationResultToReport({
         result: makeResult(),
         selectedMethod: 'dcf',
@@ -363,7 +364,7 @@ describe('mapValuationResultToReport', () => {
         canDownloadPdf: true,
         tReport: translate,
       })
-      expect(report.confidenceLevel).toBe('medium')
+      expect(report.confidenceLevel).toBeUndefined()
     })
   })
 

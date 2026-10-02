@@ -7,6 +7,7 @@ import { AuroraButton, Modal, ModalContent, ModalHeader, ModalTitle } from '@/de
 import { cn } from '@/design-system/utils'
 import { currencyLocaleFor, formatHistoryCurrency, type HistoryLocale } from './HistoryPanelModel'
 import {
+  financialVersionsComparable,
   formatComparisonRange,
   metricChange,
   percentageChange,
@@ -22,6 +23,8 @@ export interface VersionChange {
 }
 
 export interface HistoryVersion {
+  currency?: string | null
+  valueBasis?: 'equity_value' | 'enterprise_value' | null
   id: string
   version: number
   timestamp: Date
@@ -153,21 +156,33 @@ function VersionCard({
         <MetricRow
           label={t('valuation')}
           value={version.valuation}
-          change={metricChange(comparison?.valuation, version.valuation)}
+          change={
+            financialVersionsComparable(comparison ?? undefined, version)
+              ? metricChange(comparison?.valuation, version.valuation)
+              : null
+          }
           format={formatCurrency}
           unavailable={unavailable}
         />
         <MetricRow
           label={t('ebitda')}
           value={version.ebitda}
-          change={metricChange(comparison?.ebitda, version.ebitda)}
+          change={
+            financialVersionsComparable(comparison ?? undefined, version)
+              ? metricChange(comparison?.ebitda, version.ebitda)
+              : null
+          }
           format={formatCurrency}
           unavailable={unavailable}
         />
         <MetricRow
           label={t('multiple')}
           value={version.multiple}
-          change={metricChange(comparison?.multiple, version.multiple)}
+          change={
+            financialVersionsComparable(comparison ?? undefined, version)
+              ? metricChange(comparison?.multiple, version.multiple)
+              : null
+          }
           format={formatMultiple}
           unavailable={unavailable}
         />
@@ -252,7 +267,10 @@ export function VersionCompareModal({
   const hp = useTranslations('historyPanel')
   const rawLocale = useLocale()
   const locale: HistoryLocale = rawLocale === 'fr' ? 'fr' : rawLocale === 'nl' ? 'nl' : 'en'
-  const formatCurrency = (amount: number) => formatHistoryCurrency(amount, locale)
+  const formatCurrency = (amount: number) =>
+    formatHistoryCurrency(amount, locale, versionB?.currency)
+  const formatCurrencyA = (amount: number) =>
+    formatHistoryCurrency(amount, locale, versionA?.currency)
   const formatDecimal = (value: number, digits: number) =>
     new Intl.NumberFormat(locale === 'en' ? 'en-GB' : currencyLocaleFor(locale), {
       minimumFractionDigits: digits,
@@ -272,8 +290,9 @@ export function VersionCompareModal({
   if (!versionA || !versionB) return null
 
   // Respect selection order so swapping reverses both the comparison and restore target.
-  const valuationChange = metricChange(versionA.valuation, versionB.valuation)
-  const percentChange = percentageChange(versionA.valuation, versionB.valuation)
+  const comparable = financialVersionsComparable(versionA, versionB)
+  const valuationChange = comparable ? metricChange(versionA.valuation, versionB.valuation) : null
+  const percentChange = comparable ? percentageChange(versionA.valuation, versionB.valuation) : null
   const aIsOlder = versionA.version < versionB.version
   const unavailable = t('unavailable')
   const formatted = (value: number | undefined, format: (n: number) => string) =>
@@ -281,12 +300,12 @@ export function VersionCompareModal({
   const comparisonRows = [
     {
       key: 'valuation',
-      valueA: formatted(versionA.valuation, formatCurrency),
+      valueA: formatted(versionA.valuation, formatCurrencyA),
       valueB: formatted(versionB.valuation, formatCurrency),
     },
     {
       key: 'ebitda',
-      valueA: formatted(versionA.ebitda, formatCurrency),
+      valueA: formatted(versionA.ebitda, formatCurrencyA),
       valueB: formatted(versionB.ebitda, formatCurrency),
     },
     {
@@ -296,7 +315,7 @@ export function VersionCompareModal({
     },
     {
       key: 'bandwidth',
-      valueA: formatComparisonRange(versionA.valuationLow, versionA.valuationHigh, formatCurrency),
+      valueA: formatComparisonRange(versionA.valuationLow, versionA.valuationHigh, formatCurrencyA),
       valueB: formatComparisonRange(versionB.valuationLow, versionB.valuationHigh, formatCurrency),
     },
   ]
@@ -354,7 +373,7 @@ export function VersionCompareModal({
             <VersionCard
               version={versionA}
               label={t(aIsOlder ? 'older' : 'newer')}
-              formatCurrency={formatCurrency}
+              formatCurrency={formatCurrencyA}
               formatMultiple={formatMultiple}
               formatTime={formatTime}
               t={t}

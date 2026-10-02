@@ -3,6 +3,7 @@ import type {
   ValuationReportData,
 } from '@/components/calculator'
 import type { ValuationVersion } from '@/types/ValuationVersion'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import {
   deriveNavPricesForVersionNav,
   type NavVersionPrices,
@@ -23,51 +24,49 @@ export interface BuildManualVersionHistoryForNavParams {
 }
 
 function finiteNumber(value: unknown): number | null {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : null
+  return parseFinancialTransportNumber(value) ?? null
 }
 
-function hasUsableNavPrices(prices: NavVersionPrices): boolean {
-  return prices.askPrice > 0 || prices.priceRange.min > 0 || prices.priceRange.max > 0
-}
-
-function midpointFromRange(min: number | null, max: number | null): number | null {
-  if (min == null || max == null || min <= 0 || max <= 0) return null
-  return Math.round((min + max) / 2)
+function hasUsableNavPrices(prices: NavVersionPrices | null): boolean {
+  return prices != null
 }
 
 function pricesFromCurrentSummary(
   summary: CurrentValuationSummary | undefined,
   report: ValuationReportData | null
 ): NavVersionPrices | null {
+  if (report?.valueBasis === 'enterprise_value') return null
   if (summary) {
     const askPrice = finiteNumber(summary.askPrice)
     const min = finiteNumber(summary.priceRange?.min)
     const max = finiteNumber(summary.priceRange?.max)
-    if (askPrice != null && min != null && max != null) {
-      const fallbackAsk = midpointFromRange(min, max)
+    const valuation = finiteNumber(report?.valuation)
+    if (askPrice != null && askPrice >= 0) {
       return {
-        askPrice: askPrice > 0 ? askPrice : (fallbackAsk ?? askPrice),
-        priceRange: { min, max },
+        askPrice,
+        priceRange:
+          valuation != null && min != null && max != null && min <= valuation && valuation <= max
+            ? { min, max }
+            : undefined,
       }
     }
   }
 
   if (!report) return null
 
-  const valuation = finiteNumber(report.valuation) ?? 0
-  const min = finiteNumber(report.valuationLow) ?? valuation
-  const max = finiteNumber(report.valuationHigh) ?? valuation
+  const valuation = finiteNumber(report.valuation)
+  if (valuation == null) return null
+  const min = finiteNumber(report.valuationLow)
+  const max = finiteNumber(report.valuationHigh)
   const recommendedAskingPrice = finiteNumber(report.recommendedAskingPrice)
   const askPrice =
-    recommendedAskingPrice != null && recommendedAskingPrice > 0
+    recommendedAskingPrice != null && recommendedAskingPrice >= 0
       ? recommendedAskingPrice
-      : valuation > 0
-        ? valuation
-        : (midpointFromRange(min, max) ?? valuation)
+      : undefined
   return {
     askPrice,
-    priceRange: { min, max },
+    priceRange:
+      min != null && max != null && min <= valuation && valuation <= max ? { min, max } : undefined,
   }
 }
 
@@ -86,12 +85,11 @@ export function buildManualVersionHistoryForNav({
     return [
       {
         id: 'current',
+        currency: report.currency,
         label: currentVersionLabel,
-        priceRange: currentPrices?.priceRange ?? {
-          min: report.valuationLow ?? report.valuation,
-          max: report.valuationHigh ?? report.valuation,
-        },
-        askPrice: currentPrices?.askPrice ?? report.recommendedAskingPrice ?? report.valuation,
+        priceRange: currentPrices?.priceRange,
+        askPrice: currentPrices?.askPrice,
+        ...(!currentPrices ? { pricesPending: true } : {}),
         timestamp: report.generatedAt,
         isActive: true,
       },
@@ -110,17 +108,16 @@ export function buildManualVersionHistoryForNav({
         ? version.versionNumber === activeNumber
         : version.isActive || (versions.length === 1 && index === 0)
     const prices =
-      isCurrentVersion &&
-      currentPrices &&
-      (!version.valuationResult || !hasUsableNavPrices(versionPrices))
+      isCurrentVersion && currentPrices && (!version.valuationResult || version.isSummary)
         ? currentPrices
         : versionPrices
 
     return {
       id: version.id,
+      currency: version.valuationResult?.currency ?? (isCurrentVersion ? report?.currency : null),
       label: version.versionLabel,
-      priceRange: prices.priceRange,
-      askPrice: prices.askPrice,
+      priceRange: prices?.priceRange,
+      askPrice: prices?.askPrice,
       timestamp: version.createdAt,
       isActive: isCurrentVersion,
       ...(!hasUsableNavPrices(prices) && (!version.valuationResult || version.isSummary)

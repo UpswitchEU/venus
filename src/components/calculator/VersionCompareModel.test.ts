@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { formatHistoryCurrency } from './HistoryPanelModel'
-import { formatComparisonRange, metricChange, percentageChange } from './VersionCompareModel'
+import {
+  financialVersionsComparable,
+  formatComparisonRange,
+  metricChange,
+  percentageChange,
+} from './VersionCompareModel'
 
 describe('version comparison values', () => {
   it('compares zero and negative values without treating them as absent', () => {
@@ -33,11 +38,26 @@ describe('version comparison values', () => {
     expect(formatComparisonRange(0, 200, euro)).toBe('EUR 0 – EUR 200')
   })
   it('uses exact localized currency consistently for positive, negative and zero values', () => {
-    expect(formatHistoryCurrency(1_250_000, 'en')).toBe('€1,250,000')
-    expect(formatHistoryCurrency(1_250_000, 'nl')).toBe('€\u00a01.250.000')
-    expect(formatHistoryCurrency(1_250_000, 'fr')).toBe('1\u202f250\u202f000\u00a0€')
-    expect(formatHistoryCurrency(-1_250_000, 'nl')).toBe('€\u00a0-1.250.000')
-    expect(formatHistoryCurrency(0, 'en')).toBe('€0')
+    expect(formatHistoryCurrency(1_250_000, 'en', 'EUR')).toBe('€1,250,000.00')
+    expect(formatHistoryCurrency(1_250_000, 'nl', 'EUR')).toBe('€\u00a01.250.000,00')
+    expect(formatHistoryCurrency(1_250_000, 'fr', 'EUR')).toBe('1\u202f250\u202f000,00\u00a0€')
+    expect(formatHistoryCurrency(-1_250_000, 'nl', 'EUR')).toBe('€\u00a0-1.250.000,00')
+    expect(formatHistoryCurrency(0, 'en', 'EUR')).toBe('€0.00')
     expect(formatHistoryCurrency(Number.NaN, 'en')).toBe('—')
+  })
+  it('keeps unknown currency unknown and renders the supplied native currency precision', () => {
+    expect(formatHistoryCurrency(1.25, 'en')).toBe('—')
+    expect(formatHistoryCurrency(1.25, 'en', 'GBP')).toBe('£1.25')
+    expect(formatHistoryCurrency(123, 'en', 'JPY')).toContain('123')
+    expect(formatHistoryCurrency(123, 'en', 'JPY')).not.toContain('.00')
+  })
+  it('allows financial comparisons only in the same known currency and value basis', () => {
+    const equity = { currency: 'EUR', valueBasis: 'equity_value' }
+    expect(financialVersionsComparable(equity, equity)).toBe(true)
+    expect(financialVersionsComparable(equity, { ...equity, currency: 'GBP' })).toBe(false)
+    expect(financialVersionsComparable(equity, { ...equity, valueBasis: 'enterprise_value' })).toBe(
+      false
+    )
+    expect(financialVersionsComparable({}, {})).toBe(false)
   })
 })
