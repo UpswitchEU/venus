@@ -1,4 +1,4 @@
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Switch } from '../../design-system/components/Switch'
 import { trackOwnerProfilingCapBindRendered } from '../../lib/analytics'
@@ -9,6 +9,7 @@ import type { ValuationResponse } from '../../types/valuation'
 import { extractEvEquityWaterfallSteps } from '../../utils/extractEvEquityWaterfallSteps'
 import { generalLogger } from '../../utils/logger'
 import { deriveOwnerProfilingState } from '../../utils/ownerProfiling/coverChip'
+import { savedPartialAssessment } from '../../utils/partialReportExport'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 import { ErrorState } from '../ErrorState'
 import { ReportSkeleton } from '../skeletons/ReportSkeleton'
@@ -19,6 +20,7 @@ import { OwnerProfilingPeerPanel } from './OwnerProfilingPeerPanel'
 import { OwnerProfilingReportChip } from './OwnerProfilingReportChip'
 import { OwnerProfilingSkippedWatermark } from './OwnerProfilingSkippedWatermark'
 import { PresentationContractPanel } from './PresentationContractPanel'
+import { SavedPartialReport } from './SavedPartialReport'
 
 interface ResultsComponentProps {
   result?: ValuationResponse | null
@@ -61,6 +63,7 @@ function readEnterpriseBridgePreference(source?: Record<string, unknown> | null)
  */
 const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
   const t = useTranslations('reportPreview')
+  const locale = useLocale()
   // ROOT CAUSE FIX: Only subscribe to primitive values, not entire session object
   const isLoading = useSessionStore((state) => state.isLoading)
   const error = useSessionStore((state) => state.error)
@@ -253,6 +256,14 @@ const ResultsComponent: React.FC<ResultsComponentProps> = ({ result }) => {
       rawPct: Math.round(chip.rawAdjustment * 100),
     })
   }, [ownerProfilingState, result?.valuation_id, sessionValuationResult?.valuation_id])
+
+  const partialReport = { valuation_result: sessionValuationResult ?? result }
+  if (savedPartialAssessment(partialReport))
+    return sessionReportId ? (
+      <SavedPartialReport reportId={sessionReportId} report={partialReport} language={locale} />
+    ) : (
+      <ErrorState title={t('failedToLoadReport')} message={t('reportHtmlRecoveryFailedDesc')} />
+    )
 
   // Show loading skeleton while loading
   if (isLoading && !htmlReport) {

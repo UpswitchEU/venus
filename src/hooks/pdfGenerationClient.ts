@@ -4,6 +4,7 @@ import {
   reportRecord,
   savedIndicativeRun,
 } from '../utils/indicativeReportExport'
+import { savedPartialAssessment, savedPartialExportRequest } from '../utils/partialReportExport'
 import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import {
   buildPdfAccessErrorContext,
@@ -132,9 +133,49 @@ export async function requestPdfDownload({
   savedReport,
   language,
 }: ReportPdfRequestParams): Promise<Response> {
-  const indicative = savedIndicativeRun(savedReport)
+  const partial = savedPartialAssessment(savedReport)
+  const indicative = partial ? null : savedIndicativeRun(savedReport)
   let response: Response
-  if (indicative) {
+  if (partial) {
+    const current = await fetch(
+      `/api/valuations/reports/${encodeURIComponent(reportId)}/partial-calculation`,
+      { headers, credentials: 'include', signal, cache: 'no-store' }
+    )
+    if (!current.ok) throw new APIError('Saved partial assessment unavailable', current.status)
+    const saved = await current.json()
+    const identity = savedPartialExportRequest(saved, language ?? '')
+    if (!identity || identity.expected_content_sha256 !== partial.content_sha256)
+      throw new Error('Saved calculation changed. Reload before exporting.')
+    response = await fetch(
+      `/api/valuations/reports/${encodeURIComponent(reportId)}/partial-export`,
+      {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(identity),
+        credentials: 'include',
+        signal,
+        cache: 'no-store',
+      }
+    )
+    if (response.ok) {
+      const body = reportRecord(await response.json())
+      const manifest = reportRecord(body.report_manifest)
+      if (
+        manifest.schema_version !== 'partial_report_manifest.v1' ||
+        manifest.report_id !== reportId ||
+        manifest.content_sha256 !== identity.expected_content_sha256 ||
+        typeof body.pdf_base64 !== 'string'
+      )
+        throw new Error('Export does not match the saved partial assessment.')
+      const raw = atob(body.pdf_base64)
+      return new Response(
+        Uint8Array.from(raw, (char) => char.charCodeAt(0)),
+        { headers: { 'Content-Type': 'application/pdf', 'Cache-Control': 'private, no-store' } }
+      )
+    }
+    if (response.status === 409)
+      throw new Error('Report revision changed. Reload before exporting.')
+  } else if (indicative) {
     const exportUrl = `/api/valuations/reports/${encodeURIComponent(reportId)}/indicative-export`
     const identityResponse = await fetch(
       `${exportUrl}?language=${encodeURIComponent(language ?? '')}`,

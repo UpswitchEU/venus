@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { APIError } from '../types/errors'
+import partialFixtures from '../utils/__fixtures__/partial-assessments.v1.json'
+import partialProducer from '../utils/__fixtures__/partial-report.v1.json'
 import {
   buildPdfDownloadUrl,
   buildPdfGenerationUrl,
@@ -290,6 +292,76 @@ describe('indicative V2 PDF download', () => {
         language: 'fr',
       })
     ).rejects.toThrow('Reload before exporting')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('ordinary partial assessment PDF download', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const reportId = partialProducer.report_manifest.report_id
+  const assessment = partialFixtures[0]
+  const savedReport = { valuation_result: { partial_valuation: assessment } }
+  const loaded = { updated_at: '2026-10-02T06:00:00.000Z', partial_valuation: assessment }
+  const params = () => ({
+    headers,
+    reportId,
+    signal: new AbortController().signal,
+    savedReport,
+    language: 'en',
+  })
+
+  it('reloads the saved identity and downloads producer PDF bytes with delegated context', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(loaded))
+      .mockResolvedValueOnce(jsonResponse(partialProducer))
+    vi.stubGlobal('fetch', fetcher)
+    const pdf = await requestPdfDownload(params())
+    expect(new Uint8Array(await pdf.arrayBuffer())).toEqual(
+      Uint8Array.from(atob(partialProducer.pdf_base64), (c) => c.charCodeAt(0))
+    )
+    expect(fetcher.mock.calls[0]?.[0]).toBe(
+      `/api/valuations/reports/${reportId}/partial-calculation`
+    )
+    expect(fetcher.mock.calls[1]?.[0]).toBe(`/api/valuations/reports/${reportId}/partial-export`)
+    expect(fetcher.mock.calls[1]?.[1]).toMatchObject({
+      headers: expect.objectContaining(headers),
+      credentials: 'include',
+      cache: 'no-store',
+    })
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({
+      expected_updated_at: loaded.updated_at,
+      expected_content_sha256: assessment.content_sha256,
+      language: 'en',
+      include_pdf: true,
+    })
+  })
+
+  it('refuses a changed identity before rendering or invoking legacy download', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({
+          ...loaded,
+          partial_valuation: { ...assessment, content_sha256: 'b'.repeat(64) },
+        })
+      )
+    vi.stubGlobal('fetch', fetcher)
+    await expect(requestPdfDownload(params())).rejects.toThrow('Saved calculation changed')
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    402, 409,
+  ])('preserves export refusal %s without falling back to a historical PDF', async (status) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(loaded))
+      .mockResolvedValueOnce(jsonResponse({ message: 'Reload or select an eligible plan' }, status))
+    vi.stubGlobal('fetch', fetcher)
+    const result = requestPdfDownload(params())
+    if (status === 402) await expect(result).rejects.toMatchObject({ statusCode: 402 })
+    else await expect(result).rejects.toThrow('Reload before exporting')
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 })
