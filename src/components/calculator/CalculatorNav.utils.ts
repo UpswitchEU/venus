@@ -1,3 +1,4 @@
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import { METHOD_COMPACT_LABEL_KEYS, METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { cn } from '@/design-system/utils'
 import { dateLikeAgeMs } from '@/utils/date-like'
@@ -19,57 +20,33 @@ export const formatTimeAgo = (
   return t('common.time.daysAgo', { count: days })
 }
 
-export const formatPrice = (value: number) => {
-  if (!Number.isFinite(value)) {
+export const formatPrice = (value: number | undefined, currency?: string | null) => {
+  if (value == null || !Number.isFinite(value) || !currency || !/^[A-Z]{3}$/.test(currency))
     return '—'
-  }
-  if (value >= 1000000) {
-    return `€${(value / 1000000).toFixed(1)}M`
-  }
-  return `€${Math.round(value / 1000)}K`
+  return new Intl.NumberFormat('en-BE', {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value)
 }
 
 function finiteNumber(value: unknown): number | null {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : null
-}
-
-function midpointFromPositiveRange(min: number | null, max: number | null): number | null {
-  if (min == null || max == null || min <= 0 || max <= 0) return null
-  return Math.round((min + max) / 2)
+  return parseFinancialTransportNumber(value) ?? null
 }
 
 export function normalizeCalculatorNavDisplaySummary(
   summary: CalculatorNavDisplaySummary | null
 ): CalculatorNavDisplaySummary | null {
   if (!summary) return null
-
   const min = finiteNumber(summary.priceRange?.min)
   const max = finiteNumber(summary.priceRange?.max)
   const askPrice = finiteNumber(summary.askPrice)
-  const inferredAsk = midpointFromPositiveRange(min, max)
-  const normalizedRange = min != null && max != null ? { min, max } : summary.priceRange
-
-  if (askPrice != null && askPrice > 0) {
-    return {
-      ...summary,
-      askPrice,
-      priceRange: normalizedRange,
-    }
-  }
-
-  if (inferredAsk != null && min != null && max != null) {
-    return {
-      ...summary,
-      askPrice: inferredAsk,
-      priceRange: { min, max },
-    }
-  }
-
-  return askPrice != null || min != null || max != null ? summary : null
+  if (min == null || max == null || askPrice == null || min > max) return null
+  return { ...summary, askPrice, priceRange: { min, max } }
 }
 
-export function confidenceDotClassName(confidence: 'high' | 'medium' | 'low') {
+export function confidenceDotClassName(confidence?: 'high' | 'medium' | 'low') {
   const base = 'w-1.5 h-1.5 rounded-full shrink-0'
   switch (confidence) {
     case 'high':

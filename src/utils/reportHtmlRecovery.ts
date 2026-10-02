@@ -1,6 +1,7 @@
 import type { ValuationResponse, ValuationSession } from '../types/valuation'
+import { parseFinancialTransportNumber } from './financialTransport'
 import { getFirstRenderableReportHtml } from './safetyNetReportHtml'
-import { getEquityValueHigh, getEquityValueLow, getEquityValueMid } from './valuationResultAccess'
+import { getEquityValueHigh, getEquityValueLow, getFinalValuation } from './valuationResultAccess'
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -9,9 +10,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function toFiniteNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : null
+  return parseFinancialTransportNumber(value) ?? null
 }
 
 function pricingRangeHasValue(range: unknown): boolean {
@@ -32,7 +31,7 @@ export function extractRenderableHtmlFromSources(
 
 export function valuationSnapshotHasRange(valuationResult: unknown): boolean {
   if (
-    getEquityValueMid(valuationResult) != null ||
+    getFinalValuation(valuationResult) != null ||
     getEquityValueLow(valuationResult) != null ||
     getEquityValueHigh(valuationResult) != null
   ) {
@@ -63,33 +62,54 @@ export function enrichRecoveryValuationSnapshot(
     baseRecord?.priceRange
 
   if (baseRecord) {
-    if (!valuationSnapshotHasRange(baseRecord) && !pricingRangeHasValue(pricingRange)) {
+    // An existing conclusion, including explicit unknowns, belongs to its saved snapshot.
+    // A cached session range must never fill individual fields of that conclusion.
+    const conclusionKeys = [
+      'value',
+      'value_basis',
+      'valueBasis',
+      'enterprise_value',
+      'equity_value_mid',
+      'equity_value_low',
+      'equity_value_high',
+      'valuation_midpoint',
+      'valuation_min',
+      'valuation_max',
+      'valuation_summary',
+    ]
+    if (conclusionKeys.some((key) => key in baseRecord) || getFinalValuation(baseRecord) != null) {
       return baseRecord
     }
-    const pr = asRecord(pricingRange)
-    const low = getEquityValueLow(baseRecord) ?? pr?.min
-    const mid = getEquityValueMid(baseRecord) ?? pr?.mid
-    const high = getEquityValueHigh(baseRecord) ?? pr?.max
-    const enriched = { ...baseRecord }
-    if (low != null) enriched.equity_value_low = low
-    if (mid != null) enriched.equity_value_mid = mid
-    if (high != null) enriched.equity_value_high = high
-    if (pricingRange != null) enriched.pricing_range = baseRecord.pricing_range ?? pricingRange
-    return enriched
   }
 
-  if (pricingRangeHasValue(pricingRange)) {
-    const pr = asRecord(pricingRange)
-    if (!pr) return null
+  const pr = asRecord(baseRecord?.pricing_range ?? baseRecord?.priceRange ?? pricingRange)
+  if (pr) {
+    const low = toFiniteNumber(pr.min)
+    const mid = toFiniteNumber(pr.mid)
+    const high = toFiniteNumber(pr.max)
+    const currency = typeof pr.currency === 'string' ? pr.currency : null
+    if (
+      low == null ||
+      mid == null ||
+      high == null ||
+      low > mid ||
+      mid > high ||
+      !currency ||
+      !/^[A-Z]{3}$/.test(currency)
+    )
+      return baseRecord
     return {
-      equity_value_low: pr.min,
-      equity_value_mid: pr.mid,
-      equity_value_high: pr.max,
-      pricing_range: pricingRange,
+      ...baseRecord,
+      equity_value_low: low,
+      equity_value_mid: mid,
+      equity_value_high: high,
+      currency,
+      value_basis: 'equity_value',
+      pricing_range: pr,
     }
   }
 
-  return null
+  return baseRecord
 }
 
 export function mergeRecoveredHtmlIntoValuationSnapshot(
@@ -211,6 +231,35 @@ export function preserveClientRecoveredHtmlWhenServerSessionStale(
   clientSession: ValuationSession | null | undefined,
   clientStoreFallback?: ClientRecoveredHtmlFallback
 ): ValuationSession {
+  if (clientSession?.reportId && clientSession.reportId !== serverSession.reportId)
+    return serverSession
+  const serverResult = asRecord(serverSession.valuationResult)
+  const clientResult = asRecord(
+    clientSession?.valuationResult ?? clientStoreFallback?.valuationResult
+  )
+  if (serverResult && clientResult) {
+    // A render recovered for another method or evidence revision is not this saved report.
+    const bindings = [
+      'currency',
+      'value_basis',
+      'selected_valuation_method',
+      'valuation_run_id',
+      'valuation_run_hash',
+      'evidence_revision_id',
+      'evidence_snapshot_hash',
+    ]
+    if (
+      bindings.some(
+        (key) =>
+          key in serverResult && key in clientResult && serverResult[key] !== clientResult[key]
+      )
+    )
+      return serverSession
+    const serverPoint = getFinalValuation(serverResult)
+    const clientPoint = getFinalValuation(clientResult)
+    if (serverPoint != null && clientPoint != null && serverPoint !== clientPoint)
+      return serverSession
+  }
   const clientHtml = resolveClientRecoveredHtml(clientSession, clientStoreFallback)
   if (!clientHtml) return serverSession
 

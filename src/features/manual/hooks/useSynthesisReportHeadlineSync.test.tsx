@@ -50,12 +50,13 @@ describe('useSynthesisReportHeadlineSync', () => {
     const updater = setReport.mock.calls[0][0] as (prev: ValuationReportData) => ValuationReportData
     const next = updater(report)
     expect(next.valuation).toBe(500_000)
-    expect(next.recommendedAskingPrice).toBe(500_000)
+    expect(next.recommendedAskingPrice).toBeUndefined()
   })
 
   it('retains the saved asking price until the server supplies a weighted valuation', () => {
     const setReport = vi.fn()
     const result = {
+      recommended_asking_price: 384_000,
       valuation_results: {
         dcf: { available: true, value: 616_744, details: {} },
         ebitda_multiple: { available: true, value: 453_502, details: {} },
@@ -122,7 +123,7 @@ describe('useSynthesisReportHeadlineSync', () => {
     expect(updater({ valuation: 384_000 } as ValuationReportData).valuation).toBe(567_771)
   })
 
-  it('repairs a zero recommendedAskingPrice from a positive method-only headline', () => {
+  it('preserves an explicit zero asking price alongside a positive valuation', () => {
     const setReport = vi.fn()
     useManualResultsStore.setState({
       preSelectedMethods: ['dcf'],
@@ -146,6 +147,7 @@ describe('useSynthesisReportHeadlineSync', () => {
     renderHook(() =>
       useSynthesisReportHeadlineSync({
         result: {
+          recommended_asking_price: 0,
           selected_valuation_method: 'dcf',
           valuation_results: {
             dcf: {
@@ -164,9 +166,7 @@ describe('useSynthesisReportHeadlineSync', () => {
       })
     )
 
-    expect(setReport).toHaveBeenCalled()
-    const updater = setReport.mock.calls[0][0] as (prev: ValuationReportData) => ValuationReportData
-    expect(updater(report).recommendedAskingPrice).toBe(15_600_000)
+    expect(setReport).not.toHaveBeenCalled()
   })
 
   it('does not update when headline already matches method-only valuation', () => {

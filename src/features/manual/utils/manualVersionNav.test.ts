@@ -6,6 +6,38 @@ import type { ValuationVersion } from '@/types/ValuationVersion'
 import { buildManualVersionHistoryForNav } from './manualVersionNav'
 
 describe('manualVersionNav', () => {
+  it('keeps a complete saved version unavailable rather than copying the live report prices', () => {
+    const [item] = buildManualVersionHistoryForNav({
+      selectedMethod: 'dcf',
+      currentVersionLabel: 'Current',
+      report: {
+        valuation: 1000,
+        valuationLow: 800,
+        valuationHigh: 1200,
+        recommendedAskingPrice: 1100,
+        currency: 'EUR',
+      } as ValuationReportData,
+      versions: [
+        {
+          id: 'saved',
+          versionNumber: 1,
+          versionLabel: 'Saved',
+          isActive: true,
+          formData: { selected_method: 'dcf' },
+          valuationResult: {
+            currency: 'USD',
+            valuation_results: {
+              dcf: { available: false, value: null },
+              upswitch_adaptive: { available: true, value: 500 },
+            },
+          },
+        } as unknown as ValuationVersion,
+      ],
+    })
+    expect(item.currency).toBe('USD')
+    expect(item.askPrice).toBeUndefined()
+    expect(item.priceRange).toBeUndefined()
+  })
   it('builds a current-report nav item when no persisted versions exist', () => {
     expect(
       buildManualVersionHistoryForNav({
@@ -68,7 +100,7 @@ describe('manualVersionNav', () => {
       ],
     })
 
-    expect(navItem.askPrice).toBe(567_771)
+    expect(navItem.askPrice).toBeUndefined()
     expect(navItem.priceRange).toEqual({ min: 453_502, max: 616_744 })
   })
 
@@ -111,7 +143,7 @@ describe('manualVersionNav', () => {
     })
   })
 
-  it('does not let a zero live summary ask price override a positive range', () => {
+  it('does not replace a zero live summary ask price with a range midpoint', () => {
     const createdAt = new Date('2026-06-02T08:00:00.000Z')
     const [navItem] = buildManualVersionHistoryForNav({
       report: {
@@ -142,8 +174,8 @@ describe('manualVersionNav', () => {
     })
 
     expect(navItem).toMatchObject({
-      askPrice: 15_600_000,
-      priceRange: { min: 12_800_000, max: 18_400_000 },
+      askPrice: 0,
+      priceRange: undefined,
     })
   })
 
@@ -195,7 +227,7 @@ describe('manualVersionNav', () => {
 
     expect(navItems[0]).toMatchObject({
       id: 'version-1',
-      askPrice: 180_000,
+      askPrice: undefined,
       priceRange: { min: 150_000, max: 210_000 },
       isActive: false,
     })
@@ -240,7 +272,7 @@ describe('manualVersionNav', () => {
       id: 'v1',
       label: 'Initial',
       priceRange: { min: 400_000, max: 600_000 },
-      askPrice: 500_000,
+      askPrice: undefined,
       timestamp: createdAt,
       isActive: true,
     })

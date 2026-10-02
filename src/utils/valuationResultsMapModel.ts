@@ -2,7 +2,6 @@ import type { ValuationMethodResult } from '@/types/valuation'
 import { isRevenueMethodologyKey, normalizeSelectedMethodKey } from './valuationMethodAliases'
 import {
   asRecord,
-  midpointFromPositiveRange,
   nestedRecord,
   toFiniteNumber,
   toFiniteNumberArray,
@@ -460,18 +459,18 @@ export function synthesizeMinimalValuationResultsMap(
     toFiniteNumber(nested?.equity_value_high) ??
     null
   const equityMid =
-    toPositiveFiniteNumber(reportContext.equity_value) ??
-    toPositiveFiniteNumber(reportContext.equity_value_mid) ??
-    toPositiveFiniteNumber(valuationResult.equity_value_mid) ??
-    toPositiveFiniteNumber(valuationResult.valuation_midpoint) ??
-    toPositiveFiniteNumber(nested?.equity_value_mid) ??
-    midpointFromPositiveRange(equityLow, equityHigh)
+    toFiniteNumber(reportContext.equity_value) ??
+    toFiniteNumber(reportContext.equity_value_mid) ??
+    toFiniteNumber(valuationResult.equity_value_mid) ??
+    toFiniteNumber(valuationResult.valuation_midpoint) ??
+    toFiniteNumber(nested?.equity_value_mid) ??
+    null
 
   const enterpriseMid =
-    toPositiveFiniteNumber(reportContext.valuation) ??
-    toPositiveFiniteNumber(reportContext.enterprise_value_mid) ??
-    toPositiveFiniteNumber(valuationResult.enterprise_value_mid) ??
-    toPositiveFiniteNumber(nested?.enterprise_value_mid) ??
+    toFiniteNumber(reportContext.valuation) ??
+    toFiniteNumber(reportContext.enterprise_value_mid) ??
+    toFiniteNumber(valuationResult.enterprise_value_mid) ??
+    toFiniteNumber(nested?.enterprise_value_mid) ??
     null
 
   const multiple =
@@ -537,14 +536,14 @@ export function synthesizeMinimalValuationResultsMap(
   }
 
   const dcfValuation = methodKey === 'dcf' ? getCanonicalDcfValuation(valuationResult) : null
-  const value =
+  const selectedEquity =
     methodKey === 'dcf'
       ? (toFiniteNumber(dcfValuation?.apv_equity_value) ??
         toFiniteNumber(dcfValuation?.equity_value) ??
-        equityMid ??
-        enterpriseMid ??
-        0)
-      : (equityMid ?? enterpriseMid ?? 0)
+        equityMid)
+      : equityMid
+  const value = selectedEquity ?? enterpriseMid
+  if (value == null) return null
 
   if (isRevenueMethodologyKey(methodKey) && currentRevenue != null && currentRevenue <= 0) {
     return {
@@ -562,6 +561,9 @@ export function synthesizeMinimalValuationResultsMap(
   const methodEntry: MethodResultRow = {
     available: true,
     value,
+    value_basis: selectedEquity == null ? 'enterprise_value' : 'equity_value',
+    equity_value: selectedEquity,
+    enterprise_value: enterpriseMid,
     multiple_used: multiple,
     ...(methodKey === 'dcf' && details.wacc != null ? { wacc: Number(details.wacc) } : {}),
     label: getFallbackMethodLabel(methodKey),

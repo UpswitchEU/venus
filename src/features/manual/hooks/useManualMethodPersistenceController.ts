@@ -19,7 +19,10 @@ import type { ValuationResponse } from '../../../types/valuation'
 import { getValuationMethodResultForKey } from '../../../utils/extractValuationResultsMap'
 import { generalLogger } from '../../../utils/logger'
 import type { ManualStarterPaywallReason } from '../components/ManualStarterPaywallModal'
-import { resolveSynthesisAwarePresentation } from '../components/manualReportPresentation'
+import {
+  deriveNavPricesForVersionNav,
+  resolveSynthesisAwarePresentation,
+} from '../components/manualReportPresentation'
 import {
   getManualHydratedValuationResults,
   getManualModalEditPersistToast,
@@ -140,11 +143,12 @@ export function useManualMethodPersistenceController({
         ? {
             ...prev,
             valuation: presentation.valuation,
+            valueBasis: presentation.valueBasis,
             valuationLow: presentation.valuationLow,
             valuationHigh: presentation.valuationHigh,
-            multiple: presentation.multiple ?? prev.multiple,
-            multipleRange: presentation.multipleRange ?? prev.multipleRange,
-            recommendedAskingPrice: presentation.valuation,
+            multiple: presentation.multiple ?? null,
+            multipleRange: presentation.multipleRange,
+            recommendedAskingPrice: deriveNavPricesForVersionNav(result, selectedMethod)?.askPrice,
           }
         : prev
     )

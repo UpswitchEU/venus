@@ -1,10 +1,12 @@
 import { dateLikeToUnixMs, formatDateLikeToLocaleString } from '@/utils/date-like'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import type { ValuationVersion, VersionChanges } from '../../types/ValuationVersion'
 import { formatVersionAuthor } from '../../utils/formatters'
 import {
   getEquityValueHigh,
   getEquityValueLow,
   getFinalValuation,
+  getFinancialValueBasis,
   getNormalizedEbitda,
   getValuationMultiple,
 } from '../../utils/valuationResultAccess'
@@ -21,11 +23,13 @@ type VersionAuthorUser = Parameters<typeof formatVersionAuthor>[1]
 export interface ReportLike {
   id?: string
   companyName?: string
-  valuation?: number
+  valuation?: number | null
   valuationLow?: number
   valuationHigh?: number
-  ebitda?: number
-  multiple?: number
+  ebitda?: number | null
+  multiple?: number | null
+  currency?: string | null
+  valueBasis?: 'equity_value' | 'enterprise_value' | null
 }
 
 export interface BuildHistoryVersionsParams {
@@ -72,13 +76,15 @@ export function deriveHistoryChanges(
 export const currencyLocaleFor = (locale: HistoryLocale) =>
   locale === 'fr' ? 'fr-BE' : locale === 'nl' ? 'nl-BE' : 'en-BE'
 
-export const formatHistoryCurrency = (amount: number, locale: HistoryLocale) => {
-  if (!Number.isFinite(amount)) return '—'
+export const formatHistoryCurrency = (
+  amount: number,
+  locale: HistoryLocale,
+  currency?: string | null
+) => {
+  if (!Number.isFinite(amount) || !currency || !/^[A-Z]{3}$/.test(currency)) return '—'
   return new Intl.NumberFormat(currencyLocaleFor(locale), {
     style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    currency,
   }).format(amount)
 }
 
@@ -121,8 +127,7 @@ export const formatHistoryDate = (date: Date | string | number, locale: HistoryL
 }
 
 function finiteReportNumber(value: unknown): number | undefined {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : undefined
+  return parseFinancialTransportNumber(value)
 }
 
 function positiveFiniteNumber(value: unknown): number | undefined {
@@ -130,14 +135,13 @@ function positiveFiniteNumber(value: unknown): number | undefined {
   return numeric != null && numeric > 0 ? numeric : undefined
 }
 
-function positiveSnapshotOrCurrent(
+function snapshotOrCurrent(
   snapshotValue: number | null,
   reportValue: unknown,
   isCurrent: boolean
 ): number | undefined {
   return (
-    positiveFiniteNumber(snapshotValue) ??
-    (isCurrent ? positiveFiniteNumber(reportValue) : undefined)
+    finiteReportNumber(snapshotValue) ?? (isCurrent ? finiteReportNumber(reportValue) : undefined)
   )
 }
 
@@ -166,11 +170,13 @@ export function buildHistoryVersions({
         type: 'initial',
         summary: translate('versionN', { number: 1 }),
         changes: [],
-        valuation: report.valuation,
+        valuation: report.valuation ?? undefined,
+        currency: report.currency,
+        valueBasis: report.valueBasis,
         valuationLow: report.valuationLow,
         valuationHigh: report.valuationHigh,
-        ebitda: report.ebitda,
-        multiple: report.multiple,
+        ebitda: report.ebitda ?? undefined,
+        multiple: report.multiple ?? undefined,
         isCurrent: true,
       },
     ]
@@ -188,6 +194,7 @@ export function buildHistoryVersions({
       activeVersionNumber != null
         ? v.versionNumber === activeVersionNumber
         : v.isActive || (sortedVersions.length === 1 && index === 0)
+    const useCurrent = isCurrent && (!valuationResult || v.isSummary === true)
 
     return {
       id: v.id || String(v.versionNumber),
@@ -198,27 +205,30 @@ export function buildHistoryVersions({
       type: deriveHistoryVersionType(v),
       summary: v.versionLabel || translate('versionN', { number: v.versionNumber ?? 1 }),
       changes: deriveHistoryChanges(v, translate('changed')),
-      valuation: positiveSnapshotOrCurrent(
+      currency: valuationResult?.currency ?? (useCurrent ? report?.currency : null),
+      valueBasis:
+        getFinancialValueBasis(valuationResult) ?? (useCurrent ? report?.valueBasis : null),
+      valuation: snapshotOrCurrent(
         getFinalValuation(valuationResult),
         report?.valuation,
-        isCurrent
+        useCurrent
       ),
-      valuationLow: positiveSnapshotOrCurrent(
+      valuationLow: snapshotOrCurrent(
         getEquityValueLow(valuationResult),
         report?.valuationLow,
-        isCurrent
+        useCurrent
       ),
-      valuationHigh: positiveSnapshotOrCurrent(
+      valuationHigh: snapshotOrCurrent(
         getEquityValueHigh(valuationResult),
         report?.valuationHigh,
-        isCurrent
+        useCurrent
       ),
       ebitda:
         getNormalizedEbitda(valuationResult) ??
-        (isCurrent ? finiteReportNumber(report?.ebitda) : undefined),
+        (useCurrent ? finiteReportNumber(report?.ebitda) : undefined),
       multiple:
         positiveFiniteNumber(getValuationMultiple(valuationResult)) ??
-        (isCurrent ? positiveFiniteNumber(report?.multiple) : undefined),
+        (useCurrent ? positiveFiniteNumber(report?.multiple) : undefined),
       isCurrent,
     }
   })

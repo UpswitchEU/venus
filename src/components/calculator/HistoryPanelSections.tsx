@@ -8,6 +8,7 @@ import {
   type HistoryTranslator,
 } from './HistoryPanelModel'
 import type { HistoryVersion } from './VersionCompareModal'
+import { financialVersionsComparable } from './VersionCompareModel'
 
 export function VisualTimeline({
   versions,
@@ -20,8 +21,12 @@ export function VisualTimeline({
 }) {
   const firstVal = versions[0]?.valuation
   const lastVal = versions[versions.length - 1]?.valuation
-  const totalChange = versions.length > 1 && firstVal && lastVal ? firstVal - lastVal : 0
-  const percentChange = lastVal && totalChange ? (totalChange / lastVal) * 100 : 0
+  const comparable = financialVersionsComparable(versions[0], versions[versions.length - 1])
+  const totalChange =
+    versions.length > 1 && comparable && firstVal != null && lastVal != null
+      ? firstVal - lastVal
+      : 0
+  const percentChange = lastVal != null && lastVal > 0 ? (totalChange / lastVal) * 100 : null
 
   return (
     <div className="px-4 py-4 border-b border-foreground/[0.06] bg-gradient-to-r from-primary/[0.02] to-transparent">
@@ -40,12 +45,14 @@ export function VisualTimeline({
             <TrendingUp className={cn('w-3.5 h-3.5', totalChange < 0 && 'rotate-180')} />
             <span className="font-mono">
               {totalChange > 0 ? '+' : ''}
-              {formatHistoryCurrency(totalChange, locale)}
+              {formatHistoryCurrency(totalChange, locale, versions[0]?.currency)}
             </span>
-            <span className="text-foreground/40">
-              ({percentChange > 0 ? '+' : ''}
-              {percentChange.toFixed(1)}%)
-            </span>
+            {percentChange != null && (
+              <span className="text-foreground/40">
+                ({percentChange > 0 ? '+' : ''}
+                {percentChange.toFixed(1)}%)
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -107,7 +114,7 @@ export function ValuationSummaryCard({
   hp: HistoryTranslator
   locale: HistoryLocale
 }) {
-  if (!version.valuation) return null
+  if (version.valuation == null || !Number.isFinite(version.valuation)) return null
 
   return (
     <div className="-mx-4 mb-4 border-y border-foreground/[0.06] bg-foreground/[0.025]">
@@ -116,7 +123,7 @@ export function ValuationSummaryCard({
 
         <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
           <span className="font-mono text-2xl font-bold leading-none tracking-normal text-foreground tabular-nums">
-            {formatHistoryCurrency(version.valuation, locale)}
+            {formatHistoryCurrency(version.valuation, locale, version.currency)}
           </span>
           {version.isCurrent && (
             <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-primary/20 bg-primary/10 px-1.5 text-[9px] font-semibold leading-none text-primary">
@@ -128,14 +135,15 @@ export function ValuationSummaryCard({
         <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(8.75rem,1fr))] gap-3 border-t border-foreground/[0.06] pt-3">
           {version.valuationLow != null &&
             version.valuationHigh != null &&
-            (version.valuationLow > 0 || version.valuationHigh > 0) && (
+            version.valuationLow <= version.valuation &&
+            version.valuation <= version.valuationHigh && (
               <div>
                 <p className="mb-1 text-[10px] font-semibold text-foreground/40">
                   {hp('bandwidth')}
                 </p>
                 <p className="font-mono text-xs font-semibold leading-5 tracking-normal text-foreground/80 tabular-nums">
-                  {formatHistoryCurrency(version.valuationLow, locale)} &mdash;{' '}
-                  {formatHistoryCurrency(version.valuationHigh, locale)}
+                  {formatHistoryCurrency(version.valuationLow, locale, version.currency)} &mdash;{' '}
+                  {formatHistoryCurrency(version.valuationHigh, locale, version.currency)}
                 </p>
               </div>
             )}
@@ -145,7 +153,7 @@ export function ValuationSummaryCard({
                 {hp('normalizedEbitda')}
               </p>
               <p className="font-mono text-xs font-semibold leading-5 tracking-normal text-foreground/80 tabular-nums">
-                {formatHistoryCurrency(version.ebitda, locale)}
+                {formatHistoryCurrency(version.ebitda, locale, version.currency)}
               </p>
             </div>
           )}

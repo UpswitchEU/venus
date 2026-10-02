@@ -7,7 +7,24 @@ import {
 } from './valuationResultAccess'
 
 describe('valuationResultAccess', () => {
-  it('infers final valuation from a positive range when headline values are zero', () => {
+  it.each([
+    null,
+    undefined,
+    true,
+    false,
+    [],
+    {},
+    '1,000',
+    '0x10',
+  ])('does not coerce invalid transport amounts %j', (value) => {
+    expect(getFinalValuation({ equity_value_mid: value })).toBeNull()
+  })
+  it('retains an explicit loss and does not manufacture an unpriced range midpoint', () => {
+    expect(getFinalValuation({ equity_value_mid: '-20.25' })).toBe(-20.25)
+    expect(getFinalValuation({ equity_value_low: 100, equity_value_high: 200 })).toBeNull()
+    expect(getEquityValueMid({ value: 100, value_basis: 'enterprise_value' })).toBeNull()
+  })
+  it('preserves the zero conclusion when a conflicting positive range is present', () => {
     const result = {
       recommended_asking_price: 0,
       equity_value_mid: 0,
@@ -16,12 +33,12 @@ describe('valuationResultAccess', () => {
       valuation_summary: { final_valuation: 0 },
     }
 
-    expect(getFinalValuation(result)).toBe(15_600_000)
-    expect(getEquityValueMid(result)).toBe(15_600_000)
+    expect(getFinalValuation(result)).toBe(0)
+    expect(getEquityValueMid(result)).toBe(0)
     expect(getRawFinalValuation(result)).toBe(0)
   })
 
-  it('omits zero-only valuation snapshots', () => {
+  it('retains zero-valued snapshots', () => {
     const result = {
       recommended_asking_price: 0,
       equity_value_mid: 0,
@@ -30,17 +47,17 @@ describe('valuationResultAccess', () => {
       valuation_summary: { final_valuation: 0, recommended_asking_price: 0 },
     }
 
-    expect(getFinalValuation(result)).toBeNull()
-    expect(getEquityValueMid(result)).toBeNull()
-    expect(getRecommendedAskingPrice(result)).toBeNull()
+    expect(getFinalValuation(result)).toBe(0)
+    expect(getEquityValueMid(result)).toBe(0)
+    expect(getRecommendedAskingPrice(result)).toBe(0)
   })
 
-  it('ignores zero recommended asking prices', () => {
+  it('does not replace an explicit zero asking price with another source', () => {
     expect(
       getRecommendedAskingPrice({
         recommended_asking_price: 0,
         valuation_summary: { recommended_asking_price: 617_000 },
       })
-    ).toBe(617_000)
+    ).toBe(0)
   })
 })
