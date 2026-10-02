@@ -161,7 +161,9 @@ describe('report financial integrity audit', () => {
       valuation_results: { ebitda_multiple: { available: true, value: 500_000 } },
     }
     expect(report(fields).recommendedAskingPrice).toBeUndefined()
-    expect(deriveNavPricesForVersionNav(response(fields), 'ebitda_multiple')?.askPrice).toBeUndefined()
+    expect(
+      deriveNavPricesForVersionNav(response(fields), 'ebitda_multiple')?.askPrice
+    ).toBeUndefined()
   })
 
   it('uses the selected method band rather than the overall adaptive range', () => {

@@ -1,4 +1,6 @@
+import type { FinancialObservationStatus } from '@/types/valuation/request'
 export interface DcfForecastRow {
+  financial_observations?: Record<string, FinancialObservationStatus>
   year: string
   revenue: number
   ebitda: number

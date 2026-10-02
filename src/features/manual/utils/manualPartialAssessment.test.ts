@@ -156,17 +156,15 @@ describe('manual partial assessment intake', () => {
     expect(options.headers['X-Client-Context-User']).toBe('client')
   })
   it('does not mutate a report after navigation', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            report_id: 'report-1',
-            revision_sha256: 'a'.repeat(64),
-            updated_at: '2026-10-02T00:00:00.000Z',
-          })
-        )
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          report_id: 'report-1',
+          revision_sha256: 'a'.repeat(64),
+          updated_at: '2026-10-02T00:00:00.000Z',
+        })
       )
+    )
     vi.stubGlobal('fetch', fetcher)
     expect(await calculateSavedManualAssessment('report-1', {}, () => false)).toBeNull()
     expect(fetcher).toHaveBeenCalledTimes(1)

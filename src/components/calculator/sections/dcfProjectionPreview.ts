@@ -1,4 +1,6 @@
 import Decimal from 'decimal.js'
+import type { FinancialObservationStatus } from '@/types/valuation/request'
+import { availableFinancialNumber } from '@/utils/financialObservations'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import { isYearRowForecast } from '../../../utils/yearData'
 import { DCF_DEFAULT_CAPEX_PCT, DCF_DEFAULT_DA_PCT, DCF_DEFAULT_NWC_PCT } from './dcfEngineDefaults'
@@ -56,6 +58,7 @@ function asDecimal(value: number): Decimal {
  */
 export function buildProjectionRowFromForecastRow(
   row: {
+    financial_observations?: Record<string, FinancialObservationStatus>
     year: string
     revenue?: number
     ebitda?: number
@@ -75,12 +78,12 @@ export function buildProjectionRowFromForecastRow(
 ): DcfProjectionPreviewRow {
   const parsedYear = Number.parseInt(String(row.year), 10)
   const year = Number.isFinite(parsedYear) ? parsedYear : 0
-  const revenue = toFinite(row.revenue)
-  const ebitda = toFinite(row.ebitda)
-  const explicitFcff = toFinite(row.free_cash_flow)
-  const suppliedDa = toFinite(row.depreciation)
-  const suppliedCapex = toFinite(row.capex)
-  const suppliedNwc = toFinite(row.nwc_change)
+  const revenue = availableFinancialNumber(row, 'revenue') ?? null
+  const ebitda = availableFinancialNumber(row, 'ebitda') ?? null
+  const explicitFcff = availableFinancialNumber(row, 'free_cash_flow') ?? null
+  const suppliedDa = availableFinancialNumber(row, 'depreciation') ?? null
+  const suppliedCapex = availableFinancialNumber(row, 'capex') ?? null
+  const suppliedNwc = availableFinancialNumber(row, 'nwc_change') ?? null
 
   if (explicitFcff != null) {
     return {

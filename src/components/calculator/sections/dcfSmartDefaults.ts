@@ -1,7 +1,9 @@
+import type { FinancialObservationStatus } from '@/types/valuation/request'
 import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
 import { dcfHistoricalBasis } from './dcfHistoricalBasis'
 
 export interface DcfYearlyFinancialsLike {
+  financial_observations?: Record<string, FinancialObservationStatus>
   year: string
   revenue: unknown
   ebitda: unknown

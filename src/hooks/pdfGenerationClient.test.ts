@@ -338,14 +338,12 @@ describe('ordinary partial assessment PDF download', () => {
   })
 
   it('refuses a changed identity before rendering or invoking legacy download', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        jsonResponse({
-          ...loaded,
-          partial_valuation: { ...assessment, content_sha256: 'b'.repeat(64) },
-        })
-      )
+    const fetcher = vi.fn().mockResolvedValue(
+      jsonResponse({
+        ...loaded,
+        partial_valuation: { ...assessment, content_sha256: 'b'.repeat(64) },
+      })
+    )
     vi.stubGlobal('fetch', fetcher)
     await expect(requestPdfDownload(params())).rejects.toThrow('Saved calculation changed')
     expect(fetcher).toHaveBeenCalledTimes(1)

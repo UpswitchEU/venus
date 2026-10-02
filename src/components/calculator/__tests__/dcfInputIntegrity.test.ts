@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ManualValuationFormData } from '@/types/valuation'
+import { buildYearlyFinancialsFromCurrentAndHistorical } from '@/utils/yearlyFinancials'
 import { buildDcfGlobalAssumptionsSeedPatch } from '../sections/DcfGlobalAssumptionsModel'
 import { snapshotFromForecastRowLike, snapshotsClose } from '../sections/dcfForecastModelSync'
 import {
@@ -18,6 +19,54 @@ const history = [{ year: '2025', revenue: 1000, ebitda: 100 }]
 const globals = { daPct: 3, capexPct: 4, nwcPct: 1.5 }
 
 describe('DCF input integrity against independent counterexamples', () => {
+  it.each([
+    'missing',
+    'placeholder',
+    'unknown',
+  ] as const)('does not project a display zero marked %s as observed EBITDA', (status) => {
+    const rows = [
+      {
+        year: '2025',
+        revenue: 1000,
+        ebitda: 0,
+        financial_observations: { revenue: 'observed' as const, ebitda: status },
+      },
+    ]
+    expect(deriveDcfSmartDefaults({ yearlyFinancials: rows })).toBeNull()
+    expect(
+      deriveDcfProjectionPreview({
+        yearlyFinancials: rows,
+        revenueGrowthPct: 3,
+        ebitdaMarginPct: 10,
+      })
+    ).toEqual([])
+    const preview = buildProjectionRowFromForecastRow(rows[0], { ...globals, taxRatePct: 25 })
+    expect(preview.ebitda).toBeNull()
+    expect(preview.fcff).toBeNull()
+  })
+
+  it('preserves absence through imported legacy display slots into DCF defaults', () => {
+    const rows = buildYearlyFinancialsFromCurrentAndHistorical(
+      { year: 2025, revenue: 1000, ebitda: undefined } as unknown as Parameters<
+        typeof buildYearlyFinancialsFromCurrentAndHistorical
+      >[0],
+      []
+    )
+    expect(rows[0].ebitda).toBe(0)
+    expect(deriveDcfSmartDefaults({ yearlyFinancials: rows })).toBeNull()
+  })
+
+  it('keeps explicitly observed zero EBITDA available to DCF', () => {
+    const row = {
+      year: '2025',
+      revenue: 1000,
+      ebitda: 0,
+      financial_observations: { revenue: 'observed' as const, ebitda: 'observed' as const },
+    }
+    expect(deriveDcfSmartDefaults({ yearlyFinancials: [row] })?.ebitdaMarginPct).toBe(0)
+    expect(buildProjectionRowFromForecastRow(row, { ...globals, taxRatePct: 25 }).ebitda).toBe(0)
+  })
+
   it('does not infer a tax regime from historical earnings', () => {
     expect(deriveDcfSmartDefaults({ yearlyFinancials: history })?.taxRatePct).toBeUndefined()
   })

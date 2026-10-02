@@ -51,3 +51,12 @@ export function copyFinancialObservation(
     }
   }
 }
+
+/** Legacy unannotated amounts remain usable; explicitly absent facts never do. */
+export function availableFinancialNumber(source: unknown, field: string): number | undefined {
+  if (!source || typeof source !== 'object') return undefined
+  const row = source as Record<string, unknown>
+  const status = readFinancialObservations(row.financial_observations)[field]
+  if (status === 'missing' || status === 'placeholder' || status === 'unknown') return undefined
+  return parseFlexibleNumber(row[field])
+}

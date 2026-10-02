@@ -1,9 +1,9 @@
-import { render, screen, cleanup } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import en from '../../../messages/en.json'
-import nl from '../../../messages/nl.json'
 import fr from '../../../messages/fr.json'
+import nl from '../../../messages/nl.json'
 import { CalculationBreakdownModal } from './CalculationBreakdownModal'
 
 vi.unmock('next-intl')
@@ -20,7 +20,7 @@ describe('calculation panel financial meaning', () => {
       <NextIntlClientProvider locale={locale} messages={messages}>
         <CalculationBreakdownModal
           open
-          onOpenChange={() => {}}
+          onOpenChange={vi.fn()}
           report={{
             companyName: 'Audit',
             currency: 'GBP',
@@ -45,7 +45,7 @@ describe('calculation panel financial meaning', () => {
       <NextIntlClientProvider locale="en" messages={en}>
         <CalculationBreakdownModal
           open
-          onOpenChange={() => {}}
+          onOpenChange={vi.fn()}
           report={{
             companyName: 'Audit',
             currency: null,

@@ -1,9 +1,9 @@
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { PresentationContract, ValuationResponse } from '../../types/valuation'
 import { hydrateClientValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import { parseFinancialTransportNumber } from '../../utils/financialTransport'
 import { normalizeValuationResultEnvelope } from '../../utils/resolveAcademicValidationIssues'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
-import { parseFinancialTransportNumber } from '../../utils/financialTransport'
 
 type SessionRecord = Record<string, unknown>
 

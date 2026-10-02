@@ -31,3 +31,7 @@ The local fork-pool run encountered two worker startup timeouts. Those failures 
 - Broader per-field assumption provenance, initial forecast hydration ownership, zero-valued empty forecast creation, and all connector/normalization journeys remain wider audit work. This patch does not certify those paths.
 - Desktop/mobile component fixtures verify presentation of actual controls. They do not establish an authenticated full-service browser or production database journey.
 - Country accounting/tax certification, transaction calibration and empirical superiority remain unverified. The backend release candidates retain their failing quality gates.
+
+## Integration with sparse-input assessments
+
+The integrated candidate additionally respects `financial_observations` in historical DCF basis selection and forecast previews. Legacy numeric display slots can contain zero while the source status is missing, placeholder or unknown; those slots now remain absent for DCF. Explicitly observed zero earnings remain available. Regression coverage includes an imported legacy row passed through the display adapter into DCF defaults. The integrated focused run passed 472 tests across 53 files, with application typechecking and lint passing (151 existing warnings). Full hosted release acceptance is still required on the final source.
