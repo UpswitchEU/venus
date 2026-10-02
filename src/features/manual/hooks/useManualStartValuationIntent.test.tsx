@@ -314,6 +314,14 @@ describe('useManualStartValuationIntent', () => {
     await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
     expect(onAutomaticStartSkipped).not.toHaveBeenCalled()
     expect(noHeadcountData.fteEmployees).toBeUndefined()
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem(startValuationIntentStorageKey('val_1_demo'))).toBe(
+        'complete'
+      )
+    )
+    // Starting a sparse assessment must never persist the financial input payload.
+    expect(window.sessionStorage.length).toBe(1)
+    expect(window.sessionStorage.key(0)).toBe(startValuationIntentStorageKey('val_1_demo'))
   })
 
   it('drops the intent once the advisor has started editing before the gates open', async () => {
