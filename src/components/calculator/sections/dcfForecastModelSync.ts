@@ -13,14 +13,15 @@ export type DcfForecastModelSnapshot = {
 }
 
 const DEFAULT_TOL = 0
+const SNAPSHOT_FIELDS = ['revenue', 'ebitda', 'capex', 'depreciation', 'nwc_change'] as const
 
 function observedValue(value: unknown): number | null {
   return parseFlexibleNumber(value) ?? null
 }
 
 export function snapshotFromForecastRowLike(row: {
-  revenue: number | null
-  ebitda: number | null
+  revenue?: number | null
+  ebitda?: number | null
   capex?: number | null
   depreciation?: number | null
   nwc_change?: number | null
@@ -39,7 +40,7 @@ export function snapshotsClose(
   b: DcfForecastModelSnapshot,
   tol = DEFAULT_TOL
 ): boolean {
-  return (Object.keys(a) as Array<keyof DcfForecastModelSnapshot>).every((field) => {
+  return SNAPSHOT_FIELDS.every((field) => {
     const left = a[field]
     const right = b[field]
     if (left == null || right == null) return left === right

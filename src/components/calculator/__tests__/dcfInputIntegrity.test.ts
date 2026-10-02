@@ -12,6 +12,7 @@ import { buildManualDcfDefaultsPatch } from '../utils/manualDcfDefaultSeeding'
 import {
   applyManualDcfSuggestedCapexToBlankForecastRows,
   switchManualDcfInputMode,
+  syncManualDcfForecastRowsFromProjection,
 } from '../utils/manualDcfForecastTransforms'
 
 const history = [{ year: '2025', revenue: 1000, ebitda: 100 }]
@@ -216,5 +217,22 @@ describe('DCF input integrity against independent counterexamples', () => {
       ],
     } as ManualValuationFormData
     expect(switchManualDcfInputMode(form, 'fcff_only')).toBe(form)
+  })
+
+  it('does not claim ownership of restored manual forecast facts on initial hydration', () => {
+    const yearlyFinancials = [
+      { year: '2026', revenue: 1000, ebitda: 0, capex: 0, isForecast: true },
+    ]
+    const projected = buildProjectionRowFromForecastRow(
+      { year: '2026', revenue: 2000, ebitda: 200 },
+      { ...globals, taxRatePct: 25 }
+    )
+    const result = syncManualDcfForecastRowsFromProjection({
+      yearlyFinancials,
+      projectionRows: [projected],
+      previousModelSnapshots: {},
+    })
+    expect(result.changed).toBe(false)
+    expect(result.yearlyFinancials).toBe(yearlyFinancials)
   })
 })

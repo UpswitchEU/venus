@@ -1,5 +1,15 @@
 import type { BusinessModel, ValuationFormData, YearDataInput } from './request'
 
+/** Client projection ownership only; this is not an earnings approval or engine valuation. */
+export interface DcfForecastInputsSnapshot {
+  schema_version: 'dcf_forecast_inputs.v2'
+  revenue: number | null
+  ebitda: number | null
+  capex: number | null
+  depreciation: number | null
+  nwc_change: number | null
+}
+
 // -----------------------------------------------------------------------------
 // Manual calculator (`ManualInputPanel`) — do not duplicate engine fields
 // -----------------------------------------------------------------------------
@@ -10,8 +20,9 @@ import type { BusinessModel, ValuationFormData, YearDataInput } from './request'
  */
 export interface YearlyFinancials {
   year: string
-  revenue: number
-  ebitda: number
+  revenue?: number
+  ebitda?: number
+  dcf_model_snapshot?: DcfForecastInputsSnapshot
   source_provider?: string
   source_kind?: string
   source_synced_at?: string | null

@@ -38,6 +38,14 @@ describe('useManualDcfProjectionModelSync', () => {
           depreciation: 2_100,
           nwc_change: 75,
           isForecast: true,
+          dcf_model_snapshot: {
+            schema_version: 'dcf_forecast_inputs.v2',
+            revenue: 105_000,
+            ebitda: 10_500,
+            capex: 2_100,
+            depreciation: 2_100,
+            nwc_change: 75,
+          },
         },
       ] as YearlyFinancials[],
     } as ManualValuationFormData

@@ -141,10 +141,14 @@ export function syncManualDcfForecastRowsFromProjection({
       nwc_change: projection.nwcChange,
     }
     const yearKey = String(yearlyFinancial.year)
-    const lastSnapshot = modelSnapshots[yearKey]
+    const recorded = yearlyFinancial.dcf_model_snapshot
+    const lastSnapshot =
+      recorded?.schema_version === 'dcf_forecast_inputs.v2' ? recorded : undefined
     const currentSnapshot = snapshotFromForecastRowLike(yearlyFinancial)
 
-    if (lastSnapshot && !snapshotsClose(currentSnapshot, lastSnapshot)) {
+    // Legacy/restored manual inputs have no model ownership commitment.
+    // Only an explicit autofill or a previously committed model baseline grants it.
+    if (!lastSnapshot || !snapshotsClose(currentSnapshot, lastSnapshot)) {
       return yearlyFinancial
     }
 
@@ -156,14 +160,18 @@ export function syncManualDcfForecastRowsFromProjection({
       depreciation: projection.da,
       nwc_change: projection.nwcChange,
       free_cash_flow: undefined,
+      dcf_model_snapshot: {
+        schema_version: 'dcf_forecast_inputs.v2' as const,
+        ...modelSnapshot,
+      },
     }
 
     if (
       merged.revenue !== yearlyFinancial.revenue ||
       merged.ebitda !== yearlyFinancial.ebitda ||
-      (merged.capex ?? 0) !== (yearlyFinancial.capex ?? 0) ||
-      (merged.depreciation ?? 0) !== (yearlyFinancial.depreciation ?? 0) ||
-      (merged.nwc_change ?? 0) !== (yearlyFinancial.nwc_change ?? 0)
+      merged.capex !== yearlyFinancial.capex ||
+      merged.depreciation !== yearlyFinancial.depreciation ||
+      merged.nwc_change !== yearlyFinancial.nwc_change
     ) {
       changed = true
     }
