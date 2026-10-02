@@ -1,6 +1,10 @@
 import Decimal from 'decimal.js'
 import type { YearDataInput, YearlyFinancials } from '../types/valuation'
-import { hasEvidencedFinancialValue, readFinancialObservations } from './financialObservations'
+import {
+  hasEvidencedFinancialValue,
+  isEvidencedFinancialField,
+  readFinancialObservations,
+} from './financialObservations'
 import { getCurrentFilingYear } from './fiscalYear'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 
@@ -56,10 +60,14 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
       year: String(y),
       revenue: parsedRevenue ?? 0,
       ebitda: parsedEbitda ?? 0,
-      ...(row.financial_observations
+      ...(row.financial_observations || parsedRevenue === undefined || parsedEbitda === undefined
         ? {
             financial_observations: {
               ...readFinancialObservations(row.financial_observations),
+              // Legacy display slots are numeric; their zeros must carry absence
+              // so completeness checks and submission never treat them as earnings.
+              ...(parsedRevenue === undefined ? { revenue: 'missing' as const } : {}),
+              ...(parsedEbitda === undefined ? { ebitda: 'missing' as const } : {}),
               ...(revenue !== row.revenue
                 ? {
                     revenue:
@@ -122,16 +130,24 @@ export function turnoverOf(row: unknown): unknown {
 export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T): boolean {
   if (!year?.year) return false
 
-  const revE = hasExplicitNumericValue(year.revenue)
-  const ebitE = hasExplicitNumericValue(year.ebitda)
-  const fcffE = hasExplicitNumericValue(year.free_cash_flow)
+  const observations = readFinancialObservations(year.financial_observations)
+  const present = (field: string, value: unknown) =>
+    !['missing', 'placeholder', 'unknown'].includes(observations[field] ?? '') &&
+    hasExplicitNumericValue(value)
+  const revE = present('revenue', year.revenue)
+  const ebitE = present('ebitda', year.ebitda)
+  const fcffE = present('free_cash_flow', year.free_cash_flow)
 
   const revenue = revE ? parseFlexibleNumber(year.revenue) : undefined
   const ebitda = ebitE ? parseFlexibleNumber(year.ebitda) : undefined
   const fcff = fcffE ? parseFlexibleNumber(year.free_cash_flow) : undefined
 
   const revEbitComplete =
-    revE && ebitE && (revenue !== 0 || ebitda !== 0 || hasEvidencedFinancialValue(year))
+    revE &&
+    ebitE &&
+    (revenue !== 0 ||
+      ebitda !== 0 ||
+      (isEvidencedFinancialField(year, 'revenue') && isEvidencedFinancialField(year, 'ebitda')))
   if (revEbitComplete) return true
 
   if (fcffE && fcff !== undefined) {

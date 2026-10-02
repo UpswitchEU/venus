@@ -11,6 +11,7 @@ vi.mock('@/stores/clientContext', () => ({
 const id = producer.report_manifest.report_id
 const report = { valuation_result: { partial_valuation: producer.partial_valuation } }
 const loaded = {
+  report_id: id,
   partial_valuation: producer.partial_valuation,
   updated_at: '2026-10-02T06:00:00.000Z',
 }
@@ -40,6 +41,16 @@ describe('saved partial screen', () => {
       'X-Relationship-Id': 'relationship-1',
     })
     expect(JSON.parse(fetcher.mock.calls[1][1].body).include_pdf).toBe(false)
+  })
+  it('accepts a session alias only when the authenticated head resolves to the exported report', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json(loaded))
+      .mockResolvedValueOnce(json(producer))
+    vi.stubGlobal('fetch', fetcher)
+    render(<SavedPartialReport reportId="val_session_alias" report={report} language="en" />)
+    const frame = await screen.findByTitle('Automatic indicative assessment')
+    expect(frame.getAttribute('srcdoc')).toBe(producer.html_report)
   })
   it('does not render or reprice after a saved identity change', async () => {
     const fetcher = vi.fn().mockResolvedValue(

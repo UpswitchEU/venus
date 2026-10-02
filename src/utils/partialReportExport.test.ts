@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import unknownBasis from './__fixtures__/partial-assessment.v2.json'
 import fixtures from './__fixtures__/partial-assessments.v1.json'
 import producer from './__fixtures__/partial-report.v1.json'
 import { savedPartialAssessment, savedPartialExportRequest } from './partialReportExport'
@@ -43,6 +44,18 @@ describe('partial saved assessment consumer contract', () => {
       cookieHeader: 'upswitch_access_token=token',
       duplicateAuthCookies: [],
     })
+  })
+  it('loads an unknown-basis v2 assessment without projecting a zero result', async () => {
+    const saved = { ...report, valuation_result: { partial_valuation: unknownBasis } }
+    expect(savedPartialAssessment(saved)).toBe(unknownBasis)
+    expect(savedPartialExportRequest(saved, 'fr')?.expected_content_sha256).toBe(
+      unknownBasis.content_sha256
+    )
+    mocks.fetch.mockResolvedValue(response({ report_id: reportId, ...saved }))
+    const loaded = await load(new NextRequest('https://valuation.example/api/reports'), context)
+    expect(
+      (await loaded.json()).valuation_result.partial_valuation.inputs.financials
+    ).toMatchObject({ currency: null, fiscal_year: null, revenue: '100.05', ebitda: null })
   })
   it('preserves producer zero bound, absent earnings and control basis', () => {
     expect(savedPartialAssessment(report)).toEqual(fixtures[0])

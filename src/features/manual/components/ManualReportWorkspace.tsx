@@ -1,6 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useLocale, useTranslations } from 'next-intl'
 import { lazy, Suspense, useRef } from 'react'
+import { SavedPartialReport } from '@/components/results/SavedPartialReport'
+import { usePartialAssessmentStore } from '@/store/manual/usePartialAssessmentStore'
+import { savedPartialAssessment } from '@/utils/partialReportExport'
+import { isSameReportIdentity } from '@/utils/reportIdentityPromotion'
 import {
   HistoryPanel,
   type HistoryPanelProps,
@@ -155,6 +159,15 @@ export function ManualReportWorkspace({
 }: ManualReportWorkspaceProps) {
   const locale = useLocale()
   const reportPanelRef = useRef<HTMLDivElement>(null)
+  const partialEntry = usePartialAssessmentStore((state) => state.entry)
+  const result = useManualResultsStore((state) => state.result)
+  const restored = { valuation_result: result }
+  // A restored result takes precedence over a previous in-memory assessment.
+  const partialReport = savedPartialAssessment(restored)
+    ? restored
+    : !result && partialEntry && isSameReportIdentity(partialEntry.reportId, reportId)
+      ? partialEntry.saved
+      : null
   const renderError = useSessionStore((state) => state.renderError)
   const recoveryResolution = useManualResultsStore(
     (state) => state.result?.negativeEbitdaResolution
@@ -167,6 +180,9 @@ export function ManualReportWorkspace({
   const showPayloadTooLarge = renderError === 'payload_too_large' && !report?.htmlReport && !isBusy
   const showHtmlRecoveryFailed =
     renderError === 'html_recovery_failed' && !report?.htmlReport && !isBusy
+
+  if (partialReport && rightPanelView !== 'history' && !isDeletingCurrentReport)
+    return <SavedPartialReport reportId={reportId} report={partialReport} language={locale} />
 
   return (
     <div ref={reportPanelRef} className="h-full bg-background flex flex-col">

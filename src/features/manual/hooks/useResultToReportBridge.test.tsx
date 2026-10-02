@@ -15,6 +15,7 @@ import type { SaveValuationResultResponse } from '@/types/api-responses'
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { rememberSavedReportAlias } from '@/utils/reportIdentityPromotion'
+import producer from '../../../utils/__fixtures__/partial-report.v1.json'
 import { clearReportsDeleting, markReportsDeleting } from '../utils/manualReportDeleteGuard'
 import {
   resolveValuationRunTrigger,
@@ -89,6 +90,17 @@ describe('useResultToReportBridge', () => {
     })
   })
 
+  it('keeps restored partial snapshots out of the scalar mapper and background PDF path', () => {
+    const result = makeResult({
+      partial_valuation: producer.partial_valuation,
+    } as Partial<ValuationResponse>)
+    const params = makeParams({ result })
+    renderHook(() => useResultToReportBridge(params))
+    expect(params.setReport).toHaveBeenCalledWith(null)
+    expect(params.setRightPanelView).toHaveBeenCalledWith('preview')
+    expect(params.onComplete).not.toHaveBeenCalled()
+    expect(params.generatePdf).not.toHaveBeenCalled()
+  })
   describe('delete guard', () => {
     afterEach(() => {
       clearReportsDeleting()

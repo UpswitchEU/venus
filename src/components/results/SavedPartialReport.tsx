@@ -69,7 +69,11 @@ export function SavedPartialReport({
           }
         )
         if (!head.ok) throw new Error('Saved report unavailable')
-        const options = savedPartialExportRequest(await head.json(), locale, false)
+        const savedHead = reportRecord(await head.json())
+        const canonicalReportId = savedHead.report_id
+        if (typeof canonicalReportId !== 'string' || !canonicalReportId)
+          throw new Error('Saved report identity unavailable')
+        const options = savedPartialExportRequest(savedHead, locale, false)
         if (!options || options.expected_content_sha256 !== contentHash)
           throw new Error('Saved calculation changed')
         const response = await fetch(
@@ -88,7 +92,7 @@ export function SavedPartialReport({
         const manifest = reportRecord(body.report_manifest)
         if (
           manifest.content_sha256 !== options.expected_content_sha256 ||
-          manifest.report_id !== reportId ||
+          manifest.report_id !== canonicalReportId ||
           manifest.language !== locale ||
           typeof body.html_report !== 'string'
         )

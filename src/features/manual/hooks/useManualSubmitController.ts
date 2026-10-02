@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { toast } from 'sonner'
 import type { SynthesisWeightSelection } from '@/lib/synthesis/synthesisWeights'
+import { usePartialAssessmentStore } from '@/store/manual/usePartialAssessmentStore'
 import { ValidationError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import type { ValuationFormData } from '../../../components/calculator'
@@ -28,6 +29,7 @@ import {
 } from '../utils/accountingReconnectResume'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
+import { calculateSavedManualAssessment } from '../utils/manualPartialAssessment'
 import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
 import {
   getManualSubmitValidationIssue,
@@ -237,7 +239,8 @@ export function useManualSubmitController({
         },
         effectiveMethod
       )
-      if (validationIssue) {
+      const useAssessment = validationIssue !== null && validationIssue !== 'companyNameMissing'
+      if (validationIssue && !useAssessment) {
         const toastKeys = MANUAL_SUBMIT_VALIDATION_TOAST_KEYS[validationIssue]
         toast.warning(translate(toastKeys.title), { description: translate(toastKeys.description) })
         return false
@@ -265,6 +268,24 @@ export function useManualSubmitController({
       })
 
       try {
+        if (useAssessment) {
+          options?.onWillSubmit?.()
+          const saved = await calculateSavedManualAssessment(
+            linkedIdentifier || resolvedReportId || reportId,
+            data,
+            submitRun.isStillTarget
+          )
+          if (!saved) {
+            submitRun.endLoading()
+            return false
+          }
+          setResult(null)
+          usePartialAssessmentStore.getState().setSaved(reportId, saved)
+          // The assessment is saved atomically by Titan. It does not mark
+          // concurrently edited form inputs or pending normalizations as saved.
+          submitRun.endLoading()
+          return true
+        }
         const venusFormData = mapClarityFormToVenusStore(
           data,
           useManualFormStore.getState().formData
@@ -319,6 +340,7 @@ export function useManualSubmitController({
         })
         if (calculationResult.aborted || !calculationResult.valuationResult) return false
 
+        usePartialAssessmentStore.getState().clear()
         const calcResult = calculationResult.valuationResult
         warnIfSubmitSynthesisSkipped(calcResult)
 
@@ -391,6 +413,7 @@ export function useManualSubmitController({
       runManualCalculationExecution,
       selectedMethod,
       setCollectedData,
+      setResult,
       setIsGenerating,
       synthesisSelection,
       translate,
