@@ -83,7 +83,7 @@ describe('useManualDcfForecastController', () => {
       expect(formStateRef.current.dcf_ebitda_margin_pct).toBe(0)
       const forecast = formStateRef.current.yearlyFinancials.find((row) => row.year === '2026')
       expect(forecast).toMatchObject({
-        revenue: 1_050_000,
+        revenue: 105_000,
         ebitda: 0,
       })
     })

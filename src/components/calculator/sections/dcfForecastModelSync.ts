@@ -2,7 +2,7 @@
  * Compares forecast row snapshots to decide whether a row still matches the last
  * model-driven projection (so globals can safely re-apply) vs user overrides.
  */
-import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
+import { availableFinancialNumber } from '@/utils/financialObservations'
 
 export type DcfForecastModelSnapshot = {
   revenue: number | null
@@ -13,24 +13,21 @@ export type DcfForecastModelSnapshot = {
 }
 
 const DEFAULT_TOL = 0
-
-function observedValue(value: unknown): number | null {
-  return parseFlexibleNumber(value) ?? null
-}
+const SNAPSHOT_FIELDS = ['revenue', 'ebitda', 'capex', 'depreciation', 'nwc_change'] as const
 
 export function snapshotFromForecastRowLike(row: {
-  revenue: number | null
-  ebitda: number | null
+  revenue?: number | null
+  ebitda?: number | null
   capex?: number | null
   depreciation?: number | null
   nwc_change?: number | null
 }): DcfForecastModelSnapshot {
   return {
-    revenue: observedValue(row.revenue),
-    ebitda: observedValue(row.ebitda),
-    capex: observedValue(row.capex),
-    depreciation: observedValue(row.depreciation),
-    nwc_change: observedValue(row.nwc_change),
+    revenue: availableFinancialNumber(row, 'revenue') ?? null,
+    ebitda: availableFinancialNumber(row, 'ebitda') ?? null,
+    capex: availableFinancialNumber(row, 'capex') ?? null,
+    depreciation: availableFinancialNumber(row, 'depreciation') ?? null,
+    nwc_change: availableFinancialNumber(row, 'nwc_change') ?? null,
   }
 }
 
@@ -39,7 +36,7 @@ export function snapshotsClose(
   b: DcfForecastModelSnapshot,
   tol = DEFAULT_TOL
 ): boolean {
-  return (Object.keys(a) as Array<keyof DcfForecastModelSnapshot>).every((field) => {
+  return SNAPSHOT_FIELDS.every((field) => {
     const left = a[field]
     const right = b[field]
     if (left == null || right == null) return left === right

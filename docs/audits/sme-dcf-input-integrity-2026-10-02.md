@@ -35,3 +35,11 @@ The local fork-pool run encountered two worker startup timeouts. Those failures 
 ## Integration with sparse-input assessments
 
 The integrated candidate additionally respects `financial_observations` in historical DCF basis selection and forecast previews. Legacy numeric display slots can contain zero while the source status is missing, placeholder or unknown; those slots now remain absent for DCF. Explicitly observed zero earnings remain available. Regression coverage includes an imported legacy row passed through the display adapter into DCF defaults. The integrated focused run passed 472 tests across 53 files, with application typechecking and lint passing (151 existing warnings). Full hosted release acceptance is still required on the final source.
+
+## Integrated saved-forecast and observation repairs
+
+The combined candidate incorporates the saved-forecast ownership repair from 54b863a0 while retaining this candidate's backend-dependent cash-tax policy. A persisted `dcf_forecast_inputs.v2` baseline grants model refresh permission only while its exact inputs still match. An explicit advisor edit revokes it, including an edit equal to the prior model value. Legacy rows without that commitment remain intact. Clearing a draft field remains missing through JSON restore.
+
+Six additional counterexamples showed that manual edits and explicit autofill retained obsolete missing labels. Editing a finite amount now updates only that field to observed (a supplied input, not external verification); clearing it marks it missing. Explicitly generated forecast fields are marked derived. Unavailable display zeroes cannot match a model ownership commitment. The focused integrated selection passes 115 tests in 10 files, with full TypeScript and lint passing (151 retained warnings). Full CI is recorded on the release PR.
+
+Release still requires the compatible Titan and ValuationIQ contracts; the separately deployed legacy-compatible forecast release does not establish readiness of this combined candidate.

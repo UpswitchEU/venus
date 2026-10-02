@@ -38,11 +38,18 @@ describe('manual financial row mutations', () => {
       })
     ).toEqual([
       { year: '2024', revenue: 100, ebitda: 20 },
-      { year: '2025', revenue: 0, ebitda: 0, isForecast: true, free_cash_flow: 42 },
+      {
+        year: '2025',
+        revenue: 0,
+        ebitda: 0,
+        isForecast: true,
+        free_cash_flow: 42,
+        financial_observations: { free_cash_flow: 'observed' },
+      },
     ])
   })
 
-  it('cleans EBITDA bridge residue when editing forecast FCFF directly', () => {
+  it('preserves retained EBITDA bridge facts when editing forecast FCFF directly', () => {
     const rows = [
       { year: '2024', revenue: 100, ebitda: 20 },
       {
@@ -68,13 +75,14 @@ describe('manual financial row mutations', () => {
       { year: '2024', revenue: 100, ebitda: 20 },
       {
         year: '2025',
-        revenue: 0,
-        ebitda: 0,
-        capex: undefined,
-        depreciation: undefined,
-        nwc_change: undefined,
+        revenue: 120,
+        ebitda: 24,
+        capex: 5,
+        depreciation: 4,
+        nwc_change: 3,
         isForecast: true,
         free_cash_flow: 42,
+        financial_observations: { free_cash_flow: 'observed' },
       },
     ])
   })
@@ -165,7 +173,7 @@ describe('manual financial row mutations', () => {
   it('detects only partial historical rows', () => {
     expect(
       getManualPartialHistoricalYears([
-        { year: '2024', revenue: 100, ebitda: undefined as unknown as number },
+        { year: '2024', revenue: 100, ebitda: undefined },
         { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
         { year: '2023', revenue: 100, ebitda: 20 },
       ])

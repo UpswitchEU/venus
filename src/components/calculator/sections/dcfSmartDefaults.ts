@@ -5,8 +5,8 @@ import { dcfHistoricalBasis } from './dcfHistoricalBasis'
 export interface DcfYearlyFinancialsLike {
   financial_observations?: Record<string, FinancialObservationStatus>
   year: string
-  revenue: unknown
-  ebitda: unknown
+  revenue?: unknown
+  ebitda?: unknown
   isForecast?: boolean
   is_forecast?: boolean
 }

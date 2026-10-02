@@ -1,6 +1,10 @@
 import Decimal from 'decimal.js'
+import type { DcfForecastInputsSnapshot } from '@/types/valuation/manual'
 import type { FinancialObservationStatus } from '@/types/valuation/request'
-import { availableFinancialNumber } from '@/utils/financialObservations'
+import {
+  availableFinancialNumber,
+  setFinancialObservationStatuses,
+} from '@/utils/financialObservations'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import { isYearRowForecast } from '../../../utils/yearData'
 import { DCF_DEFAULT_CAPEX_PCT, DCF_DEFAULT_DA_PCT, DCF_DEFAULT_NWC_PCT } from './dcfEngineDefaults'
@@ -21,9 +25,11 @@ export interface DcfProjectionPreviewRow {
 }
 
 export interface DcfProjectionAutofillRow {
+  financial_observations?: Record<string, FinancialObservationStatus>
   year: string
-  revenue: number
-  ebitda: number
+  revenue?: number
+  ebitda?: number
+  dcf_model_snapshot?: DcfForecastInputsSnapshot
   capex?: number
   depreciation?: number
   nwc_change?: number
@@ -309,6 +315,19 @@ export function applyDcfProjectionPreviewToForecastRows<T extends DcfProjectionA
       capex: projection.capex,
       depreciation: projection.da,
       nwc_change: projection.nwcChange,
+      financial_observations: setFinancialObservationStatuses(
+        row.financial_observations,
+        ['revenue', 'ebitda', 'capex', 'depreciation', 'nwc_change'],
+        'derived'
+      ),
+      dcf_model_snapshot: {
+        schema_version: 'dcf_forecast_inputs.v2',
+        revenue: projection.revenue,
+        ebitda: projection.ebitda,
+        capex: projection.capex,
+        depreciation: projection.da,
+        nwc_change: projection.nwcChange,
+      },
     }
   })
 }

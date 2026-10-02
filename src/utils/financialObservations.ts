@@ -60,3 +60,14 @@ export function availableFinancialNumber(source: unknown, field: string): number
   if (status === 'missing' || status === 'placeholder' || status === 'unknown') return undefined
   return parseFlexibleNumber(row[field])
 }
+
+/** Change only the fields actually edited or generated; retain unrelated source statuses. */
+export function setFinancialObservationStatuses(
+  existing: unknown,
+  fields: readonly string[],
+  status: FinancialObservationStatus
+): Record<string, FinancialObservationStatus> {
+  const next = readFinancialObservations(existing)
+  for (const field of fields) next[field] = status
+  return next
+}

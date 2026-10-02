@@ -20,7 +20,22 @@ export function buildManualInputFieldValidation(
   const errors: Record<string, string> = {}
 
   for (const yearFinancials of formData.yearlyFinancials) {
-    if (Number.isFinite(yearFinancials.revenue) && yearFinancials.revenue > 1_000_000_000) {
+    // Legacy numeric forecast contracts cannot safely represent missing earnings.
+    // Preserve the blank in the draft and require a complete explicit forecast at submit.
+    if (yearFinancials.isForecast && formData.dcf_input_mode !== 'fcff_only') {
+      for (const field of ['revenue', 'ebitda'] as const) {
+        if (typeof yearFinancials[field] !== 'number' || !Number.isFinite(yearFinancials[field])) {
+          errors[`${field}-${yearFinancials.year}`] = translate(
+            'validation.forecastFinancialsRequired'
+          )
+        }
+      }
+    }
+    if (
+      typeof yearFinancials.revenue === 'number' &&
+      Number.isFinite(yearFinancials.revenue) &&
+      yearFinancials.revenue > 1_000_000_000
+    ) {
       warnings[`revenue-${yearFinancials.year}`] = translate('validation.revenueOver1B')
     }
     if (
@@ -31,13 +46,21 @@ export function buildManualInputFieldValidation(
     ) {
       warnings[`fcff-${yearFinancials.year}`] = translate('validation.fcffRequired')
     }
-    if (yearFinancials.ebitda !== 0) {
+    if (
+      typeof yearFinancials.ebitda === 'number' &&
+      Number.isFinite(yearFinancials.ebitda) &&
+      yearFinancials.ebitda !== 0
+    ) {
       if (yearFinancials.ebitda < -100_000_000) {
         errors[`ebitda-${yearFinancials.year}`] = translate('validation.ebitdaBelow100M')
       } else if (yearFinancials.ebitda > 500_000_000) {
         errors[`ebitda-${yearFinancials.year}`] = translate('validation.ebitdaAbove500M')
       }
-      if (Number.isFinite(yearFinancials.revenue) && yearFinancials.revenue !== 0) {
+      if (
+        typeof yearFinancials.revenue === 'number' &&
+        Number.isFinite(yearFinancials.revenue) &&
+        yearFinancials.revenue !== 0
+      ) {
         const margin = (yearFinancials.ebitda / yearFinancials.revenue) * 100
         if (margin < -50) {
           warnings[`margin-${yearFinancials.year}`] = translate('validation.marginLow', {

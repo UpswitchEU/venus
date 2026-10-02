@@ -216,7 +216,20 @@ describe('manual DCF forecast transforms', () => {
     const result = syncManualDcfForecastRowsFromProjection({
       yearlyFinancials: [
         { year: '2024', revenue: 1_000_000, ebitda: 200_000 },
-        { year: '2025', revenue: 0, ebitda: 0, isForecast: true },
+        {
+          year: '2025',
+          revenue: 0,
+          ebitda: 0,
+          isForecast: true,
+          dcf_model_snapshot: {
+            schema_version: 'dcf_forecast_inputs.v2',
+            revenue: 0,
+            ebitda: 0,
+            capex: null,
+            depreciation: null,
+            nwc_change: null,
+          },
+        },
       ] as YearlyFinancials[],
       projectionRows: [
         {

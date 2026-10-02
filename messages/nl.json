@@ -1568,7 +1568,7 @@
 			"historyRange": "Historische jaren",
 			"years3": "Laatste 3 boekjaren",
 			"years5": "Laatste 5 boekjaren",
-			"manualOverride": "Behoud manuele override na import",
+			"manualOverride": "WACC {wacc}% — aangeleverde of illustratieve modelaanname (CAPM-opbouw hieronder wijkt af)",
 			"fetchPhasesHint": "Historische data ophalen, daarna budget- of prognoserijen wanneer beschikbaar.",
 			"loadingCompanies": "Bizzcontrol-klantdashboards laden...",
 			"importCta": "Data ophalen",
@@ -1586,7 +1586,7 @@
 			"historyRange": "Historische jaren",
 			"years3": "Laatste 3 boekjaren",
 			"years5": "Laatste 5 boekjaren",
-			"manualOverride": "Behoud manuele override na import",
+			"manualOverride": "WACC {wacc}% — aangeleverde of illustratieve modelaanname (CAPM-opbouw hieronder wijkt af)",
 			"fetchPhasesHint": "Proefbalans-snapshots ophalen; SDE-flags en kas/schuld-brug volgen in de workflow.",
 			"loadingCompanies": "Octopus-dossiers laden...",
 			"importCta": "Data ophalen",
@@ -1629,7 +1629,8 @@
 			"fteRequired": "Vul het totaal aantal FTE in, eigenaars meegeteld",
 			"fteOver10k": "Meer dan 10.000 FTE — controleer",
 			"yearRange": "Moet tussen 1800 en {year} liggen",
-			"fcffRequired": "Vul een geldige FCFF voor elk prognosejaar in"
+			"fcffRequired": "Vul een geldige FCFF voor elk prognosejaar in",
+			"forecastFinancialsRequired": "Vul het prognosebedrag in, ook nul wanneer van toepassing."
 		},
 		"startupValuation": {
 			"panelTitle": "Startup waarderingsmotor",

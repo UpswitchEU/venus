@@ -1568,7 +1568,7 @@
 			"historyRange": "Historical years",
 			"years3": "Last 3 fiscal years",
 			"years5": "Last 5 fiscal years",
-			"manualOverride": "Keep manual override available after import",
+			"manualOverride": "WACC {wacc}% — supplied or illustrative modeling input (CAPM build-up below differs)",
 			"fetchPhasesHint": "Fetching historical data, then budget or forecast rows when available.",
 			"loadingCompanies": "Loading Bizzcontrol client dashboards...",
 			"importCta": "Pull data",
@@ -1586,7 +1586,7 @@
 			"historyRange": "Historical years",
 			"years3": "Last 3 fiscal years",
 			"years5": "Last 5 fiscal years",
-			"manualOverride": "Keep manual override available after import",
+			"manualOverride": "WACC {wacc}% — supplied or illustrative modeling input (CAPM build-up below differs)",
 			"fetchPhasesHint": "Fetching trial balance snapshots; SDE flags and cash/debt bridge follow in the workflow.",
 			"loadingCompanies": "Loading Octopus dossiers...",
 			"importCta": "Pull data",
@@ -1629,7 +1629,8 @@
 			"fteRequired": "Enter the total FTE, owners included",
 			"fteOver10k": "Over 10,000 FTE — verify",
 			"yearRange": "Must be between 1800 and {year}",
-			"fcffRequired": "Enter a valid FCFF amount for each forecast year"
+			"fcffRequired": "Enter a valid FCFF amount for each forecast year",
+			"forecastFinancialsRequired": "Enter the forecast amount, including zero when applicable."
 		},
 		"startupValuation": {
 			"panelTitle": "Startup valuation engine",
