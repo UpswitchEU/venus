@@ -1,5 +1,6 @@
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
 import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
+import { FinancialDecimal as Decimal } from './financialDecimal'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 
 /** Whether an accepted normalization item applies to a given year. Single source of truth. */
@@ -19,6 +20,19 @@ export function normalizationItemTouchesYear(item: NormalizationItem, year: numb
   if (item.applyAllYears) return true
   if (item.applyYears && item.applyYears.length > 0) return item.applyYears.includes(year)
   return Number.isFinite(item.year) && item.year === year
+}
+
+/** Fiscal-year scope is a set: repeated years never repeat an economic adjustment. */
+export function getNormalizationTargetYears(
+  item: Pick<NormalizationItem, 'applyAllYears' | 'applyYears' | 'year'>,
+  availableYears: number[]
+): number[] {
+  const years = item.applyAllYears
+    ? availableYears
+    : item.applyYears && item.applyYears.length > 0
+      ? item.applyYears
+      : [item.year]
+  return [...new Set(years)]
 }
 
 export function getFirstFiniteNumber(...candidates: unknown[]): number | undefined {
@@ -50,16 +64,13 @@ export function getNormalizationAmountForBase(
   const safeValue = Number.isFinite(item.value) ? item.value : 0
   const safeAdjustment = Number.isFinite(item.adjustment) ? item.adjustment : 0
 
-  if (
-    safeReported === 0 &&
-    (item.type === 'add_percent' || item.type === 'subtract_percent' || item.type === 'absolute')
-  ) {
-    return safeAdjustment
-  }
-
-  if (item.type === 'add_percent') return (safeReported * safeValue) / 100
-  if (item.type === 'subtract_percent') return -((safeReported * safeValue) / 100)
-  if (item.type === 'absolute') return safeValue - safeReported
+  if (safeReported === 0 && (item.type === 'add_percent' || item.type === 'subtract_percent'))
+    return 0
+  if (item.type === 'add_percent')
+    return new Decimal(safeReported).mul(safeValue).div(100).toNumber()
+  if (item.type === 'subtract_percent')
+    return new Decimal(safeReported).mul(safeValue).div(100).negated().toNumber()
+  if (item.type === 'absolute') return new Decimal(safeValue).minus(safeReported).toNumber()
   return safeAdjustment
 }
 
@@ -76,17 +87,17 @@ export function summarizeAcceptedNormalizations(
   const original = Number.isFinite(reportedEbitda) ? reportedEbitda : 0
   const adjustment = items
     .filter((item) => item.status === 'accepted')
-    .reduce((sum, item) => sum + getNormalizationAmountForBase(item, original), 0)
+    .reduce((sum, item) => sum.plus(getNormalizationAmountForBase(item, original)), new Decimal(0))
+    .toNumber()
   const pendingItems = items.filter((item) => item.status === 'pending')
-  const pendingAdjustment = pendingItems.reduce(
-    (sum, item) => sum + getNormalizationAmountForBase(item, original),
-    0
-  )
+  const pendingAdjustment = pendingItems
+    .reduce((sum, item) => sum.plus(getNormalizationAmountForBase(item, original)), new Decimal(0))
+    .toNumber()
 
   return {
     original,
     adjustment,
-    normalized: original + adjustment,
+    normalized: new Decimal(original).plus(adjustment).toNumber(),
     pendingAdjustment,
     pendingCount: pendingItems.length,
   }
@@ -145,19 +156,15 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
   // users see why the Aanpassing tile is €0 even when there are visible pending rows
   // — without inflating the accepted normalized EBITDA value the report relies on.
   const pendingAdjustment = pendingItems.reduce((acc, item) => {
-    const years = item.applyAllYears
-      ? availableYears
-      : item.applyYears && item.applyYears.length > 0
-        ? item.applyYears
-        : [item.year]
+    const years = getNormalizationTargetYears(item, availableYears)
     let sum = 0
     for (const year of years) {
       if (!Number.isFinite(year)) continue
       const reported =
         getFirstFiniteNumber(reportedEbitdaByYear?.[year], fallbackReportedEbitda) ?? 0
-      sum += getNormalizationAmountForBase(item, reported)
+      sum = new Decimal(sum).plus(getNormalizationAmountForBase(item, reported)).toNumber()
     }
-    return acc + sum
+    return new Decimal(acc).plus(sum).toNumber()
   }, 0)
 
   if (acceptedItems.length === 0) {
@@ -175,11 +182,7 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
   const yearSummaries = new Map<number, { original: number; adjustment: number }>()
 
   for (const item of acceptedItems) {
-    const years = item.applyAllYears
-      ? availableYears
-      : item.applyYears && item.applyYears.length > 0
-        ? item.applyYears
-        : [item.year]
+    const years = getNormalizationTargetYears(item, availableYears)
 
     for (const year of years) {
       if (!Number.isFinite(year)) continue
@@ -187,7 +190,9 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
         getFirstFiniteNumber(reportedEbitdaByYear?.[year], fallbackReportedEbitda) ?? 0
       const current = yearSummaries.get(year) ?? { original, adjustment: 0 }
       current.original = original
-      current.adjustment += getNormalizationAmountForBase(item, original)
+      current.adjustment = new Decimal(current.adjustment)
+        .plus(getNormalizationAmountForBase(item, original))
+        .toNumber()
       yearSummaries.set(year, current)
     }
   }
@@ -198,24 +203,12 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
     normalized: number
   }>(
     (acc, year) => ({
-      original: acc.original + year.original,
-      adjustment: acc.adjustment + year.adjustment,
-      normalized: acc.normalized + year.original + year.adjustment,
+      original: new Decimal(acc.original).plus(year.original).toNumber(),
+      adjustment: new Decimal(acc.adjustment).plus(year.adjustment).toNumber(),
+      normalized: new Decimal(acc.normalized).plus(year.original).plus(year.adjustment).toNumber(),
     }),
     { original: 0, adjustment: 0, normalized: 0 }
   )
-
-  if (summary.original === 0 && summary.adjustment === 0 && summary.normalized === 0) {
-    const original =
-      getFirstFiniteNumber(reportedEbitdaByYear?.[fallbackYear], fallbackReportedEbitda) ?? 0
-    return {
-      original,
-      adjustment: 0,
-      normalized: original,
-      pendingAdjustment,
-      pendingCount: pendingItems.length,
-    }
-  }
 
   return { ...summary, pendingAdjustment, pendingCount: pendingItems.length }
 }
@@ -332,11 +325,7 @@ export function findAcceptedAutoNormalizationCapBreaches(options: {
       item.source === 'auto' || requiresIndividualImportedNormalizationReview(item)
     if (!isAutoImported) continue
 
-    const years = item.applyAllYears
-      ? availableYears
-      : item.applyYears && item.applyYears.length > 0
-        ? item.applyYears
-        : [item.year]
+    const years = getNormalizationTargetYears(item, availableYears)
 
     for (const year of years) {
       if (!Number.isFinite(year)) continue
@@ -379,15 +368,14 @@ export function getReportedFinancialEbitda(row: {
     const metadata = row.ebitda_normalization_metadata as
       | { reported_ebitda?: unknown; normalized_ebitda?: unknown }
       | undefined
-    const normalized = row.normalized_ebitda ?? metadata?.normalized_ebitda
-    if (
-      normalized != null &&
-      row.ebitda != null &&
-      parseFlexibleNumber(row.ebitda) !== parseFlexibleNumber(normalized)
-    ) {
-      return parseFlexibleNumber(row.ebitda)
+    const normalized = parseFlexibleNumber(row.normalized_ebitda ?? metadata?.normalized_ebitda)
+    const current = parseFlexibleNumber(row.ebitda)
+    if (normalized !== undefined && current !== undefined && current !== normalized) {
+      return current
     }
-    return [row.reported_ebitda, metadata?.reported_ebitda, row.ebitda]
+    // A normalized amount cannot supply its own missing reported baseline:
+    // reusing it would apply accepted adjustments twice on reopening.
+    return [row.reported_ebitda, metadata?.reported_ebitda]
       .map(parseFlexibleNumber)
       .find((value) => value !== undefined)
   }

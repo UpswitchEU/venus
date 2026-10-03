@@ -1,11 +1,8 @@
 import { type MutableRefObject, useCallback } from 'react'
 import { useManualFormStore } from '../../../store/manual'
 import { storeReflectsBridgeMapped } from '../../../utils/storeReflectsBridgeMapped'
-import { getLatestCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
-import type {
-  SubmittedFinancialSnapshot,
-  SubmittedFinancialYear,
-} from '../utils/manualFinancialSnapshot'
+import { hasFinancialInputsChangedSinceSubmit } from '../utils/manualFinancialChanges'
+import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
 
 type ManualFormDataPatch = ReturnType<typeof mapClarityFormToVenusStore>
@@ -50,60 +47,10 @@ export function useManualFormDataChangeSync<TCollectedData extends object>({
       const snapshot = lastSubmittedFinancialSnapshotRef.current
       if (!snapshot) return
 
-      setIsDirty(hasFinancialInputsChangedSinceSubmit(data, snapshot))
+      setIsDirty(hasFinancialInputsChangedSinceSubmit(latestFormDataRef.current, snapshot))
     },
     [lastSubmittedFinancialSnapshotRef, latestFormDataRef, result, setIsDirty, updateFormData]
   )
 
   return { handleFormDataChange }
-}
-
-function hasFinancialInputsChangedSinceSubmit(
-  data: Record<string, unknown>,
-  snapshot: SubmittedFinancialSnapshot
-) {
-  const yearlyFinancials = readYearlyFinancials(data.yearlyFinancials)
-  const current = getLatestCompleteYearlyFinancial(yearlyFinancials)
-  const revenue = current?.revenue ?? (data.revenue as number)
-  const ebitda = current?.ebitda ?? (data.ebitda as number)
-
-  const revNum = revenue != null ? Number(revenue) : undefined
-  const ebitdaNum = ebitda != null ? Number(ebitda) : undefined
-  const snapRev = snapshot.revenue != null ? Number(snapshot.revenue) : undefined
-  const snapEbitda = snapshot.ebitda != null ? Number(snapshot.ebitda) : undefined
-
-  const revMatch = revNum === undefined || snapRev === undefined || revNum === snapRev
-  const ebitdaMatch =
-    ebitdaNum === undefined || snapEbitda === undefined || ebitdaNum === snapEbitda
-  const yfMatch = financialYearsMatchSnapshot(yearlyFinancials, snapshot.yearlyFinancials)
-
-  return !(revMatch && ebitdaMatch && yfMatch)
-}
-
-function readYearlyFinancials(value: unknown): SubmittedFinancialYear[] {
-  return Array.isArray(value) ? (value as SubmittedFinancialYear[]) : []
-}
-
-function financialYearsMatchSnapshot(
-  yearlyFinancials: SubmittedFinancialYear[],
-  snapshotYearlyFinancials: SubmittedFinancialYear[]
-) {
-  if (yearlyFinancials.length === 0) return true
-  return (
-    JSON.stringify(normalizeFinancialYears(yearlyFinancials)) ===
-    JSON.stringify(normalizeFinancialYears(snapshotYearlyFinancials))
-  )
-}
-
-function normalizeFinancialYears(years: SubmittedFinancialYear[]) {
-  return [...years]
-    .sort((a, b) => Number.parseInt(b.year, 10) - Number.parseInt(a.year, 10))
-    .map((year) => ({
-      y: year.year,
-      r: Number(year.revenue),
-      e: Number(year.ebitda),
-      c: year.capex != null ? Number(year.capex) : null,
-      n: year.nwc_change != null ? Number(year.nwc_change) : null,
-      f: Boolean(year.isForecast),
-    }))
 }

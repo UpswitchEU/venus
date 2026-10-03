@@ -12,7 +12,7 @@ import { validateOptionalValuationCompanyGraphContext } from '../../utils/valuat
 import {
   getEquityValueHigh,
   getEquityValueLow,
-  getFinalValuation,
+  getEquityValueMid,
   getRecommendedAskingPrice,
 } from '../../utils/valuationResultAccess'
 import { VALUATION_OPERATION_TIMEOUT_MS } from '../api/valuationTimeouts'
@@ -174,7 +174,7 @@ export async function saveCompleteValuationSession(
         const latestVersion = versionStore.getLatestVersion(canonicalReportId)
         const clientContext = useClientContext.getState()
         const broadcastValuationResult = data.valuationResult ?? {}
-        const finalValuation = getFinalValuation(broadcastValuationResult)
+        const finalValuation = getEquityValueMid(broadcastValuationResult)
 
         broadcastReportUpdated({
           reportId: canonicalReportId,

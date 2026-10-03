@@ -269,7 +269,7 @@ describe('normalizeSessionData', () => {
     })
   })
 
-  it('repairs zero pricing midpoint from positive valuation bounds during restore', () => {
+  it('does not repair a saved zero into a positive range midpoint during restore', () => {
     const normalized = normalizeSessionData({
       session_key: 'val_zero_mid_positive_range',
       session_data: {
@@ -282,12 +282,8 @@ describe('normalizeSessionData', () => {
       },
     })
 
-    expect(normalized.pricingRange).toEqual({
-      min: 12_800_000,
-      mid: 15_600_000,
-      max: 18_400_000,
-      currency: 'EUR',
-    })
+    expect(normalized.valuationResult?.equity_value_mid).toBe(0)
+    expect(normalized.pricingRange).toBeNull()
   })
 
   it('marks completed sessions without output assets as not report-ready', () => {

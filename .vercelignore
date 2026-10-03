@@ -5,6 +5,7 @@
 /build
 /node_modules
 /.vite
+/*.tsbuildinfo
 
 # Venus uses pnpm; avoid package manager conflict warning
 /package-lock.json

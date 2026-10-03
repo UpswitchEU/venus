@@ -3,7 +3,7 @@ import type { ValuationSession } from '../types/valuation'
 import { extractValuationAmount } from './valuationSessionMapper'
 
 describe('valuationSessionMapper', () => {
-  it('uses a positive valuation range instead of a zero headline amount', () => {
+  it('preserves a saved zero headline amount rather than pricing the range midpoint', () => {
     const session = {
       valuationResult: {
         equity_value_mid: 0,
@@ -13,6 +13,6 @@ describe('valuationSessionMapper', () => {
       },
     } as ValuationSession
 
-    expect(extractValuationAmount(session)).toBe(15_600_000)
+    expect(extractValuationAmount(session)).toBe(0)
   })
 })

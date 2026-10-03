@@ -3556,6 +3556,13 @@
 		}
 	},
 	"calculationBreakdown": {
+		"reportedEbitdaDescription": "Résultat des données financières sources, avant ajustements de valorisation.",
+		"appliedMultiple": "Multiple appliqué",
+		"appliedMultipleDescription": "Le multiple utilisé par le calcul sélectionné, le cas échéant.",
+		"valuationResult": "Résultat de valorisation",
+		"equityValue": "Valeur des capitaux propres",
+		"valuationResultDescription": "Le résultat sélectionné selon la base de valeur indiquée dans le rapport.",
+		"evidenceNote": "Consultez le rapport pour les sources, hypothèses, méthodes applicables et le passage de la valeur d’entreprise aux capitaux propres. Les valeurs manquantes sont représentées par un tiret.",
 		"title": "Détails du calcul",
 		"noCalculationAvailable": "Aucun calcul disponible",
 		"noCalculationDesc": "Remplissez les détails de l'entreprise et calculez l'estimation pour voir les détails du calcul.",
@@ -3827,6 +3834,9 @@
 		"copyFailed": "Impossible de copier le lien"
 	},
 	"omniCalc": {
+		"columnValue": "Valeur",
+		"currencyUnknown": "Devise inconnue",
+		"valueBasisUnknown": "Base de valeur inconnue",
 		"title": "Chiffre principal & méthodes",
 		"subtitle": "Choisissez le résultat calculé qui apparaît comme valeur principale dans le rapport client et les exportations.",
 		"available": "prêt",

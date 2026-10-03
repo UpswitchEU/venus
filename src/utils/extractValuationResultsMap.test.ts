@@ -456,7 +456,7 @@ describe('extractValuationResultsMap', () => {
     expect(out?.upswitch_adaptive?.multiple_used).toBe(4.2)
   })
 
-  it('ignores zero midpoint when synthesizing from a positive valuation range', () => {
+  it('preserves an observed zero rather than manufacturing a midpoint', () => {
     const payload = {
       valuation_results: {},
       details: { valuation_results: {} },
@@ -472,7 +472,7 @@ describe('extractValuationResultsMap', () => {
       selectedValuationMethod: 'upswitch_adaptive',
     })
 
-    expect(out?.upswitch_adaptive?.value).toBe(15_600_000)
+    expect(out?.upswitch_adaptive?.value).toBe(0)
     expect(out?.upswitch_adaptive?.details).toMatchObject({
       equity_range_low: 12_800_000,
       equity_range_high: 18_400_000,

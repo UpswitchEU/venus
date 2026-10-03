@@ -320,7 +320,7 @@ describe('useVersionHistoryStore', () => {
       expect(comparison?.valuationDelta?.direction).toBe('increase')
     })
 
-    it('compares versions using a positive range midpoint when final valuation is zero', async () => {
+    it('compares versions using the saved zero conclusion without inventing a midpoint', async () => {
       const { createVersion, compareVersions } = useVersionHistoryStore.getState()
 
       await createVersion({
@@ -346,7 +346,7 @@ describe('useVersionHistoryStore', () => {
       const comparison = compareVersions('val_test_123', 1, 2)
 
       expect(comparison?.valuationDelta).toMatchObject({
-        absoluteChange: 4_400_000,
+        absoluteChange: 20_000_000,
         direction: 'increase',
       })
     })

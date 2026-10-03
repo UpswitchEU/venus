@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { OmniMethodPanorama } from './OmniMethodPanorama'
 
@@ -50,5 +50,56 @@ describe('OmniMethodPanorama', () => {
     )
 
     expect(screen.getAllByRole('button')).toHaveLength(3)
+  })
+})
+
+describe('method financial presentation', () => {
+  it('shows the supplied currency, signed range and explicit enterprise basis', () => {
+    render(
+      <OmniMethodPanorama
+        currency="USD"
+        valuationResults={{
+          upswitch_adaptive: {
+            label: 'Equity method',
+            value: 0,
+            available: true,
+            details: { equity_range_low: -10, equity_range_high: 10 },
+          },
+          dcf: {
+            label: 'Enterprise method',
+            value: 500,
+            value_basis: 'enterprise_value',
+            available: true,
+            value_low: 400,
+            value_high: 600,
+          },
+        }}
+        selectedMethod="dcf"
+        onMethodClick={vi.fn()}
+      />
+    )
+    const equity = screen.getByRole('button', { name: 'Equity method' })
+    expect(within(equity).getByText('-$10 – $10')).toBeInTheDocument()
+    const enterprise = screen.getByRole('button', { name: /Enterprise method/ })
+    expect(within(enterprise).getByText('enterpriseValue')).toBeInTheDocument()
+    expect(within(enterprise).getByText('$500')).toBeInTheDocument()
+    expect(enterprise).not.toHaveTextContent('%')
+    expect(enterprise.querySelector('[style*="width"]')).toBeNull()
+    expect(enterprise).not.toHaveTextContent('€')
+  })
+  it('does not invent a currency or a zero from a malformed method amount', () => {
+    render(
+      <OmniMethodPanorama
+        valuationResults={{
+          dcf: { label: 'Unknown', value: 0, available: true },
+          adjusted_nav: { label: 'Invalid', value: true as unknown as number, available: true },
+        }}
+        selectedMethod="dcf"
+        onMethodClick={vi.fn()}
+      />
+    )
+    expect(screen.getByText('equityValue · currencyUnknown')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Invalid' })).toBeDisabled()
+    expect(screen.queryByText(/€/)).not.toBeInTheDocument()
   })
 })

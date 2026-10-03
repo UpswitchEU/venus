@@ -3556,6 +3556,13 @@
 		}
 	},
 	"calculationBreakdown": {
+		"reportedEbitdaDescription": "Earnings reported in the source financials, before valuation adjustments.",
+		"appliedMultiple": "Applied multiple",
+		"appliedMultipleDescription": "The multiple used by the selected calculation, where applicable.",
+		"valuationResult": "Valuation result",
+		"equityValue": "Equity value",
+		"valuationResultDescription": "The selected calculation result on the value basis shown in the report.",
+		"evidenceNote": "See the report for the source evidence, assumptions, method eligibility and any enterprise-to-equity bridge. Missing values are shown as a dash.",
 		"title": "Calculation details",
 		"noCalculationAvailable": "No calculation available",
 		"noCalculationDesc": "Fill in the business details and calculate the estimate to see the calculation details.",
@@ -3827,6 +3834,9 @@
 		"copyFailed": "Could not copy link"
 	},
 	"omniCalc": {
+		"columnValue": "Value",
+		"currencyUnknown": "Currency unknown",
+		"valueBasisUnknown": "Value basis unknown",
 		"title": "Headline & methods",
 		"subtitle": "Choose which calculated result appears as the headline value in the client report and exports.",
 		"available": "ready",
