@@ -2,12 +2,7 @@ import Decimal from 'decimal.js'
 import type { DcfForecastInputsSnapshot } from '../../../types/valuation/manual'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import { isYearRowForecast } from '../../../utils/yearData'
-import {
-  DCF_DEFAULT_CAPEX_PCT,
-  DCF_DEFAULT_DA_PCT,
-  DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
-} from './dcfEngineDefaults'
+import { DCF_DEFAULT_CAPEX_PCT, DCF_DEFAULT_DA_PCT, DCF_DEFAULT_NWC_PCT } from './dcfEngineDefaults'
 import { dcfHistoricalBasis } from './dcfHistoricalBasis'
 import type { DcfSmartDefaults, DcfYearlyFinancialsLike } from './dcfSmartDefaults'
 
@@ -46,9 +41,7 @@ function toFinite(value: unknown): number | null {
 const PreviewDecimal = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN })
 
 function taxRateFraction(value: unknown): Decimal | null {
-  // Compatibility with the deployed legacy tax contract. Country-policy deferral
-  // is released separately with the corresponding ValuationIQ policy correction.
-  const parsed = value == null ? DCF_DEFAULT_TAX_RATE_PCT : toFinite(value)
+  const parsed = toFinite(value)
   return parsed == null || parsed < 0 || parsed > 100 ? null : new PreviewDecimal(parsed).div(100)
 }
 

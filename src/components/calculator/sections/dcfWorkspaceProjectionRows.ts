@@ -1,11 +1,6 @@
 import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
 import type { DcfForecastRow } from './DcfForecastTypes'
-import {
-  DCF_DEFAULT_CAPEX_PCT,
-  DCF_DEFAULT_DA_PCT,
-  DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
-} from './dcfEngineDefaults'
+import { DCF_DEFAULT_CAPEX_PCT, DCF_DEFAULT_DA_PCT, DCF_DEFAULT_NWC_PCT } from './dcfEngineDefaults'
 import {
   buildProjectionRowFromForecastRow,
   type DcfProjectionPreviewRow,
@@ -57,7 +52,7 @@ export function buildDcfWorkspaceProjectionRows({
     daPct: finiteValue(globalDaPct) ?? DCF_DEFAULT_DA_PCT,
     capexPct: finiteValue(globalCapexPct) ?? DCF_DEFAULT_CAPEX_PCT,
     nwcPct: finiteValue(globalNwcPct) ?? DCF_DEFAULT_NWC_PCT,
-    taxRatePct: finiteValue(globalTaxRatePct) ?? DCF_DEFAULT_TAX_RATE_PCT,
+    taxRatePct: finiteValue(globalTaxRatePct),
   }
   const build = (row: DcfForecastRow, index: number) => {
     const previousRevenue =

@@ -5,7 +5,6 @@ import {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
   DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
 } from '../sections/dcfEngineDefaults'
 import {
   type DcfForecastModelSnapshot,
@@ -199,7 +198,7 @@ export function switchManualDcfInputMode(
       daPct: numberOrDefault(formData.dcf_da_pct, DCF_DEFAULT_DA_PCT),
       capexPct: numberOrDefault(formData.dcf_capex_pct, DCF_DEFAULT_CAPEX_PCT),
       nwcPct: numberOrDefault(formData.dcf_nwc_pct, DCF_DEFAULT_NWC_PCT),
-      taxRatePct: numberOrDefault(formData.dcf_tax_rate_pct, DCF_DEFAULT_TAX_RATE_PCT),
+      taxRatePct: parseFlexibleNumber(formData.dcf_tax_rate_pct),
     }
     const previousRevenueByYear = new Map<string, number>()
     let previousRevenue: number | undefined

@@ -3,6 +3,7 @@ import { ValidationError } from '../types/errors'
 import type { ValuationFormData, ValuationRequest } from '../types/valuation'
 import { normalizeBusinessTypeId } from './businessTypeIdAliases'
 import { parseFlexibleNumber } from './isFiniteNumeric'
+import { markAuthoredPercentageInputs } from './percentageInputContract'
 
 interface BuildValuationBusinessContextOptions {
   formData: ValuationFormData
@@ -256,7 +257,13 @@ export function buildValuationBusinessContext({
         ? existingBusinessContext
         : undefined
 
-  return { businessContext, userConfiguredDcf }
+  const percentageContract = markAuthoredPercentageInputs(businessContext, adaptiveFields)
+  return {
+    businessContext: percentageContract
+      ? { ...businessContext, percentage_input_contract: percentageContract }
+      : businessContext,
+    userConfiguredDcf,
+  }
 }
 
 function buildForwardDriverEvidence({
