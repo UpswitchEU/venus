@@ -9,7 +9,15 @@ import { resolveMethodCurrency, resolveMethodValueBasis } from './methodComparis
 
 export type ZeroDraftMethodRow = ValuationMethodResult
 
-function csvEscape(cell: string): string {
+function csvEscape(cell: string | number): string {
+  // Validated financial numbers stay numeric, including zero and negative values.
+  if (typeof cell === 'number') return String(cell)
+  // The quoted tab keeps formula-like external text inert on Excel CSV import.
+  // Do not rely on CSV quoting alone: spreadsheets evaluate quoted formulas too.
+  const start = cell.trimStart()
+  if (/^[=+\-@＝＋－＠]/u.test(start) || start.charCodeAt(0) < 32 || /^[\t\r\n]/.test(cell)) {
+    return `"\t${cell.replace(/"/g, '""')}"`
+  }
   if (/[",\n\r]/.test(cell)) {
     return `"${cell.replace(/"/g, '""')}"`
   }
@@ -25,7 +33,7 @@ export function buildZeroDraftCsv(params: {
   selectedMethod?: string | null
   methods: Record<string, ZeroDraftMethodRow | ValuationMethodResult>
 }): string {
-  const rows: string[][] = []
+  const rows: (string | number)[][] = []
   rows.push(['Zero Draft Package', 'UpSwitch'])
   rows.push(['Report ID', params.reportId])
   if (params.businessName) rows.push(['Business', params.businessName])
@@ -37,21 +45,24 @@ export function buildZeroDraftCsv(params: {
   )
   rows.push(['Currency', currency ?? 'unknown'])
   const anchor = parseFinancialTransportNumber(params.fiscalAnchor)
-  if (anchor !== undefined) rows.push(['Forfait 4x EBITDA component', String(anchor)])
+  if (anchor !== undefined) rows.push(['Forfait 4x EBITDA component', anchor])
   rows.push([])
   rows.push([
     'method_key',
     'label',
     'available',
+    'equity_mid_eur',
+    'range_low_eur',
+    'range_high_eur',
+    'range_type',
+    'multiple_used',
+    'wacc',
+    'unavailable_reason',
     'currency',
     'value_basis',
     'value',
     'range_low',
     'range_high',
-    'range_type',
-    'multiple_used',
-    'wacc',
-    'unavailable_reason',
   ])
 
   const entries = Object.entries(params.methods).sort(([a], [b]) => a.localeCompare(b))
@@ -60,26 +71,32 @@ export function buildZeroDraftCsv(params: {
     const available = m.available && !m.plan_teaser && point !== undefined
     const mid = available ? point : undefined
     const basis = resolveMethodValueBasis(m)
+    const methodCurrency = resolveMethodCurrency(m, params.currency)
     const band = available && basis ? getOmniMethodRange({ ...m, value_basis: basis }) : null
+    // Retain the legacy column positions without mislabelling EV or other currencies.
+    const legacyEquity = available && methodCurrency === 'EUR' && basis === 'equity_value'
     const multiple = available ? parseFinancialTransportNumber(m.multiple_used) : undefined
     const wacc = available ? parseFinancialTransportNumber(m.wacc) : undefined
     rows.push([
       key,
       m.label,
       available ? 'yes' : 'no',
-      resolveMethodCurrency(m, params.currency) ?? '',
-      basis ?? '',
-      mid === undefined ? '' : String(mid),
-      band ? String(band.low) : '',
-      band ? String(band.high) : '',
+      legacyEquity ? (mid ?? '') : '',
+      legacyEquity && band ? band.low : '',
+      legacyEquity && band ? band.high : '',
       band ? band.source : '',
-      multiple === undefined ? '' : String(multiple),
-      wacc === undefined ? '' : String(wacc),
+      multiple ?? '',
+      wacc ?? '',
       m.unavailable_reason ?? '',
+      methodCurrency ?? '',
+      basis ?? '',
+      mid ?? '',
+      band ? band.low : '',
+      band ? band.high : '',
     ])
   }
 
-  const body = rows.map((r) => r.map((c) => csvEscape(String(c))).join(',')).join('\r\n') + '\r\n'
+  const body = rows.map((r) => r.map(csvEscape).join(',')).join('\r\n') + '\r\n'
   return `\uFEFF${body}`
 }
 
