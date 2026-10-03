@@ -2,6 +2,7 @@ import type { NormalizationItem } from '../components/calculator/UnifiedNormaliz
 import type { CreateVersionRequest, ValuationVersion } from '../types/ValuationVersion'
 import { FinancialDecimal } from '../utils/financialDecimal'
 import { readFinancialObservations } from '../utils/financialObservations'
+import { normalizeImportedLedgerReviewStatuses } from '../utils/importedLedgerNormalization'
 import { normalizationDecimal } from '../utils/normalizationAmount'
 import { getNormalizationTargetYears } from '../utils/normalizationMath'
 import { mapFrontendCategoryToBackend } from './normalizationStoreModel'
@@ -66,7 +67,7 @@ export function buildVersionNormalizationSnapshot(
     bases.set(year, amount)
   }
   const groups = new Map<number, NormalizationItem[]>()
-  for (const item of items) {
+  for (const item of normalizeImportedLedgerReviewStatuses(items, Object.fromEntries(bases))) {
     const years = getNormalizationTargetYears(item, [...bases.keys()])
     if (!years.length) throw new Error('Normalization requires an explicit fiscal period.')
     for (const year of years) {
