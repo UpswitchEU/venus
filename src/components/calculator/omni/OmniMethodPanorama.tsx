@@ -9,10 +9,19 @@ import {
   getValuationMethodResultForKey,
   hydratedRevenueMethodKeysAreSameRef,
 } from '@/utils/extractValuationResultsMap'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
+import {
+  formatMethodAmount,
+  methodComparisonDelta,
+  resolveMethodCurrency,
+  resolveMethodValueBasis,
+} from '@/utils/methodComparisonFinancials'
 import type { ValuationMethodResult } from '../../../types/valuation'
-import { getOmniMethodEquityRange } from '../../../utils/omniCalcRange'
+import { getOmniMethodRange } from '../../../utils/omniCalcRange'
 
 interface OmniMethodPanoramaProps {
+  currency?: string | null
+  locale?: string
   valuationResults: Record<string, ValuationMethodResult>
   selectedMethod: string
   pendingMethod?: string | null
@@ -34,29 +43,14 @@ interface OmniMethodPanoramaProps {
   comparablesQuality?: string | null
 }
 
-const formatCurrency = (amount: number) => {
-  const sign = amount < 0 ? '-' : ''
-  const abs = Math.abs(amount)
-  const rounded = Math.round(abs)
-  return abs >= 1_000_000
-    ? `${sign}€${(abs / 1_000_000).toFixed(1)}M`
-    : rounded >= 1_000
-      ? `${sign}€${Math.round(abs / 1_000)}K`
-      : `${sign}€${rounded}`
-}
-
 const formatMultiple = (value: number | null) => (value == null ? null : `${value.toFixed(2)}×`)
 
 const formatPercent = (value: number | null, scale = 1) =>
   value == null ? null : `${(value * scale).toFixed(1)}%`
 
-const toNumberOrNull = (value: unknown): number | null => {
-  if (value == null || value === '') return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 export function OmniMethodPanorama({
+  currency,
+  locale = 'en',
   valuationResults,
   selectedMethod,
   pendingMethod = null,
@@ -106,16 +100,6 @@ export function OmniMethodPanorama({
   }, [valuationResults, hideFiscalForNl])
 
   const adaptive = getValuationMethodResultForKey(valuationResults, 'upswitch_adaptive')
-  const adaptiveValue = adaptive?.value != null ? Number(adaptive.value) : null
-
-  const maxComparisonValue = useMemo(() => {
-    return sortedMethodEntries.reduce((max, [, method]) => {
-      const next = toNumberOrNull(method.value)
-      if (next == null || !method.available) return max
-      return Math.max(max, next)
-    }, 0)
-  }, [sortedMethodEntries])
-
   if (sortedMethodEntries.length === 0) return null
 
   return (
@@ -131,7 +115,7 @@ export function OmniMethodPanorama({
           className="hidden sm:grid sm:grid-cols-[5.5rem_3.5rem_4.25rem] gap-3 text-right text-[9px] font-medium uppercase tracking-wide text-foreground/35 shrink-0"
           aria-hidden
         >
-          <span>{t('columnEquity')}</span>
+          <span>{t('columnValue')}</span>
           <span>{t('columnMultiple')}</span>
           <span className="whitespace-nowrap">{t('columnDelta')}</span>
         </div>
@@ -142,33 +126,45 @@ export function OmniMethodPanorama({
           const isPlanTeaser = method.plan_teaser === true
           const isSelected = key === selectedMethod
           const isPending = key === pendingMethod
-          const isAvailable = method.available
-          const value = method.value != null ? Number(method.value) : null
+          const value = parseFinancialTransportNumber(method.value) ?? null
+          const isAvailable = method.available && value !== null
+          const methodCurrency = resolveMethodCurrency(method, currency)
+          const basis = resolveMethodValueBasis(method)
+          const formatCurrency = (amount: number) =>
+            formatMethodAmount(amount, methodCurrency, locale)
           const range =
-            isAvailable && value != null
-              ? getOmniMethodEquityRange({
-                  value: method.value,
-                  available: method.available,
-                  details: method.details,
-                })
-              : null
+            isAvailable && basis ? getOmniMethodRange({ ...method, value_basis: basis }) : null
+          const multiple = parseFinancialTransportNumber(method.multiple_used) ?? null
+          const wacc = parseFinancialTransportNumber(method.wacc) ?? null
           const metric =
-            method.multiple_used != null
-              ? formatMultiple(Number(method.multiple_used))
-              : method.wacc != null
-                ? `${tBreakdown('wacc')} ${formatPercent(Number(method.wacc), 100)}`
-                : null
-          const deltaValue =
-            adaptiveValue != null && value != null && key !== 'upswitch_adaptive'
-              ? value - adaptiveValue
+            isAvailable && !isPlanTeaser
+              ? multiple !== null
+                ? formatMultiple(multiple)
+                : wacc !== null
+                  ? `${tBreakdown('wacc')} ${formatPercent(wacc, 100)}`
+                  : null
               : null
-          const deltaPercent =
-            adaptiveValue != null && adaptiveValue > 0 && deltaValue != null
-              ? (deltaValue / adaptiveValue) * 100
-              : null
+          const delta =
+            key !== 'upswitch_adaptive' ? methodComparisonDelta(method, adaptive, currency) : null
+          const deltaValue = delta?.amount ?? null
+          const deltaPercent = delta?.percent ?? null
+          const maxComparisonValue = sortedMethodEntries.reduce((max, [, candidate]) => {
+            const candidateValue = parseFinancialTransportNumber(candidate.value)
+            if (
+              !candidate.available ||
+              candidate.plan_teaser ||
+              candidateValue === undefined ||
+              methodCurrency === null ||
+              basis === null ||
+              resolveMethodCurrency(candidate, currency) !== methodCurrency ||
+              resolveMethodValueBasis(candidate) !== basis
+            )
+              return max
+            return Math.max(max, candidateValue)
+          }, 0)
           const barWidth =
-            maxComparisonValue > 0 && value != null && isAvailable
-              ? `${Math.max(8, (value / maxComparisonValue) * 100)}%`
+            maxComparisonValue > 0 && value !== null && value > 0
+              ? `${(value / maxComparisonValue) * 100}%`
               : '0%'
 
           const msg = t(`methodDescriptions.${key}` as never)
@@ -283,6 +279,14 @@ export function OmniMethodPanorama({
                           >
                             {formatCurrency(value)}
                           </span>
+                          <span className="block text-[10px] text-foreground/45">
+                            {basis === 'enterprise_value'
+                              ? tBreakdown('enterpriseValue')
+                              : basis === 'equity_value'
+                                ? tBreakdown('equityValue')
+                                : t('valueBasisUnknown')}
+                            {methodCurrency === null ? ` · ${t('currencyUnknown')}` : ''}
+                          </span>
                           {range && (
                             <>
                               <span className="block text-[10px] text-foreground/40 tabular-nums mt-0.5">
@@ -316,11 +320,11 @@ export function OmniMethodPanorama({
                     </div>
 
                     <div className="text-right min-w-[3.75rem] sm:min-w-[4.25rem]">
-                      {key === 'upswitch_adaptive' && !isPlanTeaser ? (
+                      {key === 'upswitch_adaptive' && isAvailable && !isPlanTeaser ? (
                         <span className="text-[11px] font-medium text-foreground/45 tabular-nums">
                           {t('adaptiveBaselineLabel')}
                         </span>
-                      ) : !isPlanTeaser && deltaValue != null && deltaPercent != null ? (
+                      ) : !isPlanTeaser && deltaValue != null ? (
                         <div className="space-y-0.5">
                           <p
                             className={cn(
@@ -331,15 +335,17 @@ export function OmniMethodPanorama({
                             {deltaValue >= 0 ? '+' : '−'}
                             {formatCurrency(Math.abs(deltaValue))}
                           </p>
-                          <p
-                            className={cn(
-                              'text-[10px] font-mono tabular-nums',
-                              deltaValue >= 0 ? 'text-success/90' : 'text-warning/90'
-                            )}
-                          >
-                            ({deltaPercent >= 0 ? '+' : ''}
-                            {deltaPercent.toFixed(1)}%)
-                          </p>
+                          {deltaPercent !== null && (
+                            <p
+                              className={cn(
+                                'text-[10px] font-mono tabular-nums',
+                                deltaValue >= 0 ? 'text-success/90' : 'text-warning/90'
+                              )}
+                            >
+                              ({deltaPercent >= 0 ? '+' : ''}
+                              {deltaPercent.toFixed(1)}%)
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <span className="text-sm text-foreground/30">
@@ -350,17 +356,21 @@ export function OmniMethodPanorama({
                   </div>
                 </div>
 
-                {isAvailable && value != null && maxComparisonValue > 0 && !isPlanTeaser && (
-                  <div className="h-1 w-full rounded-full bg-foreground/[0.07] overflow-hidden">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-[width] duration-300 ease-out',
-                        isSelected || isPending ? 'bg-primary' : 'bg-primary/45'
-                      )}
-                      style={{ width: barWidth }}
-                    />
-                  </div>
-                )}
+                {isAvailable &&
+                  value != null &&
+                  value > 0 &&
+                  maxComparisonValue > 0 &&
+                  !isPlanTeaser && (
+                    <div className="h-1 w-full rounded-full bg-foreground/[0.07] overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-[width] duration-300 ease-out',
+                          isSelected || isPending ? 'bg-primary' : 'bg-primary/45'
+                        )}
+                        style={{ width: barWidth }}
+                      />
+                    </div>
+                  )}
               </div>
             </button>
           )

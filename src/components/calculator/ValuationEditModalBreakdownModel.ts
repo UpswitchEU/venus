@@ -1,4 +1,7 @@
 import { isRevenueMethodologyKey } from '@/utils/extractValuationResultsMap'
+import { FinancialDecimal as Decimal } from '@/utils/financialDecimal'
+import { resolveMethodCurrency, resolveMethodValueBasis } from '@/utils/methodComparisonFinancials'
+import { normalizeSelectedMethodKey } from '@/utils/valuationMethodAliases'
 import type {
   HistoricalFcfReadiness,
   MultiplePipelineStage,
@@ -149,12 +152,31 @@ export function buildMultipleFormulaModel(
           : model.normalizedEbitda
   const multiple = model.effectiveAppliedMultiple
   const enterpriseValue = model.enterpriseValue
-  if (metric == null || multiple == null || enterpriseValue == null) return null
+  if (
+    metric == null ||
+    multiple == null ||
+    enterpriseValue == null ||
+    model.equityValue == null ||
+    model.netDebt == null ||
+    model.balanceSheetAdjustments == null
+  )
+    return null
+  // Only render a numeric equality when both the earnings product and equity bridge reconcile.
+  if (
+    new Decimal(metric).times(multiple).minus(enterpriseValue).abs().gt(0.01) ||
+    new Decimal(enterpriseValue)
+      .minus(model.netDebt)
+      .plus(model.balanceSheetAdjustments)
+      .minus(model.equityValue)
+      .abs()
+      .gt(0.01)
+  )
+    return null
   return {
     metric,
     multiple,
     enterpriseValue,
-    equity: model.equityValue ?? enterpriseValue,
+    equity: model.equityValue,
     netDebt: model.netDebt,
     balanceSheetAdjustments: model.balanceSheetAdjustments,
   }
@@ -171,11 +193,26 @@ export function buildMethodBreakdownModel({
   result: ValuationResponse | null
   appliedMultiple: number | null
 }): MethodBreakdownModel {
+  const rawResult = result as Record<string, unknown> | null
+  const selected = normalizeSelectedMethodKey(
+    rawResult?.selected_valuation_method ??
+      asRecord(rawResult?.report_context)?.selected_valuation_method ??
+      'upswitch_adaptive'
+  )
+  const sameMethod =
+    selected === normalizeSelectedMethodKey(methodKey) ||
+    (isRevenueMethodologyKey(selected) && isRevenueMethodologyKey(methodKey))
+  const compatibleCurrency =
+    resolveMethodCurrency(method, result?.currency) ===
+    resolveMethodCurrency({ label: '', available: false, value: null }, result?.currency)
+  result = sameMethod && compatibleCurrency ? result : null
   const resultRecord = (result ?? null) as Record<string, unknown> | null
   const resultDetails = asRecord(resultRecord?.details) ?? {}
   const details = asRecord(method.details) ?? {}
 
   const normalizedEbitda =
+    toNumberOrNull(details.normalized_ebitda) ??
+    toNumberOrNull(details.sustainable_ebitda) ??
     toNumberOrNull(resultDetails.sustainable_ebitda) ??
     toNumberOrNull(resultDetails.weighted_ebitda_total) ??
     toNumberOrNull(resultRecord?.ebitda)
@@ -187,17 +224,27 @@ export function buildMethodBreakdownModel({
   const arrValue = toNumberOrNull(details.arr) ?? toNumberOrNull(saasMetrics?.arr)
   const valuationResult = asRecord(resultRecord?.valuation_result)
   const netDebt =
+    toNumberOrNull(details.net_debt) ??
     toNumberOrNull(resultDetails.net_debt) ??
     toNumberOrNull(resultRecord?.net_debt) ??
     toNumberOrNull(valuationResult?.netDebt)
   const balanceSheetAdjustments =
+    sumAdjustmentValues(details.balance_sheet_adjustments) ??
     sumAdjustmentValues(resultDetails.balance_sheet_adjustments) ??
     sumAdjustmentValues(resultRecord?.balance_sheet_adjustments)
+  const basis = resolveMethodValueBasis(method)
   const enterpriseValue =
+    (basis === 'enterprise_value' ? toNumberOrNull(method.value) : null) ??
+    toNumberOrNull(method.enterprise_value) ??
     toNumberOrNull(details.enterprise_value) ??
-    toNumberOrNull(result?.multiples_valuation?.enterprise_value) ??
+    (methodKey === 'upswitch_adaptive' || methodKey === 'ebitda_multiple'
+      ? toNumberOrNull(result?.multiples_valuation?.enterprise_value)
+      : null) ??
     toNumberOrNull(valuationResult?.enterpriseValueMid)
-  const equityValue = toNumberOrNull(method.value)
+  const equityValue =
+    basis === 'equity_value'
+      ? toNumberOrNull(method.value)
+      : (toNumberOrNull(method.equity_value) ?? toNumberOrNull(details.equity_value))
   const dcfReadiness = isHistoricalFcfReadiness(details.historical_fcf_readiness)
     ? details.historical_fcf_readiness
     : isHistoricalFcfReadiness(result?.dcf_valuation?.historical_fcf_readiness)
@@ -279,8 +326,8 @@ export function buildMethodBreakdownModel({
     comparablesQuality: result?.multiples_valuation?.comparables_quality ?? null,
     fallbackPipelineRows,
     effectiveAppliedMultiple:
-      appliedMultiple ??
       toNumberOrNull(method.multiple_used) ??
+      (sameMethod ? appliedMultiple : null) ??
       toNumberOrNull(result?.multiple_pipeline?.final_multiple_mid) ??
       toNumberOrNull(result?.multiple_pipeline?.final_multiple),
   }

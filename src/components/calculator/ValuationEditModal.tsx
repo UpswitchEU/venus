@@ -7,6 +7,7 @@ import { METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { AuroraButton } from '@/design-system/components/Button'
 import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/design-system/components/Modal'
 import { getValuationMethodResultForKey } from '@/utils/extractValuationResultsMap'
+import { resolveMethodCurrency, resolveMethodValueBasis } from '@/utils/methodComparisonFinancials'
 import { mergePlanGatedOmniPanoramaResults } from '@/utils/omniPlanPanorama'
 import { buildZeroDraftCsv, downloadZeroDraftCsv } from '@/utils/zeroDraftCsv'
 import { usePreparerMultipleStore } from '../../store/manual/usePreparerMultipleStore'
@@ -21,6 +22,7 @@ import {
 } from './ValuationEditModalModel'
 import { buildValuationEditPreparerModel } from './ValuationEditModalPreparerModel'
 import { ValuationEditModalPreparerSection } from './ValuationEditModalPreparerSection'
+import { ValuationMoneyProvider } from './ValuationMoneyContext'
 
 export interface ValuationEditModalProps {
   open: boolean
@@ -300,154 +302,166 @@ export function ValuationEditModal({
   }
 
   return (
-    <Modal
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) return
-        if (isMethodPersisting) return
-        onClose()
-      }}
+    <ValuationMoneyProvider
+      currency={activeMethod ? resolveMethodCurrency(activeMethod, result?.currency) : null}
+      locale={locale}
     >
-      <ModalContent
-        size="2xl"
-        description={tModal('description')}
-        className="max-h-[92vh] flex flex-col overflow-hidden"
-        aria-busy={isMethodPersisting}
-        closeDisabled={isMethodPersisting}
-        onPointerDownOutside={(e) => {
-          if (isMethodPersisting) e.preventDefault()
-        }}
-        onEscapeKeyDown={(e) => {
-          if (isMethodPersisting) e.preventDefault()
+      <Modal
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) return
+          if (isMethodPersisting) return
+          onClose()
         }}
       >
-        <ModalHeader className="shrink-0">
-          <ModalTitle>{tModal('title')}</ModalTitle>
-        </ModalHeader>
+        <ModalContent
+          size="2xl"
+          description={tModal('description')}
+          className="max-h-[92vh] flex flex-col overflow-hidden"
+          aria-busy={isMethodPersisting}
+          closeDisabled={isMethodPersisting}
+          onPointerDownOutside={(e) => {
+            if (isMethodPersisting) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (isMethodPersisting) e.preventDefault()
+          }}
+        >
+          <ModalHeader className="shrink-0">
+            <ModalTitle>{tModal('title')}</ModalTitle>
+          </ModalHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch lg:gap-8">
-          <ValuationEditMethodSelectorPanel
-            valuationResults={valuationResults}
-            panoramaValuationResults={panoramaValuationResults}
-            selectedMethod={selectedMethod}
-            pendingMethod={pendingMethod}
-            mode={mode}
-            overrideReasonKey={overrideReasonKey}
-            overrideNote={overrideNote}
-            showFiscalAnchorRow={showFiscalAnchorRow}
-            fiscalAnchor={fiscalAnchor}
-            methodSelectionLocked={methodSelectionLocked}
-            firmCountryCode={firmCountryCode}
-            comparablesCount={mv?.comparables_count != null ? Number(mv.comparables_count) : null}
-            comparablesQuality={mv?.comparables_quality ?? null}
-            onModeChange={handleModeChange}
-            onMethodClick={handleMethodClick}
-            onOverrideReasonChange={setOverrideReasonKey}
-            onOverrideNoteChange={setOverrideNote}
-            onConfirmOverride={handleConfirmOverride}
-            onCancelOverride={() => setPendingMethod(null)}
-            onPlanLockedMethodClick={onPlanLockedMethodClick}
-          />
-
-          {/* Right: calculation transparency, EV/EBITDA preparer, Zero Draft */}
-          <div
-            role="region"
-            aria-label={t('detailsColumnTitle')}
-            className="space-y-4 min-h-0 min-w-0 flex-1 border-t lg:border-t-0 lg:border-l border-border/40 pt-4 lg:pt-0 lg:pl-6 lg:max-h-[min(82vh,880px)] lg:overflow-y-auto"
-          >
-            <MethodBreakdownSection
-              methodKey={activeMethodKey}
-              method={activeMethod}
-              result={result}
-              fiscalAnchor={fiscalAnchor}
-              benchmarkMultiple={benchmarkNum}
-              appliedMultiple={appliedNum}
-              previewEquity={showPreparerMultiple ? liveEquityPreview : null}
-            />
-
-            <ValuationEditModalPreparerSection
-              showPreparerMultiple={showPreparerMultiple}
-              hasPrepData={hasPrepData}
-              nonEbitdaMethodSelected={nonEbitdaMethodSelected}
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-stretch lg:gap-8">
+            <ValuationEditMethodSelectorPanel
+              currency={result?.currency}
+              locale={locale}
+              valuationResults={valuationResults}
+              panoramaValuationResults={panoramaValuationResults}
               selectedMethod={selectedMethod}
-              wasRestoredFromSave={wasRestoredFromSave}
-              benchmarkContext={benchmarkContext}
-              benchmarkMedian={benchmarkMedian}
-              benchmarkNum={benchmarkNum}
-              bench={bench}
-              confidenceKey={confidenceKey}
-              mv={mv}
-              engineDiscountSteps={engineDiscountSteps}
-              dossierSignal={dossierSignal}
-              suggestionDismissed={suggestionDismissed}
-              setSuggestionDismissed={setSuggestionDismissed}
-              sliderMin={sliderMin}
-              sliderMax={sliderMax}
-              effectiveDisabled={effectiveDisabled}
-              appliedMedian={appliedMedian}
-              appliedNum={appliedNum}
-              prepDeltaNum={prepDeltaNum}
-              setAppliedMedian={setAppliedMedian}
-              reasonKey={reasonKey}
-              setReasonKey={setReasonKey}
-              selectedReasonBand={selectedReasonBand}
-              note={note}
-              setNote={setNote}
-              liveEquityPreview={liveEquityPreview}
-              activeMetricValue={activeMetricValue}
-              previewText={previewText}
-              livePreview={livePreview}
-              showExtreme={showExtreme}
-              extremeBoundInfo={extremeBoundInfo}
-              acknowledgedExtreme={acknowledgedExtreme}
-              setAcknowledgedExtreme={setAcknowledgedExtreme}
-              showResetConfirm={showResetConfirm}
-              setShowResetConfirm={setShowResetConfirm}
-              resetToBenchmark={resetToBenchmark}
-              onRecalculate={onRecalculate}
-              onClose={onClose}
+              pendingMethod={pendingMethod}
+              mode={mode}
+              overrideReasonKey={overrideReasonKey}
+              overrideNote={overrideNote}
+              showFiscalAnchorRow={showFiscalAnchorRow}
+              fiscalAnchor={fiscalAnchor}
+              methodSelectionLocked={methodSelectionLocked}
+              firmCountryCode={firmCountryCode}
+              comparablesCount={mv?.comparables_count != null ? Number(mv.comparables_count) : null}
+              comparablesQuality={mv?.comparables_quality ?? null}
+              onModeChange={handleModeChange}
+              onMethodClick={handleMethodClick}
+              onOverrideReasonChange={setOverrideReasonKey}
+              onOverrideNoteChange={setOverrideNote}
+              onConfirmOverride={handleConfirmOverride}
+              onCancelOverride={() => setPendingMethod(null)}
+              onPlanLockedMethodClick={onPlanLockedMethodClick}
             />
 
-            {/* ─── Stake Calculator (frontend-only pro-rata) ─── */}
-            {showPreparerMultiple && <StakeCalculatorSection equityValue={activeMetricValue} />}
+            {/* Right: calculation transparency, EV/EBITDA preparer, Zero Draft */}
+            <div
+              role="region"
+              aria-label={t('detailsColumnTitle')}
+              className="space-y-4 min-h-0 min-w-0 flex-1 border-t lg:border-t-0 lg:border-l border-border/40 pt-4 lg:pt-0 lg:pl-6 lg:max-h-[min(82vh,880px)] lg:overflow-y-auto"
+            >
+              <MethodBreakdownSection
+                methodKey={activeMethodKey}
+                method={activeMethod}
+                result={result}
+                fiscalAnchor={fiscalAnchor}
+                benchmarkMultiple={benchmarkNum}
+                appliedMultiple={appliedNum}
+                previewEquity={showPreparerMultiple ? liveEquityPreview : null}
+              />
 
-            {/* ─── Zero Draft Export ─── */}
-            {showZeroDraftExport &&
-              canExportZeroDraft &&
-              zeroDraftReportId &&
-              entries.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-[10px] text-foreground/45 leading-snug px-0.5">
-                    {t('zeroDraftBlurb')}
-                  </p>
-                  <AuroraButton
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs gap-2"
-                    onClick={() => {
-                      const csv = buildZeroDraftCsv({
-                        reportId: zeroDraftReportId,
-                        businessName: zeroDraftBusinessName,
-                        createdAt: zeroDraftCreatedAt ?? undefined,
-                        fiscalAnchor:
-                          showFiscalAnchorRow && fiscalAnchor != null ? fiscalAnchor : undefined,
-                        selectedMethod,
-                        methods: valuationResults,
-                      })
-                      const rawName = t('zeroDraftFilename', { reportId: zeroDraftReportId })
-                      const safeName = sanitizeZeroDraftFilename(rawName)
-                      downloadZeroDraftCsv(safeName, csv)
-                    }}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    {t('exportZeroDraft')}
-                  </AuroraButton>
-                </div>
-              )}
+              <ValuationEditModalPreparerSection
+                showPreparerMultiple={showPreparerMultiple}
+                hasPrepData={hasPrepData}
+                nonEbitdaMethodSelected={nonEbitdaMethodSelected}
+                selectedMethod={selectedMethod}
+                wasRestoredFromSave={wasRestoredFromSave}
+                benchmarkContext={benchmarkContext}
+                benchmarkMedian={benchmarkMedian}
+                benchmarkNum={benchmarkNum}
+                bench={bench}
+                confidenceKey={confidenceKey}
+                mv={mv}
+                engineDiscountSteps={engineDiscountSteps}
+                dossierSignal={dossierSignal}
+                suggestionDismissed={suggestionDismissed}
+                setSuggestionDismissed={setSuggestionDismissed}
+                sliderMin={sliderMin}
+                sliderMax={sliderMax}
+                effectiveDisabled={effectiveDisabled}
+                appliedMedian={appliedMedian}
+                appliedNum={appliedNum}
+                prepDeltaNum={prepDeltaNum}
+                setAppliedMedian={setAppliedMedian}
+                reasonKey={reasonKey}
+                setReasonKey={setReasonKey}
+                selectedReasonBand={selectedReasonBand}
+                note={note}
+                setNote={setNote}
+                liveEquityPreview={liveEquityPreview}
+                activeMetricValue={activeMetricValue}
+                previewText={previewText}
+                livePreview={livePreview}
+                showExtreme={showExtreme}
+                extremeBoundInfo={extremeBoundInfo}
+                acknowledgedExtreme={acknowledgedExtreme}
+                setAcknowledgedExtreme={setAcknowledgedExtreme}
+                showResetConfirm={showResetConfirm}
+                setShowResetConfirm={setShowResetConfirm}
+                resetToBenchmark={resetToBenchmark}
+                onRecalculate={onRecalculate}
+                onClose={onClose}
+              />
+
+              {/* ─── Stake Calculator (frontend-only pro-rata) ─── */}
+              {showPreparerMultiple &&
+                activeMethod?.available &&
+                resolveMethodValueBasis(activeMethod) === 'equity_value' && (
+                  <StakeCalculatorSection equityValue={activeMetricValue} />
+                )}
+
+              {/* ─── Zero Draft Export ─── */}
+              {showZeroDraftExport &&
+                canExportZeroDraft &&
+                zeroDraftReportId &&
+                entries.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-foreground/45 leading-snug px-0.5">
+                      {t('zeroDraftBlurb')}
+                    </p>
+                    <AuroraButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs gap-2"
+                      onClick={() => {
+                        const csv = buildZeroDraftCsv({
+                          reportId: zeroDraftReportId,
+                          currency: result?.currency,
+                          businessName: zeroDraftBusinessName,
+                          createdAt: zeroDraftCreatedAt ?? undefined,
+                          fiscalAnchor:
+                            showFiscalAnchorRow && fiscalAnchor != null ? fiscalAnchor : undefined,
+                          selectedMethod,
+                          methods: valuationResults,
+                        })
+                        const rawName = t('zeroDraftFilename', { reportId: zeroDraftReportId })
+                        const safeName = sanitizeZeroDraftFilename(rawName)
+                        downloadZeroDraftCsv(safeName, csv)
+                      }}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      {t('exportZeroDraft')}
+                    </AuroraButton>
+                  </div>
+                )}
+            </div>
           </div>
-        </div>
-      </ModalContent>
-    </Modal>
+        </ModalContent>
+      </Modal>
+    </ValuationMoneyProvider>
   )
 }
