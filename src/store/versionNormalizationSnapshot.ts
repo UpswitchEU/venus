@@ -1,4 +1,7 @@
-import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
+import {
+  type NormalizationItem,
+  requiresIndividualImportedNormalizationReview,
+} from '../components/calculator/UnifiedNormalizationTypes'
 import type { CreateVersionRequest, ValuationVersion } from '../types/ValuationVersion'
 import { FinancialDecimal } from '../utils/financialDecimal'
 import { readFinancialObservations } from '../utils/financialObservations'
@@ -92,7 +95,12 @@ export function buildVersionNormalizationSnapshot(
       category: mapFrontendCategoryToBackend(item.category, item.backendCategory),
       amount: normalizationDecimal(item.adjustment),
       calculated_amount: amountForYear(item, reported),
-      status: item.status,
+      status:
+        item.status === 'accepted' &&
+        requiresIndividualImportedNormalizationReview(item) &&
+        !item.reviewedAt?.trim()
+          ? 'pending'
+          : item.status,
       note: item.reason,
       confidence: item.confidence,
       ledger_code: item.ledgerCode || undefined,
