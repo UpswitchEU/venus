@@ -147,9 +147,7 @@ export function buildManualNormalizationsFromVersionSnapshot(
         reason: readString(adjustmentRecord.note) || readString(adjustmentRecord.reason),
         source: readNormalizationSource(adjustmentRecord.source) || 'manual',
         sourceRef:
-          readString(adjustmentRecord.source_ref) ||
-          readString(adjustmentRecord.sourceRef) ||
-          'version',
+          readString(adjustmentRecord.source_ref) || readString(adjustmentRecord.sourceRef),
         status:
           adjustmentRecord.status === 'rejected'
             ? 'rejected'

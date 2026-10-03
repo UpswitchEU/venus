@@ -85,7 +85,7 @@ describe('manualVersionNormalizationRestore', () => {
         adjustment: -12_000,
         reason: 'Related-party rent correction',
         source: 'manual',
-        sourceRef: 'version',
+        sourceRef: undefined,
         status: 'accepted',
         applyAllYears: false,
         year: 2025,
