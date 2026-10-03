@@ -1,8 +1,11 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { normalizeSessionData } from '../../services/session/SessionNormalizer'
 import type { ValuationFormData } from '../../types/valuation'
 import { mergeOptionalSessionPrefillFields } from '../mergeOptionalSessionPrefillFields'
+import { percentageInputForControl } from '../percentageInputContract'
 import { buildValuationBusinessContext } from '../valuationRequestBusinessContext'
 
 function restore(context: Record<string, unknown>, path: string): ValuationFormData {
@@ -72,11 +75,12 @@ describe.each(['session', 'prefill'])('%s percentage restoration into percent co
     expect(() => restore(context, path)).toThrow()
   })
 
-  it('retains missing and legacy context without fabricating or rescaling values', () => {
+  it('retains missing values and preserves the interpreted legacy rate', () => {
     const context = { dcf_wacc_pct: null, saas_churn_pct: 0.03 }
     const form = restore(context, path)
     expect(form.dcf_wacc_pct).toBeUndefined()
-    expect(form.saas_churn_pct).toBe(0.03)
+    expect(form.saas_churn_pct).toBe(3)
+    expect(rebuild(form)?.saas_churn_pct).toBe(3)
     expect(context).toEqual({ dcf_wacc_pct: null, saas_churn_pct: 0.03 })
   })
 
@@ -95,5 +99,16 @@ describe.each(['session', 'prefill'])('%s percentage restoration into percent co
       schema_version: 'percentage_inputs.v1',
       units: { dcf_wacc_pct: 'percentage_points' },
     })
+  })
+})
+
+const legacy = JSON.parse(
+  readFileSync(resolve('tests/contracts/legacy-percentage-controls.v1.json'), 'utf8')
+)
+describe('legacy context promotion matches the actual engine readers', () => {
+  it.each(legacy.cases)('$key = $raw preserves $fraction', (item) => {
+    expect(percentageInputForControl({ [item.key]: item.raw }, item.key)).toBe(
+      Number(item.control_points)
+    )
   })
 })

@@ -86,14 +86,15 @@ export function markAuthoredPercentageInputs(
 }
 
 /** Convert a declared machine rate only when promoting it into a percent control.
- * Existing top-level form edits already use percentage points. Untagged legacy
- * context retains its historical UI behavior; no magnitude-based migration runs.
+ * Existing top-level form edits already use percentage points. Untagged context
+ * replays the engine legacy interpretation before formatting into points.
  */
 export function percentageInputForControl(context: Record<string, unknown>, key: string): unknown {
   const raw = context[key]
   if (!isPercentageInputField(key)) return raw
   const unit = readContract(context.percentage_input_contract)?.units[key]
-  if (!unit || raw == null) return raw
+  if (raw == null) return raw
+  if (!unit) return legacyPercentageInputForControl(raw, key)
   if (typeof raw !== 'number' && typeof raw !== 'string') throw new Error(`Invalid declared ${key}`)
   let token = String(raw).trim()
   if (token.endsWith('%') || token.endsWith('％')) {
@@ -109,4 +110,53 @@ export function percentageInputForControl(context: Record<string, unknown>, key:
   const value = points.toNumber()
   if (!Number.isFinite(value)) throw new Error(`Invalid declared ${key}`)
   return value
+}
+
+/** Replay the engine's legacy lexical rules only for context-to-control promotion.
+ * This preserves recorded interpretation, including its historic separator rules;
+ * it does not guess what the original author intended or change saved snapshots.
+ */
+function legacyPercentageToken(raw: string | number): string {
+  if (typeof raw === 'number') return String(raw)
+  let token = raw
+    .trim()
+    .replace(/[\u00a0\u2007\u202f]/g, '')
+    .replace(/[%％]$/, '')
+    .trim()
+  if (token.includes(',') && token.includes('.')) {
+    return token.lastIndexOf('.') > token.lastIndexOf(',')
+      ? token.replace(/,/g, '')
+      : token.replace(/\./g, '').replace(',', '.')
+  }
+  if (token.includes(',')) {
+    const parts = token.split(',')
+    return parts.length === 2 && /^[+-]?\d+$/.test(parts[0]) && /^\d{1,2}$/.test(parts[1])
+      ? token.replace(',', '.')
+      : token.replace(/,/g, '')
+  }
+  const groups = token.split('.')
+  const first = groups[0].replace(/^[+-]/, '')
+  if (
+    groups.length > 1 &&
+    first !== '0' &&
+    /^\d{1,3}$/.test(first) &&
+    groups.slice(1).every((group) => /^\d{3}$/.test(group))
+  ) {
+    token = token.replace(/\./g, '')
+  }
+  return token
+}
+
+function legacyPercentageInputForControl(raw: unknown, key: string): unknown {
+  if (typeof raw !== 'number' && typeof raw !== 'string') return raw
+  const token = key === 'dcf_tax_rate_pct' ? String(raw).trim() : legacyPercentageToken(raw)
+  if (token.length > 128 || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(token))
+    return raw
+  const ExactRate = Decimal.clone({ precision: Math.max(32, token.length + 4) })
+  const amount = new ExactRate(token)
+  // dcf_tax_policy.v2 explicitly consumes percentage points even below one.
+  // Other adaptive readers retain the historical abs(value) < 1 fraction rule.
+  const points = key !== 'dcf_tax_rate_pct' && amount.abs().lt(1) ? amount.mul(100) : amount
+  const value = points.toNumber()
+  return Number.isFinite(value) ? value : raw
 }
