@@ -8,7 +8,7 @@
  * already labels the column — a per-row floating label dwarfs the year/metric
  * cell next to it and the row height jitters when a single cell enters edit
  * mode. This variant matches the row rhythm (h-9 / h-8) and stays
- * right-aligned for column scanning. It reuses nl-BE / en-BE grouping and the
+ * right-aligned for column scanning. It reuses nl-BE / fr-BE / en-GB grouping and the
  * same focus / error / warning ring states as the rest of Aurora.
  */
 

@@ -43,7 +43,7 @@ describe.each([
       name: messages.manualInput.methodSelector.fields.dcfTaxRatePct,
     })
     expect(input).toHaveValue('')
-    fireEvent.change(input, { target: { value: '25,8' } })
+    fireEvent.change(input, { target: { value: locale === 'en' ? '25.8' : '25,8' } })
     expect(onFieldChange).toHaveBeenCalledWith('dcf_tax_rate_pct', 25.8)
     expect(
       screen.getByText(messages.manualInput.methodSelector.dcfCashTaxInputHelp)

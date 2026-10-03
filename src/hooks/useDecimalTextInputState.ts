@@ -23,7 +23,7 @@ export function useDecimalTextInputState(
     (n: number | undefined) =>
       n != null && Number.isFinite(n)
         ? useGrouping
-          ? new Intl.NumberFormat(`${inputLocale}-BE`, {
+          ? new Intl.NumberFormat(inputLocale === 'en' ? 'en-GB' : `${inputLocale}-BE`, {
               useGrouping: true,
               maximumFractionDigits: 8,
             }).format(n)

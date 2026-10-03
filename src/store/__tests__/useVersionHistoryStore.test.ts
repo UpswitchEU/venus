@@ -132,10 +132,10 @@ describe('useVersionHistoryStore', () => {
         } as any,
       })
 
-      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe(100000)
-      expect(version.normalization_data?.['2025']?.total_adjustments).toBe(-10000)
-      expect(version.normalization_data?.['2024']?.reported_ebitda).toBe(50000)
-      expect(version.normalization_data?.['2024']?.total_adjustments).toBe(-5000)
+      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe('100000')
+      expect(version.normalization_data?.['2025']?.total_adjustments).toBe('-10000')
+      expect(version.normalization_data?.['2024']?.reported_ebitda).toBe('50000')
+      expect(version.normalization_data?.['2024']?.total_adjustments).toBe('-5000')
       expect(version.tax_latency_data).toHaveLength(1)
     })
 
@@ -146,6 +146,9 @@ describe('useVersionHistoryStore', () => {
         items: [
           {
             id: 'norm-string-year',
+            type: 'subtract',
+            value: 10000,
+            source: 'manual',
             year: 2025,
             status: 'accepted',
             adjustment: -10000,
@@ -163,10 +166,10 @@ describe('useVersionHistoryStore', () => {
         } as any,
       })
 
-      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe(100000)
+      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe('100000')
     })
 
-    it('does not snapshot unreviewed imported addbacks that the valuation request would demote', async () => {
+    it('retains unreviewed imported addbacks as pending without pricing them', async () => {
       const { createVersion } = useVersionHistoryStore.getState()
 
       useNormalizationStore.setState({
@@ -197,7 +200,10 @@ describe('useVersionHistoryStore', () => {
         } as any,
       })
 
-      expect(version.normalization_data).toBeUndefined()
+      const year = version.normalization_data?.['2025']
+      expect(year?.total_adjustments).toBe('0')
+      expect(year?.normalized_ebitda).toBe('120000')
+      expect(year?.adjustments[0]).toMatchObject({ status: 'pending', amount: '221500' })
     })
 
     it('snapshots imported addbacks after explicit review', async () => {
@@ -232,17 +238,17 @@ describe('useVersionHistoryStore', () => {
         } as any,
       })
 
-      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe(120_000)
-      expect(version.normalization_data?.['2025']?.total_adjustments).toBe(221_500)
+      expect(version.normalization_data?.['2025']?.reported_ebitda).toBe('120000')
+      expect(version.normalization_data?.['2025']?.total_adjustments).toBe('221500')
       expect(version.normalization_data?.['2025']?.adjustments[0]).toMatchObject({
-        amount: 221_500,
+        amount: '221500',
         category: 'other_adjustments',
         confidence: 'high',
         frontend_id: 'imported_sde_2025_610000_0',
         ledger_code: '610000',
         ledger_name: 'Services et biens divers',
         normalization_type: 'add',
-        normalization_value: 221_500,
+        normalization_value: '221500',
         reviewed_at: '2026-06-29T10:00:00.000Z',
         source: 'auto',
       })
