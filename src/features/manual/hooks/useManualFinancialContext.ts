@@ -5,6 +5,9 @@ import type {
   ValuationResponse,
 } from '../../../types/valuation'
 import { getCurrentFilingYear } from '../../../utils/fiscalYear'
+import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
+import { getReportedFinancialEbitda } from '../../../utils/normalizationMath'
+import { restoredFiscalYear } from '../../../utils/restoredFinancialYear'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
 import {
   buildManualLiveYearlyFinancials,
@@ -84,32 +87,33 @@ export function useManualFinancialContext({
       }
     })
 
-    const filingYear = getCurrentFilingYear()
-    if (!(filingYear in byYear)) {
-      const fallbackCurrentEbitda =
-        latestFormDataRef.current?.ebitda ??
-        latestFormDataRef.current?.current_year_data?.ebitda ??
-        formStoreData?.current_year_data?.ebitda ??
-        formStoreData?.ebitda
-      const parsedFallbackCurrentEbitda = Number(fallbackCurrentEbitda)
-      if (Number.isFinite(parsedFallbackCurrentEbitda)) {
-        byYear[filingYear] = parsedFallbackCurrentEbitda
-      }
+    const currentRow =
+      latestFormDataRef.current?.current_year_data ?? formStoreData.current_year_data
+    const fallbackYear = currentRow ? restoredFiscalYear(currentRow.year) : getCurrentFilingYear()
+    // A known annual row controls both the period and the reported basis. Never
+    // resurrect its normalized earnings through a top-level legacy mirror.
+    const fallbackEbitda = currentRow
+      ? getReportedFinancialEbitda(currentRow)
+      : parseFlexibleNumber(latestFormDataRef.current?.ebitda ?? formStoreData.ebitda)
+    if (fallbackYear !== undefined && !(fallbackYear in byYear) && fallbackEbitda !== undefined) {
+      byYear[fallbackYear] = fallbackEbitda
     }
 
     return byYear
-  }, [formStoreData?.current_year_data?.ebitda, formStoreData?.ebitda, getLiveYearlyFinancials])
+  }, [formStoreData.current_year_data, formStoreData.ebitda, getLiveYearlyFinancials])
 
   const getOriginalEbitdaForDisplay = useCallback(() => {
     return getManualOriginalEbitdaForDisplay({
       year: getCurrentFilingYear(),
       originalEBITDAByYear,
-      formCurrentEbitda: formStoreData?.current_year_data?.ebitda,
+      formCurrentEbitda: formStoreData.current_year_data
+        ? getReportedFinancialEbitda(formStoreData.current_year_data)
+        : undefined,
       latestFormData: latestFormDataRef.current,
       result,
       report,
     })
-  }, [formStoreData?.current_year_data?.ebitda, originalEBITDAByYear, report, result])
+  }, [formStoreData.current_year_data, originalEBITDAByYear, report, result])
 
   return {
     financialYears,

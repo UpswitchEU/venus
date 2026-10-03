@@ -6,9 +6,9 @@ import type {
   YearlyFinancials,
 } from '../../../types/valuation'
 import { getCurrentFilingYear, isFilingYearConfirmedValue } from '../../../utils/fiscalYear'
-import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
-import { getReportedFinancialEbitda } from '../../../utils/normalizationMath'
+import { restoredFiscalYear } from '../../../utils/restoredFinancialYear'
 import {
+  buildYearlyFinancialsFromCurrentAndHistorical,
   getHistoricalYearRange,
   type YearlyFinancialLike,
   yearlyFinancialRowHasNonPlaceholderData,
@@ -78,8 +78,8 @@ export const getLatestNonPlaceholderFinancialYear = (
   let latest: number | null = null
   const consider = (rawYear: unknown, row: YearlyFinancialLike & { isForecast?: boolean }) => {
     if (row.isForecast) return
-    const yearNum = Number(rawYear)
-    if (!Number.isFinite(yearNum) || yearNum < 2000 || yearNum > 2100) return
+    const yearNum = restoredFiscalYear(rawYear)
+    if (yearNum === undefined) return
     if (!yearlyFinancialRowHasNonPlaceholderData({ ...row, isForecast: false, year: yearNum }))
       return
     if (latest === null || yearNum > latest) latest = yearNum
@@ -147,72 +147,25 @@ const bridgeNonPlaceholderFinancialsIntoYearlyArray = (
   d: Partial<ManualValuationFormData>,
   maxYear: number
 ): YearlyFinancials[] => {
-  const out = [...baseRows]
-  const passthroughKeys = [
-    'capex',
-    'depreciation',
-    'tax_expense',
-    'cash',
-    'total_debt',
-    'current_assets',
-    'current_liabilities',
-    'accounts_receivable',
-    'accounts_payable',
-    'inventory',
-    'short_term_debt',
-    'nwc_change',
-    'free_cash_flow',
-  ] as const
-  const sourceMetadataKeys = [
-    'source_provider',
-    'source_kind',
-    'source_synced_at',
-    'quality_state',
-    'source_digest',
-    'attestation_id',
-    'eligibility_reason',
-  ] as const
-  const upsert = (rawYear: unknown, src: Record<string, unknown>) => {
-    if (rawYear == null) return
-    const yearNum = Number(rawYear)
-    if (!Number.isFinite(yearNum) || yearNum < 2000 || yearNum > 2100 || yearNum > maxYear) return
-    const yearStr = String(yearNum)
-    const existing = out.find((r) => r.year === yearStr)
-    const baseRow: Record<string, unknown> = existing
-      ? { ...(existing as unknown as Record<string, unknown>) }
-      : { year: yearStr, revenue: 0, ebitda: 0 }
-    const revenue = parseFlexibleNumber(src.revenue)
-    const ebitda = getReportedFinancialEbitda(src)
-    baseRow.year = yearStr
-    baseRow.revenue = revenue ?? existing?.revenue ?? 0
-    baseRow.ebitda = ebitda ?? existing?.ebitda ?? 0
-    for (const key of passthroughKeys) {
-      const v = src[key]
-      const parsed = parseFlexibleNumber(v)
-      if (parsed !== undefined) {
-        baseRow[key] = parsed
-      }
-    }
-    for (const key of sourceMetadataKeys) {
-      const value = src[key]
-      if (typeof value === 'string' || value === null) baseRow[key] = value
-    }
-    const nextRow = baseRow as unknown as YearlyFinancials
-    if (existing) {
-      out[out.indexOf(existing)] = nextRow
-    } else {
-      out.push(nextRow)
-    }
-  }
-  if (d.current_year_data) {
-    upsert(d.current_year_data.year, d.current_year_data as unknown as Record<string, unknown>)
-  }
-  if (Array.isArray(d.historical_years_data)) {
-    for (const row of d.historical_years_data) {
-      if (row) upsert(row.year, row as unknown as Record<string, unknown>)
-    }
-  }
-  return out.sort((a, b) => Number(b.year) - Number(a.year))
+  const current = d.current_year_data
+  // Legacy forms seeded both the current row and the empty grid with zeroes.
+  // Repair only that identifiable seed shape; reviewed/imported/confirmed rows
+  // and any current row with a real observation keep current-year priority.
+  const currentIsMirroredSeed =
+    current?.revenue === 0 &&
+    current.ebitda === 0 &&
+    !isFilingYearConfirmedValue(d.filingYearConfirmed) &&
+    Object.keys(current).every((key) => ['year', 'revenue', 'ebitda'].includes(key)) &&
+    d.yearlyFinancials?.some(
+      (row) => row.year === String(current.year) && row.revenue === 0 && row.ebitda === 0
+    )
+  const restored = buildYearlyFinancialsFromCurrentAndHistorical(
+    currentIsMirroredSeed ? undefined : current,
+    d.historical_years_data
+  ).filter((row) => Number(row.year) <= maxYear)
+  const byYear = new Map(baseRows.map((row) => [row.year, row]))
+  for (const row of restored) byYear.set(row.year, row)
+  return [...byYear.values()].sort((a, b) => Number(b.year) - Number(a.year))
 }
 
 /**
