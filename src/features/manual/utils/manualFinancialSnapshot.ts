@@ -1,15 +1,8 @@
-import type { ValuationRequest, YearDataInput } from '@/types/valuation'
-import { getReportedFinancialEbitda } from '@/utils/normalizationMath'
-import { yearlyFinancialRowHasNonPlaceholderData } from '@/utils/yearlyFinancials'
+import type { ValuationRequest, YearDataInput, YearlyFinancials } from '@/types/valuation'
+import { financialYearHasObservations, restoreFinancialYear } from '@/utils/restoredFinancialYear'
+import { buildManualLiveYearlyFinancials } from './manualLiveYearlyFinancials'
 
-export interface SubmittedFinancialYear {
-  year: string
-  revenue?: number
-  ebitda?: number
-  capex?: number
-  nwc_change?: number
-  isForecast?: boolean
-}
+export type SubmittedFinancialYear = YearlyFinancials
 
 export interface SubmittedFinancialSnapshot {
   revenue?: number
@@ -25,17 +18,6 @@ export type SubmittedFinancialSnapshotRequest = Pick<
   ebitda?: number
 }
 
-function toSnapshotYear(row: YearDataInput, isForecast = false): SubmittedFinancialYear {
-  return {
-    year: String(row.year),
-    revenue: row.revenue,
-    ebitda: getReportedFinancialEbitda(row) ?? row.ebitda,
-    capex: row.capex,
-    nwc_change: row.nwc_change,
-    ...(isForecast ? { isForecast: true } : {}),
-  }
-}
-
 /**
  * Builds the post-submit financial snapshot used by dirty-state detection.
  *
@@ -45,18 +27,14 @@ function toSnapshotYear(row: YearDataInput, isForecast = false): SubmittedFinanc
 export function buildSubmittedFinancialSnapshot(
   request: SubmittedFinancialSnapshotRequest
 ): SubmittedFinancialSnapshot {
-  const current = request.current_year_data
-  const yearlyFinancials = [
-    ...(current ? [toSnapshotYear(current)] : []),
-    ...(request.historical_years_data ?? []).map((row) => toSnapshotYear(row)),
-    ...(request.forecast_years_data ?? []).map((row) => toSnapshotYear(row, true)),
-  ]
-    .filter((row) => yearlyFinancialRowHasNonPlaceholderData(row))
-    .sort((a, b) => Number.parseInt(b.year, 10) - Number.parseInt(a.year, 10))
+  const current = restoreFinancialYear(request.current_year_data)
+  const yearlyFinancials = buildManualLiveYearlyFinancials({ formData: request }).filter(
+    financialYearHasObservations
+  )
 
   return {
-    revenue: current?.revenue ?? request.revenue,
-    ebitda: current ? getReportedFinancialEbitda(current) : request.ebitda,
+    revenue: current ? current.revenue : request.revenue,
+    ebitda: current ? current.ebitda : request.ebitda,
     yearlyFinancials,
   }
 }
