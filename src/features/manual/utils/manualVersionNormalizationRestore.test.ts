@@ -1,9 +1,21 @@
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest'
+import { getNormalizationAmountForBase } from '@/utils/normalizationMath'
 import { buildManualNormalizationsFromVersionSnapshot } from './manualVersionNormalizationRestore'
 
 describe('manualVersionNormalizationRestore', () => {
+  it.each([
+    'add_percent',
+    'subtract_percent',
+    'absolute',
+  ])('does not reinterpret an annual amount as a missing %s instruction', (normalization_type) => {
+    const [restored] = buildManualNormalizationsFromVersionSnapshot({
+      '2025': { adjustments: [{ amount: 250, normalization_type }] },
+    })
+    expect(restored.type).toBe('add')
+    expect(getNormalizationAmountForBase(restored, 1000)).toBe(250)
+  })
   it('restores version normalization snapshots into accepted normalization items', () => {
     const result = buildManualNormalizationsFromVersionSnapshot({
       '2025': {

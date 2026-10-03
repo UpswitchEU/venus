@@ -93,10 +93,22 @@ export function buildManualNormalizationsFromVersionSnapshot(
       )
       if (amount === undefined) return
       const rawCategory = readString(adjustmentRecord.category) || ''
-      const normalizationType =
+      const savedType =
         readNormalizationType(
           adjustmentRecord.normalization_type ?? adjustmentRecord.normalizationType
         ) || (amount >= 0 ? 'add' : 'subtract')
+      const savedValue = adjustmentRecord.normalization_value ?? adjustmentRecord.normalizationValue
+      // A monetary delta does not tell us the original percentage or absolute target.
+      // Legacy snapshots without that instruction retain their accepted annual delta.
+      const normalizationType =
+        savedValue == null &&
+        (savedType === 'add_percent' ||
+          savedType === 'subtract_percent' ||
+          savedType === 'absolute')
+          ? amount >= 0
+            ? 'add'
+            : 'subtract'
+          : savedType
       const reviewedAt =
         readString(adjustmentRecord.reviewed_at) || readString(adjustmentRecord.reviewedAt)
       const confidence =
@@ -105,11 +117,7 @@ export function buildManualNormalizationsFromVersionSnapshot(
         adjustmentRecord.confidence === 'low'
           ? adjustmentRecord.confidence
           : undefined
-      const value = parseFinancialTransportNumber(
-        adjustmentRecord.normalization_value ??
-          adjustmentRecord.normalizationValue ??
-          Math.abs(amount)
-      )
+      const value = parseFinancialTransportNumber(savedValue ?? Math.abs(amount))
       if (value === undefined) return
       const frontendId = readString(adjustmentRecord.frontend_id)
       const ownerRole = adjustmentRecord.owner_role
