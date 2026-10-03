@@ -1,4 +1,3 @@
-import Decimal from 'decimal.js'
 import type { YearDataInput, YearlyFinancials } from '../types/valuation'
 import {
   hasEvidencedFinancialValue,
@@ -7,6 +6,9 @@ import {
 } from './financialObservations'
 import { getCurrentFilingYear } from './fiscalYear'
 import { parseFlexibleNumber } from './isFiniteNumeric'
+import { restoreFinancialYear } from './restoredFinancialYear'
+
+export { turnoverOf } from './restoredFinancialYear'
 
 export interface YearlyFinancialLike {
   financial_observations?: YearDataInput['financial_observations']
@@ -43,83 +45,14 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
   current: YearDataInput | null | undefined,
   historical: YearDataInput[] | null | undefined
 ): YearlyFinancials[] {
-  const byYear = new Map<number, YearlyFinancials>()
-  const upsert = (row: YearDataInput) => {
-    const { year: yearRaw, ebitda } = row
-    const revenue = turnoverOf(row)
-    // `revenue` arrives via `turnoverOf` so the panel shows the figure the
-    // engine values on — see the helper below.
-    const y =
-      typeof yearRaw === 'number' && Number.isFinite(yearRaw)
-        ? yearRaw
-        : Number.parseInt(String(yearRaw ?? ''), 10)
-    if (!Number.isFinite(y) || y < 2000 || y > 2100) return
-    const parsedRevenue = parseFlexibleNumber(revenue)
-    const parsedEbitda = parseFlexibleNumber(ebitda)
-    byYear.set(y, {
-      year: String(y),
-      revenue: parsedRevenue ?? 0,
-      ebitda: parsedEbitda ?? 0,
-      ...(row.financial_observations || parsedRevenue === undefined || parsedEbitda === undefined
-        ? {
-            financial_observations: {
-              ...readFinancialObservations(row.financial_observations),
-              // Legacy display slots are numeric; their zeros must carry absence
-              // so completeness checks and submission never treat them as earnings.
-              ...(parsedRevenue === undefined ? { revenue: 'missing' as const } : {}),
-              ...(parsedEbitda === undefined ? { ebitda: 'missing' as const } : {}),
-              ...(revenue !== row.revenue
-                ? {
-                    revenue:
-                      readFinancialObservations(row.financial_observations).operating_revenue ??
-                      'unknown',
-                  }
-                : {}),
-            },
-          }
-        : {}),
-    })
+  const byYear = new Map<string, YearlyFinancials>()
+  // Current-year observations win as a whole: do not mix stale historical evidence
+  // into a current row whose missing fields may have been deliberately cleared.
+  for (const source of [current, ...(Array.isArray(historical) ? historical : [])]) {
+    const row = restoreFinancialYear(source)
+    if (row && !byYear.has(row.year)) byYear.set(row.year, row)
   }
-  if (Array.isArray(historical)) {
-    for (const row of historical) {
-      if (row?.year != null) upsert(row)
-    }
-  }
-  if (current?.year != null) upsert(current)
   return [...byYear.values()].sort((a, b) => Number(b.year) - Number(a.year))
-}
-
-/**
- * The revenue figure the panel should show for an imported year: turnover.
- *
- * Hermes delivers two figures — `revenue` is the gross sum of every 7x account
- * (incl. 75x financial and 76x/77x extraordinary income), `operating_revenue`
- * is turnover ("omzet"). The engine now values on turnover; a panel that kept
- * showing the gross figure would tell the advisor EUR 19.8M while the report
- * said EUR 1.3M for the same year (a property holding with an EUR 18.3M
- * extraordinary gain).
- *
- * The swap is only made when Hermes's identity holds
- * (`revenue − financial_income − extraordinary_income = operating_revenue`),
- * which marks an untouched import; a row whose revenue no longer matches has
- * been edited and keeps its number.
- */
-export function turnoverOf(row: unknown): unknown {
-  if (!row || typeof row !== 'object') return undefined
-  const r = row as Record<string, unknown>
-  const operating = parseFlexibleNumber(r.operating_revenue)
-  if (operating === undefined || !Number.isFinite(operating) || operating < 0) return r.revenue
-  const status = readFinancialObservations(r.financial_observations).operating_revenue
-  if (status === 'missing' || status === 'placeholder') return r.revenue
-  const gross = parseFlexibleNumber(r.revenue)
-  if (gross !== undefined && Number.isFinite(gross)) {
-    const financialIncome = parseFlexibleNumber(r.financial_income) ?? 0
-    const extraordinaryIncome = parseFlexibleNumber(r.extraordinary_income) ?? 0
-    const impliedTurnover = new Decimal(gross).minus(financialIncome).minus(extraordinaryIncome)
-    if (!impliedTurnover.toDecimalPlaces(2).equals(new Decimal(operating).toDecimalPlaces(2)))
-      return r.revenue
-  }
-  return operating
 }
 
 /**

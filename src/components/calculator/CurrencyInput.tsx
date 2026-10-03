@@ -54,7 +54,7 @@ export function CurrencyInput({
   const resolvedId = id ?? name ?? inputId
   const formatter = useMemo(
     () =>
-      new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE', {
+      new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-GB' : 'nl-BE', {
         maximumFractionDigits: 8,
         useGrouping: true,
       }),

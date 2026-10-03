@@ -148,7 +148,11 @@ describe('useVersionHistoryStore', () => {
             id: 'norm-string-year',
             type: 'subtract',
             value: 10000,
+            category: 'other',
             source: 'manual',
+            ledgerCode: '610',
+            ledgerName: 'One-time cost',
+            applyAllYears: false,
             year: 2025,
             status: 'accepted',
             adjustment: -10000,
@@ -169,7 +173,7 @@ describe('useVersionHistoryStore', () => {
       expect(version.normalization_data?.['2025']?.reported_ebitda).toBe('100000')
     })
 
-    it('retains unreviewed imported addbacks as pending without pricing them', async () => {
+    it('retains unreviewed imported addbacks as pending without affecting earnings', async () => {
       const { createVersion } = useVersionHistoryStore.getState()
 
       useNormalizationStore.setState({
@@ -200,10 +204,15 @@ describe('useVersionHistoryStore', () => {
         } as any,
       })
 
-      const year = version.normalization_data?.['2025']
-      expect(year?.total_adjustments).toBe('0')
-      expect(year?.normalized_ebitda).toBe('120000')
-      expect(year?.adjustments[0]).toMatchObject({ status: 'pending', amount: '221500' })
+      expect(version.normalization_data?.['2025']).toMatchObject({
+        reported_ebitda: '120000',
+        total_adjustments: '0',
+        normalized_ebitda: '120000',
+      })
+      expect(version.normalization_data?.['2025']?.adjustments[0]).toMatchObject({
+        amount: '221500',
+        status: 'pending',
+      })
     })
 
     it('snapshots imported addbacks after explicit review', async () => {
