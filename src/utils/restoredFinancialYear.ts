@@ -55,7 +55,7 @@ export function turnoverOf(row: unknown): unknown {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return undefined
   const r = row as Record<string, unknown>
   const status = readFinancialObservations(r.financial_observations).operating_revenue
-  if (status === 'missing' || status === 'placeholder') return r.revenue
+  if (status === 'missing' || status === 'placeholder' || status === 'unknown') return r.revenue
   const operating = parseFlexibleNumber(r.operating_revenue)
   if (operating === undefined || operating < 0) return r.revenue
   const gross = parseFlexibleNumber(r.revenue)

@@ -58,7 +58,8 @@ export function buildYearlyFinancialsFromCurrentAndHistorical(
 /**
  * A year is "complete" when:
  * - Revenue and EBITDA are explicit, finite, and not both zero (classic rows), or
- * - Free cash flow is explicit and finite (FCFF-only rows), excluding the triple-zero placeholder.
+ * - Free cash flow is evidenced and finite, including an observed zero; legacy
+ *   FCFF-only rows still exclude ambiguous zero placeholders.
  */
 export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T): boolean {
   if (!year?.year) return false
@@ -84,6 +85,7 @@ export function isCompleteYearlyFinancial<T extends YearlyFinancialLike>(year: T
   if (revEbitComplete) return true
 
   if (fcffE && fcff !== undefined) {
+    if (isEvidencedFinancialField(year, 'free_cash_flow')) return true
     if (revE && ebitE && revenue === 0 && ebitda === 0 && fcff === 0) return false
     if (!revE && !ebitE) return fcff !== 0
     if (revE && ebitE) return true
