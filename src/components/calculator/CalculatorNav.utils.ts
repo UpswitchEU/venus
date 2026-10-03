@@ -1,7 +1,7 @@
-import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import { METHOD_COMPACT_LABEL_KEYS, METHOD_LABEL_KEYS } from '@/constants/methodLabels'
 import { cn } from '@/design-system/utils'
 import { dateLikeAgeMs } from '@/utils/date-like'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import type { CalculatorNavProps } from './CalculatorNav.types'
 
 export type CalculatorNavDisplaySummary = NonNullable<CalculatorNavProps['valuationSummary']>
@@ -27,6 +27,7 @@ export const formatPrice = (value: number | undefined, currency?: string | null)
     style: 'currency',
     currency,
     notation: 'compact',
+    minimumFractionDigits: 0,
     maximumFractionDigits: 1,
   }).format(value)
 }

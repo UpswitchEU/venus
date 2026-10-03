@@ -1,15 +1,15 @@
 import type { ValuationVersion } from '../types/ValuationVersion'
+import { parseFinancialTransportNumber } from '../utils/financialTransport'
 import {
   financialResultsComparable,
-  getFinancialValueBasis,
   getEquityValueHigh,
   getEquityValueLow,
   getEquityValueMid,
   getFinalValuation,
+  getFinancialValueBasis,
   getRecommendedAskingPrice,
 } from '../utils/valuationResultAccess'
 import { buildVersionDisplayList } from '../utils/versionDisplayModel'
-import { parseFinancialTransportNumber } from '../utils/financialTransport'
 
 export const VERSION_TIMELINE_PAGE_SIZE = 10
 

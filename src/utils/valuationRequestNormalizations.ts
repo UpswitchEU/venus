@@ -10,6 +10,7 @@ import {
   toFiniteNumber,
 } from './buildValuationRequest.helpers'
 import { FinancialDecimal as Decimal } from './financialDecimal'
+import { parseFinancialTransportNumber } from './financialTransport'
 import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { generalLogger } from './logger'
 import { getNormalizationAmountForBase, getNormalizationTargetYears } from './normalizationMath'
@@ -27,8 +28,7 @@ const OWNER_COMPENSATION_CATEGORY = 'owner_compensation_adjustment'
 const VENUS_NORMALIZATION_REVIEW_POLICY_VERSION = 'venus.normalization_review.v1'
 
 function finiteNumber(value: unknown): number | undefined {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
+  return parseFinancialTransportNumber(value)
 }
 
 function ownerCompensationTerms(
@@ -50,7 +50,8 @@ function ownerCompensationTerms(
     item.type === 'add' || item.type === 'subtract' ? finiteNumber(item.value) : undefined
   const actual = explicitActual ?? finiteNumber(fallbackActualOwnerCompensation) ?? inferredActual
   const explicitReplacement = finiteNumber(item.replacementOwnerCompensation)
-  const inferredReplacement = actual == null ? undefined : actual - adjustmentAmount
+  const inferredReplacement =
+    actual == null ? undefined : new Decimal(actual).minus(adjustmentAmount).toNumber()
   const replacement = explicitReplacement ?? inferredReplacement
 
   if (
@@ -59,7 +60,7 @@ function ownerCompensationTerms(
     replacement == null ||
     actual < 0 ||
     replacement < 0 ||
-    Math.abs(actual - replacement - adjustmentAmount) > 0.01
+    !new Decimal(actual).minus(replacement).eq(adjustmentAmount)
   ) {
     return {}
   }

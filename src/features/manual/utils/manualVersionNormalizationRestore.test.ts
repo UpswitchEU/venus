@@ -77,28 +77,29 @@ describe('manualVersionNormalizationRestore', () => {
         '2025': { adjustments: 'not-array' },
         '2024': { adjustments: [null, { category: 'not-real', amount: 'nope' }] },
       })
-    ).toEqual([
-      {
-        id: 'version-2024-1',
-        ledgerCode: '',
-        ledgerName: 'not-real',
-        category: 'other',
-        backendCategory: 'not-real',
-        type: 'add',
-        value: 0,
-        adjustment: 0,
-        reason: undefined,
-        source: 'manual',
-        sourceRef: 'version',
-        status: 'accepted',
-        applyAllYears: false,
-        year: 2024,
-      },
-    ])
+    ).toEqual([])
   })
 
   it('returns an empty list for missing or non-object snapshots', () => {
     expect(buildManualNormalizationsFromVersionSnapshot(null)).toEqual([])
     expect(buildManualNormalizationsFromVersionSnapshot([])).toEqual([])
   })
+})
+
+it('restores legacy custom deductions without inventing malformed zero adjustments', () => {
+  const restored = buildManualNormalizationsFromVersionSnapshot({
+    '2025': {
+      custom_adjustments: [
+        { description: 'Replacement rent', amount: '-0.1' },
+        { description: 'Reviewed nil', amount: 0 },
+        { description: 'Corrupt value', amount: true },
+        { description: 'Missing amount', amount: null },
+        { amount: '0x10' },
+      ],
+    },
+  })
+  expect(restored.map(({ adjustment, ledgerName }) => ({ adjustment, ledgerName }))).toEqual([
+    { adjustment: -0.1, ledgerName: 'Replacement rent' },
+    { adjustment: 0, ledgerName: 'Reviewed nil' },
+  ])
 })

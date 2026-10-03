@@ -54,6 +54,66 @@ function legacy(): EbitdaNormalization {
 afterEach(() => useEbitdaNormalizationStore.setState({ normalizations: {} }))
 
 describe('normalization financial integrity audit', () => {
+  it('an explicit unnormalized decision wins over stale normalized cache values after reload', () => {
+    const result = buildValuationRequestYearData({
+      currentFiscalYear: year,
+      revenue: 1000,
+      ebitda: 100,
+      effectiveCurrentYearData: {
+        year,
+        revenue: 1000,
+        ebitda: 100,
+        reported_ebitda: 100,
+        normalized_ebitda: 150,
+        ebitda_normalized: false,
+      },
+      actualHistoricalData: [
+        {
+          year: year - 1,
+          revenue: 900,
+          ebitda: -10,
+          reported_ebitda: -10,
+          normalized_ebitda: 50,
+          ebitda_normalized: false,
+        },
+      ],
+      rawForecastData: [],
+      normByYear: {},
+    })
+    expect(result.currentYearData.ebitda).toBe(100)
+    expect(result.currentYearData.normalized_ebitda).toBeUndefined()
+    expect(result.historicalYearsData[0].ebitda).toBe(-10)
+    expect(result.historicalYearsData[0].normalized_ebitda).toBeUndefined()
+  })
+
+  it('keeps exact replacement-compensation arithmetic without treating a missing amount as zero', () => {
+    const build = (replacement: unknown) =>
+      buildValuationRequestNormalizations({
+        rawNormalizationItems: [
+          item({
+            category: 'salary',
+            value: 100.1,
+            adjustment: 0.1,
+            ownerRole: 'working',
+            actualOwnerCompensation: 100.1,
+            replacementOwnerCompensation: replacement as number,
+          }),
+        ],
+        legacyNormalizations: {},
+        allDataYears: [year],
+        yearEbitdaMap: { [year]: 100 },
+      })[year].items[0]
+    expect(build(null)).toMatchObject({
+      actual_owner_compensation: 100.1,
+      replacement_owner_compensation: 100,
+    })
+    expect(build('')).toMatchObject({
+      actual_owner_compensation: 100.1,
+      replacement_owner_compensation: 100,
+    })
+    expect(build(100.005).replacement_owner_compensation).toBeUndefined()
+  })
+
   it.each([
     'pending',
     'rejected',

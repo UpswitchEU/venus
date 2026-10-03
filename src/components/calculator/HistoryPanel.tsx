@@ -9,7 +9,6 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { financialVersionsComparable } from './VersionCompareModel'
 import {
   ArrowLeftRight,
   Calendar,
@@ -43,6 +42,7 @@ import {
 } from './HistoryPanelModel'
 import { ValuationSummaryCard, VisualTimeline } from './HistoryPanelSections'
 import { type HistoryVersion, VersionCompareModal } from './VersionCompareModal'
+import { financialVersionsComparable } from './VersionCompareModel'
 
 // Re-export types
 export type { HistoryVersion }

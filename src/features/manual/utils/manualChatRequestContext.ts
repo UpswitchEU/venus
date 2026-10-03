@@ -1,4 +1,3 @@
-import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import type {
   ChatMessage,
   FieldContext,
@@ -7,6 +6,7 @@ import type {
 } from '@/components/calculator'
 import type { AIChatRequest } from '@/services/ai/AIChatService'
 import { type AssistantIntent, resolveAssistantIntent } from '@/services/ai/local-chat-fallback'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 
 export interface ManualChatFinancialContext {
   revenue?: unknown
