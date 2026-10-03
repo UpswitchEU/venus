@@ -91,3 +91,31 @@ it('restores reported EBITDA before applying an accepted imported adjustment onc
   expect(result.averageNormalizedEbitda).toBeCloseTo(369_333.333333)
   expect(current.ebitda).toBe(491_500)
 })
+
+it('shows the same decimal bridge as the submitted annual normalization', () => {
+  const result = buildManualInputNormalizedData({
+    yearlyFinancials: [{ year: '2025', revenue: 1, ebitda: -0.3 }],
+    excludeRealEstate: false,
+    estimatedMarketRent: undefined,
+    normalizationItems: [
+      item({ id: 'a', year: 2025, adjustment: 0.1, value: 0.1 }),
+      item({ id: 'b', year: 2025, adjustment: 0.2, value: 0.2 }),
+    ],
+  })
+  expect(result.years[0].totalAdjustment).toBe(0.3)
+  expect(result.years[0].normalizedEbitda).toBe(0)
+  expect(result.averageNormalizedEbitda).toBe(0)
+})
+
+it('does not show an unreviewed imported addback that calculation will leave pending', () => {
+  const result = buildManualInputNormalizedData({
+    yearlyFinancials: [{ year: '2025', revenue: 1000, ebitda: 100 }],
+    excludeRealEstate: false,
+    estimatedMarketRent: undefined,
+    normalizationItems: [
+      item({ id: 'imported_sde_cost', year: 2025, source: 'auto', adjustment: 80, value: 80 }),
+    ],
+  })
+  expect(result.years[0].normalizationCount).toBe(0)
+  expect(result.averageNormalizedEbitda).toBe(100)
+})

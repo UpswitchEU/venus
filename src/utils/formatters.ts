@@ -14,6 +14,8 @@ import {
   getEquityValueHigh,
   getEquityValueLow,
   getEquityValueMid,
+  getFinalValuation,
+  getFinancialValueBasis,
   getRecommendedAskingPrice,
 } from './valuationResultAccess'
 
@@ -137,17 +139,24 @@ export function formatVersionLabel(version: ValuationVersion): string {
     return 'Pending calculation'
   }
 
-  const low = getEquityValueLow(result)
-  const high = getEquityValueHigh(result)
-  const asking = getRecommendedAskingPrice(result) ?? getEquityValueMid(result)
-
-  if (low == null || high == null || high <= 0 || asking == null || asking <= 0) {
-    return 'Pending calculation'
-  }
-
-  const lowLabel = formatCurrency(low)
-  const highLabel = formatCurrency(high)
-  const askingLabel = formatCurrency(asking)
+  const basis = getFinancialValueBasis(result)
+  const point = basis === 'enterprise_value' ? getFinalValuation(result) : getEquityValueMid(result)
+  if (point == null) return 'Pending calculation'
+  const currency =
+    typeof result.currency === 'string' && /^[A-Z]{3}$/.test(result.currency)
+      ? result.currency
+      : null
+  const money = (amount: number) =>
+    currency
+      ? new Intl.NumberFormat('en', { style: 'currency', currency }).format(amount)
+      : `${amount.toLocaleString('en')} (currency unknown)`
+  const low = basis === 'enterprise_value' ? null : getEquityValueLow(result)
+  const high = basis === 'enterprise_value' ? null : getEquityValueHigh(result)
+  const coherentRange = low != null && high != null && low <= point && point <= high
+  const label = coherentRange ? `${money(low)} - ${money(high)}` : money(point)
+  const asking = basis === 'enterprise_value' ? null : getRecommendedAskingPrice(result)
+  const askingLabel = asking == null ? '' : ` (Ask: ${money(asking)})`
+  const basisLabel = basis === 'enterprise_value' ? 'Enterprise value: ' : ''
 
   // Check if version has normalized EBITDA
   const hasNormalizedEbitda =
@@ -164,7 +173,7 @@ export function formatVersionLabel(version: ValuationVersion): string {
     ? ` [Normalized: ${normalizedYearsCount}yr${normalizedYearsCount > 1 ? 's' : ''}]`
     : ''
 
-  return `${lowLabel} - ${highLabel} (Ask: ${askingLabel})${normalizationIndicator}`
+  return `${basisLabel}${label}${askingLabel}${normalizationIndicator}`
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

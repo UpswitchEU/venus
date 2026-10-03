@@ -1,12 +1,16 @@
-import { coalesceFiniteNumber } from '../lib/omniPreview'
 import type { CreateVersionRequest, ValuationVersion } from '../types/ValuationVersion'
+import { FinancialDecimal as Decimal } from '../utils/financialDecimal'
+import { parseFinancialTransportNumber } from '../utils/financialTransport'
 import {
   getCurrentFilingYear,
   normalizeCurrentYearForFiling,
   normalizeHistoricalYearsForFiling,
 } from '../utils/fiscalYear'
 import { normalizeImportedLedgerReviewStatuses } from '../utils/importedLedgerNormalization'
-import { getNormalizationAmountForBase } from '../utils/normalizationMath'
+import {
+  getNormalizationAmountForBase,
+  getNormalizationTargetYears,
+} from '../utils/normalizationMath'
 import { mapFrontendCategoryToBackend, useNormalizationStore } from './useNormalizationStore'
 import { useTaxLatencyStore } from './useTaxLatencyStore'
 
@@ -17,6 +21,7 @@ interface VersionRequestEnrichmentEvents {
 
 type VersionCurrentYearData = {
   ebitda?: number
+  reported_ebitda?: number
   ebitda_normalization_metadata?: { reported_ebitda?: number }
   year?: number
 }
@@ -40,22 +45,25 @@ function buildVersionSnapshotNormalizationData(
     ? normalizeCurrentYearForFiling(currentYearData.year, request.formData?.filing_year_confirmed)
     : getCurrentFilingYear()
   const allDataYears = Array.from(new Set([currentYear, ...historicalYears]))
-  const yearEbitdaMap: Record<number, number> = {
-    [currentYear]: coalesceFiniteNumber(
-      currentYearData?.ebitda_normalization_metadata?.reported_ebitda ??
-        currentYearData?.ebitda ??
-        0
-    ),
-  }
+  const yearEbitdaMap: Record<number, number> = {}
 
   normalizedHistoricalYearData?.forEach((y) => {
     const yearMeta = y?.ebitda_normalization_metadata
-    if (y?.ebitda != null && y?.year != null) {
-      yearEbitdaMap[Number(y.year)] = coalesceFiniteNumber(
-        yearMeta?.reported_ebitda ?? y.ebitda ?? 0
-      )
+    const reported = parseFinancialTransportNumber(
+      y.reported_ebitda ?? yearMeta?.reported_ebitda ?? y.ebitda
+    )
+    if (reported !== undefined) {
+      yearEbitdaMap[Number(y.year)] = reported
     }
   })
+  // Explicit current-period evidence takes precedence over a duplicate history row.
+  const currentReported = parseFinancialTransportNumber(
+    currentYearData?.reported_ebitda ??
+      currentYearData?.ebitda_normalization_metadata?.reported_ebitda ??
+      currentYearData?.ebitda
+  )
+  delete yearEbitdaMap[currentYear]
+  if (currentReported !== undefined) yearEbitdaMap[currentYear] = currentReported
 
   const allDataYearsSet = new Set(allDataYears)
   const accepted = normalizeImportedLedgerReviewStatuses(rawItems, yearEbitdaMap).filter(
@@ -65,13 +73,9 @@ function buildVersionSnapshotNormalizationData(
 
   const yearGroups: Record<number, typeof accepted> = {}
   for (const item of accepted) {
-    const yearsToApply: number[] = item.applyAllYears
-      ? allDataYears
-      : item.applyYears && item.applyYears.length > 0
-        ? item.applyYears
-        : [item.year]
+    const yearsToApply = getNormalizationTargetYears(item, allDataYears)
     for (const year of yearsToApply) {
-      if (!allDataYearsSet.has(year)) continue
+      if (!allDataYearsSet.has(year) || yearEbitdaMap[year] === undefined) continue
       if (!yearGroups[year]) yearGroups[year] = []
       yearGroups[year].push(item)
     }
@@ -79,14 +83,16 @@ function buildVersionSnapshotNormalizationData(
 
   const normalizationData: ValuationVersion['normalization_data'] = {}
   Object.entries(yearGroups).forEach(([year, items]) => {
-    const reportedEbitda = Number(yearEbitdaMap[Number(year)] ?? 0) || 0
-    const totalAdjustment = items.reduce(
-      (sum, item) => sum + getNormalizationAmountForBase(item, reportedEbitda),
-      0
-    )
+    const reportedEbitda = yearEbitdaMap[Number(year)]
+    const totalAdjustment = items
+      .reduce(
+        (sum, item) => sum.plus(getNormalizationAmountForBase(item, reportedEbitda)),
+        new Decimal(0)
+      )
+      .toNumber()
     normalizationData[year] = {
       reported_ebitda: reportedEbitda,
-      normalized_ebitda: reportedEbitda + totalAdjustment,
+      normalized_ebitda: new Decimal(reportedEbitda).plus(totalAdjustment).toNumber(),
       total_adjustments: totalAdjustment,
       adjustments: items.map((item) => ({
         category: mapFrontendCategoryToBackend(item.category, item.backendCategory),
@@ -101,10 +107,23 @@ function buildVersionSnapshotNormalizationData(
         frontend_id: item.id,
         normalization_type: item.type,
         normalization_value: item.value,
+        apply_all_years: item.applyAllYears,
+        apply_years: getNormalizationTargetYears(item, allDataYears),
+        rule_version: item.ruleVersion,
+        owner_role: item.ownerRole,
+        actual_owner_compensation: item.actualOwnerCompensation,
+        replacement_owner_compensation: item.replacementOwnerCompensation,
       })),
       custom_adjustments: [],
       confidence_score: items[0]?.confidence || 'medium',
-      adjustment_percentage: reportedEbitda !== 0 ? (totalAdjustment / reportedEbitda) * 100 : 0,
+      ...(reportedEbitda !== 0
+        ? {
+            adjustment_percentage: new Decimal(totalAdjustment)
+              .div(reportedEbitda)
+              .mul(100)
+              .toNumber(),
+          }
+        : {}),
     }
   })
 

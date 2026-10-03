@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { ValuationReportData } from '@/components/calculator'
 import {
-  bestBlendedValue,
   evaluateSynthesisBlend,
   hydrateSynthesisValuationResultsMap,
   type SynthesisEvaluation,
@@ -12,8 +11,7 @@ import {
 import type { SynthesisWeightSelection } from '@/lib/synthesis/synthesisWeights'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type { ValuationMethodResult, ValuationResponse } from '@/types/valuation'
-import { resolveSynthesisAwarePresentation } from '../components/manualReportPresentation'
-import { resultHasWeightedSynthesisSignal } from '../utils/weightedSynthesisSignals'
+import { deriveNavPricesForVersionNav } from '../components/manualReportPresentation'
 
 export interface ManualSynthesisController {
   preSelectedMethods: string[]
@@ -28,7 +26,8 @@ export interface ManualSynthesisController {
     | {
         priceRange: { min: number; max: number }
         askPrice: number
-        confidence: 'high'
+        confidence?: 'high' | 'medium' | 'low'
+        currency?: string | null
       }
     | undefined
 }
@@ -79,33 +78,15 @@ export function useManualSynthesisController({
 
   const navValuationSummary = useMemo(() => {
     if (!report || !result) return undefined
-    const blend = bestBlendedValue(evaluation)
-    const presentation = resolveSynthesisAwarePresentation(result, selectedMethod, {
-      preSelectedMethods,
-      userWeights,
-    })
-    const hasSynthesis = resultHasWeightedSynthesisSignal(
-      result as unknown as Record<string, unknown>
-    )
-    const reportAskingPrice =
-      report.recommendedAskingPrice != null &&
-      Number.isFinite(report.recommendedAskingPrice) &&
-      report.recommendedAskingPrice > 0
-        ? report.recommendedAskingPrice
-        : null
-    const primaryValue =
-      hasSynthesis || blend != null
-        ? (blend ?? presentation.valuation)
-        : (reportAskingPrice ?? presentation.valuation)
+    const prices = deriveNavPricesForVersionNav(result, selectedMethod)
+    if (!prices?.priceRange || prices.askPrice == null) return undefined
     return {
-      priceRange: {
-        min: presentation.valuationLow ?? report.valuationLow ?? primaryValue,
-        max: presentation.valuationHigh ?? report.valuationHigh ?? primaryValue,
-      },
-      askPrice: primaryValue,
-      confidence: 'high' as const,
+      priceRange: prices.priceRange,
+      askPrice: prices.askPrice,
+      confidence: report.confidenceLevel,
+      currency: report.currency,
     }
-  }, [evaluation, preSelectedMethods, report, result, selectedMethod, userWeights])
+  }, [report, result, selectedMethod])
 
   return {
     preSelectedMethods,

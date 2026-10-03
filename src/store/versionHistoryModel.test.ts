@@ -228,7 +228,7 @@ describe('versionHistoryModel', () => {
     ])
   })
 
-  it('compares versions using an accessible positive range midpoint when final valuation is zero', () => {
+  it('compares the observed zero conclusion without inventing a range midpoint', () => {
     const comparison = compareValuationVersions(
       version({
         versionNumber: 1,
@@ -249,7 +249,7 @@ describe('versionHistoryModel', () => {
     )
 
     expect(comparison.valuationDelta).toMatchObject({
-      absoluteChange: 4_400_000,
+      absoluteChange: 20_000_000,
       direction: 'increase',
     })
   })

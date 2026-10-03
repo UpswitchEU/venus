@@ -1,9 +1,32 @@
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest'
+import { getNormalizationAmountForBase } from '@/utils/normalizationMath'
 import { buildManualNormalizationsFromVersionSnapshot } from './manualVersionNormalizationRestore'
 
 describe('manualVersionNormalizationRestore', () => {
+  it.each([
+    'proposed',
+    'pending',
+    'unknown',
+    null,
+  ])('does not accept a restored %s decision', (status) => {
+    const [restored] = buildManualNormalizationsFromVersionSnapshot({
+      '2025': { adjustments: [{ amount: 250, status }] },
+    })
+    expect(restored.status).toBe('pending')
+  })
+  it.each([
+    'add_percent',
+    'subtract_percent',
+    'absolute',
+  ])('does not reinterpret an annual amount as a missing %s instruction', (normalization_type) => {
+    const [restored] = buildManualNormalizationsFromVersionSnapshot({
+      '2025': { adjustments: [{ amount: 250, normalization_type }] },
+    })
+    expect(restored.type).toBe('add')
+    expect(getNormalizationAmountForBase(restored, 1000)).toBe(250)
+  })
   it('restores version normalization snapshots into accepted normalization items', () => {
     const result = buildManualNormalizationsFromVersionSnapshot({
       '2025': {
@@ -62,7 +85,7 @@ describe('manualVersionNormalizationRestore', () => {
         adjustment: -12_000,
         reason: 'Related-party rent correction',
         source: 'manual',
-        sourceRef: 'version',
+        sourceRef: undefined,
         status: 'accepted',
         applyAllYears: false,
         year: 2025,
@@ -77,28 +100,29 @@ describe('manualVersionNormalizationRestore', () => {
         '2025': { adjustments: 'not-array' },
         '2024': { adjustments: [null, { category: 'not-real', amount: 'nope' }] },
       })
-    ).toEqual([
-      {
-        id: 'version-2024-1',
-        ledgerCode: '',
-        ledgerName: 'not-real',
-        category: 'other',
-        backendCategory: 'not-real',
-        type: 'add',
-        value: 0,
-        adjustment: 0,
-        reason: undefined,
-        source: 'manual',
-        sourceRef: 'version',
-        status: 'accepted',
-        applyAllYears: false,
-        year: 2024,
-      },
-    ])
+    ).toEqual([])
   })
 
   it('returns an empty list for missing or non-object snapshots', () => {
     expect(buildManualNormalizationsFromVersionSnapshot(null)).toEqual([])
     expect(buildManualNormalizationsFromVersionSnapshot([])).toEqual([])
   })
+})
+
+it('restores legacy custom deductions without inventing malformed zero adjustments', () => {
+  const restored = buildManualNormalizationsFromVersionSnapshot({
+    '2025': {
+      custom_adjustments: [
+        { description: 'Replacement rent', amount: '-0.1' },
+        { description: 'Reviewed nil', amount: 0 },
+        { description: 'Corrupt value', amount: true },
+        { description: 'Missing amount', amount: null },
+        { amount: '0x10' },
+      ],
+    },
+  })
+  expect(restored.map(({ adjustment, ledgerName }) => ({ adjustment, ledgerName }))).toEqual([
+    { adjustment: -0.1, ledgerName: 'Replacement rent' },
+    { adjustment: 0, ledgerName: 'Reviewed nil' },
+  ])
 })

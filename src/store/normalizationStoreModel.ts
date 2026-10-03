@@ -16,6 +16,7 @@ import {
   appliesToYear,
   getNormalizationAmountForBase,
   normalizationItemTouchesYear,
+  summarizeAcceptedNormalizations,
 } from '../utils/normalizationMath'
 
 type SessionWithNormalizations = {
@@ -125,7 +126,15 @@ export function addUniqueNormalizationItems(
   existing: NormalizationItem[],
   incoming: NormalizationItem[]
 ): NormalizationItem[] {
-  return [...existing, ...incoming.filter((n) => !existing.some((e) => e.id === n.id))]
+  const seen = new Set(existing.map((item) => item.id))
+  return [
+    ...existing,
+    ...incoming.filter((item) => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    }),
+  ]
 }
 
 export function removeNormalizationItem(
@@ -208,7 +217,7 @@ export function computeNormalizedEbitda(
 ): number {
   const base = Number(originalEbitda)
   const safeBase = Number.isFinite(base) ? base : 0
-  return safeBase + sumNormalizationAdjustments(selectAcceptedNormalizations(items))
+  return summarizeAcceptedNormalizations(items, safeBase).normalized
 }
 
 export function extractSessionNormalizationItems(sessionData: unknown): NormalizationItem[] {

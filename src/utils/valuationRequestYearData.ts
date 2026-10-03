@@ -8,6 +8,7 @@ import {
   requireNonNegativeRevenue,
   toFiniteNumber,
 } from './buildValuationRequest.helpers'
+import { FinancialDecimal as Decimal } from './financialDecimal'
 import { deriveNwcChangesForActualYears, pickYearSourceMetadata } from './yearData'
 
 type DcfInputMode = 'ebitda' | 'fcff_only'
@@ -17,6 +18,7 @@ function reportedEbitda(year: YearDataInput, fallback = 0): number {
 }
 
 function existingNormalizedEbitda(year: YearDataInput): number | null {
+  if (year.ebitda_normalized === false) return null
   const explicit = toFiniteNumber(year.normalized_ebitda)
   if (explicit !== null) return explicit
   const metadata = year.ebitda_normalization_metadata
@@ -67,20 +69,17 @@ function applyNormalization(
   }
 
   const reported = reportedEbitda(year)
-  const hasAcceptedAdjustment = normalization.count > 0
-  const existingNormalized = existingNormalizedEbitda(year)
-  const normalized = hasAcceptedAdjustment
-    ? reported + normalization.totalAdjustment
-    : existingNormalized
+  // Current review decisions supersede a cached normalized amount, including rejection of all addbacks.
+  const normalized = new Decimal(reported).plus(normalization.totalAdjustment).toNumber()
   return {
     year: Math.min(Math.max(year.year, 2000), 2100),
     revenue: normalizedRevenue,
     ebitda: normalized ?? toFiniteNumber(year.ebitda) ?? reported,
     reported_ebitda: reported,
-    ...(normalized !== null ? { normalized_ebitda: normalized } : {}),
+    ...(normalization.count > 0 ? { normalized_ebitda: normalized } : {}),
     ...pickOptionalYearDataFields(year),
     ...pickYearSourceMetadata(year),
-    ebitda_normalized: normalized !== null,
+    ebitda_normalized: normalization.count > 0,
     ebitda_normalization_metadata: {
       reported_ebitda: reported,
       normalized_ebitda: normalized ?? reported,
@@ -236,18 +235,24 @@ export function buildValuationRequestYearData(
   }
   const currentReportedEbitda = reportedEbitda(sourceCurrentYear, args.ebitda)
   const currentExistingNormalizedEbitda = existingNormalizedEbitda(sourceCurrentYear)
-  const hasAcceptedCurrentAdjustment = (currentYearNormalization?.count ?? 0) > 0
-  const currentNormalizedEbitda = hasAcceptedCurrentAdjustment
-    ? currentReportedEbitda + (currentYearNormalization?.totalAdjustment ?? 0)
+  const currentNormalizedEbitda = currentYearNormalization
+    ? new Decimal(currentReportedEbitda)
+        .plus(currentYearNormalization?.totalAdjustment ?? 0)
+        .toNumber()
     : currentExistingNormalizedEbitda
+  const currentHasAcceptedNormalization = currentYearNormalization
+    ? currentYearNormalization.count > 0
+    : currentNormalizedEbitda !== null
   const currentYearData: YearDataInput = {
     year: args.currentFiscalYear,
     revenue: args.revenue,
     ebitda: currentNormalizedEbitda ?? args.ebitda,
     reported_ebitda: currentReportedEbitda,
-    ...(currentNormalizedEbitda !== null ? { normalized_ebitda: currentNormalizedEbitda } : {}),
+    ...(currentHasAcceptedNormalization && currentNormalizedEbitda !== null
+      ? { normalized_ebitda: currentNormalizedEbitda }
+      : {}),
     ...(currentYearNormalization && {
-      ebitda_normalized: currentNormalizedEbitda !== null,
+      ebitda_normalized: currentHasAcceptedNormalization,
       ebitda_normalization_metadata: {
         reported_ebitda: currentReportedEbitda,
         normalized_ebitda: currentNormalizedEbitda ?? currentReportedEbitda,

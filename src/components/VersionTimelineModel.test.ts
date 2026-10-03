@@ -102,7 +102,7 @@ describe('VersionTimelineModel', () => {
     })
   })
 
-  it('suppresses zero-only valuation cards and deltas', () => {
+  it('retains zero-valued cards while suppressing comparison across unknown currencies', () => {
     const current = version({
       versionNumber: 2,
       valuationResult: {
@@ -127,11 +127,11 @@ describe('VersionTimelineModel', () => {
     expect(
       buildVersionTimelineItemModel({ version: current, previousVersion: previous })
     ).toMatchObject({
-      currentValuation: null,
+      currentValuation: 0,
       previousValuation: 400_000,
       priceChange: 0,
-      priceChangePercent: 0,
-      valuationCard: null,
+      priceChangePercent: null,
+      valuationCard: { equityValueMid: 0, equityValueLow: 0, equityValueHigh: 0 },
     })
   })
 
@@ -141,6 +141,7 @@ describe('VersionTimelineModel', () => {
         changeMetadata: { normalized_years: [2024, 2025] },
         changesSummary: { totalChanges: 2, significantChanges: ['revenue'] },
         valuationResult: {
+          currency: 'EUR',
           equity_value_high: 500_000,
           equity_value_low: 300_000,
           equity_value_mid: 400_000,
@@ -150,6 +151,7 @@ describe('VersionTimelineModel', () => {
       }),
       previousVersion: version({
         valuationResult: {
+          currency: 'EUR',
           equity_value_mid: 300_000,
           valuation_summary: { final_valuation: 300_000 },
         },

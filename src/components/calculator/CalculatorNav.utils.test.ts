@@ -36,7 +36,7 @@ describe('formatTimeAgo', () => {
 })
 
 describe('normalizeCalculatorNavDisplaySummary', () => {
-  it('infers a missing ask price from a positive valuation range', () => {
+  it('preserves an observed zero instead of inventing a midpoint asking price', () => {
     expect(
       normalizeCalculatorNavDisplaySummary({
         askPrice: 0,
@@ -44,7 +44,7 @@ describe('normalizeCalculatorNavDisplaySummary', () => {
         priceRange: { min: 800_000, max: 1_200_000 },
       })
     ).toEqual({
-      askPrice: 1_000_000,
+      askPrice: 0,
       confidence: 'high',
       priceRange: { min: 800_000, max: 1_200_000 },
     })

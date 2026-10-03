@@ -86,7 +86,7 @@ describe('convertApiResponseToReportData', () => {
     })
   })
 
-  it('derives valuation from a positive range when midpoint and asking price are zero', () => {
+  it('retains zero and withholds a contradictory positive band', () => {
     const report = convertApiResponseToReportData({
       valuation_id: 'val_123_test',
       company_name: 'Range BV',
@@ -96,9 +96,42 @@ describe('convertApiResponseToReportData', () => {
       equity_value_high: 18_400_000,
     })
 
-    expect(report.valuation).toBe(15_600_000)
-    expect(report.valuationLow).toBe(12_800_000)
-    expect(report.valuationHigh).toBe(18_400_000)
+    expect(report.valuation).toBe(0)
+    expect(report.valuationLow).toBeUndefined()
+    expect(report.valuationHigh).toBeUndefined()
+    expect(report.recommendedAskingPrice).toBe(0)
+  })
+
+  it('keeps absent and invalid monetary inputs unknown instead of producing zero', () => {
+    const report = convertApiResponseToReportData({
+      current_year_data: { ebitda: false, revenue: [1000] },
+      multiples_valuation: { ebitda_multiple: '0x10' },
+      ebitda_adjustments: [
+        { id: 'bad', value: true },
+        { id: 'zero', value: '0' },
+      ],
+    })
+    expect(report.valuation).toBeNull()
+    expect(report.ebitda).toBeNull()
+    expect(report.multiple).toBeNull()
+    expect(report.revenue).toBeUndefined()
+    expect(report.currency).toBeUndefined()
+    expect(report.ebitdaAdjustments).toEqual([expect.objectContaining({ id: 'zero', value: 0 })])
+  })
+
+  it('retains an enterprise conclusion without an equity band or asking price', () => {
+    const report = convertApiResponseToReportData({
+      value: '1200.25',
+      value_basis: 'enterprise_value',
+      currency: 'USD',
+      equity_value_low: 1000,
+      equity_value_high: 1300,
+      recommended_asking_price: 1400,
+    })
+    expect(report.valuation).toBe(1200.25)
+    expect(report.valueBasis).toBe('enterprise_value')
+    expect(report.currency).toBe('USD')
+    expect(report.valuationLow).toBeUndefined()
     expect(report.recommendedAskingPrice).toBeUndefined()
   })
 })
