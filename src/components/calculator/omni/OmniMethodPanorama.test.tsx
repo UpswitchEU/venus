@@ -84,6 +84,7 @@ describe('method financial presentation', () => {
     expect(within(enterprise).getByText('enterpriseValue')).toBeInTheDocument()
     expect(within(enterprise).getByText('$500')).toBeInTheDocument()
     expect(enterprise).not.toHaveTextContent('%')
+    expect(enterprise.querySelector('[style*="width"]')).toBeNull()
     expect(enterprise).not.toHaveTextContent('€')
   })
   it('does not invent a currency or a zero from a malformed method amount', () => {

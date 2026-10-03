@@ -144,8 +144,8 @@ export function OmniMethodPanorama({
                   ? `${tBreakdown('wacc')} ${formatPercent(wacc, 100)}`
                   : null
               : null
-          const delta =
-            key !== 'upswitch_adaptive' ? methodComparisonDelta(method, adaptive, currency) : null
+          const comparison = methodComparisonDelta(method, adaptive, currency)
+          const delta = key !== 'upswitch_adaptive' ? comparison : null
           const deltaValue = delta?.amount ?? null
           const deltaPercent = delta?.percent ?? null
           const maxComparisonValue = sortedMethodEntries.reduce((max, [, candidate]) => {
@@ -360,6 +360,7 @@ export function OmniMethodPanorama({
                   value != null &&
                   value > 0 &&
                   maxComparisonValue > 0 &&
+                  comparison !== null &&
                   !isPlanTeaser && (
                     <div className="h-1 w-full rounded-full bg-foreground/[0.07] overflow-hidden">
                       <div
