@@ -59,12 +59,23 @@ export interface ValuationVersion {
   // Normalization data snapshot
   normalization_data?: {
     [year: string]: {
-      reported_ebitda: number // Original EBITDA from financials
-      normalized_ebitda: number // Adjusted EBITDA used in valuation
-      total_adjustments: number // Net adjustment amount
+      schema_version?: 'normalization_year.v2'
+      currency?: string | null
+      pricing_status?: 'scenario_only'
+      pricing_authority?: 'valuation_iq_recalculation_required'
+      reported_ebitda: number | string | null // Original EBITDA from financials
+      normalized_ebitda: number | string | null // Adjusted EBITDA used in valuation
+      total_adjustments: number | string | null // Net adjustment amount
       adjustments: Array<{
         category: string // e.g., "owner_compensation_adjustment"
-        amount: number
+        amount: number | string
+        calculated_amount?: string | null
+        status?: 'pending' | 'accepted' | 'rejected'
+        rule_version?: string
+        source_adjustment_id?: string
+        owner_role?: 'working' | 'passive'
+        actual_owner_compensation?: number | string
+        replacement_owner_compensation?: number | string
         note?: string
         confidence?: string
         ledger_code?: string
@@ -74,17 +85,20 @@ export interface ValuationVersion {
         reviewed_at?: string
         frontend_id?: string
         normalization_type?: string
-        normalization_value?: number
+        normalization_value?: number | string
         apply_all_years?: boolean
         apply_years?: number[]
-        rule_version?: string
-        owner_role?: 'working' | 'passive'
-        actual_owner_compensation?: number
-        replacement_owner_compensation?: number
       }>
       custom_adjustments?: Array<{
         description: string
-        amount: number
+        amount: number | string
+        calculated_amount?: string | null
+        status?: 'pending' | 'accepted' | 'rejected'
+        rule_version?: string
+        source_adjustment_id?: string
+        owner_role?: 'working' | 'passive'
+        actual_owner_compensation?: number | string
+        replacement_owner_compensation?: number | string
         note?: string
       }>
       confidence_score: string // 'low' | 'medium' | 'high'

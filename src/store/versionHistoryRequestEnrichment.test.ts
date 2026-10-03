@@ -45,9 +45,9 @@ describe('saved normalization financial bridge', () => {
     })
     const result = enrichCreateVersionRequestFromStores(request({ ebitda: -0.3 }))
     expect(result.normalization_data?.['2025']).toMatchObject({
-      reported_ebitda: -0.3,
-      total_adjustments: 0.3,
-      normalized_ebitda: 0,
+      reported_ebitda: '-0.3',
+      total_adjustments: '0.3',
+      normalized_ebitda: '0',
     })
     expect(result.normalization_data?.['2025'].adjustments).toHaveLength(2)
   })
@@ -63,22 +63,29 @@ describe('saved normalization financial bridge', () => {
           ebitda_normalized: true,
         })
       ).normalization_data?.['2025']
-    ).toMatchObject({ reported_ebitda: 100, normalized_ebitda: 120 })
+    ).toMatchObject({ reported_ebitda: '100', normalized_ebitda: '120' })
+  })
+
+  it.each([undefined, null, ''])('retains the ledger with an unknown baseline of %s', (ebitda) => {
+    useNormalizationStore.setState({ items: [item()] })
+    const saved = enrichCreateVersionRequestFromStores(request({ ebitda })).normalization_data?.[
+      '2025'
+    ]
+    expect(saved).toMatchObject({ reported_ebitda: null, normalized_ebitda: null })
+    expect(saved?.adjustments).toHaveLength(1)
+    expect(saved?.adjustments[0]).toMatchObject({ frontend_id: 'legal-cost', amount: '0.1' })
   })
 
   it.each([
-    undefined,
-    null,
-    '',
     true,
     '1,000',
     'NaN',
     Number.NaN,
-  ])('does not invent a reported zero when the snapshot baseline is %s', (ebitda) => {
+  ])('rejects an invalid baseline of %s without silently dropping the ledger', (ebitda) => {
     useNormalizationStore.setState({ items: [item()] })
-    expect(
-      enrichCreateVersionRequestFromStores(request({ ebitda })).normalization_data
-    ).toBeUndefined()
+    expect(() => enrichCreateVersionRequestFromStores(request({ ebitda }))).toThrow(
+      /explicit finite decimal/
+    )
   })
 
   it('retains observed zero without publishing a percentage of zero', () => {
@@ -86,7 +93,7 @@ describe('saved normalization financial bridge', () => {
     const saved = enrichCreateVersionRequestFromStores(request({ ebitda: 0 })).normalization_data?.[
       '2025'
     ]
-    expect(saved).toMatchObject({ reported_ebitda: 0, normalized_ebitda: 0.1 })
+    expect(saved).toMatchObject({ reported_ebitda: '0', normalized_ebitda: '0.1' })
     expect(saved?.adjustment_percentage).toBeUndefined()
   })
 

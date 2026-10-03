@@ -3,8 +3,8 @@ import type {
   NormalizationSource,
   NormalizationType,
 } from '@/components/calculator'
-import { mapBackendCategoryToFrontend } from '@/store/useNormalizationStore'
-import { parseFinancialTransportNumber } from '@/utils/financialTransport'
+import { mapBackendCategoryToFrontend } from '@/store/normalizationStoreModel'
+import { normalizationNumber } from '@/utils/normalizationAmount'
 
 const FRONTEND_NORMALIZATION_CATEGORIES = new Set<NormalizationItem['category']>([
   'salary',
@@ -78,20 +78,18 @@ export function buildManualNormalizationsFromVersionSnapshot(
   for (const [yearKey, yearData] of Object.entries(snapshot)) {
     const year = Number(yearKey)
     const yearRecord = asRecord(yearData)
-    if (!Number.isInteger(year) || year < 2000 || year > 2100 || !yearRecord) continue
+    if (!/^\d{4}$/.test(yearKey) || year < 2000 || year > 2100 || !yearRecord) continue
     const adjustments = [
       ...(Array.isArray(yearRecord.adjustments) ? yearRecord.adjustments : []),
       ...(Array.isArray(yearRecord.custom_adjustments) ? yearRecord.custom_adjustments : []),
     ]
 
+    const seenIds = new Set<string>()
     adjustments.forEach((rawAdjustment, index) => {
       const adjustmentRecord = asRecord(rawAdjustment)
       if (!adjustmentRecord) return
 
-      const amount = parseFinancialTransportNumber(
-        adjustmentRecord.amount ?? adjustmentRecord.adjustment
-      )
-      if (amount === undefined) return
+      const amount = normalizationNumber(adjustmentRecord.amount ?? adjustmentRecord.adjustment)
       const rawCategory = readString(adjustmentRecord.category) || ''
       const savedType =
         readNormalizationType(
@@ -117,20 +115,27 @@ export function buildManualNormalizationsFromVersionSnapshot(
         adjustmentRecord.confidence === 'low'
           ? adjustmentRecord.confidence
           : undefined
-      const value = parseFinancialTransportNumber(savedValue ?? Math.abs(amount))
-      if (value === undefined) return
-      const frontendId = readString(adjustmentRecord.frontend_id)
+      const value = normalizationNumber(savedValue ?? Math.abs(amount))
+      const frontendId = readString(adjustmentRecord.frontend_id) || readString(adjustmentRecord.id)
+      const id = frontendId || `version-${year}-${index}`
+      const economicId = readString(adjustmentRecord.source_adjustment_id) || id
+      if (seenIds.has(economicId))
+        throw new Error(`Duplicate normalization adjustment: ${economicId}`)
+      seenIds.add(economicId)
       const ownerRole = adjustmentRecord.owner_role
-      const actualCompensation = parseFinancialTransportNumber(
-        adjustmentRecord.actual_owner_compensation
-      )
-      const replacementCompensation = parseFinancialTransportNumber(
-        adjustmentRecord.replacement_owner_compensation
-      )
+      const actualCompensation =
+        adjustmentRecord.actual_owner_compensation == null
+          ? undefined
+          : normalizationNumber(adjustmentRecord.actual_owner_compensation)
+      const replacementCompensation =
+        adjustmentRecord.replacement_owner_compensation == null
+          ? undefined
+          : normalizationNumber(adjustmentRecord.replacement_owner_compensation)
       const ruleVersion = readString(adjustmentRecord.rule_version)
 
       const item: NormalizationItem = {
-        id: frontendId || `version-${year}-${index}`,
+        id,
+        ...(frontendId ? { sourceAdjustmentId: economicId } : {}),
         ledgerCode:
           readString(adjustmentRecord.ledger_code) || readString(adjustmentRecord.ledgerCode) || '',
         ledgerName:
@@ -151,10 +156,7 @@ export function buildManualNormalizationsFromVersionSnapshot(
         status:
           adjustmentRecord.status === 'rejected'
             ? 'rejected'
-            : adjustmentRecord.status === undefined ||
-                adjustmentRecord.status === 'accepted' ||
-                adjustmentRecord.status === 'verified' ||
-                adjustmentRecord.status === 'applied'
+            : adjustmentRecord.status === 'accepted'
               ? 'accepted'
               : 'pending',
         ...(reviewedAt ? { reviewedAt } : {}),
