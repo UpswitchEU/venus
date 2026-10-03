@@ -8,6 +8,7 @@ import {
 } from '../utils/manualDcfForecastTransforms'
 import { updateManualYearlyFinancialsRows } from '../utils/manualFinancialRowMutations'
 import { buildManualInputFieldValidation } from '../utils/manualInputFieldValidation'
+import { buildManualInputInitialFormData } from '../utils/manualInputInitialFormData'
 
 const projections = [
   buildProjectionRowFromForecastRow(
@@ -61,8 +62,8 @@ describe('DCF forecast ownership and retained manual facts', () => {
       dcf_da_pct: 3,
       dcf_nwc_pct: 1.5,
     } as ManualValuationFormData
-    const restored: ManualValuationFormData = JSON.parse(
-      JSON.stringify(applyManualDcfProjectionAutofill(form))
+    const restored: ManualValuationFormData = buildManualInputInitialFormData(
+      JSON.parse(JSON.stringify(applyManualDcfProjectionAutofill(form)))
     )
     expect(restored.yearlyFinancials[1].dcf_model_snapshot?.schema_version).toBe(
       'dcf_forecast_inputs.v2'
@@ -92,7 +93,9 @@ describe('DCF forecast ownership and retained manual facts', () => {
       value: modelRow[field],
     })
     expect(edited[0].dcf_model_snapshot).toBeUndefined()
-    const restored: YearlyFinancials[] = JSON.parse(JSON.stringify(edited))
+    const restored = buildManualInputInitialFormData(
+      JSON.parse(JSON.stringify({ yearlyFinancials: edited }))
+    ).yearlyFinancials
     expect(sync(restored).yearlyFinancials).toBe(restored)
   })
 
@@ -110,7 +113,9 @@ describe('DCF forecast ownership and retained manual facts', () => {
       field,
       value: undefined,
     })
-    const restored: YearlyFinancials[] = JSON.parse(JSON.stringify(edited))
+    const restored = buildManualInputInitialFormData(
+      JSON.parse(JSON.stringify({ yearlyFinancials: edited }))
+    ).yearlyFinancials
     expect(restored[0][field]).toBeUndefined()
     expect(sync(restored).yearlyFinancials).toBe(restored)
   })
@@ -123,7 +128,9 @@ describe('DCF forecast ownership and retained manual facts', () => {
       field: 'ebitda',
       value: undefined,
     })
-    const restored: YearlyFinancials[] = JSON.parse(JSON.stringify(edited))
+    const restored = buildManualInputInitialFormData(
+      JSON.parse(JSON.stringify({ yearlyFinancials: edited }))
+    ).yearlyFinancials
     const form = {
       yearlyFinancials: restored,
       dcf_input_mode: 'ebitda',
