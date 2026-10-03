@@ -18,6 +18,7 @@ function reportedEbitda(year: YearDataInput, fallback = 0): number {
 }
 
 function existingNormalizedEbitda(year: YearDataInput): number | null {
+  if (year.ebitda_normalized === false) return null
   const explicit = toFiniteNumber(year.normalized_ebitda)
   if (explicit !== null) return explicit
   const metadata = year.ebitda_normalization_metadata

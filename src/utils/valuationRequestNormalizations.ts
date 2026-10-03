@@ -10,8 +10,10 @@ import {
   toFiniteNumber,
 } from './buildValuationRequest.helpers'
 import { FinancialDecimal as Decimal } from './financialDecimal'
+import { parseFinancialTransportNumber } from './financialTransport'
 import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { generalLogger } from './logger'
+import { validatedNormalizationAmount } from './normalizationFinancialValidation'
 import { getNormalizationAmountForBase, getNormalizationTargetYears } from './normalizationMath'
 
 export interface BuildValuationRequestNormalizationsParams {
@@ -27,8 +29,7 @@ const OWNER_COMPENSATION_CATEGORY = 'owner_compensation_adjustment'
 const VENUS_NORMALIZATION_REVIEW_POLICY_VERSION = 'venus.normalization_review.v1'
 
 function finiteNumber(value: unknown): number | undefined {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
+  return parseFinancialTransportNumber(value)
 }
 
 function ownerCompensationTerms(
@@ -50,7 +51,8 @@ function ownerCompensationTerms(
     item.type === 'add' || item.type === 'subtract' ? finiteNumber(item.value) : undefined
   const actual = explicitActual ?? finiteNumber(fallbackActualOwnerCompensation) ?? inferredActual
   const explicitReplacement = finiteNumber(item.replacementOwnerCompensation)
-  const inferredReplacement = actual == null ? undefined : actual - adjustmentAmount
+  const inferredReplacement =
+    actual == null ? undefined : new Decimal(actual).minus(adjustmentAmount).toNumber()
   const replacement = explicitReplacement ?? inferredReplacement
 
   if (
@@ -59,7 +61,7 @@ function ownerCompensationTerms(
     replacement == null ||
     actual < 0 ||
     replacement < 0 ||
-    Math.abs(actual - replacement - adjustmentAmount) > 0.01
+    !new Decimal(actual).minus(replacement).eq(adjustmentAmount)
   ) {
     return {}
   }
@@ -183,10 +185,14 @@ export function buildValuationRequestNormalizations({
 
     for (const y of validYearsToApply) {
       const yearEntry = ensureYearEntry(y)
-
-      const rawYearEbitda = yearEbitdaMap[y] ?? 0
-      const yearEbitda = Number.isFinite(rawYearEbitda) ? rawYearEbitda : 0
-      const amount = getNormalizationAmountForBase(n, yearEbitda)
+      if (yearEntry.items.some((previous) => previous.id === n.id)) {
+        throw new ValidationError(
+          'Review the duplicate normalization before calculating.',
+          `normalizations.${n.id}`,
+          y
+        )
+      }
+      const amount = validatedNormalizationAmount(n, yearEbitdaMap[y])
       const backendCategory = mapFrontendCategoryToBackend(n.category, n.backendCategory)
       const compensationTerms = ownerCompensationTerms(
         n,
@@ -198,6 +204,12 @@ export function buildValuationRequestNormalizations({
       const ruleVersion =
         n.ruleVersion ?? (n.reviewedAt ? VENUS_NORMALIZATION_REVIEW_POLICY_VERSION : undefined)
       yearEntry.totalAdjustment = new Decimal(yearEntry.totalAdjustment).plus(amount).toNumber()
+      if (!Number.isFinite(yearEntry.totalAdjustment)) {
+        throw new ValidationError(
+          'Total normalizations exceed the supported range.',
+          `normalizations.${y}`
+        )
+      }
       yearEntry.count++
       if (n.confidence === 'high') yearEntry.confidence = 'high'
       if (n.source === 'manual') yearEntry.hasCustomAdjustments = true

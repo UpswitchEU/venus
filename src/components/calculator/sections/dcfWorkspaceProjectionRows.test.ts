@@ -24,8 +24,6 @@ describe('buildDcfWorkspaceProjectionRows', () => {
       sortedRows: [
         {
           year: '2026',
-          revenue: 0,
-          ebitda: 0,
           free_cash_flow: 1,
           isForecast: true,
         },
@@ -34,6 +32,49 @@ describe('buildDcfWorkspaceProjectionRows', () => {
     })
 
     expect(rows[0]).toMatchObject({ revenue: 0, ebitda: 0, fcff: null })
+  })
+
+  it.each([
+    { revenue: 0, ebitda: 0, expectedRevenue: 0, expectedEbitda: 0 },
+    { revenue: 0, expectedRevenue: 0, expectedEbitda: null },
+    { ebitda: 0, expectedRevenue: null, expectedEbitda: 0 },
+  ])('preserves observed zero earnings instead of a derived projection: %j', (facts) => {
+    const rows = buildDcfWorkspaceProjectionRows({
+      dcfInputMode: 'ebitda',
+      latestHistoricalRevenue: 1_000_000,
+      globalNwcPct: 0,
+      globalTaxRatePct: 25,
+      sortedRows: [{ year: '2026', ...facts, free_cash_flow: 1, isForecast: true }],
+      derivedProjectionPreview: [derivedRow],
+    })
+
+    expect(rows[0]).toMatchObject({
+      revenue: facts.expectedRevenue,
+      ebitda: facts.expectedEbitda,
+      fcff: facts.expectedRevenue === 0 && facts.expectedEbitda === 0 ? 0 : null,
+    })
+    expect(rows[0]).not.toBe(derivedRow)
+  })
+
+  it('keeps explicit zero facts after JSON reload and row reordering', () => {
+    const savedRows: DcfForecastRow[] = [
+      { year: '2027', revenue: 0, ebitda: 0, isForecast: true },
+      { year: '2026', revenue: 0, ebitda: 0, isForecast: true },
+    ]
+    const rows = buildDcfWorkspaceProjectionRows({
+      dcfInputMode: 'ebitda',
+      globalNwcPct: 0,
+      globalTaxRatePct: 25,
+      sortedRows: JSON.parse(JSON.stringify(savedRows)).reverse(),
+      derivedProjectionPreview: [derivedRow, { ...derivedRow, year: 2027 }],
+    })
+
+    expect(
+      rows.map(({ year, revenue, ebitda, fcff }) => ({ year, revenue, ebitda, fcff }))
+    ).toEqual([
+      { year: 2026, revenue: 0, ebitda: 0, fcff: 0 },
+      { year: 2027, revenue: 0, ebitda: 0, fcff: 0 },
+    ])
   })
 
   it('does not let stale FCFF override a stored EBITDA bridge row', () => {

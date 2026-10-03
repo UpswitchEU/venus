@@ -104,3 +104,6 @@ jobs:
 
       - name: Guard bundle budget
         run: pnpm run guard:bundle-budget
+
+      - name: Verify build tooling is absent from production traces
+        run: node --test scripts/verify-production-build-dependencies.test.mjs && node scripts/verify-production-build-dependencies.mjs

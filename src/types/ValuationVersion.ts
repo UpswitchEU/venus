@@ -75,6 +75,12 @@ export interface ValuationVersion {
         frontend_id?: string
         normalization_type?: string
         normalization_value?: number
+        apply_all_years?: boolean
+        apply_years?: number[]
+        rule_version?: string
+        owner_role?: 'working' | 'passive'
+        actual_owner_compensation?: number
+        replacement_owner_compensation?: number
       }>
       custom_adjustments?: Array<{
         description: string
