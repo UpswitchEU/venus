@@ -3,10 +3,12 @@
 import { AlertTriangle, Calculator, Percent } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
+import { FinancialDecimal as Decimal } from '@/utils/financialDecimal'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import type { ValuationMethodResult, ValuationResponse } from '../../types/valuation'
 import { MethodBreakdownDetails } from './ValuationEditModalBreakdownDetails'
 import { buildMethodBreakdownModel } from './ValuationEditModalBreakdownModel'
-import { formatCurrency } from './ValuationEditModalFormatting'
+import { useValuationMoneyFormatter } from './ValuationMoneyContext'
 
 interface MethodBreakdownSectionProps {
   methodKey: string
@@ -29,7 +31,11 @@ export function MethodBreakdownSection({
 }: MethodBreakdownSectionProps) {
   const tBreakdown = useTranslations('methodBreakdown')
 
-  if (!method?.available) {
+  if (
+    !method?.available ||
+    method.plan_teaser ||
+    parseFinancialTransportNumber(method.value) === undefined
+  ) {
     return (
       <div className="rounded-lg border border-dashed border-border/60 bg-background/60 px-4 py-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/55">
@@ -72,12 +78,13 @@ export function MethodBreakdownSection({
 }
 
 export function StakeCalculatorSection({ equityValue }: { equityValue: number | null }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tModal = useTranslations('valuationEditModal')
   const [stakePercent, setStakePercent] = useState(100)
 
-  if (equityValue == null) return null
+  if (equityValue == null || !Number.isFinite(equityValue)) return null
 
-  const proRataValue = equityValue * (stakePercent / 100)
+  const proRataValue = new Decimal(equityValue).times(stakePercent).div(100).toNumber()
   const isPartial = stakePercent < 100 && stakePercent > 0
 
   return (

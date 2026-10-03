@@ -37,6 +37,7 @@ const translations: Record<string, Record<string, string>> = {
     methodsListHeading: 'Methoden',
     methodsPanoramaTitle: 'Alle methoden in één oogopslag',
     columnEquity: 'Waarde',
+    columnValue: 'Waarde',
     columnMultiple: 'Multiple',
     columnDelta: 't.o.v. marktbenadering',
     columnHintMobile:

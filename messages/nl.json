@@ -3834,6 +3834,9 @@
 		"copyFailed": "Kon link niet kopiëren"
 	},
 	"omniCalc": {
+		"columnValue": "Waarde",
+		"currencyUnknown": "Valuta onbekend",
+		"valueBasisUnknown": "Waardebasis onbekend",
 		"title": "Hoofdcijfer & methodes",
 		"subtitle": "Kies welk berekend resultaat als hoofdwaarde in het cliëntrapport en de exporten verschijnt.",
 		"available": "klaar",

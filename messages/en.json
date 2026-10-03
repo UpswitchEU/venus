@@ -3834,6 +3834,9 @@
 		"copyFailed": "Could not copy link"
 	},
 	"omniCalc": {
+		"columnValue": "Value",
+		"currencyUnknown": "Currency unknown",
+		"valueBasisUnknown": "Value basis unknown",
 		"title": "Headline & methods",
 		"subtitle": "Choose which calculated result appears as the headline value in the client report and exports.",
 		"available": "ready",
