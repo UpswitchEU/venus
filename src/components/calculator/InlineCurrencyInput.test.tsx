@@ -37,16 +37,16 @@ describe('inline financial amounts', () => {
   it('preserves cents, zero and losses through typing and blur', () => {
     render(<Harness />)
     const input = screen.getByLabelText('Cash flow')
-    for (const [draft, expected] of [
-      ['1,000.25', '1000.25'],
-      ['-100.05', '-100.05'],
-      ['0', '0'],
+    for (const [draft, expected, display] of [
+      ['1,000.25', '1000.25', '1,000.25'],
+      ['-100.05', '-100.05', '-100.05'],
+      ['0', '0', '0'],
     ]) {
       fireEvent.focus(input)
       fireEvent.change(input, { target: { value: draft } })
       fireEvent.blur(input)
       expect(screen.getByRole('status')).toHaveTextContent(expected)
-      expect(input).toHaveValue(expected)
+      expect(input).toHaveValue(display)
     }
   })
 

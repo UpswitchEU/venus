@@ -12,20 +12,26 @@ import { FinancialDecimal } from '@/utils/financialDecimal'
 export function useDecimalTextInputState(
   value: number | undefined,
   onChange: (next: number | undefined) => void,
-  options?: { readOnly?: boolean; allowNegative?: boolean }
+  options?: { readOnly?: boolean; allowNegative?: boolean; useGrouping?: boolean }
 ) {
   const readOnly = options?.readOnly ?? false
   const allowNegative = options?.allowNegative ?? true
+  const useGrouping = options?.useGrouping ?? false
   const locale = useLocale()
   const inputLocale = locale === 'en' ? 'en' : locale === 'fr' ? 'fr' : 'nl'
   const format = useCallback(
     (n: number | undefined) =>
       n != null && Number.isFinite(n)
-        ? inputLocale === 'en'
-          ? new FinancialDecimal(n).toFixed()
-          : new FinancialDecimal(n).toFixed().replace('.', ',')
+        ? useGrouping
+          ? new Intl.NumberFormat(`${inputLocale}-BE`, {
+              useGrouping: true,
+              maximumFractionDigits: 8,
+            }).format(n)
+          : inputLocale === 'en'
+            ? new FinancialDecimal(n).toFixed()
+            : new FinancialDecimal(n).toFixed().replace('.', ',')
         : '',
-    [inputLocale]
+    [inputLocale, useGrouping]
   )
   const [invalid, setInvalid] = useState(false)
   const validationMessage =
