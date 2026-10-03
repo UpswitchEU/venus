@@ -1,0 +1,180 @@
+{
+  "schema_version": "percentage_inputs_conformance.v1",
+  "supported_fields": [
+    "dcf_capex_pct",
+    "dcf_company_specific_risk_pct",
+    "dcf_cost_of_debt_pct",
+    "dcf_da_pct",
+    "dcf_debt_equity_pct",
+    "dcf_ebitda_margin_pct",
+    "dcf_equity_risk_premium_pct",
+    "dcf_nwc_pct",
+    "dcf_revenue_growth_pct",
+    "dcf_risk_free_rate_pct",
+    "dcf_sensitivity_ebitda_margin_max_pct",
+    "dcf_sensitivity_ebitda_margin_min_pct",
+    "dcf_sensitivity_terminal_growth_max_pct",
+    "dcf_sensitivity_terminal_growth_min_pct",
+    "dcf_sensitivity_wacc_delta_pct",
+    "dcf_size_premium_pct",
+    "dcf_tax_rate_pct",
+    "dcf_tax_shield_pct",
+    "dcf_terminal_growth_pct",
+    "dcf_wacc_pct",
+    "rev_gross_churn_pct",
+    "rev_recurring_pct",
+    "rev_top_client_concentration_pct",
+    "saas_arr_growth_pct",
+    "saas_churn_pct",
+    "saas_customer_churn_pct",
+    "saas_customer_concentration_pct",
+    "saas_expansion_revenue_pct",
+    "saas_gross_margin_pct",
+    "saas_nrr_pct"
+  ],
+  "cases": [
+    {
+      "id": "half-point",
+      "key": "dcf_wacc_pct",
+      "raw": "0.5",
+      "unit": "percentage_points",
+      "fraction": "0.005"
+    },
+    {
+      "id": "one-point",
+      "key": "dcf_wacc_pct",
+      "raw": 1,
+      "unit": "percentage_points",
+      "fraction": "0.01"
+    },
+    {
+      "id": "one-fraction",
+      "key": "rev_recurring_pct",
+      "raw": 1,
+      "unit": "fraction",
+      "fraction": "1"
+    },
+    {
+      "id": "above-one-fraction",
+      "key": "saas_nrr_pct",
+      "raw": "1.2",
+      "unit": "fraction",
+      "fraction": "1.2"
+    },
+    {
+      "id": "negative-growth",
+      "key": "dcf_revenue_growth_pct",
+      "raw": -0.5,
+      "unit": "percentage_points",
+      "fraction": "-0.005"
+    },
+    {
+      "id": "explicit-zero",
+      "key": "dcf_capex_pct",
+      "raw": 0,
+      "unit": "percentage_points",
+      "fraction": "0"
+    },
+    {
+      "id": "negative-zero",
+      "key": "dcf_nwc_pct",
+      "raw": "-0",
+      "unit": "percentage_points",
+      "fraction": "0"
+    },
+    {
+      "id": "exact-string",
+      "key": "dcf_wacc_pct",
+      "raw": "0.123456789012345678",
+      "unit": "percentage_points",
+      "fraction": "0.00123456789012345678"
+    },
+    {
+      "id": "fractional-cash-tax",
+      "key": "dcf_tax_rate_pct",
+      "raw": 0.005,
+      "unit": "fraction",
+      "fraction": "0.005"
+    },
+    {
+      "id": "percent-suffix",
+      "key": "dcf_wacc_pct",
+      "raw": "0.5%",
+      "unit": "percentage_points",
+      "fraction": "0.005"
+    },
+    {
+      "id": "fullwidth-suffix",
+      "key": "dcf_wacc_pct",
+      "raw": "0.5％",
+      "unit": "percentage_points",
+      "fraction": "0.005"
+    },
+    {
+      "id": "scientific-decimal",
+      "key": "dcf_wacc_pct",
+      "raw": "5e-1",
+      "unit": "percentage_points",
+      "fraction": "0.005"
+    },
+    {
+      "id": "missing",
+      "key": "dcf_wacc_pct",
+      "raw": null,
+      "unit": "percentage_points",
+      "fraction": null
+    },
+    {
+      "id": "long-exact-string",
+      "key": "dcf_wacc_pct",
+      "raw": "0.123456789012345678901234567890123456",
+      "unit": "percentage_points",
+      "fraction": "0.00123456789012345678901234567890123456"
+    }
+  ],
+  "invalid_values": [
+    true,
+    false,
+    "",
+    "NaN",
+    "Infinity",
+    "0,5",
+    "1_000",
+    {},
+    [],
+    "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+  ],
+  "invalid_contracts": [
+    null,
+    {},
+    {
+      "schema_version": "percentage_inputs.v2",
+      "units": {
+        "dcf_wacc_pct": "percentage_points"
+      }
+    },
+    {
+      "schema_version": "percentage_inputs.v1",
+      "units": {}
+    },
+    {
+      "schema_version": "percentage_inputs.v1",
+      "units": {
+        "dcf_wacc_pct": "pct"
+      }
+    },
+    {
+      "schema_version": "percentage_inputs.v1",
+      "units": {
+        "unknown_pct": "percentage_points"
+      }
+    },
+    {
+      "schema_version": "percentage_inputs.v1",
+      "units": {
+        "dcf_wacc_pct": "percentage_points"
+      },
+      "other": true
+    }
+  ]
+}

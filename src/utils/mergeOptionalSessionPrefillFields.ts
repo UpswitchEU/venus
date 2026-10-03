@@ -28,6 +28,7 @@ import {
   SESSION_CARD_FALLBACK_STRING_KEYS,
   SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
 } from './optionalSessionPrefillKeys'
+import { percentageInputForControl } from './percentageInputContract'
 import { hasConflictingRegistryIdentity } from './registryIdentity'
 import {
   historicalRowsFromYearDataBlob,
@@ -240,7 +241,7 @@ export function mergeOptionalSessionPrefillFields(
         continue
       }
       if (hasScalarValue(incoming)) {
-        ;(out as Record<string, unknown>)[key] = incoming
+        ;(out as Record<string, unknown>)[key] = percentageInputForControl(bc, key)
       }
     }
 
