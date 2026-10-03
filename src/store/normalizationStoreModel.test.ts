@@ -3,6 +3,7 @@ import type { CustomAdjustment, NormalizationAdjustment } from '../types/ebitdaN
 import {
   acceptNormalizationItem,
   acceptNormalizationItems,
+  addUniqueNormalizationItems,
   buildTitanNormalizationRequest,
   computeNormalizedEbitda,
   extractSessionNormalizationItems,
@@ -76,6 +77,16 @@ describe('normalizationStoreModel', () => {
     ).toThrow()
   })
 
+  it('makes repeated imports idempotent within the same batch and across retries', () => {
+    const accepted = makeItem()
+    const imported = makeItem({ id: 'imported', status: 'pending' })
+    const first = addUniqueNormalizationItems(
+      [accepted],
+      [imported, imported, { ...accepted, status: 'pending' }]
+    )
+    expect(first).toEqual([accepted, imported])
+    expect(addUniqueNormalizationItems(first, [imported, accepted])).toEqual(first)
+  })
   it('round-trips backend categories without collapsing preserved 12-category values', () => {
     expect(mapBackendCategoryToFrontend('related_party_transactions')).toBe('rent')
     expect(mapBackendCategoryToFrontend('unknown_backend_category')).toBe('other')

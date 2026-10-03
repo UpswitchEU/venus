@@ -3834,6 +3834,9 @@
 		"copyFailed": "Impossible de copier le lien"
 	},
 	"omniCalc": {
+		"columnValue": "Valeur",
+		"currencyUnknown": "Devise inconnue",
+		"valueBasisUnknown": "Base de valeur inconnue",
 		"title": "Chiffre principal & méthodes",
 		"subtitle": "Choisissez le résultat calculé qui apparaît comme valeur principale dans le rapport client et les exportations.",
 		"available": "prêt",

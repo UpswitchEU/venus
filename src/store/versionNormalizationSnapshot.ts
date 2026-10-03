@@ -101,6 +101,8 @@ export function buildVersionNormalizationSnapshot(
       reviewed_at: item.reviewedAt,
       frontend_id: item.id,
       normalization_type: item.type,
+      apply_all_years: item.applyAllYears,
+      apply_years: getNormalizationTargetYears(item, [...bases.keys()]),
       normalization_value: normalizationDecimal(item.value),
       rule_version: item.ruleVersion,
       source_adjustment_id: item.sourceAdjustmentId ?? item.id,

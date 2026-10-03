@@ -1,6 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { render as renderTestingLibrary, screen, within } from '@testing-library/react'
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
+import { ValuationMoneyProvider } from '../ValuationMoneyContext'
 import { DcfSensitivityMatrix } from './DcfSensitivityMatrix'
 
 const translations: Record<string, string> = {
@@ -23,6 +24,13 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => translations[key] ?? key,
   useLocale: () => 'en',
 }))
+
+const render = (ui: React.ReactNode) =>
+  renderTestingLibrary(
+    <ValuationMoneyProvider currency="EUR" locale="en">
+      {ui}
+    </ValuationMoneyProvider>
+  )
 
 describe('DcfSensitivityMatrix', () => {
   it.each([
@@ -57,7 +65,7 @@ describe('DcfSensitivityMatrix', () => {
       screen.getByText('Each scenario includes the admitted financing tax shield once.')
     ).toBeInTheDocument()
     expect(screen.queryByText('WACC / g')).not.toBeInTheDocument()
-    expect(screen.getByText('€120,000')).toBeInTheDocument()
+    expect(screen.getByText('€120K')).toBeInTheDocument()
   })
 
   it('renders nothing when no data is available', () => {
@@ -112,17 +120,13 @@ describe('DcfSensitivityMatrix', () => {
     ).toBeInTheDocument()
   })
 
-  it('normalizes localized persisted matrix values and suppresses NaN cells', () => {
+  it('reads machine decimal matrix values and preserves malformed cells as unavailable', () => {
     render(
       <DcfSensitivityMatrix
         sensitivityData={{
-          wacc_values: ['0,09', '0,10', '0,11'],
-          growth_values: ['0,01', '0,02', '0,03'],
-          ev_matrix: [
-            ['2.900.000', '3.000.000', 'bad'],
-            ['2.400.000', '2.500.000', '2.600.000'],
-            ['bad'],
-          ],
+          wacc_values: ['0.09', '0.10', '0.11'],
+          growth_values: ['0.01', '0.02', '0.03'],
+          ev_matrix: [['2900000', '3000000', 'bad'], ['2400000', '2500000', '2600000'], ['bad']],
         }}
       />
     )
@@ -152,12 +156,12 @@ describe('DcfSensitivityMatrix', () => {
       within(rows[0])
         .getAllByRole('cell')
         .map((cell) => cell.textContent)
-    ).toEqual(['2%', '€0', '—', '€250,000'])
+    ).toEqual(['2%', '€0', '—', '€250K'])
     expect(
       within(rows[1])
         .getAllByRole('cell')
         .map((cell) => cell.textContent)
-    ).toEqual(['3%', '—', '€500,000', '—'])
+    ).toEqual(['3%', '—', '€500K', '—'])
     expect(
       within(rows[2])
         .getAllByRole('cell')
@@ -198,7 +202,27 @@ describe('DcfSensitivityMatrix', () => {
         }}
       />
     )
-    expect(screen.getByText('€123,000')).toHaveClass('bg-primary/10')
-    expect(screen.getByText('€345,000')).not.toHaveClass('bg-primary/10')
+    expect(screen.getByText('€123K')).toHaveClass('bg-primary/10')
+    expect(screen.getByText('€345K')).not.toHaveClass('bg-primary/10')
   })
+})
+
+it('uses the published currency for sensitivity amounts', () => {
+  renderTestingLibrary(
+    <ValuationMoneyProvider currency="USD" locale="en">
+      <DcfSensitivityMatrix
+        sensitivityData={{ wacc_values: [0.1], growth_values: [0.02], ev_matrix: [['1.234']] }}
+      />
+    </ValuationMoneyProvider>
+  )
+  expect(screen.getByText('$1.2')).toBeInTheDocument()
+  expect(screen.queryByText(/€/)).not.toBeInTheDocument()
+})
+it('rejects localized or coercible sensitivity axes rather than moving scenarios', () => {
+  const { container } = render(
+    <DcfSensitivityMatrix
+      sensitivityData={{ wacc_values: ['0,1'], growth_values: [0.02], ev_matrix: [[100]] }}
+    />
+  )
+  expect(container).toBeEmptyDOMElement()
 })

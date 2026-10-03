@@ -11,7 +11,8 @@ import {
   type MethodBreakdownModel,
   normalizeComparablesQualityKey,
 } from './ValuationEditModalBreakdownModel'
-import { formatCurrency, formatMultiple, formatPercent } from './ValuationEditModalFormatting'
+import { formatMultiple, formatPercent } from './ValuationEditModalFormatting'
+import { useValuationMoneyFormatter } from './ValuationMoneyContext'
 
 function getComparablesQualityLabel(tBreakdown: (key: string) => string, raw: string): string {
   const nestedKey = `comparablesQualityValues.${normalizeComparablesQualityKey(raw)}`
@@ -42,6 +43,7 @@ export function MethodBreakdownDetails({
   benchmarkMultiple,
   previewEquity,
 }: MethodBreakdownDetailsProps) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
   const tFcfReadiness = useTranslations('calculator.fcfReadiness')
   const missingReadinessFields = getDcfReadinessMissingFieldKeys(model.dcfReadiness).map((field) =>
@@ -149,6 +151,7 @@ function DcfBreakdown({
   model: MethodBreakdownModel
   missingReadinessFields: string[]
 }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
   const tFcfReadiness = useTranslations('calculator.fcfReadiness')
 
@@ -221,6 +224,7 @@ function DcfBreakdown({
 }
 
 function DcfApvBridge({ model }: { model: MethodBreakdownModel }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
 
   return (
@@ -287,6 +291,7 @@ function DcfApvBridge({ model }: { model: MethodBreakdownModel }) {
 }
 
 function SdeBreakdown({ model }: { model: MethodBreakdownModel }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
 
   return (
@@ -336,6 +341,7 @@ function FiscalBreakdown({
   model: MethodBreakdownModel
   fiscalAnchor?: number | null
 }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
 
   return (
@@ -371,6 +377,7 @@ function FiscalBreakdown({
 }
 
 function AdjustedNavBreakdown({ model }: { model: MethodBreakdownModel }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
 
   return (
@@ -396,6 +403,7 @@ function AdjustedNavBreakdown({ model }: { model: MethodBreakdownModel }) {
 }
 
 function ArrBreakdown({ model }: { model: MethodBreakdownModel }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
 
   return (
@@ -450,6 +458,7 @@ function GenericMultipleBreakdown({
   benchmarkMultiple: number | null
   previewEquity: number | null
 }) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tBreakdown = useTranslations('methodBreakdown')
 
   return (

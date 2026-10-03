@@ -74,8 +74,8 @@ export interface ValuationVersion {
         rule_version?: string
         source_adjustment_id?: string
         owner_role?: 'working' | 'passive'
-        actual_owner_compensation?: string
-        replacement_owner_compensation?: string
+        actual_owner_compensation?: number | string
+        replacement_owner_compensation?: number | string
         note?: string
         confidence?: string
         ledger_code?: string
@@ -86,6 +86,8 @@ export interface ValuationVersion {
         frontend_id?: string
         normalization_type?: string
         normalization_value?: number | string
+        apply_all_years?: boolean
+        apply_years?: number[]
       }>
       custom_adjustments?: Array<{
         description: string
@@ -95,8 +97,8 @@ export interface ValuationVersion {
         rule_version?: string
         source_adjustment_id?: string
         owner_role?: 'working' | 'passive'
-        actual_owner_compensation?: string
-        replacement_owner_compensation?: string
+        actual_owner_compensation?: number | string
+        replacement_owner_compensation?: number | string
         note?: string
       }>
       confidence_score: string // 'low' | 'medium' | 'high'

@@ -40,7 +40,9 @@ const NORMALIZATION_TYPES = new Set<NormalizationType>([
 ])
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
 }
 
 function readString(value: unknown): string | undefined {
@@ -72,28 +74,39 @@ export function buildManualNormalizationsFromVersionSnapshot(
   if (!snapshot) return []
 
   const items: NormalizationItem[] = []
+  const groups = new Map<string, NormalizationItem>()
   for (const [yearKey, yearData] of Object.entries(snapshot)) {
     const year = Number(yearKey)
     const yearRecord = asRecord(yearData)
-    const adjustments = yearRecord?.adjustments
-    if (!/^\d{4}$/.test(yearKey) || year < 2000 || year > 2100 || !Array.isArray(adjustments))
-      continue
+    if (!/^\d{4}$/.test(yearKey) || year < 2000 || year > 2100 || !yearRecord) continue
+    const adjustments = [
+      ...(Array.isArray(yearRecord.adjustments) ? yearRecord.adjustments : []),
+      ...(Array.isArray(yearRecord.custom_adjustments) ? yearRecord.custom_adjustments : []),
+    ]
 
     const seenIds = new Set<string>()
-    const rows = [
-      ...adjustments,
-      ...(Array.isArray(yearRecord?.custom_adjustments) ? yearRecord.custom_adjustments : []),
-    ]
-    rows.forEach((rawAdjustment, index) => {
+    adjustments.forEach((rawAdjustment, index) => {
       const adjustmentRecord = asRecord(rawAdjustment)
       if (!adjustmentRecord) return
 
       const amount = normalizationNumber(adjustmentRecord.amount ?? adjustmentRecord.adjustment)
       const rawCategory = readString(adjustmentRecord.category) || ''
-      const normalizationType =
+      const savedType =
         readNormalizationType(
           adjustmentRecord.normalization_type ?? adjustmentRecord.normalizationType
         ) || (amount >= 0 ? 'add' : 'subtract')
+      const savedValue = adjustmentRecord.normalization_value ?? adjustmentRecord.normalizationValue
+      // A monetary delta does not tell us the original percentage or absolute target.
+      // Legacy snapshots without that instruction retain their accepted annual delta.
+      const normalizationType =
+        savedValue == null &&
+        (savedType === 'add_percent' ||
+          savedType === 'subtract_percent' ||
+          savedType === 'absolute')
+          ? amount >= 0
+            ? 'add'
+            : 'subtract'
+          : savedType
       const reviewedAt =
         readString(adjustmentRecord.reviewed_at) || readString(adjustmentRecord.reviewedAt)
       const confidence =
@@ -102,21 +115,27 @@ export function buildManualNormalizationsFromVersionSnapshot(
         adjustmentRecord.confidence === 'low'
           ? adjustmentRecord.confidence
           : undefined
-
-      const id =
-        readString(adjustmentRecord.frontend_id) ||
-        readString(adjustmentRecord.id) ||
-        `version-${year}-${index}`
+      const value = normalizationNumber(savedValue ?? Math.abs(amount))
+      const frontendId = readString(adjustmentRecord.frontend_id) || readString(adjustmentRecord.id)
+      const id = frontendId || `version-${year}-${index}`
       const economicId = readString(adjustmentRecord.source_adjustment_id) || id
       if (seenIds.has(economicId))
         throw new Error(`Duplicate normalization adjustment: ${economicId}`)
       seenIds.add(economicId)
-      const storedStatus = adjustmentRecord.status
-      const status =
-        storedStatus === 'accepted' || storedStatus === 'rejected' ? storedStatus : 'pending'
+      const ownerRole = adjustmentRecord.owner_role
+      const actualCompensation =
+        adjustmentRecord.actual_owner_compensation == null
+          ? undefined
+          : normalizationNumber(adjustmentRecord.actual_owner_compensation)
+      const replacementCompensation =
+        adjustmentRecord.replacement_owner_compensation == null
+          ? undefined
+          : normalizationNumber(adjustmentRecord.replacement_owner_compensation)
+      const ruleVersion = readString(adjustmentRecord.rule_version)
 
-      items.push({
+      const item: NormalizationItem = {
         id,
+        ...(frontendId ? { sourceAdjustmentId: economicId } : {}),
         ledgerCode:
           readString(adjustmentRecord.ledger_code) || readString(adjustmentRecord.ledgerCode) || '',
         ledgerName:
@@ -128,60 +147,55 @@ export function buildManualNormalizationsFromVersionSnapshot(
         category: restoreNormalizationCategory(rawCategory),
         backendCategory: rawCategory,
         type: normalizationType,
-        value: normalizationNumber(
-          adjustmentRecord.normalization_value ??
-            adjustmentRecord.normalizationValue ??
-            Math.abs(amount)
-        ),
+        value,
         adjustment: amount,
         reason: readString(adjustmentRecord.note) || readString(adjustmentRecord.reason),
         source: readNormalizationSource(adjustmentRecord.source) || 'manual',
         sourceRef:
-          readString(adjustmentRecord.source_ref) ||
-          readString(adjustmentRecord.sourceRef) ||
-          'version',
-        status,
-        ...(readString(adjustmentRecord.source_adjustment_id)
-          ? { sourceAdjustmentId: readString(adjustmentRecord.source_adjustment_id) }
-          : {}),
-        ...(adjustmentRecord.owner_role === 'working' || adjustmentRecord.owner_role === 'passive'
-          ? { ownerRole: adjustmentRecord.owner_role }
-          : {}),
-        ...(adjustmentRecord.actual_owner_compensation !== undefined
-          ? {
-              actualOwnerCompensation: normalizationNumber(
-                adjustmentRecord.actual_owner_compensation
-              ),
-            }
-          : {}),
-        ...(adjustmentRecord.replacement_owner_compensation !== undefined
-          ? {
-              replacementOwnerCompensation: normalizationNumber(
-                adjustmentRecord.replacement_owner_compensation
-              ),
-            }
-          : {}),
-        ...(typeof adjustmentRecord.rule_version === 'string'
-          ? { ruleVersion: adjustmentRecord.rule_version }
-          : {}),
+          readString(adjustmentRecord.source_ref) || readString(adjustmentRecord.sourceRef),
+        status:
+          adjustmentRecord.status === 'rejected'
+            ? 'rejected'
+            : adjustmentRecord.status === 'accepted'
+              ? 'accepted'
+              : 'pending',
         ...(reviewedAt ? { reviewedAt } : {}),
-        applyAllYears: false,
+        // Annual snapshots are the evidence of scope; do not price absent years merely
+        // because a legacy row claims them in apply_years.
+        applyAllYears: adjustmentRecord.apply_all_years === true,
+        ...(frontendId ? { applyYears: [year] } : {}),
         year,
         ...(confidence ? { confidence } : {}),
-      })
+        ...(ownerRole === 'working' || ownerRole === 'passive' ? { ownerRole } : {}),
+        ...(actualCompensation !== undefined
+          ? { actualOwnerCompensation: actualCompensation }
+          : {}),
+        ...(replacementCompensation !== undefined
+          ? { replacementOwnerCompensation: replacementCompensation }
+          : {}),
+        ...(ruleVersion ? { ruleVersion } : {}),
+      }
+      // The same reviewed percentage/absolute instruction has a different annual
+      // delta on different reported baselines. Group the instruction, not its delta.
+      const { year: _year, applyYears: _years, adjustment, ...instruction } = item
+      const variableDelta =
+        item.type === 'add_percent' || item.type === 'subtract_percent' || item.type === 'absolute'
+      const key = JSON.stringify({ ...instruction, ...(variableDelta ? {} : { adjustment }) })
+      const existing = frontendId ? groups.get(key) : undefined
+      if (existing) {
+        existing.applyYears = [
+          ...new Set([...(existing.applyYears ?? [existing.year]), year]),
+        ].sort((a, b) => a - b)
+      } else {
+        // Distinct instructions sharing a corrupt legacy id must remain independently
+        // addressable, so changing one review decision cannot change both.
+        if (items.some((previous) => previous.id === item.id))
+          item.id = `${item.id}:${year}:${index}`
+        items.push(item)
+        if (frontendId) groups.set(key, item)
+      }
     })
   }
 
-  // A multi-year economic adjustment needs distinct editable row identities.
-  const counts = new Map<string, number>()
-  for (const item of items) counts.set(item.id, (counts.get(item.id) ?? 0) + 1)
-  return items.map((item) =>
-    (counts.get(item.id) ?? 0) > 1
-      ? {
-          ...item,
-          sourceAdjustmentId: item.sourceAdjustmentId ?? item.id,
-          id: `${item.id}:${item.year}`,
-        }
-      : item
-  )
+  return items
 }

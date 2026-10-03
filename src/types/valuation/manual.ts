@@ -15,6 +15,16 @@ export interface DcfForecastInputsSnapshot {
   nwc_change: number | null
 }
 
+/** Client projection ownership only; this is not an earnings approval or engine valuation. */
+export interface DcfForecastInputsSnapshot {
+  schema_version: 'dcf_forecast_inputs.v2'
+  revenue: number | null
+  ebitda: number | null
+  capex: number | null
+  depreciation: number | null
+  nwc_change: number | null
+}
+
 // -----------------------------------------------------------------------------
 // Manual calculator (`ManualInputPanel`) — do not duplicate engine fields
 // -----------------------------------------------------------------------------

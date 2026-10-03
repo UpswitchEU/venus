@@ -1,6 +1,7 @@
 import type { YearDataInput } from '../../../types/valuation'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
-import { calculateWorkingCapitalBase, isYearRowForecast } from '../../../utils/yearData'
+import { deriveNwcChangesForActualYears } from '../../../utils/workingCapital'
+import { isYearRowForecast } from '../../../utils/yearData'
 
 export interface DcfReadinessInsight {
   status: 'imported_ready' | 'partial' | 'manual_fallback'
@@ -29,11 +30,13 @@ export function deriveDcfReadinessInsight(args: {
     ...(args.historicalYearsData ?? []).filter(
       (year) => !isYearRowForecast(year) && hasPositiveRevenue(year)
     ),
-    ...(args.currentYearData && hasPositiveRevenue(args.currentYearData)
+    ...(args.currentYearData &&
+    !isYearRowForecast(args.currentYearData) &&
+    hasPositiveRevenue(args.currentYearData)
       ? [args.currentYearData]
       : []),
   ]
-    .filter((year) => typeof year.year === 'number' && Number.isFinite(year.year))
+    .filter((year) => Number.isInteger(year.year) && year.year >= 2000 && year.year <= 2100)
     .sort((a, b) => a.year - b.year)
 
   if (actualYears.length === 0) {
@@ -51,25 +54,11 @@ export function deriveDcfReadinessInsight(args: {
   const actualCapexYears = actualYears.filter((year) => hasFinite(year.capex)).length
   const actualTaxYears = actualYears.filter((year) => hasFinite(year.tax_expense)).length
 
-  let actualWorkingCapitalYears = 0
-  let derivedWorkingCapitalYears = 0
-  for (let index = 0; index < actualYears.length; index++) {
-    const year = actualYears[index]
-    if (hasFinite(year.nwc_change)) {
-      actualWorkingCapitalYears++
-      continue
-    }
-
-    if (index === 0) {
-      continue
-    }
-
-    const currentBase = calculateWorkingCapitalBase(year)
-    const previousBase = calculateWorkingCapitalBase(actualYears[index - 1])
-    if (currentBase !== null && previousBase !== null) {
-      derivedWorkingCapitalYears++
-    }
-  }
+  const withDerivedChanges = deriveNwcChangesForActualYears(actualYears)
+  const actualWorkingCapitalYears = actualYears.filter((year) => hasFinite(year.nwc_change)).length
+  const derivedWorkingCapitalYears = withDerivedChanges.filter(
+    (year, index) => !hasFinite(actualYears[index].nwc_change) && hasFinite(year.nwc_change)
+  ).length
 
   const missingSignals: DcfReadinessInsight['missingSignals'] = []
   if (actualCapexYears < actualYears.length) {
@@ -78,9 +67,12 @@ export function deriveDcfReadinessInsight(args: {
   if (actualTaxYears < actualYears.length) {
     missingSignals.push('taxes')
   }
+  // A change in the earliest year cannot cover a missing observation in a later year.
+  const requiredChangeYears = withDerivedChanges.slice(actualYears.length > 1 ? 1 : 0)
+  const uniqueYears = new Set(actualYears.map((year) => year.year))
   if (
-    actualWorkingCapitalYears + derivedWorkingCapitalYears <
-    Math.max(0, actualYears.length - 1)
+    uniqueYears.size !== actualYears.length ||
+    requiredChangeYears.some((year) => !hasFinite(year.nwc_change))
   ) {
     missingSignals.push('working_capital')
   }

@@ -101,7 +101,10 @@ describe('versioned normalization ledger', () => {
       },
     ])
     const restored = buildManualNormalizationsFromVersionSnapshot(snapshot)
-    expect(new Set(restored.map((row) => row.id)).size).toBe(2)
+    expect(restored).toHaveLength(1)
+    expect(restored[0].applyYears).toEqual([2024, 2025])
+    expect(snapshot?.['2024'].total_adjustments).toBe('30')
+    expect(snapshot?.['2025'].total_adjustments).toBe('30')
     expect(restored.every((row) => row.sourceAdjustmentId === 'salary')).toBe(true)
     expect(
       restored.every(

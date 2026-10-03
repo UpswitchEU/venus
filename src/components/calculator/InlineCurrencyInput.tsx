@@ -53,7 +53,11 @@ export function InlineCurrencyInput({
   className,
 }: InlineCurrencyInputProps) {
   const inputId = useId()
-  const input = useDecimalTextInputState(value, onChange, { readOnly: disabled, allowNegative })
+  const input = useDecimalTextInputState(value, onChange, {
+    readOnly: disabled,
+    allowNegative,
+    useGrouping: true,
+  })
 
   const heightClass = HEIGHT_BY_SIZE[size]
 

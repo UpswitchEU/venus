@@ -47,7 +47,9 @@ export function savedPartialAssessment(report: unknown): Record<string, unknown>
   }
   const assessment = reportRecord(value)
   if (
-    !['partial_valuation.v1', 'partial_valuation.v2', 'partial_valuation.v3'].includes(String(assessment.schema_version)) ||
+    !['partial_valuation.v1', 'partial_valuation.v2', 'partial_valuation.v3'].includes(
+      String(assessment.schema_version)
+    ) ||
     assessment.advisor_acceptance_required !== false ||
     assessment.private_save_allowed !== true ||
     typeof assessment.content_sha256 !== 'string' ||

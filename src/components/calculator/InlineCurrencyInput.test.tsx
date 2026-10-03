@@ -1,9 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InlineCurrencyInput } from './InlineCurrencyInput'
 
-vi.mock('next-intl', () => ({ useLocale: () => 'en' }))
+const language = vi.hoisted(() => ({ value: 'en' }))
+vi.mock('next-intl', () => ({ useLocale: () => language.value }))
+beforeEach(() => {
+  language.value = 'en'
+})
 
 function Harness() {
   const [value, setValue] = useState<number | undefined>(0)
@@ -16,19 +20,33 @@ function Harness() {
 }
 
 describe('inline financial amounts', () => {
+  it.each([
+    ['en', 'Enter a valid number.'],
+    ['nl', 'Voer een geldig getal in.'],
+    ['fr', 'Saisissez un nombre valide.'],
+  ])('localizes native validation in %s from the first invalid change', (locale, message) => {
+    language.value = locale
+    render(<Harness />)
+    const input = screen.getByLabelText('Cash flow') as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'invalid' } })
+    expect(input.validationMessage).toBe(message)
+    fireEvent.blur(input)
+    expect(input.validationMessage).toBe(message)
+  })
+
   it('preserves cents, zero and losses through typing and blur', () => {
     render(<Harness />)
     const input = screen.getByLabelText('Cash flow')
-    for (const [draft, expected] of [
-      ['1,000.25', '1000.25'],
-      ['-100.05', '-100.05'],
-      ['0', '0'],
+    for (const [draft, expected, display] of [
+      ['1,000.25', '1000.25', '1,000.25'],
+      ['-100.05', '-100.05', '-100.05'],
+      ['0', '0', '0'],
     ]) {
       fireEvent.focus(input)
       fireEvent.change(input, { target: { value: draft } })
       fireEvent.blur(input)
       expect(screen.getByRole('status')).toHaveTextContent(expected)
-      expect(input).toHaveValue(expected)
+      expect(input).toHaveValue(display)
     }
   })
 

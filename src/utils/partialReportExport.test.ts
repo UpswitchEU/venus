@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import unknownBasis from './__fixtures__/partial-assessment.v2.json'
-import governed from './__fixtures__/partial-assessments.v3.json'
 import fixtures from './__fixtures__/partial-assessments.v1.json'
+import governed from './__fixtures__/partial-assessments.v3.json'
 import producer from './__fixtures__/partial-report.v1.json'
 import { savedPartialAssessment, savedPartialExportRequest } from './partialReportExport'
 
@@ -39,11 +39,19 @@ const request = (body: unknown = options) =>
     body: JSON.stringify(body),
   })
 describe('partial saved assessment consumer contract', () => {
-  it.each(governed)('keeps source-governed diagnostics outside the published valuation ($assessment_id)', (assessment) => {
+  it.each(
+    governed
+  )('keeps source-governed diagnostics outside the published valuation ($assessment_id)', (assessment) => {
     const saved = { ...report, valuation_result: { partial_valuation: assessment } }
     expect(savedPartialAssessment(saved)).toBe(assessment)
-    expect(savedPartialExportRequest(saved, 'nl')?.expected_content_sha256).toBe(assessment.content_sha256)
-    expect(Object.values(assessment.methods).every((method) => !method.available && method.value === null)).toBe(true)
+    expect(savedPartialExportRequest(saved, 'nl')?.expected_content_sha256).toBe(
+      assessment.content_sha256
+    )
+    expect(
+      Object.values(assessment.methods).every(
+        (method) => !method.available && method.value === null
+      )
+    ).toBe(true)
   })
   beforeEach(() => {
     mocks.fetch.mockReset()

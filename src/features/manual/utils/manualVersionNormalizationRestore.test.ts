@@ -1,9 +1,33 @@
+import { getNormalizationAmountForBase } from '@/utils/normalizationMath'
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest'
 import { buildManualNormalizationsFromVersionSnapshot } from './manualVersionNormalizationRestore'
 
 describe('manualVersionNormalizationRestore', () => {
+  it.each([
+    'proposed',
+    'pending',
+    'unknown',
+    null,
+  ])('does not accept a restored %s decision', (status) => {
+    const [restored] = buildManualNormalizationsFromVersionSnapshot({
+      '2025': { adjustments: [{ amount: 250, status }] },
+    })
+    expect(restored.status).toBe('pending')
+  })
+  it.each([
+    'add_percent',
+    'subtract_percent',
+    'absolute',
+  ])('does not reinterpret an annual amount as a missing %s instruction', (normalization_type) => {
+    const [restored] = buildManualNormalizationsFromVersionSnapshot({
+      '2025': { adjustments: [{ amount: 250, normalization_type }] },
+    })
+    expect(restored.type).toBe('add')
+    expect(getNormalizationAmountForBase(restored, 1000)).toBe(250)
+  })
+
   it('preserves amounts but treats legacy review status as unknown', () => {
     const result = buildManualNormalizationsFromVersionSnapshot({
       '2025': {
@@ -62,7 +86,7 @@ describe('manualVersionNormalizationRestore', () => {
         adjustment: -12_000,
         reason: 'Related-party rent correction',
         source: 'manual',
-        sourceRef: 'version',
+        sourceRef: undefined,
         status: 'pending',
         applyAllYears: false,
         year: 2025,

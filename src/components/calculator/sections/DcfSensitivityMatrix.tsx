@@ -13,7 +13,8 @@ import {
 } from '@/design-system/components/Table'
 import { cn } from '@/design-system/utils'
 import { useManualPreviewFormatters } from '@/lib/omniPreview'
-import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
+import { useValuationMoneyFormatter } from '../ValuationMoneyContext'
 
 interface DcfSensitivityMatrixProps {
   sensitivityData?: {
@@ -32,7 +33,7 @@ interface DcfSensitivityMatrixProps {
 
 function normalizeNumberArray(values: unknown): number[] {
   if (!Array.isArray(values)) return []
-  const parsed = values.map((value) => parseFlexibleNumber(value))
+  const parsed = values.map((value) => parseFinancialTransportNumber(value))
   // Filtering a bad axis value would move cells beneath different assumptions.
   return parsed.every((value): value is number => value !== undefined) ? parsed : []
 }
@@ -46,13 +47,16 @@ function normalizeMatrixRows(
   return Array.from({ length: rowCount }, (_, rowIndex) => {
     const row = values[rowIndex]
     const cells = Array.isArray(row) ? row : []
-    return Array.from({ length: columnCount }, (_, index) => parseFlexibleNumber(cells[index]))
+    return Array.from({ length: columnCount }, (_, index) =>
+      parseFinancialTransportNumber(cells[index])
+    )
   })
 }
 
 export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixProps) {
   const t = useTranslations('methodBreakdown')
-  const { formatEurCompact, ratio: ratioFormatter } = useManualPreviewFormatters()
+  const { ratio: ratioFormatter } = useManualPreviewFormatters()
+  const formatAmount = useValuationMoneyFormatter()
 
   if (!sensitivityData) {
     return null
@@ -81,8 +85,8 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
   const formatSecondaryValue = (value: number) =>
     secondaryAxisFormat === 'multiple' ? `${ratioFormatter.format(value)}×` : formatPercent(value)
 
-  const baseWacc = parseFlexibleNumber(sensitivityData.base_wacc)
-  const baseSecondary = parseFlexibleNumber(sensitivityData.base_secondary_value)
+  const baseWacc = parseFinancialTransportNumber(sensitivityData.base_wacc)
+  const baseSecondary = parseFinancialTransportNumber(sensitivityData.base_secondary_value)
   const centerRowIndex =
     baseWacc === undefined ? Math.floor(waccValues.length / 2) : waccValues.indexOf(baseWacc)
   const centerColumnIndex =
@@ -160,7 +164,7 @@ export function DcfSensitivityMatrix({ sensitivityData }: DcfSensitivityMatrixPr
                   >
                     {evMatrix[rowIndex]?.[columnIndex] === undefined
                       ? '—'
-                      : formatEurCompact(evMatrix[rowIndex][columnIndex] as number)}
+                      : formatAmount(evMatrix[rowIndex][columnIndex] as number)}
                   </TableCell>
                 ))}
               </TableRow>

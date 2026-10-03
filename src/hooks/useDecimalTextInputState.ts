@@ -12,29 +12,35 @@ import { FinancialDecimal } from '@/utils/financialDecimal'
 export function useDecimalTextInputState(
   value: number | undefined,
   onChange: (next: number | undefined) => void,
-  options?: { readOnly?: boolean; allowNegative?: boolean }
+  options?: { readOnly?: boolean; allowNegative?: boolean; useGrouping?: boolean }
 ) {
   const readOnly = options?.readOnly ?? false
   const allowNegative = options?.allowNegative ?? true
+  const useGrouping = options?.useGrouping ?? false
   const locale = useLocale()
   const inputLocale = locale === 'en' ? 'en' : locale === 'fr' ? 'fr' : 'nl'
   const format = useCallback(
     (n: number | undefined) =>
       n != null && Number.isFinite(n)
-        ? inputLocale === 'en'
-          ? new FinancialDecimal(n).toFixed()
-          : new FinancialDecimal(n).toFixed().replace('.', ',')
+        ? useGrouping
+          ? new Intl.NumberFormat(`${inputLocale}-BE`, {
+              useGrouping: true,
+              maximumFractionDigits: 8,
+            }).format(n)
+          : inputLocale === 'en'
+            ? new FinancialDecimal(n).toFixed()
+            : new FinancialDecimal(n).toFixed().replace('.', ',')
         : '',
-    [inputLocale]
+    [inputLocale, useGrouping]
   )
   const [invalid, setInvalid] = useState(false)
-  const error = invalid
-    ? inputLocale === 'nl'
+  const validationMessage =
+    inputLocale === 'nl'
       ? 'Voer een geldig getal in.'
       : inputLocale === 'fr'
         ? 'Saisissez un nombre valide.'
         : 'Enter a valid number.'
-    : undefined
+  const error = invalid ? validationMessage : undefined
   const [focused, setFocused] = useState(false)
   const [draft, setDraft] = useState(() => format(value))
 
@@ -52,15 +58,16 @@ export function useDecimalTextInputState(
 
   const handleBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
+      if (readOnly) return
       setFocused(false)
       const raw = e.target.value
       const parsed = parseDecimalTextInput(raw, inputLocale)
       const bad = raw.trim() !== '' && (parsed === undefined || (!allowNegative && parsed < 0))
       setInvalid(bad)
-      e.target.setCustomValidity(bad ? (error ?? 'Enter a valid number.') : '')
+      e.target.setCustomValidity(bad ? validationMessage : '')
       onChange(bad ? undefined : parsed)
     },
-    [onChange, inputLocale, error, allowNegative]
+    [onChange, inputLocale, validationMessage, allowNegative, readOnly]
   )
 
   const handleChange = useCallback(
@@ -71,10 +78,10 @@ export function useDecimalTextInputState(
       const parsed = parseDecimalTextInput(raw, inputLocale)
       const bad = raw.trim() !== '' && (parsed === undefined || (!allowNegative && parsed < 0))
       setInvalid(bad)
-      e.target.setCustomValidity(bad ? 'Enter a valid number.' : '')
+      e.target.setCustomValidity(bad ? validationMessage : '')
       onChange(bad ? undefined : parsed)
     },
-    [onChange, readOnly, inputLocale, allowNegative]
+    [onChange, readOnly, inputLocale, allowNegative, validationMessage]
   )
 
   const display = focused || invalid ? draft : format(value)
