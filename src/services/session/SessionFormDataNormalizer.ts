@@ -22,8 +22,8 @@ import {
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
   SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
 } from '../../utils/optionalSessionPrefillKeys'
-import { OPTIONAL_YEAR_DATA_FIELDS } from '../../utils/yearData'
 import { percentageInputForControl } from '../../utils/percentageInputContract'
+import { OPTIONAL_YEAR_DATA_FIELDS } from '../../utils/yearData'
 import { normalizeDcfSessionFields } from './SessionDcfFieldNormalizer'
 
 type SessionRecord = Record<string, unknown>
