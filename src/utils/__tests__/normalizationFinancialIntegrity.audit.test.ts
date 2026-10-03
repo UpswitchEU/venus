@@ -54,6 +54,34 @@ function legacy(): EbitdaNormalization {
 afterEach(() => useEbitdaNormalizationStore.setState({ normalizations: {} }))
 
 describe('normalization financial integrity audit', () => {
+  it.each([
+    item({ adjustment: Number.NaN }),
+    item({ adjustment: Number.POSITIVE_INFINITY }),
+    item({ type: 'absolute', value: Number.NaN }),
+    item({ type: 'add_percent', value: Number.MAX_VALUE }),
+  ])('rejects corrupt or overflowing accepted amounts instead of pricing zero: $type', (row) => {
+    expect(() =>
+      buildValuationRequestNormalizations({
+        rawNormalizationItems: [row],
+        legacyNormalizations: {},
+        allDataYears: [year],
+        yearEbitdaMap: { [year]: 1000 },
+      })
+    ).toThrow(/normalization amount/)
+  })
+
+  it('requires the annual reported baseline and prevents duplicate decisions from double counting', () => {
+    const build = (items: NormalizationItem[], yearEbitdaMap: Record<number, number>) =>
+      buildValuationRequestNormalizations({
+        rawNormalizationItems: items,
+        yearEbitdaMap,
+        legacyNormalizations: {},
+        allDataYears: [year],
+      })
+    expect(() => build([item()], {})).toThrow('Enter reported EBITDA')
+    expect(() => build([item(), item()], { [year]: 100 })).toThrow('duplicate normalization')
+  })
+
   it('an explicit unnormalized decision wins over stale normalized cache values after reload', () => {
     const result = buildValuationRequestYearData({
       currentFiscalYear: year,

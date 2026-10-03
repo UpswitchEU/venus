@@ -126,7 +126,15 @@ export function addUniqueNormalizationItems(
   existing: NormalizationItem[],
   incoming: NormalizationItem[]
 ): NormalizationItem[] {
-  return [...existing, ...incoming.filter((n) => !existing.some((e) => e.id === n.id))]
+  const seen = new Set(existing.map((item) => item.id))
+  return [
+    ...existing,
+    ...incoming.filter((item) => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    }),
+  ]
 }
 
 export function removeNormalizationItem(
