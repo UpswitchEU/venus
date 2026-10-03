@@ -95,7 +95,7 @@ describe('saved normalization financial bridge', () => {
       item({
         id: 'owner-pay',
         category: 'salary',
-        type: 'add_percent',
+        type: 'add',
         value: 10,
         adjustment: 10,
         applyYears: [2024, 2025, 2025],
@@ -107,15 +107,16 @@ describe('saved normalization financial bridge', () => {
         actualOwnerCompensation: 110,
         replacementOwnerCompensation: 100,
       }),
+      item({ id: 'percentage', type: 'add_percent', value: 10, applyYears: [2024, 2025] }),
     ]
     useNormalizationStore.setState({ items: rows })
     const saved = enrichCreateVersionRequestFromStores(request()).normalization_data
     const restored = buildManualNormalizationsFromVersionSnapshot(JSON.parse(JSON.stringify(saved)))
-    expect(restored).toHaveLength(1)
+    expect(restored).toHaveLength(2)
     expect(restored[0]).toMatchObject({
       id: 'owner-pay',
       applyYears: [2024, 2025],
-      type: 'add_percent',
+      type: 'add',
       value: 10,
       source: 'exact',
       sourceRef: 'ledger:620',
@@ -133,6 +134,13 @@ describe('saved normalization financial bridge', () => {
         yearEbitdaMap: { 2024: -1, 2025: 1 },
       })
     expect(recalculate(restored)).toEqual(recalculate(rows))
+    expect(recalculate(restored)[2025].items[0]).toMatchObject({
+      amount: 10,
+      actual_owner_compensation: 110,
+      replacement_owner_compensation: 100,
+    })
+    expect(recalculate(restored)[2024].totalAdjustment).toBe(9.9)
+    expect(recalculate(restored)[2025].totalAdjustment).toBe(10.1)
   })
 
   it('leaves a supplied immutable normalization snapshot unchanged', () => {
