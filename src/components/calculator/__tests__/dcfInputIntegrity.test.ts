@@ -52,7 +52,8 @@ describe('DCF input integrity against independent counterexamples', () => {
       >[0],
       []
     )
-    expect(rows[0].ebitda).toBe(0)
+    expect(rows[0].ebitda).toBeUndefined()
+    expect(rows[0].financial_observations?.ebitda).toBe('missing')
     expect(deriveDcfSmartDefaults({ yearlyFinancials: rows })).toBeNull()
   })
 
