@@ -24,8 +24,8 @@ function withoutFcffResidue(row: DcfForecastRow): DcfForecastRow {
 
 function hasStoredEbitdaModeForecastInput(row: DcfForecastRow): boolean {
   return (
-    (finiteValue(row.revenue) ?? 0) !== 0 ||
-    (finiteValue(row.ebitda) ?? 0) !== 0 ||
+    finiteValue(row.revenue) !== undefined ||
+    finiteValue(row.ebitda) !== undefined ||
     finiteValue(row.capex) !== undefined ||
     finiteValue(row.depreciation) !== undefined ||
     finiteValue(row.nwc_change) !== undefined
