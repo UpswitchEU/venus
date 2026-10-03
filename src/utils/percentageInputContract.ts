@@ -1,3 +1,5 @@
+import { Decimal } from 'decimal.js'
+
 /** Per-field units travel unchanged; unmarked historical fields retain legacy semantics. */
 export const PERCENTAGE_INPUT_FIELDS = [
   'dcf_capex_pct',
@@ -81,4 +83,30 @@ export function markAuthoredPercentageInputs(
     }
   }
   return Object.keys(units).length ? { schema_version: 'percentage_inputs.v1', units } : undefined
+}
+
+/** Convert a declared machine rate only when promoting it into a percent control.
+ * Existing top-level form edits already use percentage points. Untagged legacy
+ * context retains its historical UI behavior; no magnitude-based migration runs.
+ */
+export function percentageInputForControl(context: Record<string, unknown>, key: string): unknown {
+  const raw = context[key]
+  if (!isPercentageInputField(key)) return raw
+  const unit = readContract(context.percentage_input_contract)?.units[key]
+  if (!unit || raw == null) return raw
+  if (typeof raw !== 'number' && typeof raw !== 'string') throw new Error(`Invalid declared ${key}`)
+  let token = String(raw).trim()
+  if (token.endsWith('%') || token.endsWith('％')) {
+    if (unit !== 'percentage_points') throw new Error(`Conflicting declared ${key} unit`)
+    token = token.slice(0, -1).trim()
+  }
+  if (token.length > 128 || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(token)) {
+    throw new Error(`Invalid declared ${key}`)
+  }
+  const ExactRate = Decimal.clone({ precision: Math.max(32, token.length + 4) })
+  const amount = new ExactRate(token)
+  const points = unit === 'fraction' ? amount.mul(100) : amount
+  const value = points.toNumber()
+  if (!Number.isFinite(value)) throw new Error(`Invalid declared ${key}`)
+  return value
 }

@@ -16,6 +16,7 @@ import {
   OPTIONAL_SESSION_STRUCT_SYNC_KEYS,
   SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE,
 } from '../../utils/optionalSessionPrefillKeys'
+import { percentageInputForControl } from '../../utils/percentageInputContract'
 import { normalizeDcfSessionFields } from './SessionDcfFieldNormalizer'
 
 type SessionRecord = Record<string, unknown>
@@ -291,7 +292,7 @@ function promoteAdaptiveFieldsFromBusinessContext(
     if (SKIP_BUSINESS_CONTEXT_SCALAR_PROMOTE.has(key)) continue
     const cur = fd[key]
     if (hasScalarValue(cur)) continue
-    const incoming = bc[key]
+    const incoming = percentageInputForControl(bc, key)
     if (hasScalarValue(incoming)) {
       fd[key] = incoming
     }
