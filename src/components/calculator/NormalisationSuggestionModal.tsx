@@ -22,6 +22,7 @@ import {
 } from '@/design-system'
 import { cn } from '@/design-system/utils'
 import { useManagedTimeout } from '@/hooks/useManagedTimeout'
+import { type DecimalInputLocale, parseDecimalTextInput } from '@/utils/decimalTextInput'
 
 export interface NormalisationSuggestion {
   id: string
@@ -66,13 +67,21 @@ export function NormalisationSuggestionModal({
 }: NormalisationSuggestionModalProps) {
   const t = useTranslations('normalizationHub.suggestionModal')
   const locale = useLocale()
+  const inputLocale: DecimalInputLocale = locale.startsWith('nl')
+    ? 'nl'
+    : locale.startsWith('fr')
+      ? 'fr'
+      : 'en'
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat(locale === 'nl' ? 'nl-BE' : 'en-GB', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
+    new Intl.NumberFormat(
+      locale.startsWith('nl') ? 'nl-BE' : locale.startsWith('fr') ? 'fr-BE' : 'en-GB',
+      {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }
+    ).format(amount)
   const categoryLabels: Record<NormalisationSuggestion['category'], string> = {
     salary: t('categories.salary'),
     rent: t('categories.rent'),
@@ -111,11 +120,13 @@ export function NormalisationSuggestionModal({
     resetModalState()
   }, [clearPendingAccept, resetModalState, suggestionId])
 
+  const parsedCustomValue = parseDecimalTextInput(customValue, inputLocale)
+  const invalidCustomValue = isEditing && parsedCustomValue === undefined
+
   const handleAccept = useCallback(() => {
-    if (!suggestion || isProcessing) return
+    if (!suggestion || isProcessing || invalidCustomValue) return
     setIsProcessing(true)
-    const finalValue =
-      isEditing && customValue ? parseFloat(customValue.replace(/[^0-9.-]/g, '')) : undefined
+    const finalValue = isEditing ? parsedCustomValue : undefined
 
     scheduleAccept(() => {
       resetModalState()
@@ -123,7 +134,8 @@ export function NormalisationSuggestionModal({
       onOpenChange(false)
     }, 300)
   }, [
-    customValue,
+    parsedCustomValue,
+    invalidCustomValue,
     isEditing,
     isProcessing,
     onAccept,
@@ -144,8 +156,12 @@ export function NormalisationSuggestionModal({
   const startEditing = useCallback(() => {
     if (!suggestion) return
     setIsEditing(true)
-    setCustomValue(suggestion.suggestedValue.toString())
-  }, [suggestion])
+    setCustomValue(
+      new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 8 }).format(
+        suggestion.suggestedValue
+      )
+    )
+  }, [locale, suggestion])
 
   if (!suggestion) return null
 
@@ -230,6 +246,8 @@ export function NormalisationSuggestionModal({
                 {isEditing ? (
                   <AuroraInput
                     value={customValue}
+                    inputMode="decimal"
+                    aria-invalid={invalidCustomValue}
                     onChange={(e) => setCustomValue(e.target.value)}
                     className="text-center font-mono text-lg h-8"
                     placeholder="€..."
@@ -297,7 +315,7 @@ export function NormalisationSuggestionModal({
             <AuroraButton
               variant="primary"
               onClick={handleAccept}
-              disabled={isProcessing}
+              disabled={isProcessing || invalidCustomValue}
               className="flex-1 sm:flex-none gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />

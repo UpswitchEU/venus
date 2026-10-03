@@ -12,6 +12,7 @@ import type {
   NormalizationAdjustment,
   NormalizationCategory,
 } from '../types/ebitdaNormalization'
+import { normalizationNumber } from '../utils/normalizationAmount'
 import {
   appliesToYear,
   getNormalizationAmountForBase,
@@ -32,6 +33,8 @@ type PersistedNormalizationAdjustment = NormalizationAdjustment & {
 }
 
 type RestoredNormalizationAdjustment = NormalizationAdjustment & {
+  status?: NormalizationStatus
+  reviewed_at?: string
   apply_all_years?: boolean
   apply_years?: number[]
   frontend_id?: string
@@ -40,6 +43,8 @@ type RestoredNormalizationAdjustment = NormalizationAdjustment & {
 }
 
 type RestoredCustomAdjustment = CustomAdjustment & {
+  status?: NormalizationStatus
+  reviewed_at?: string
   apply_all_years?: boolean
   apply_years?: number[]
   frontend_id?: string
@@ -230,12 +235,13 @@ export function buildTitanNormalizationRequest({
   reportedEbitda?: number
   year: number
 }): CreateNormalizationRequest {
-  const rawEbitda = Number(reportedEbitda)
-  const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
+  const yearEbitda = normalizationNumber(reportedEbitda)
   const adjustments: PersistedNormalizationAdjustment[] = items
     .filter((n) => n.status === 'accepted' && appliesToYear(n, year))
     .map((n) => {
-      const amount = getNormalizationAmountForBase(n, yearEbitda)
+      normalizationNumber(n.value)
+      normalizationNumber(n.adjustment)
+      const amount = normalizationNumber(getNormalizationAmountForBase(n, yearEbitda))
       return {
         category: toBackendNormalizationCategory(n.category, n.backendCategory),
         amount,
@@ -268,8 +274,9 @@ export function mapTitanNormalizationsToItems(
   for (const resp of responses) {
     for (let idx = 0; idx < (resp.adjustments || []).length; idx++) {
       const adj = resp.adjustments[idx] as RestoredNormalizationAdjustment
-      const restoredType = adj.normalization_type || (adj.amount >= 0 ? 'add' : 'subtract')
-      const restoredValue = adj.normalization_value ?? Math.abs(adj.amount)
+      const amount = normalizationNumber(adj.amount)
+      const restoredType = adj.normalization_type || (amount >= 0 ? 'add' : 'subtract')
+      const restoredValue = normalizationNumber(adj.normalization_value ?? Math.abs(amount))
 
       if (adj.frontend_id && seenFrontendIds.has(adj.frontend_id)) continue
 
@@ -281,11 +288,12 @@ export function mapTitanNormalizationsToItems(
         backendCategory: adj.category,
         type: restoredType,
         value: restoredValue,
-        adjustment: adj.amount,
+        adjustment: amount,
         reason: adj.note,
         source: 'manual' as NormalizationSource,
         sourceRef: '',
-        status: 'accepted' as NormalizationStatus,
+        status: adj.status === 'accepted' || adj.status === 'rejected' ? adj.status : 'pending',
+        reviewedAt: adj.reviewed_at,
         applyAllYears: adj.apply_all_years ?? false,
         applyYears: adj.apply_years,
         year: resp.year,
@@ -298,6 +306,7 @@ export function mapTitanNormalizationsToItems(
 
     for (let idx = 0; idx < (resp.custom_adjustments || []).length; idx++) {
       const custom = resp.custom_adjustments[idx] as RestoredCustomAdjustment
+      const amount = normalizationNumber(custom.amount)
 
       if (custom.frontend_id && seenFrontendIds.has(custom.frontend_id)) continue
 
@@ -306,13 +315,15 @@ export function mapTitanNormalizationsToItems(
         ledgerCode: custom.ledger_code || '',
         ledgerName: custom.ledger_name || custom.description,
         category: 'other',
-        type: custom.normalization_type || (custom.amount >= 0 ? 'add' : 'subtract'),
-        value: custom.normalization_value ?? Math.abs(custom.amount),
-        adjustment: custom.amount,
+        type: custom.normalization_type || (amount >= 0 ? 'add' : 'subtract'),
+        value: normalizationNumber(custom.normalization_value ?? Math.abs(amount)),
+        adjustment: amount,
         reason: custom.note,
         source: 'manual' as NormalizationSource,
         sourceRef: '',
-        status: 'accepted' as NormalizationStatus,
+        status:
+          custom.status === 'accepted' || custom.status === 'rejected' ? custom.status : 'pending',
+        reviewedAt: custom.reviewed_at,
         applyAllYears: custom.apply_all_years ?? false,
         applyYears: custom.apply_years,
         year: resp.year,
