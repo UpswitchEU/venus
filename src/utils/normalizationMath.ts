@@ -368,15 +368,14 @@ export function getReportedFinancialEbitda(row: {
     const metadata = row.ebitda_normalization_metadata as
       | { reported_ebitda?: unknown; normalized_ebitda?: unknown }
       | undefined
-    const normalized = row.normalized_ebitda ?? metadata?.normalized_ebitda
-    if (
-      normalized != null &&
-      row.ebitda != null &&
-      parseFlexibleNumber(row.ebitda) !== parseFlexibleNumber(normalized)
-    ) {
-      return parseFlexibleNumber(row.ebitda)
+    const normalized = parseFlexibleNumber(row.normalized_ebitda ?? metadata?.normalized_ebitda)
+    const current = parseFlexibleNumber(row.ebitda)
+    if (normalized !== undefined && current !== undefined && current !== normalized) {
+      return current
     }
-    return [row.reported_ebitda, metadata?.reported_ebitda, row.ebitda]
+    // A normalized amount cannot supply its own missing reported baseline:
+    // reusing it would apply accepted adjustments twice on reopening.
+    return [row.reported_ebitda, metadata?.reported_ebitda]
       .map(parseFlexibleNumber)
       .find((value) => value !== undefined)
   }
