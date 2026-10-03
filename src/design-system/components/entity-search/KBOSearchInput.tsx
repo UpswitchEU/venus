@@ -3,6 +3,7 @@
 import type { VariantProps } from 'class-variance-authority'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Building2, Check, Loader2, Search, X } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
 import * as React from 'react'
 import { createPortal } from 'react-dom'
@@ -20,7 +21,11 @@ import {
   searchFieldVariants,
   searchGroupVariants,
 } from './EntitySearchVariants'
-import { KboConfirmedCard } from './KboConfirmedCard'
+
+// Company details are needed only after a registry result has been selected.
+const KboConfirmedCard = dynamic(() =>
+  import('./KboConfirmedCard').then((module) => module.KboConfirmedCard)
+)
 
 export interface KBOSearchInputProps extends VariantProps<typeof searchFieldVariants> {
   /** Floating label text */

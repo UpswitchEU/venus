@@ -203,13 +203,13 @@ describe('Venus KBOSearchInput', () => {
     expect(screen.queryByText('Acme BV')).not.toBeInTheDocument()
   })
 
-  it('renders selected company card with short legal form and full NACE description', () => {
+  it('renders selected company card with short legal form and full NACE description', async () => {
     const searchFn = vi.fn().mockResolvedValue([])
 
     render(<TestHarness searchFn={searchFn} selectedCompany={bakkerAldoFixture} />)
 
     expect(screen.getByDisplayValue('Bakker Aldo')).toBeInTheDocument()
-    expect(screen.getByText(/BV/)).toBeInTheDocument()
+    expect(await screen.findByText(/BV/)).toBeInTheDocument()
     expect(screen.getByText('0631.747.439')).toBeInTheDocument()
     expect(screen.getByText('2018 Antwerpen')).toBeInTheDocument()
     expect(screen.queryByText(/2018 Antwerpen 2018/)).not.toBeInTheDocument()
