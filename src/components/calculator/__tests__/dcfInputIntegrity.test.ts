@@ -45,7 +45,7 @@ describe('DCF input integrity against independent counterexamples', () => {
     expect(preview.fcff).toBeNull()
   })
 
-  it('preserves absence through imported legacy display slots into DCF defaults', () => {
+  it('preserves missing imported earnings into DCF defaults', () => {
     const rows = buildYearlyFinancialsFromCurrentAndHistorical(
       { year: 2025, revenue: 1000, ebitda: undefined } as unknown as Parameters<
         typeof buildYearlyFinancialsFromCurrentAndHistorical

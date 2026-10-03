@@ -16,11 +16,11 @@
  * always raise ÷ post-money for this priced close.
  */
 
+import dynamic from 'next/dynamic'
 import { useLocale, useTranslations } from 'next-intl'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CurrencyInput } from '@/components/calculator/CurrencyInput'
 import { AdaptivePercentInput } from '@/components/calculator/sections/AdaptivePercentInput'
-import { SafeNotesEditor } from '@/components/calculator/sections/SafeNotesEditor'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { Slider } from '@/design-system/components/Slider'
 import { formatEur, useLiveValuation } from '@/features/startup-studio/hooks/useLiveValuation'
@@ -34,6 +34,13 @@ import {
   type StartupStage,
   useStartupValuationStore,
 } from '@/store/manual/useStartupValuationStore'
+
+// The SAFE editor is needed only when the founder selects that financing mode.
+const SafeNotesEditor = dynamic(() =>
+  import('@/components/calculator/sections/SafeNotesEditor').then(
+    (module) => module.SafeNotesEditor
+  )
+)
 
 const DILUTION_DEFAULT_PCT: Record<StartupStage, number> = {
   pre_seed: 70,
