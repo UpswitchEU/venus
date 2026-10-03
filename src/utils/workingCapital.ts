@@ -2,9 +2,10 @@ import type { YearDataInput } from '../types/valuation'
 import { FinancialDecimal as Decimal } from './financialDecimal'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 
-type WorkingCapitalRow = Partial<YearDataInput>
+type WorkingCapitalRow = Partial<YearDataInput> & { isForecast?: boolean }
+type FinancialAmount = InstanceType<typeof Decimal>
 
-function tradeBase(year: WorkingCapitalRow): Decimal | null {
+function tradeBase(year: WorkingCapitalRow): FinancialAmount | null {
   const ar = parseFlexibleNumber(year.accounts_receivable)
   const inventory = parseFlexibleNumber(year.inventory)
   const ap = parseFlexibleNumber(year.accounts_payable)
@@ -12,7 +13,7 @@ function tradeBase(year: WorkingCapitalRow): Decimal | null {
   return new Decimal(ar).plus(inventory).minus(ap)
 }
 
-function aggregateBase(year: WorkingCapitalRow): Decimal | null {
+function aggregateBase(year: WorkingCapitalRow): FinancialAmount | null {
   const assets = parseFlexibleNumber(year.current_assets)
   const cash = parseFlexibleNumber(year.cash)
   const liabilities = parseFlexibleNumber(year.current_liabilities)
@@ -22,7 +23,7 @@ function aggregateBase(year: WorkingCapitalRow): Decimal | null {
   return new Decimal(assets).minus(cash).minus(liabilities).plus(debt)
 }
 
-function finiteAmount(amount: Decimal | null): number | null {
+function finiteAmount(amount: FinancialAmount | null): number | null {
   if (amount === null) return null
   const number = amount.toNumber()
   return Number.isFinite(number) ? number : null
