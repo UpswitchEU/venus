@@ -38,7 +38,14 @@ describe('manual financial row mutations', () => {
       })
     ).toEqual([
       { year: '2024', revenue: 100, ebitda: 20 },
-      { year: '2025', revenue: 0, ebitda: 0, isForecast: true, free_cash_flow: 42 },
+      {
+        year: '2025',
+        revenue: 0,
+        ebitda: 0,
+        isForecast: true,
+        free_cash_flow: 42,
+        financial_observations: { free_cash_flow: 'observed' },
+      },
     ])
   })
 
@@ -75,6 +82,7 @@ describe('manual financial row mutations', () => {
         nwc_change: 3,
         isForecast: true,
         free_cash_flow: 42,
+        financial_observations: { free_cash_flow: 'observed' },
       },
     ])
   })

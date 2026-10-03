@@ -42,7 +42,15 @@ export enum BusinessModel {
   OTHER = 'other',
 }
 
+export type FinancialObservationStatus =
+  | 'observed'
+  | 'derived'
+  | 'missing'
+  | 'placeholder'
+  | 'unknown'
+
 export interface YearDataInput {
+  financial_observations?: Record<string, FinancialObservationStatus>
   year: number
   revenue: number
   /** Operating top line after excluding financial and extraordinary income. */

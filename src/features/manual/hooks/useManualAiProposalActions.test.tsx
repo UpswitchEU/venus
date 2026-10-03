@@ -10,8 +10,11 @@ import {
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import { buildManualLiveValuationSubmitData } from '../utils/manualInputData'
+import { calculateSavedManualAssessment } from '../utils/manualPartialAssessment'
 import { useManualAiProposalActions } from './useManualAiProposalActions'
 import { useManualSubmitController } from './useManualSubmitController'
+
+vi.mock('../utils/manualPartialAssessment', () => ({ calculateSavedManualAssessment: vi.fn() }))
 
 vi.mock('sonner', () => ({
   toast: {
@@ -463,6 +466,7 @@ describe('useManualAiProposalActions approved valuation run', () => {
   beforeEach(() => {
     vi.mocked(toast.warning).mockClear()
     calculationMocks.runManualCalculationExecution.mockReset().mockResolvedValue({ aborted: true })
+    vi.mocked(calculateSavedManualAssessment).mockReset().mockResolvedValue(null)
     calculationMocks.completeManualCalculation.mockReset()
     calculationMocks.handleManualSubmitError.mockReset()
   })
@@ -474,7 +478,7 @@ describe('useManualAiProposalActions approved valuation run', () => {
 
   // E-04a: this run skips the panel's field check, and it used to fill an unknown
   // headcount with 0 — with one owner, a sole trader to the engine.
-  it('refuses the run with a toast when no source gave a headcount', async () => {
+  it('routes missing headcount to an assessment and leaves an aborted request open', async () => {
     const { result, postValuationListingHandoffPendingRef, trySetCalculating } =
       renderApprovedRunWiring(null)
 
@@ -482,10 +486,13 @@ describe('useManualAiProposalActions approved valuation run', () => {
       result.current.actions.handleApproveValuationRun('proposal-1', undefined, null)
     })
 
-    expect(toast.warning).toHaveBeenCalledWith('employeeCountMissing', {
-      description: 'employeeCountMissingDesc',
-    })
-    expect(trySetCalculating).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(trySetCalculating).toHaveBeenCalledTimes(1)
+    expect(calculateSavedManualAssessment).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(calculateSavedManualAssessment).mock.calls[0][1]).not.toHaveProperty(
+      'fteEmployees',
+      0
+    )
     expect(calculationMocks.runManualCalculationExecution).not.toHaveBeenCalled()
     // Nothing ran, so the proposal stays open and the next calculation the advisor starts
     // by hand does not inherit the listing handoff.

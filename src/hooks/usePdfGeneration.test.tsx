@@ -12,8 +12,11 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../store/useSessionStore', () => ({
-  useSessionStore: (selector: (state: { getSessionData: () => unknown }) => unknown) =>
-    selector({ getSessionData: mocks.getSessionData }),
+  useSessionStore: Object.assign(
+    (selector: (state: { getSessionData: () => unknown }) => unknown) =>
+      selector({ getSessionData: mocks.getSessionData }),
+    { getState: () => ({ session: null }) }
+  ),
 }))
 
 vi.mock('../utils/logger', () => ({

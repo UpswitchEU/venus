@@ -10,10 +10,10 @@
       "dependencies": {}
     },
     "src/features/manual/hooks/useManualStartValuationIntent.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-02",
       "reviewBy": "2026-12-31",
-      "sourceSha256": "b71791485b7b5a7f21e11c6ff7588916cb11d2aceafd138bbcbc65b99f7eac3c",
-      "assessment": "Opaque report ID with completion marker or a five-minute reservation timestamp.",
+      "sourceSha256": "fa4a16882e85d27405270f0889e75e6fd0abd23daf85c9520a3d3b78e3418cce",
+      "assessment": "Opaque report ID with completion marker or a five-minute reservation timestamp; session only. Re-reviewed sparse-assessment admission: missing financial inputs may now start, but neither submitted form values nor assessment results enter storage. Failures clear the reservation; the existing review expiry is unchanged.",
       "dependencies": {}
     },
     "src/lib/analytics.ts": {

@@ -44,7 +44,7 @@ export function buildManualInputFieldValidation(
       (typeof yearFinancials.free_cash_flow !== 'number' ||
         !Number.isFinite(yearFinancials.free_cash_flow))
     ) {
-      errors[`fcff-${yearFinancials.year}`] = translate('validation.fcffRequired')
+      warnings[`fcff-${yearFinancials.year}`] = translate('validation.fcffRequired')
     }
     if (
       typeof yearFinancials.ebitda === 'number' &&
@@ -77,10 +77,10 @@ export function buildManualInputFieldValidation(
 
   if (formData.ownerManagers < 0) errors.ownerManagers = translate('validation.minZero')
 
-  // Sole traders send no headcount (the request drops it), so none is required. The owner
-  // count is no reason to skip it: a cleared field still goes out as one owner.
+  // Missing headcount stays visible as incomplete evidence. Submit routes this
+  // case to an assessment; it must not invent employees or block all output.
   if (formData.fteEmployees === undefined && formData.businessStructure !== 'sole-trader') {
-    errors.fteEmployees = translate('validation.fteRequired')
+    warnings.fteEmployees = translate('validation.fteRequired')
   } else if (formData.fteEmployees !== undefined) {
     if (formData.fteEmployees < 0) errors.fteEmployees = translate('validation.minZero')
     else if (formData.fteEmployees > 10000) {

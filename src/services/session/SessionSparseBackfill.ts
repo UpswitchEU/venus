@@ -6,6 +6,7 @@ import type {
 } from '../../types/valuation'
 import { normalizeBusinessTypeId } from '../../utils/businessTypeIdAliases'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
+import { hasEvidencedFinancialValue } from '../../utils/financialObservations'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import {
@@ -157,6 +158,7 @@ function isZeroPlaceholderNumericKey(key: string): boolean {
 function isPlaceholderCurrentYearRow(value: unknown): boolean {
   const row = asRecord(value)
   if (!row) return true
+  if (hasEvidencedFinancialValue(row)) return false
   const revenue = row.revenue
   const ebitda = row.ebitda
   const hasMeaningfulRevenue = isFiniteNonZero(revenue)
@@ -169,7 +171,11 @@ function isPlaceholderYearArray(value: unknown): boolean {
   return value.every((entry) => {
     const row = asRecord(entry)
     if (!row) return true
-    return !isFiniteNonZero(row.revenue) && !isFiniteNonZero(row.ebitda)
+    return (
+      !hasEvidencedFinancialValue(row) &&
+      !isFiniteNonZero(row.revenue) &&
+      !isFiniteNonZero(row.ebitda)
+    )
   })
 }
 

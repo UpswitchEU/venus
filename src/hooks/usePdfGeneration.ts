@@ -511,6 +511,8 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             headers: pdfFetchHeaders(),
             reportId: targetReportId,
             signal: downloadAbortHandle.signal,
+            savedReport: { valuation_result: useSessionStore.getState().session?.valuationResult },
+            language: document.documentElement.lang.split('-')[0]?.toLowerCase(),
           })
         } finally {
           downloadTimedOut = downloadAbortHandle.didTimeout()

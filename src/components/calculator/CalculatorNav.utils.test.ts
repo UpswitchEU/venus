@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   type CalculatorNavDisplaySummary,
+  formatPrice,
   formatTimeAgo,
   normalizeCalculatorNavDisplaySummary,
 } from './CalculatorNav.utils'
@@ -72,5 +73,15 @@ describe('normalizeCalculatorNavDisplaySummary', () => {
         priceRange: { min: Number.NaN, max: Number.NaN },
       })
     ).toBeNull()
+  })
+})
+
+describe('compact valuation display', () => {
+  it.each([
+    [0, '€0'],
+    [389000, '€389K'],
+    [12800000, '€12.8M'],
+  ])('formats %s with no mandatory fractional digit across ICU versions', (amount, expected) => {
+    expect(formatPrice(amount as number, 'EUR')).toBe(expected)
   })
 })

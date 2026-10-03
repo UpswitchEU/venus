@@ -1,5 +1,6 @@
 import type { YearlyFinancials } from '../types/valuation'
 import { FinancialDecimal as Decimal } from './financialDecimal'
+import { hasEvidencedFinancialValue, readFinancialObservations } from './financialObservations'
 import { parseFlexibleNumber } from './isFiniteNumeric'
 import { getReportedFinancialEbitda } from './normalizationMath'
 
@@ -34,6 +35,7 @@ export const FINANCIAL_YEAR_AMOUNT_KEYS = [
 export function financialYearHasObservations(row: YearlyFinancials): boolean {
   return (
     row.isForecast === true ||
+    hasEvidencedFinancialValue(row) ||
     FINANCIAL_YEAR_AMOUNT_KEYS.some((key) => {
       const value = parseFlexibleNumber(row[key])
       return value !== undefined && (value !== 0 || (key !== 'revenue' && key !== 'ebitda'))
@@ -52,6 +54,8 @@ export function restoredFiscalYear(value: unknown): number | undefined {
 export function turnoverOf(row: unknown): unknown {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return undefined
   const r = row as Record<string, unknown>
+  const status = readFinancialObservations(r.financial_observations).operating_revenue
+  if (status === 'missing' || status === 'placeholder' || status === 'unknown') return r.revenue
   const operating = parseFlexibleNumber(r.operating_revenue)
   if (operating === undefined || operating < 0) return r.revenue
   const gross = parseFlexibleNumber(r.revenue)
@@ -76,10 +80,25 @@ export function restoreFinancialYear(
   const row = value as Record<string, unknown>
   const year = restoredFiscalYear(row.year)
   if (year === undefined) return undefined
+  const revenue = turnoverOf(row)
   const restored: YearlyFinancials = {
     year: String(year),
-    revenue: parseFlexibleNumber(turnoverOf(row)),
+    revenue: parseFlexibleNumber(revenue),
     ebitda: getReportedFinancialEbitda(row),
+  }
+  const observations = readFinancialObservations(row.financial_observations)
+  if (
+    Object.keys(observations).length ||
+    restored.revenue === undefined ||
+    restored.ebitda === undefined ||
+    revenue !== row.revenue
+  ) {
+    restored.financial_observations = {
+      ...observations,
+      ...(revenue !== row.revenue ? { revenue: observations.operating_revenue ?? 'unknown' } : {}),
+      ...(restored.revenue === undefined ? { revenue: 'missing' as const } : {}),
+      ...(restored.ebitda === undefined ? { ebitda: 'missing' as const } : {}),
+    }
   }
   for (const key of FINANCIAL_YEAR_AMOUNT_KEYS) {
     if (key === 'revenue' || key === 'ebitda') continue

@@ -47,6 +47,7 @@ import { usePreparerMultipleStore } from '@/store/manual/usePreparerMultipleStor
 import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { generalLogger } from '@/utils/logger'
+import { savedPartialAssessment } from '@/utils/partialReportExport'
 import { isSameReportIdentity } from '@/utils/reportIdentityPromotion'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import { isReportDeleteInProgress } from '../utils/manualReportDeleteGuard'
@@ -214,6 +215,13 @@ export function useResultToReportBridge(params: UseResultToReportBridgeParams): 
     }
 
     try {
+      if (savedPartialAssessment({ valuation_result: result })) {
+        // SavedPartialReport loads the committed engine HTML. A partial result
+        // must not enter the legacy scalar mapper or background repricing/PDF path.
+        setReportRef.current(null)
+        if (announce) setRightPanelViewRef.current('preview')
+        return
+      }
       // 1. Preparer-multiple store sync (once per result object).
       if (lastSyncedResultRef.current !== result) {
         lastSyncedResultRef.current = result

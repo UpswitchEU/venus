@@ -5,6 +5,7 @@ import type { QualityWarning, StartupAssistantIssue } from './ChatAssistantTypes
 
 // Minimal next-intl mock so plural ICU stubs return a deterministic label.
 vi.mock('next-intl', () => ({
+  useLocale: () => 'nl',
   useTranslations: () => (key: string, values?: Record<string, unknown>) => {
     if (key === 'attentionSummary') return `${values?.total ?? '?'} caveats`
     if (key === 'attentionSummaryWithBlockers') {
@@ -176,8 +177,8 @@ describe('AttentionSummary', () => {
 
     // 3 labelled euro inputs appear (one per balance field).
     expect(screen.getAllByPlaceholderText('0')).toHaveLength(3)
-    // Non-digits are stripped; a blank field counts as 0.
-    fireEvent.change(screen.getByLabelText('Cash & bank'), { target: { value: '5.000' } })
+    // Localized decimals retain cents; blank fields remain missing.
+    fireEvent.change(screen.getByLabelText('Cash & bank'), { target: { value: '-5.000,25' } })
     fireEvent.change(screen.getByLabelText('Total financial debt'), {
       target: { value: '30000' },
     })
@@ -186,10 +187,31 @@ describe('AttentionSummary', () => {
       fireEvent.click(screen.getByRole('button', { name: 'qualityInlineApply' }))
     })
     expect(onInlineFixQualityWarning).toHaveBeenCalledWith('net_debt_unavailable', {
-      cash: 5000,
+      cash: -5000.25,
       total_debt: 30000,
-      current_liabilities: 0,
     })
+  })
+
+  it.each([
+    '12abc',
+    '1.2.3',
+    'NaN',
+    '9007199254740993,25',
+  ])('rejects malformed or lossy inline amounts: %s', (value) => {
+    const onApply = vi.fn()
+    render(
+      <AttentionSummary
+        startupIssues={[]}
+        qualityWarnings={[qualityInline]}
+        onInlineFixQualityWarning={onApply}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Add balance figures' }))
+    fireEvent.change(screen.getByLabelText('Cash & bank'), { target: { value } })
+    expect(screen.getByLabelText('Cash & bank')).toHaveValue(value)
+    expect(screen.getByLabelText('Cash & bank')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('button', { name: 'qualityInlineApply' })).toBeDisabled()
+    expect(onApply).not.toHaveBeenCalled()
   })
 
   it('disables the inline apply until at least one field is filled', () => {

@@ -8,13 +8,13 @@
  * already labels the column — a per-row floating label dwarfs the year/metric
  * cell next to it and the row height jitters when a single cell enters edit
  * mode. This variant matches the row rhythm (h-9 / h-8) and stays
- * right-aligned for column scanning. It reuses nl-BE / en-BE grouping and the
+ * right-aligned for column scanning. It reuses nl-BE / fr-BE / en-GB grouping and the
  * same focus / error / warning ring states as the rest of Aurora.
  */
 
-import { useLocale } from 'next-intl'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useId } from 'react'
 import { cn } from '@/design-system/utils'
+import { useDecimalTextInputState } from '@/hooks/useDecimalTextInputState'
 
 export type InlineCurrencyInputState = 'default' | 'warning' | 'error'
 
@@ -35,15 +35,6 @@ export interface InlineCurrencyInputProps {
   className?: string
 }
 
-function parseSignedDigits(raw: string, allowNegative: boolean): number | undefined {
-  const trimmed = raw.trim()
-  if (trimmed === '' || (allowNegative && trimmed === '-')) return undefined
-  const sign = allowNegative && trimmed.startsWith('-') ? -1 : 1
-  const digits = trimmed.replace(/\D/g, '')
-  if (!digits) return undefined
-  return sign * parseInt(digits, 10)
-}
-
 const HEIGHT_BY_SIZE: Record<NonNullable<InlineCurrencyInputProps['size']>, string> = {
   xs: 'h-8',
   sm: 'h-9',
@@ -61,26 +52,12 @@ export function InlineCurrencyInput({
   maxWidthClass = 'max-w-[160px]',
   className,
 }: InlineCurrencyInputProps) {
-  const locale = useLocale()
   const inputId = useId()
-  const formatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE', {
-        maximumFractionDigits: 0,
-        useGrouping: true,
-      }),
-    [locale]
-  )
-  const format = useCallback(
-    (n?: number) => (n == null || !Number.isFinite(n) ? '' : formatter.format(n)),
-    [formatter]
-  )
-  const [display, setDisplay] = useState(() => format(value))
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setDisplay(format(value))
-  }, [format, value])
+  const input = useDecimalTextInputState(value, onChange, {
+    readOnly: disabled,
+    allowNegative,
+    useGrouping: true,
+  })
 
   const heightClass = HEIGHT_BY_SIZE[size]
 
@@ -90,7 +67,7 @@ export function InlineCurrencyInput({
         'relative inline-flex w-full items-center rounded-lg border bg-background shadow-sm transition-colors',
         heightClass,
         maxWidthClass,
-        state === 'error'
+        state === 'error' || input.error
           ? 'border-destructive/50 focus-within:border-destructive/60 focus-within:ring-2 focus-within:ring-destructive/20'
           : state === 'warning'
             ? 'border-warning/45 focus-within:border-warning/55 focus-within:ring-2 focus-within:ring-warning/20'
@@ -106,36 +83,19 @@ export function InlineCurrencyInput({
         €
       </span>
       <input
-        ref={inputRef}
         id={inputId}
         type="text"
-        inputMode={allowNegative ? 'text' : 'numeric'}
+        inputMode="decimal"
         autoComplete="off"
         disabled={disabled}
-        value={display}
+        value={input.display}
         aria-label={ariaLabel}
-        aria-invalid={state === 'error' || undefined}
+        aria-invalid={state === 'error' || !!input.error || undefined}
+        title={input.error}
         placeholder={placeholder}
-        onFocus={(e) => requestAnimationFrame(() => e.target.select())}
-        onChange={(e) => {
-          const raw = e.target.value
-          const num = parseSignedDigits(raw, allowNegative)
-          if (num !== undefined) {
-            setDisplay(formatter.format(num))
-          } else if (allowNegative && raw.trim() === '-') {
-            setDisplay('-')
-          } else {
-            setDisplay('')
-          }
-          onChange(num)
-        }}
-        onBlur={() => setDisplay(format(value))}
-        onPaste={(e) => {
-          e.preventDefault()
-          const num = parseSignedDigits(e.clipboardData.getData('text'), allowNegative)
-          setDisplay(format(num))
-          onChange(num)
-        }}
+        onFocus={input.onFocus}
+        onChange={input.onChange}
+        onBlur={input.onBlur}
         className={cn(
           'w-full flex-1 min-w-0 rounded-lg bg-transparent pl-1.5 pr-2.5 text-right text-sm font-medium tabular-nums text-foreground placeholder:text-foreground/35 focus:outline-none disabled:cursor-not-allowed',
           heightClass

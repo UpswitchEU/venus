@@ -29,6 +29,7 @@
  *   - Preset picker — pre-fills a defensible baseline in one click.
  */
 
+import dynamic from 'next/dynamic'
 import { useLocale, useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BusinessTypeSelector } from '@/components/BusinessTypeSelector'
@@ -38,7 +39,8 @@ import {
   selectedBusinessTypeIdsFromFormData,
 } from '@/components/ValuationForm/utils/businessTypeFormData'
 import { TARGET_COUNTRIES } from '@/config/countries'
-import { type KBOCompany, KBOSearchInput } from '@/design-system'
+import type { KBOCompany } from '@/design-system/components/entity-search/EntitySearchTypes'
+import { KBOSearchInput } from '@/design-system/components/entity-search/KBOSearchInput'
 import { AuroraInput, AuroraTextarea } from '@/design-system/components/Input'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { AuroraSelect } from '@/design-system/components/Select'
@@ -74,7 +76,11 @@ import { BusinessTypeSegmentWeightingEditor } from './BusinessTypeSegmentWeighti
 import { CompanySectorChip } from './CompanySectorChip'
 import { PrefillBadge } from './PrefillBadge'
 import { PresetPicker } from './PresetPicker'
-import { SwitchToArrNudge } from './SwitchToArrNudge'
+
+// Load the method-switching session store only when this stage needs the nudge.
+const SwitchToArrNudge = dynamic(() =>
+  import('./SwitchToArrNudge').then((module) => module.SwitchToArrNudge)
+)
 
 interface CompanyCardStepProps {
   /** @deprecated Route locale from next-intl is used. */
