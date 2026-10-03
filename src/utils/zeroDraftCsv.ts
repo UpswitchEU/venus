@@ -3,17 +3,11 @@
  */
 
 import type { ValuationMethodResult } from '@/types/valuation'
-import { getOmniMethodEquityRange } from '@/utils/omniCalcRange'
+import { getOmniMethodRange } from '@/utils/omniCalcRange'
+import { parseFinancialTransportNumber } from './financialTransport'
+import { resolveMethodCurrency, resolveMethodValueBasis } from './methodComparisonFinancials'
 
-export interface ZeroDraftMethodRow {
-  label: string
-  available: boolean
-  value: number | null
-  unavailable_reason?: string | null
-  multiple_used?: number | null
-  wacc?: number | null
-  details?: Record<string, unknown> | null
-}
+export type ZeroDraftMethodRow = ValuationMethodResult
 
 function csvEscape(cell: string): string {
   if (/[",\n\r]/.test(cell)) {
@@ -24,6 +18,7 @@ function csvEscape(cell: string): string {
 
 export function buildZeroDraftCsv(params: {
   reportId: string
+  currency?: string | null
   businessName?: string | null
   createdAt?: string | null
   fiscalAnchor?: number | null
@@ -36,20 +31,23 @@ export function buildZeroDraftCsv(params: {
   if (params.businessName) rows.push(['Business', params.businessName])
   if (params.createdAt) rows.push(['Created', params.createdAt])
   if (params.selectedMethod) rows.push(['Selected method key', params.selectedMethod])
-  if (params.fiscalAnchor != null && Number.isFinite(Number(params.fiscalAnchor))) {
-    rows.push([
-      'Forfait 4x EBITDA component (EUR)',
-      String(Math.round(Number(params.fiscalAnchor))),
-    ])
-  }
+  const currency = resolveMethodCurrency(
+    { available: false, value: null, label: '' },
+    params.currency
+  )
+  rows.push(['Currency', currency ?? 'unknown'])
+  const anchor = parseFinancialTransportNumber(params.fiscalAnchor)
+  if (anchor !== undefined) rows.push(['Forfait 4x EBITDA component', String(anchor)])
   rows.push([])
   rows.push([
     'method_key',
     'label',
     'available',
-    'equity_mid_eur',
-    'range_low_eur',
-    'range_high_eur',
+    'currency',
+    'value_basis',
+    'value',
+    'range_low',
+    'range_high',
     'range_type',
     'multiple_used',
     'wacc',
@@ -58,27 +56,25 @@ export function buildZeroDraftCsv(params: {
 
   const entries = Object.entries(params.methods).sort(([a], [b]) => a.localeCompare(b))
   for (const [key, m] of entries) {
-    const mid =
-      m.available && m.value != null && Number.isFinite(Number(m.value))
-        ? Math.round(Number(m.value))
-        : ''
-    const band = m.available
-      ? getOmniMethodEquityRange({
-          value: m.value,
-          available: m.available,
-          details: m.details ?? undefined,
-        })
-      : null
+    const point = parseFinancialTransportNumber(m.value)
+    const available = m.available && !m.plan_teaser && point !== undefined
+    const mid = available ? point : undefined
+    const basis = resolveMethodValueBasis(m)
+    const band = available && basis ? getOmniMethodRange({ ...m, value_basis: basis }) : null
+    const multiple = available ? parseFinancialTransportNumber(m.multiple_used) : undefined
+    const wacc = available ? parseFinancialTransportNumber(m.wacc) : undefined
     rows.push([
       key,
       m.label,
-      m.available ? 'yes' : 'no',
-      mid === '' ? '' : String(mid),
+      available ? 'yes' : 'no',
+      resolveMethodCurrency(m, params.currency) ?? '',
+      basis ?? '',
+      mid === undefined ? '' : String(mid),
       band ? String(band.low) : '',
       band ? String(band.high) : '',
       band ? band.source : '',
-      m.multiple_used != null ? String(Number(m.multiple_used)) : '',
-      m.wacc != null ? String(Number(m.wacc)) : '',
+      multiple === undefined ? '' : String(multiple),
+      wacc === undefined ? '' : String(wacc),
       m.unavailable_reason ?? '',
     ])
   }

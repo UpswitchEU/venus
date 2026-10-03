@@ -14,12 +14,12 @@ import {
   type PreparerEbitdaReasonKey,
 } from '../../store/manual/usePreparerMultipleStore'
 import type { ValuationResponse } from '../../types/valuation'
-import { formatCurrency } from './ValuationEditModalFormatting'
 import {
   PreparerAppliedMultipleControl,
   PreparerDossierSuggestionPanel,
   PreparerScenarioPresetGrid,
 } from './ValuationEditModalPreparerAdjustmentPanels'
+import { useValuationMoneyFormatter } from './ValuationMoneyContext'
 
 type ConfidenceKey = 'confidenceHigh' | 'confidenceMedium' | 'confidenceLow' | 'confidenceDefault'
 
@@ -120,6 +120,7 @@ export function ValuationEditModalPreparerSection({
   onRecalculate,
   onClose,
 }: ValuationEditModalPreparerSectionProps) {
+  const formatCurrency = useValuationMoneyFormatter()
   const tPrep = useTranslations('preparerMultiple')
   const tModal = useTranslations('valuationEditModal')
   const tBreakdown = useTranslations('methodBreakdown')
