@@ -6,6 +6,17 @@ import { buildManualNormalizationsFromVersionSnapshot } from './manualVersionNor
 
 describe('manualVersionNormalizationRestore', () => {
   it.each([
+    'proposed',
+    'pending',
+    'unknown',
+    null,
+  ])('does not accept a restored %s decision', (status) => {
+    const [restored] = buildManualNormalizationsFromVersionSnapshot({
+      '2025': { adjustments: [{ amount: 250, status }] },
+    })
+    expect(restored.status).toBe('pending')
+  })
+  it.each([
     'add_percent',
     'subtract_percent',
     'absolute',

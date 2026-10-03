@@ -151,9 +151,14 @@ export function buildManualNormalizationsFromVersionSnapshot(
           readString(adjustmentRecord.sourceRef) ||
           'version',
         status:
-          adjustmentRecord.status === 'pending' || adjustmentRecord.status === 'rejected'
-            ? adjustmentRecord.status
-            : 'accepted',
+          adjustmentRecord.status === 'rejected'
+            ? 'rejected'
+            : adjustmentRecord.status === undefined ||
+                adjustmentRecord.status === 'accepted' ||
+                adjustmentRecord.status === 'verified' ||
+                adjustmentRecord.status === 'applied'
+              ? 'accepted'
+              : 'pending',
         ...(reviewedAt ? { reviewedAt } : {}),
         // Annual snapshots are the evidence of scope; do not price absent years merely
         // because a legacy row claims them in apply_years.
