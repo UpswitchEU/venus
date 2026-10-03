@@ -50,6 +50,20 @@ describe('XMultiplierInput', () => {
     expect(lastCall?.[0]).toBeUndefined()
   })
 
+  it('retains malformed draft text and exposes validation without reusing a stale value', () => {
+    const onChange = vi.fn()
+    render(<XMultiplierInput label="ROI validation" value={30} onChange={onChange} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '12abc' } })
+    fireEvent.blur(input)
+    expect(onChange).toHaveBeenLastCalledWith(undefined)
+    expect(input).toHaveValue('12abc')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    fireEvent.focus(input)
+    expect(input).toHaveValue('12abc')
+  })
+
   it('renders the placeholder when value is empty', () => {
     render(<XMultiplierInput label="Target ROI" placeholder="20" onChange={vi.fn()} />)
     const input = screen.getByRole('textbox') as HTMLInputElement

@@ -102,20 +102,14 @@ describe('manualAiNormalizationSuggestions', () => {
     ])
   })
 
-  it('coerces invalid amount and unknown category defensively', () => {
-    const result = buildManualAiNormalizationSuggestions({
-      suggestions: [{ category: 'not_real', amount: 'nope' }],
-      filingYear: 2026,
-      createId: idFactory(),
-      sourceRef: 'AI',
-    })
-
-    expect(result.items[0]).toMatchObject({
-      category: 'other',
-      value: 0,
-      adjustment: 0,
-      sourceRef: 'AI',
-    })
+  it('rejects invalid amounts instead of creating zero suggestions', () => {
+    expect(() =>
+      buildManualAiNormalizationSuggestions({
+        suggestions: [{ category: 'not_real', amount: 'nope' }],
+        filingYear: 2026,
+        createId: idFactory(),
+      })
+    ).toThrow(/Normalization amount/)
   })
 
   it('builds review suggestions from existing normalization items', () => {
@@ -251,28 +245,13 @@ describe('manualAiNormalizationSuggestions', () => {
     ])
   })
 
-  it('defaults loose imported normalization fields defensively', () => {
-    const result = buildManualImportedNormalizationSuggestions({
-      source: 'yuki',
-      filingYear: 2026,
-      suggestions: [{ ledgerName: 'Unknown row', category: 'not-valid', amount: 'nope' }],
-    })
-
-    expect(result.items[0]).toMatchObject({
-      id: 'yuki-1',
-      ledgerCode: '',
-      ledgerName: 'Unknown row',
-      category: 'other',
-      value: 0,
-      adjustment: 0,
-      reason: '',
-      source: 'yuki',
-      sourceRef: 'Yuki',
-      status: 'pending',
-      applyAllYears: false,
-      year: 2026,
-    })
-    expect(result.chatSuggestions[0]).toMatchObject({ id: 'yuki-1' })
-    expect(result.chatSuggestions[0]).not.toHaveProperty('multiple')
+  it('rejects malformed imported adjustments without inventing zeroes', () => {
+    expect(() =>
+      buildManualImportedNormalizationSuggestions({
+        source: 'yuki',
+        filingYear: 2026,
+        suggestions: [{ ledgerName: 'Unknown row', category: 'not-valid', amount: 'nope' }],
+      })
+    ).toThrow(/Normalization amount/)
   })
 })

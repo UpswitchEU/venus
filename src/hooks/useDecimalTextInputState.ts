@@ -1,7 +1,9 @@
 'use client'
 
+import { useLocale } from 'next-intl'
 import { useCallback, useEffect, useState } from 'react'
 import { parseDecimalTextInput } from '@/utils/decimalTextInput'
+import { FinancialDecimal } from '@/utils/financialDecimal'
 
 /**
  * Controlled decimal text UX: draft while focused (trailing "." / comma decimals),
@@ -10,38 +12,55 @@ import { parseDecimalTextInput } from '@/utils/decimalTextInput'
 export function useDecimalTextInputState(
   value: number | undefined,
   onChange: (next: number | undefined) => void,
-  options?: { readOnly?: boolean }
+  options?: { readOnly?: boolean; allowNegative?: boolean }
 ) {
   const readOnly = options?.readOnly ?? false
-  const [focused, setFocused] = useState(false)
-  const [draft, setDraft] = useState(() =>
-    value != null && Number.isFinite(value) ? String(value) : ''
+  const allowNegative = options?.allowNegative ?? true
+  const locale = useLocale()
+  const inputLocale = locale === 'en' ? 'en' : locale === 'fr' ? 'fr' : 'nl'
+  const format = useCallback(
+    (n: number | undefined) =>
+      n != null && Number.isFinite(n)
+        ? inputLocale === 'en'
+          ? new FinancialDecimal(n).toFixed()
+          : new FinancialDecimal(n).toFixed().replace('.', ',')
+        : '',
+    [inputLocale]
   )
+  const [invalid, setInvalid] = useState(false)
+  const error = invalid
+    ? inputLocale === 'nl'
+      ? 'Voer een geldig getal in.'
+      : inputLocale === 'fr'
+        ? 'Saisissez un nombre valide.'
+        : 'Enter a valid number.'
+    : undefined
+  const [focused, setFocused] = useState(false)
+  const [draft, setDraft] = useState(() => format(value))
 
   useEffect(() => {
-    if (!focused) {
-      setDraft(value != null && Number.isFinite(value) ? String(value) : '')
+    if (!focused && !invalid) {
+      setDraft(format(value))
     }
-  }, [value, focused])
+  }, [value, focused, invalid, format])
 
   const handleFocus = useCallback(() => {
     if (readOnly) return
     setFocused(true)
-    setDraft(value != null && Number.isFinite(value) ? String(value) : '')
-  }, [readOnly, value])
+    if (!invalid) setDraft(format(value))
+  }, [readOnly, value, format, invalid])
 
   const handleBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
       setFocused(false)
       const raw = e.target.value
-      const parsed = parseDecimalTextInput(raw)
-      if (raw.trim() !== '' && parsed === undefined) {
-        setDraft(value != null && Number.isFinite(value) ? String(value) : '')
-        return
-      }
-      onChange(parsed)
+      const parsed = parseDecimalTextInput(raw, inputLocale)
+      const bad = raw.trim() !== '' && (parsed === undefined || (!allowNegative && parsed < 0))
+      setInvalid(bad)
+      e.target.setCustomValidity(bad ? (error ?? 'Enter a valid number.') : '')
+      onChange(bad ? undefined : parsed)
     },
-    [onChange, value]
+    [onChange, inputLocale, error, allowNegative]
   )
 
   const handleChange = useCallback(
@@ -49,22 +68,20 @@ export function useDecimalTextInputState(
       if (readOnly) return
       const raw = e.target.value
       setDraft(raw)
-      if (raw === '' || raw === '-' || raw === '.' || raw === '-.') {
-        onChange(undefined)
-        return
-      }
-      const parsed = parseDecimalTextInput(raw)
-      if (parsed !== undefined) {
-        onChange(parsed)
-      }
+      const parsed = parseDecimalTextInput(raw, inputLocale)
+      const bad = raw.trim() !== '' && (parsed === undefined || (!allowNegative && parsed < 0))
+      setInvalid(bad)
+      e.target.setCustomValidity(bad ? 'Enter a valid number.' : '')
+      onChange(bad ? undefined : parsed)
     },
-    [onChange, readOnly]
+    [onChange, readOnly, inputLocale, allowNegative]
   )
 
-  const display = focused ? draft : value != null && Number.isFinite(value) ? String(value) : ''
+  const display = focused || invalid ? draft : format(value)
 
   return {
     display,
+    error,
     onFocus: handleFocus,
     onBlur: handleBlur,
     onChange: handleChange,
