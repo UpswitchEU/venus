@@ -61,6 +61,8 @@ export interface ModalContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>,
     VariantProps<typeof modalVariants> {
   showClose?: boolean
+  /** Localized accessible name for the dismiss control. */
+  closeLabel?: string
   /** Disables the dismiss control (e.g. while a save is in flight). Outside-click / Escape still need handlers on Content. */
   closeDisabled?: boolean
   children?: React.ReactNode
@@ -104,7 +106,7 @@ const ModalOverlay = React.forwardRef<
     className={cn(
       'fixed inset-0 z-[9998] bg-black/80 backdrop-blur-sm',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
-      'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none',
       className
     )}
     {...props}
@@ -127,6 +129,7 @@ const ModalContent = React.forwardRef<
       variant,
       size,
       showClose = true,
+      closeLabel = 'Close',
       closeDisabled = false,
       description,
       'aria-describedby': ariaDescById,
@@ -148,7 +151,7 @@ const ModalContent = React.forwardRef<
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
             'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-            'duration-200',
+            'duration-200 motion-reduce:animate-none',
             modalVariants({ variant, size }),
             className
           )}
@@ -173,7 +176,7 @@ const ModalContent = React.forwardRef<
               )}
             >
               <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{closeLabel}</span>
             </DialogPrimitive.Close>
           )}
         </DialogPrimitive.Content>

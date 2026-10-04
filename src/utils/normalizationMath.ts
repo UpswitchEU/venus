@@ -21,10 +21,23 @@ export function normalizationItemTouchesYear(item: NormalizationItem, year: numb
   return Number.isFinite(item.year) && item.year === year
 }
 
+/** Fiscal-year scope is a set: repeated years never repeat an economic adjustment. */
+export function getNormalizationTargetYears(
+  item: Pick<NormalizationItem, 'applyAllYears' | 'applyYears' | 'year'>,
+  availableYears: number[]
+): number[] {
+  const years = item.applyAllYears
+    ? availableYears
+    : item.applyYears && item.applyYears.length > 0
+      ? item.applyYears
+      : [item.year]
+  return [...new Set(years)]
+}
+
 export function getFirstFiniteNumber(...candidates: unknown[]): number | undefined {
   for (const candidate of candidates) {
-    const parsed = Number(candidate)
-    if (Number.isFinite(parsed)) {
+    const parsed = parseFlexibleNumber(candidate)
+    if (parsed !== undefined) {
       return parsed
     }
   }
@@ -50,13 +63,8 @@ export function getNormalizationAmountForBase(
   const safeValue = Number.isFinite(item.value) ? item.value : 0
   const safeAdjustment = Number.isFinite(item.adjustment) ? item.adjustment : 0
 
-  if (
-    safeReported === 0 &&
-    (item.type === 'add_percent' || item.type === 'subtract_percent' || item.type === 'absolute')
-  ) {
-    return safeAdjustment
-  }
-
+  if (safeReported === 0 && (item.type === 'add_percent' || item.type === 'subtract_percent'))
+    return 0
   if (item.type === 'add_percent') return (safeReported * safeValue) / 100
   if (item.type === 'subtract_percent') return -((safeReported * safeValue) / 100)
   if (item.type === 'absolute') return safeValue - safeReported
@@ -145,11 +153,7 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
   // users see why the Aanpassing tile is €0 even when there are visible pending rows
   // — without inflating the accepted normalized EBITDA value the report relies on.
   const pendingAdjustment = pendingItems.reduce((acc, item) => {
-    const years = item.applyAllYears
-      ? availableYears
-      : item.applyYears && item.applyYears.length > 0
-        ? item.applyYears
-        : [item.year]
+    const years = getNormalizationTargetYears(item, availableYears)
     let sum = 0
     for (const year of years) {
       if (!Number.isFinite(year)) continue
@@ -175,11 +179,7 @@ export function summarizeAcceptedNormalizationsAcrossYears(options: {
   const yearSummaries = new Map<number, { original: number; adjustment: number }>()
 
   for (const item of acceptedItems) {
-    const years = item.applyAllYears
-      ? availableYears
-      : item.applyYears && item.applyYears.length > 0
-        ? item.applyYears
-        : [item.year]
+    const years = getNormalizationTargetYears(item, availableYears)
 
     for (const year of years) {
       if (!Number.isFinite(year)) continue
@@ -332,11 +332,7 @@ export function findAcceptedAutoNormalizationCapBreaches(options: {
       item.source === 'auto' || requiresIndividualImportedNormalizationReview(item)
     if (!isAutoImported) continue
 
-    const years = item.applyAllYears
-      ? availableYears
-      : item.applyYears && item.applyYears.length > 0
-        ? item.applyYears
-        : [item.year]
+    const years = getNormalizationTargetYears(item, availableYears)
 
     for (const year of years) {
       if (!Number.isFinite(year)) continue

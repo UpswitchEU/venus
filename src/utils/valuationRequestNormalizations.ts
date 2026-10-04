@@ -11,7 +11,7 @@ import {
 } from './buildValuationRequest.helpers'
 import { normalizeImportedLedgerReviewStatuses } from './importedLedgerNormalization'
 import { generalLogger } from './logger'
-import { getNormalizationAmountForBase } from './normalizationMath'
+import { getNormalizationAmountForBase, getNormalizationTargetYears } from './normalizationMath'
 
 export interface BuildValuationRequestNormalizationsParams {
   rawNormalizationItems: readonly NormalizationItem[]
@@ -169,11 +169,7 @@ export function buildValuationRequestNormalizations({
   }
 
   for (const n of acceptedNorms) {
-    const yearsToApply: number[] = n.applyAllYears
-      ? allDataYears
-      : n.applyYears && n.applyYears.length > 0
-        ? n.applyYears
-        : [n.year]
+    const yearsToApply = getNormalizationTargetYears(n, allDataYears)
     const validYearsToApply = yearsToApply.filter((y) => allDataYearsSet.has(y))
     if (validYearsToApply.length === 0 && yearsToApply.length > 0) {
       orphanItems.push({
@@ -226,11 +222,7 @@ export function buildValuationRequestNormalizations({
   // engine reads the explicit status, keeps these rows in the audit ledger and
   // excludes them from normalized EBITDA until a reviewer accepts them.
   for (const n of unpricedNorms) {
-    const yearsToApply: number[] = n.applyAllYears
-      ? allDataYears
-      : n.applyYears && n.applyYears.length > 0
-        ? n.applyYears
-        : [n.year]
+    const yearsToApply = getNormalizationTargetYears(n, allDataYears)
     for (const y of yearsToApply.filter((year) => allDataYearsSet.has(year))) {
       const rawYearEbitda = yearEbitdaMap[y] ?? 0
       const yearEbitda = Number.isFinite(rawYearEbitda) ? rawYearEbitda : 0
@@ -292,7 +284,9 @@ export function buildValuationRequestNormalizations({
   const legacyOrphanYears: Array<{ year: number; totalAdjustment: number }> = []
   for (const [yearKey, legacy] of Object.entries(legacyNormalizations)) {
     const year = Number(yearKey)
-    if (!Number.isFinite(year) || (normByYear[year]?.count ?? 0) > 0) continue
+    // Unified decisions supersede the legacy mirror even when the advisor has
+    // rejected every item or left them pending; otherwise old addbacks reappear.
+    if (!Number.isFinite(year) || normByYear[year]) continue
 
     const adjustmentCount =
       (legacy.adjustments?.length || 0) + (legacy.custom_adjustments?.length || 0)

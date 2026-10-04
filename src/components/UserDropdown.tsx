@@ -18,11 +18,15 @@ import {
 import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import type { User as UserType } from '../contexts/AuthContextTypes'
 import { useEmbeddedMode } from '../hooks/useEmbeddedMode'
+import { useReportAssetSaveFailure } from '../hooks/useReportAssetSaveFailure'
+import { pendingReportAssetSave, reportAssetService } from '../services/report/ReportAssetService'
 import UrlGeneratorService from '../services/urlGenerator'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import { generalLogger } from '../utils/logger'
 import { postMessageToMercuryParent } from '../utils/mercuryParentMessaging'
+import { watchReportAccessScope } from '../utils/reportAccessScope'
+import { isSameReportIdentity } from '../utils/reportIdentityPromotion'
 import { openSafeNewTabUrl } from '../utils/safeVenusRedirect'
 import { hasMeaningfulSessionData } from '../utils/sessionDataUtils'
 import { ExitReportConfirmationModal } from './modals/ExitReportConfirmationModal'
@@ -53,6 +57,10 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const mercuryLocale = resolveMercuryLocale(pathname)
   const [isOpen, setIsOpen] = useState(false)
   const [showExitModal, setShowExitModal] = useState(false)
+  const [exitSaveFailed, setExitSaveFailed] = useState(false)
+  const [exitNeedsSave, setExitNeedsSave] = useState(false)
+  const [isExitSaving, setIsExitSaving] = useState(false)
+  const exitSaveInFlight = useRef(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null) // Track button position
 
@@ -63,6 +71,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const session = useSessionStore((state) => state.session)
   const hasUnsavedChanges = useSessionStore((state) => state.hasUnsavedChanges)
   const isSaving = useSessionStore((state) => state.isSaving)
+  const saveErrorMessage = useSessionStore((state) => state.saveErrorMessage)
   const saveSession = useSessionStore((state) => state.saveSession)
   const clearSession = useSessionStore((state) => state.clearSession)
 
@@ -73,6 +82,8 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
     pathname,
     sessionReportId: session?.reportId,
   })
+  const failedResultSave = useReportAssetSaveFailure(reportId ?? undefined)
+  const needsSave = hasUnsavedChanges || Boolean(saveErrorMessage || failedResultSave)
 
   // Debug logging for pathname detection
   useEffect(() => {
@@ -259,6 +270,18 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
 
     setIsOpen(false)
 
+    setExitSaveFailed(false)
+    // The same save decision applies to standalone and embedded reports.
+    // Returning to Mercury must not bypass it just because a handoff exists.
+    const requireSave = Boolean(
+      isOnReportPage && reportId && (needsSave || isSaving || pendingReportAssetSave(reportId))
+    )
+    setExitNeedsSave(requireSave)
+    if (requireSave) {
+      setShowExitModal(true)
+      return
+    }
+
     if (typeof window !== 'undefined' && shouldReturnToMercuryHandoff()) {
       generalLogger.info('[UserDropdown] Returning to Mercury via handoff')
       const locale = resolveMercuryLocale(pathname)
@@ -388,16 +411,45 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
    * Save report and exit
    */
   const handleSaveAndExit = async () => {
-    if (!reportId) {
-      generalLogger.warn('[UserDropdown] No reportId, exiting without save', { reportId })
-      handleExitReport()
-      return
-    }
+    if (exitSaveInFlight.current) return
+    exitSaveInFlight.current = true
+    setIsExitSaving(true)
+    setExitSaveFailed(false)
+    const target = useSessionStore.getState()
+    const access = watchReportAccessScope()
 
     try {
+      if (
+        !reportId ||
+        !target.engine ||
+        !target.session ||
+        !isSameReportIdentity(target.session.reportId, reportId)
+      ) {
+        throw new Error('The active report is not ready to save')
+      }
       generalLogger.info('[UserDropdown] Saving report before exit', { reportId })
+      // Result persistence is separate from draft persistence. Await/retry the
+      // report package before saving the latest draft and confirming exit.
+      await reportAssetService.retryFailedSave(reportId)
+      const isStillTarget = () => {
+        const current = useSessionStore.getState()
+        return (
+          access.isCurrent() &&
+          current.engine === target.engine &&
+          current.engineRevision === target.engineRevision &&
+          isSameReportIdentity(current.session?.reportId, target.session?.reportId)
+        )
+      }
+      if (!isStillTarget()) return
       // Save session
       await saveSession('user')
+      if (!isStillTarget()) return
+      const saved = useSessionStore.getState()
+      // Some recoverable failures resolve without throwing; edits made during
+      // the request also remain dirty. Neither is a save acknowledgement.
+      if (saved.saveErrorMessage || saved.hasUnsavedChanges || saved.isSaving || !saved.lastSaved) {
+        throw new Error('The latest report changes have not been confirmed saved')
+      }
       generalLogger.info('[UserDropdown] Report saved successfully, now exiting', { reportId })
       // Exit
       handleExitReport()
@@ -406,8 +458,11 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         reportId,
         error: error instanceof Error ? error.message : String(error),
       })
-      // Still exit even if save fails
-      handleExitReport()
+      setExitSaveFailed(true)
+    } finally {
+      access.dispose()
+      exitSaveInFlight.current = false
+      setIsExitSaving(false)
     }
   }
 
@@ -518,7 +573,11 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   }, [user, menuItems.length, menuItemKeySignature, isOnReportPage, pathname])
 
   return (
-    <div ref={dropdownRef} className="relative" style={{ zIndex: 10001, position: 'relative' }}>
+    <div
+      ref={dropdownRef}
+      className="relative"
+      style={{ zIndex: showExitModal ? 0 : 10001, position: 'relative' }}
+    >
       <UserDropdownButton
         accountMenuLabel={t('accountMenu')}
         buttonRef={buttonRef}
@@ -555,9 +614,11 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
         onClose={handleCloseExitModal}
         onConfirm={handleExitReport}
         onSaveAndExit={handleSaveAndExit}
-        hasUnsavedChanges={hasUnsavedChanges}
+        hasUnsavedChanges={needsSave || exitNeedsSave || exitSaveFailed || isExitSaving}
         hasValuationResults={!!session?.valuationResult || !!session?.htmlReport}
-        isSaving={isSaving}
+        isSaving={isSaving || isExitSaving}
+        saveFailed={exitSaveFailed}
+        returnFocusRef={buttonRef}
       />
     </div>
   )

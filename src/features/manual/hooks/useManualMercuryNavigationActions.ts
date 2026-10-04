@@ -13,7 +13,6 @@ import {
 import {
   buildManualContinueToListingUrl,
   buildManualExitClientViewFallbackUrl,
-  buildManualExitClientViewTarget,
   buildManualImportReviewTarget,
   buildManualLogoutPostUrl,
   buildManualMercuryAccountSettingsUrl,
@@ -217,8 +216,7 @@ export function useManualMercuryNavigationActions({
   const handleSwitchWorkspace = useCallback(() => {
     if (typeof window !== 'undefined') {
       try {
-        const returnUrl = sessionStorage.getItem('upswitch_return_url')
-        const sourceApp = sessionStorage.getItem('upswitch_source')
+        const { returnUrl, sourceApp } = readManualMercuryHandoffFromBrowser()
         const { relationshipId } = useClientContext.getState()
         const targetUrl = buildManualSwitchWorkspaceReturnUrl({
           returnUrl,

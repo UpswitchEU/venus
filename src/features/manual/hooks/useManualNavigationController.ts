@@ -1,10 +1,11 @@
 import { useTransitionRouter } from 'next-view-transitions'
-import { type Dispatch, type SetStateAction, useCallback } from 'react'
+import { type Dispatch, type SetStateAction, useCallback, useMemo } from 'react'
 import { trackFullscreenOpen, trackPreviewOpen, trackVersionHistoryOpen } from '@/lib/analytics'
 import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
 import type { PdfRefusal } from '../../../hooks/pdfGenerationModel'
 import { describePdfRefusal } from '../utils/pdfRefusalMessage'
 import { useManualMercuryNavigationActions } from './useManualMercuryNavigationActions'
+import { useManualNavigationGuard } from './useManualNavigationGuard'
 import { useManualNewValuationFlow } from './useManualNewValuationFlow'
 import {
   type UseManualPdfExportControllerParams,
@@ -25,6 +26,8 @@ type ManualNavigationReport = UseManualPdfExportControllerParams['report'] & {
 }
 
 export interface UseManualNavigationControllerParams {
+  flushFormBeforeNavigation: () => Promise<void>
+  isNavigationBusy: () => boolean
   activeSessionKey?: string | null
   canDownloadPdf: boolean
   clientCompanyName?: string | null
@@ -52,6 +55,8 @@ export interface UseManualNavigationControllerParams {
 }
 
 export function useManualNavigationController({
+  flushFormBeforeNavigation,
+  isNavigationBusy,
   activeSessionKey,
   canDownloadPdf,
   clientCompanyName,
@@ -78,6 +83,10 @@ export function useManualNavigationController({
   translateReport,
 }: UseManualNavigationControllerParams) {
   const router = useTransitionRouter()
+  const navigateAfterSave = useManualNavigationGuard({
+    flushForm: flushFormBeforeNavigation,
+    isBusy: isNavigationBusy,
+  })
   const describeRefusal = useCallback(
     (refusal: PdfRefusal) => describePdfRefusal(refusal, translate),
     [translate]
@@ -215,31 +224,79 @@ export function useManualNavigationController({
     router,
   })
 
+  const guardedNavigation = useMemo(
+    () => ({
+      handleAccountSettings: () => {
+        void navigateAfterSave(handleAccountSettings)
+      },
+      handleBack: () => {
+        void navigateAfterSave(handleBack)
+      },
+      handleConfirmNewValuation: () => {
+        void navigateAfterSave(handleConfirmNewValuation)
+      },
+      handleContinueImportReview: () => {
+        void navigateAfterSave(handleContinueImportReview)
+      },
+      handleContinueToListing: () => {
+        void navigateAfterSave(handleContinueToListing)
+      },
+      handleExitClientView: () => {
+        void navigateAfterSave(handleExitClientView)
+      },
+      handleLogout: () => {
+        void navigateAfterSave(handleLogout)
+      },
+      handleNavigateToBilling: () => {
+        void navigateAfterSave(handleNavigateToBilling)
+      },
+      handleNavigateToDashboard: () => {
+        void navigateAfterSave(handleNavigateToDashboard)
+      },
+      handleNavigateToHelp: () => {
+        void navigateAfterSave(handleNavigateToHelp)
+      },
+      handleOpenMercuryClientForInvite: () => {
+        void navigateAfterSave(handleOpenMercuryClientForInvite)
+      },
+      handleSwitchWorkspace: () => {
+        void navigateAfterSave(handleSwitchWorkspace)
+      },
+      handleSelectValuation: (id: string) => {
+        void navigateAfterSave(() => handleSelectValuation(id))
+      },
+    }),
+    [
+      navigateAfterSave,
+      handleAccountSettings,
+      handleBack,
+      handleConfirmNewValuation,
+      handleContinueImportReview,
+      handleContinueToListing,
+      handleExitClientView,
+      handleLogout,
+      handleNavigateToBilling,
+      handleNavigateToDashboard,
+      handleNavigateToHelp,
+      handleOpenMercuryClientForInvite,
+      handleSwitchWorkspace,
+      handleSelectValuation,
+    ]
+  )
+
   return {
+    ...guardedNavigation,
     deletingValuationId,
     downloadHistory,
-    handleAccountSettings,
-    handleBack,
     handleCancelNewValuation,
-    handleConfirmNewValuation,
-    handleContinueImportReview,
-    handleContinueToListing,
     handleDeleteValuation,
-    handleExitClientView,
     handleExport,
     handleFullscreen,
-    handleLogout,
-    handleNavigateToBilling,
-    handleNavigateToDashboard,
-    handleNavigateToHelp,
     handleNewValuation,
     handleOpenAssistant,
-    handleOpenMercuryClientForInvite,
     handlePreview,
-    handleSelectValuation,
     handleShowGraph,
     handleShowHistory,
-    handleSwitchWorkspace,
     isConfirmingNewValuation,
     isExporting,
     mercuryLocale,

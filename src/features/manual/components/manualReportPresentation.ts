@@ -1,9 +1,9 @@
-import { coalesceFiniteNumber } from '../../../lib/omniPreview'
 import type { ValuationMethodResult, ValuationResponse } from '../../../types/valuation'
 import {
   getValuationMethodResultForKey,
   hydrateClientValuationResultsMap,
 } from '../../../utils/extractValuationResultsMap'
+import { parseFinancialTransportNumber } from '../../../utils/financialTransport'
 import { resultHasWeightedSynthesisSignal } from '../utils/weightedSynthesisSignals'
 
 export type ManualReportPresentation = {
@@ -36,13 +36,11 @@ function readString(record: ManualReportRecord, key: string): string | undefined
 function isUsableRow(method: unknown): boolean {
   if (!method || typeof method !== 'object' || Array.isArray(method)) return false
   const m = method as Record<string, unknown>
-  if (!m.available) return false
-  const v = m.value
-  return v != null && Number.isFinite(Number(v))
+  return m.available === true && parseFinancialTransportNumber(m.value) != null
 }
 
 function positiveFiniteNumber(value: unknown): number | null {
-  const numeric = coalesceFiniteNumber(value)
+  const numeric = parseFinancialTransportNumber(value)
   return numeric != null && numeric > 0 ? numeric : null
 }
 
@@ -84,9 +82,26 @@ function readSynthesisHeadlineFromResult(r: ManualReportRecord): number | null {
 
 function readSynthesisRangeFromResult(r: ManualReportRecord): { low?: number; high?: number } {
   const weighted = asRecord(r.weighted_valuation)
-  const low = positiveFiniteNumber(weighted.valuation_range_low)
-  const high = positiveFiniteNumber(weighted.valuation_range_high)
-  return low != null && high != null ? { low, high } : {}
+  const low = parseFinancialTransportNumber(weighted.valuation_range_low)
+  const high = parseFinancialTransportNumber(weighted.valuation_range_high)
+  return low != null && high != null && low <= high ? { low, high } : {}
+}
+
+function scopedMethodRange(
+  method: ValuationMethodResult | undefined,
+  details: ManualReportRecord
+): { low: unknown; high: unknown } | null {
+  const row = asRecord(method)
+  for (const [source, lowKey, highKey] of [
+    [row, 'equity_value_low', 'equity_value_high'],
+    [row, 'value_low', 'value_high'],
+    [details, 'equity_range_low', 'equity_range_high'],
+  ] as const) {
+    if (lowKey in source || highKey in source) {
+      return { low: source[lowKey], high: source[highKey] }
+    }
+  }
+  return null
 }
 
 function resolvePreferredMethodKey(
@@ -185,26 +200,25 @@ export function deriveManualReportPresentation(
   const synthesisHeadline = resultHasWeightedSynthesisSignal(r)
     ? readSynthesisHeadlineFromResult(r)
     : null
-  const synthesisRange = synthesisHeadline != null ? readSynthesisRangeFromResult(r) : {}
-
-  const valuationLowRaw =
-    synthesisRange.low ??
-    (usePublishedAdaptive ? positiveFiniteNumber(reportContext.equity_value_low) : null) ??
-    methodDetails.equity_range_low ??
-    r.equity_value_low ??
-    r.valuation_min ??
-    details.equity_value_low
-  const valuationHighRaw =
-    synthesisRange.high ??
-    (usePublishedAdaptive ? positiveFiniteNumber(reportContext.equity_value_high) : null) ??
-    methodDetails.equity_range_high ??
-    r.equity_value_high ??
-    r.valuation_max ??
-    details.equity_value_high
+  // Select one economic source for both endpoints. Explicit nulls and partial
+  // method bands must not be completed from the overall report's other method.
+  const range =
+    synthesisHeadline != null
+      ? readSynthesisRangeFromResult(r)
+      : usePublishedAdaptive
+        ? { low: reportContext.equity_value_low, high: reportContext.equity_value_high }
+        : (scopedMethodRange(methodData, methodDetails) ?? {
+            low: r.equity_value_low ?? r.valuation_min ?? details.equity_value_low,
+            high: r.equity_value_high ?? r.valuation_max ?? details.equity_value_high,
+          })
+  const valuationLowRaw = range.low
+  const valuationHighRaw = range.high
+  const parsedLow = parseFinancialTransportNumber(valuationLowRaw)
+  const parsedHigh = parseFinancialTransportNumber(valuationHighRaw)
+  const reversedRange = parsedLow != null && parsedHigh != null && parsedLow > parsedHigh
   const methodValuation =
-    positiveFiniteNumber(methodValueRaw) ??
+    parseFinancialTransportNumber(methodValueRaw) ??
     midpointFromRange(valuationLowRaw, valuationHighRaw) ??
-    coalesceFiniteNumber(methodValueRaw) ??
     0
   const valuation = synthesisHeadline ?? methodValuation
   const multipleRaw =
@@ -220,18 +234,17 @@ export function deriveManualReportPresentation(
     methodDetails.p75_multiple ??
     asRecord(valuationResult.multipleRange).high ??
     asRecord(reportContext).multiple_high
+  const multipleLow = parseFinancialTransportNumber(multipleLowRaw)
+  const multipleHigh = parseFinancialTransportNumber(multipleHighRaw)
 
   return {
     valuation,
-    valuationLow: valuationLowRaw != null ? coalesceFiniteNumber(valuationLowRaw) : undefined,
-    valuationHigh: valuationHighRaw != null ? coalesceFiniteNumber(valuationHighRaw) : undefined,
-    multiple: multipleRaw != null ? coalesceFiniteNumber(multipleRaw) : undefined,
+    valuationLow: reversedRange ? undefined : parsedLow,
+    valuationHigh: reversedRange ? undefined : parsedHigh,
+    multiple: parseFinancialTransportNumber(multipleRaw),
     multipleRange:
-      multipleLowRaw != null && multipleHighRaw != null
-        ? {
-            low: coalesceFiniteNumber(multipleLowRaw),
-            high: coalesceFiniteNumber(multipleHighRaw),
-          }
+      multipleLow != null && multipleHigh != null && multipleLow <= multipleHigh
+        ? { low: multipleLow, high: multipleHigh }
         : undefined,
   }
 }
@@ -262,10 +275,7 @@ export function deriveNavPricesForVersionNav(
       : null
   const askingRaw =
     publishedAsking ?? r.recommended_asking_price ?? details.recommended_asking_price
-  const askingFinite =
-    askingRaw != null && Number.isFinite(Number(askingRaw)) && Number(askingRaw) > 0
-      ? Number(askingRaw)
-      : undefined
+  const askingFinite = positiveFiniteNumber(askingRaw) ?? undefined
   const rangeMidpoint = midpointFromRange(valuationLow, valuationHigh)
   const askPrice = askingFinite ?? (valuation > 0 ? valuation : (rangeMidpoint ?? valuation))
   return {

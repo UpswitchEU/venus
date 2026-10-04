@@ -1,9 +1,18 @@
-import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef } from 'react'
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react'
 import { toast } from 'sonner'
 import type { NormalizationItem, RightPanelView } from '../../../components/calculator'
 import { pendingReportAssetSave } from '../../../services/report/ReportAssetService'
 import { useManualFormStore } from '../../../store/manual/useManualFormStore'
 import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
+import { useNormalizationStore } from '../../../store/useNormalizationStore'
+import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
@@ -13,6 +22,8 @@ import {
   buildManualVersionRestorePlan,
   type ManualVersionRestorePlan,
 } from '../utils/manualVersionRestorePlan'
+
+import { persistManualVersionRestoreEdits } from '../utils/persistManualVersionRestoreEdits'
 
 interface ManualVersionRestoreNormalizationActions {
   setItems: (items: NormalizationItem[]) => void
@@ -25,6 +36,8 @@ type ManualVersionRestoreTranslator = (
 
 export interface UseManualVersionRestoreActionParams {
   normalizationActions: ManualVersionRestoreNormalizationActions
+  restoreInFlightRef: MutableRefObject<boolean>
+  flushFormAfterRestore: () => Promise<void>
   reportId: string
   resolvedReportId?: string | null
   setResult: (result: ValuationResponse | null) => void
@@ -39,6 +52,8 @@ export interface UseManualVersionRestoreActionResult {
 
 export function useManualVersionRestoreAction({
   normalizationActions,
+  restoreInFlightRef,
+  flushFormAfterRestore,
   reportId,
   resolvedReportId,
   setResult,
@@ -52,6 +67,7 @@ export function useManualVersionRestoreAction({
     promise: Promise<void>
   } | null>(null)
   const attemptRef = useRef<{ key: string; id: string } | null>(null)
+  const noticeRef = useRef<string | null>(null)
   const targetRef = useRef('')
   const revisionRef = useRef(0)
   const target = `${reportAccessScope()}:${resolvedReportId || reportId}`
@@ -65,27 +81,48 @@ export function useManualVersionRestoreAction({
     },
     []
   )
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Dismiss the prior report's retry action when its target changes.
+  useEffect(
+    () => () => {
+      if (noticeRef.current) toast.dismiss(noticeRef.current)
+    },
+    [target]
+  )
   const handleVersionRestore = useCallback(
     (version: unknown) => {
       const plan = buildManualVersionRestorePlan(version)
       const idForApi = resolvedReportId || reportId
       if (!plan?.versionNumber || !idForApi) return Promise.resolve()
       const versionNumber = plan.versionNumber
-      // Only an identical in-flight restore (same target AND same version) is
-      // coalesced; a request for a different version used to resolve to the
-      // first one's promise and silently restore the wrong snapshot.
-      if (
-        pendingRef.current?.target === targetRef.current &&
-        pendingRef.current.versionNumber === plan.versionNumber
-      )
-        return pendingRef.current.promise
+      // A second restore would race the first server commit. Coalesce an
+      // identical request; keep a different selection available after it settles.
+      if (pendingRef.current?.target === targetRef.current) {
+        if (pendingRef.current.versionNumber === versionNumber) return pendingRef.current.promise
+        toast.info(translate('versionRestoreInProgress'))
+        return Promise.resolve()
+      }
+      if (restoreInFlightRef.current) {
+        toast.info(translate('versionRestoreInProgress'))
+        return Promise.resolve()
+      }
+      if (noticeRef.current) toast.dismiss(noticeRef.current)
       const access = watchReportAccessScope()
-      const revision = revisionRef.current
-      const stillCurrent = () => access.isCurrent() && revisionRef.current === revision
+      const revision = ++revisionRef.current
+      const engine = useSessionStore.getState().engine
+      const engineRevision = useSessionStore.getState().engineRevision
+      const stillCurrent = () =>
+        access.isCurrent() &&
+        revisionRef.current === revision &&
+        useSessionStore.getState().engine === engine &&
+        useSessionStore.getState().engineRevision === engineRevision
       const key = `${reportAccessScope()}:${idForApi}:${plan.versionNumber}`
       if (attemptRef.current?.key !== key) attemptRef.current = { key, id: crypto.randomUUID() }
       const attempt = attemptRef.current
       const initialForm = useManualFormStore.getState().formData
+      const initialNormalizations = useNormalizationStore.getState().items
+      const initialTaxItems = useTaxLatencyStore.getState().items
+      const initialTaxCandidates = useTaxLatencyStore.getState().candidates
+      restoreInFlightRef.current = true
       const operation = (async () => {
         try {
           // An earlier result write must finish before restoration can commit.
@@ -99,10 +136,17 @@ export function useManualVersionRestoreAction({
           })
           if (!restored) throw new Error('Version restoration was not confirmed')
           if (!stillCurrent()) return
+          const committedPlan = buildManualVersionRestorePlan(restored)
+          if (!committedPlan?.versionNumber) throw new Error('Invalid restored version')
           attemptRef.current = null
-          const committedPlan = buildManualVersionRestorePlan(restored) ?? plan
-          // Preserve edits made while the restore request was in flight.
-          if (useManualFormStore.getState().formData === initialForm && committedPlan.formData) {
+          // Treat the inputs as one snapshot: changing an adjustment must not
+          // replace the form or other adjustments with an older version either.
+          const editsUnchanged =
+            useManualFormStore.getState().formData === initialForm &&
+            useNormalizationStore.getState().items === initialNormalizations &&
+            useTaxLatencyStore.getState().items === initialTaxItems &&
+            useTaxLatencyStore.getState().candidates === initialTaxCandidates
+          if (editsUnchanged && committedPlan.formData) {
             updateFormData(committedPlan.formData as Partial<ValuationFormData>)
             normalizationActions.setItems(committedPlan.normalizations)
             restoreTaxLatencySnapshot(committedPlan)
@@ -113,7 +157,46 @@ export function useManualVersionRestoreAction({
           }
           useVersionHistoryStore.getState().setActiveVersion(idForApi, restored.versionNumber)
           setRightPanelView('preview')
-          toast.success(translate('versionRestored', { version: restored.versionNumber }))
+          if (!editsUnchanged) {
+            const noticeId = `version-restore-edits-${attempt.id}`
+            noticeRef.current = noticeId
+            let persisting = false
+            const persistEdits = async () => {
+              if (!stillCurrent() || persisting) return
+              persisting = true
+              restoreInFlightRef.current = true
+              try {
+                await persistManualVersionRestoreEdits({
+                  flushForm: flushFormAfterRestore,
+                  isCurrent: stillCurrent,
+                })
+                if (stillCurrent())
+                  toast.success(translate('versionRestored', { version: restored.versionNumber }), {
+                    id: noticeId,
+                    description: translate('versionRestoreEditsKept'),
+                  })
+              } catch {
+                if (stillCurrent())
+                  toast.error(translate('versionRestoreEditsSaveFailed'), {
+                    id: noticeId,
+                    duration: Infinity,
+                    action: {
+                      label: translate('versionRestoreRetrySave'),
+                      onClick: () => {
+                        void persistEdits()
+                      },
+                    },
+                  })
+              } finally {
+                persisting = false
+                if (!pendingRef.current || pendingRef.current.promise === operation)
+                  restoreInFlightRef.current = false
+              }
+            }
+            await persistEdits()
+          } else {
+            toast.success(translate('versionRestored', { version: restored.versionNumber }))
+          }
           // History refresh cannot turn a committed restoration into a failure.
           void useVersionHistoryStore.getState().fetchVersions(idForApi)
         } catch (error) {
@@ -132,12 +215,17 @@ export function useManualVersionRestoreAction({
         promise: operation,
       }
       void operation.finally(() => {
-        if (pendingRef.current?.promise === operation) pendingRef.current = null
+        if (pendingRef.current?.promise === operation) {
+          pendingRef.current = null
+          restoreInFlightRef.current = false
+        }
       })
       return operation
     },
     [
       normalizationActions,
+      restoreInFlightRef,
+      flushFormAfterRestore,
       reportId,
       resolvedReportId,
       setResult,

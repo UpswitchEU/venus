@@ -1,4 +1,12 @@
 {
+	"navigationSave": {
+		"saving": "Saving before leaving…",
+		"failed": "Your latest changes could not be saved.",
+		"busy": "Your valuation is still being updated.",
+		"keptOpen": "Your report is still open. Try again or continue editing.",
+		"retry": "Try again",
+		"navigationFailed": "Your changes were saved, but the destination could not be opened."
+	},
 	"common": {
 		"cancel": "Cancel",
 		"optional": "Optional",
@@ -684,12 +692,14 @@
 		"defaultFilename": "Report",
 		"pdfSuffix": "Valuation-Report",
 		"placeholder": {
-			"title": "No valuation yet",
-			"description": "Check the inputs, then choose Determine value.",
+			"title": "Your valuation starts with the company",
+			"description": "Choose a company and add its financial figures. Your valuation range and supporting report will appear here.",
 			"context": "Company context loaded",
 			"financials": "Financial evidence prefilled",
-			"result": "Value and report after review",
-			"time": "Most connected valuations take under 5 minutes"
+			"result": "Calculate the valuation, then review the range and assumptions.",
+			"time": "Most connected valuations take under 5 minutes",
+			"company": "Choose or enter the company.",
+			"figures": "Add the financial figures and review their source."
 		},
 		"workspace": {
 			"input": "Inputs",
@@ -980,6 +990,7 @@
 			"exitWithoutSaving": "Exit without saving",
 			"saving": "Saving...",
 			"saveAndExit": "Save and exit",
+			"saveFailed": "Saving could not be confirmed. Your report is still open. Try saving again before leaving.",
 			"confirm": "Go to dashboard"
 		},
 		"flowSwitch": {
@@ -1434,7 +1445,21 @@
 			"sourceValues": "Imported",
 			"effectiveValues": "Used",
 			"revenueShort": "Revenue",
-			"ebitdaShort": "EBITDA"
+			"ebitdaShort": "EBITDA",
+			"deficiencies": {
+				"SOURCE_CHART_UNSUPPORTED": "Provide a source chart of accounts with verified mappings before valuation.",
+				"SOURCE_CURRENCY_UNSUPPORTED": "Provide source evidence of a supported reporting currency.",
+				"SOURCE_CURRENCY_UNPROVEN": "Confirm the reporting currency in the accounting source.",
+				"ACCOUNTING_CLASSIFICATION_UNRESOLVED": "Provide account detail separating D&A, impairments and provisions.",
+				"SOURCE_PERIOD_NOT_CLOSED": "Provide confirmation that the accounting period is closed.",
+				"SOURCE_COMPLETENESS_UNPROVEN": "Provide a complete trial balance and confirm that all accounts are included.",
+				"SOURCE_PERIOD_BOUNDARIES_MISSING": "Provide the start and end dates of the source financial period.",
+				"SOURCE_MIXING_REQUIRES_RECONCILIATION": "Reconcile the selected financial facts to their source documents.",
+				"FORECAST_EVIDENCE_MISSING": "DCF requires a verified company forecast or cash-flow schedule with source documents.",
+				"REVENUE_BASIS_MISMATCH": "Confirm that the revenue definition matches the benchmark cohort.",
+				"EQUITY_BRIDGE_INCOMPLETE": "Equity value is unavailable until cash, debt and completion-account inputs are verified.",
+				"CALIBRATION_UNVERIFIED": "Pricing accuracy and range coverage have not been validated against completed transactions."
+			}
 		},
 		"adjust": "Adjust",
 		"normalize": "Normalize",
@@ -1536,7 +1561,7 @@
 		"removeForecastDescription": "The forecast years and any data you entered will be removed from your valuation.",
 		"calculating": "Calculating...",
 		"calculateEstimate": "Calculate Estimate",
-		"determineValue": "Determine value",
+		"determineValue": "Calculate valuation",
 		"updateValue": "Update value",
 		"determiningValue": "Determining value...",
 		"updatingValue": "Updating value...",
@@ -1748,7 +1773,9 @@
 			"bookRef": {
 				"label": "Book"
 			},
-			"prefill": { "badge": "Prefilled" },
+			"prefill": {
+				"badge": "Prefilled"
+			},
 			"lockedPlanBadge": "Starter+",
 			"label": "Method",
 			"adaptiveRecommended": "Upswitch adaptive market approach (recommended)",
@@ -2212,7 +2239,9 @@
 				"modalDescription": "Premium above the sector average, risk/discount weighting, historical EBITDA weighting, and whether the report renders the Enterprise-to-Equity Bridge. These choices apply only to this valuation.",
 				"openModalButton": "Calibration & weighting",
 				"openModalButtonHint": "Risk, premium, bridge",
-				"kebabMenuItem": "Advisor controls"
+				"kebabMenuItem": "Advisor controls",
+				"loadingControls": "Loading calibration and weighting…",
+				"closeControls": "Close calibration and weighting"
 			},
 			"terminalGrowthHighWarning": "Perpetual growth above long-run GDP is uncommon; auditors often question rates above 3%. Use a higher rate only if you can defend it in the file.",
 			"terminalGrowthWaccSpreadWarning": "Terminal growth must stay below WACC ({wacc}%) for perpetual-growth DCF.",
@@ -2320,17 +2349,19 @@
 		"employeeCountMissing": "Total FTE missing",
 		"employeeCountMissingDesc": "Enter the total FTE, owners included, to continue.",
 		"startProposalSkipped": "Starting proposal not generated",
-		"startProposalSkippedDesc": "Complete the figures, then choose Determine value.",
+		"startProposalSkippedDesc": "Complete the figures, then choose Calculate valuation.",
 		"financialDataIncomplete": "Financial data incomplete",
 		"financialDataIncompleteDesc": "Enter at least 1 year with revenue and EBITDA.",
 		"dcfNotReady": "DCF data incomplete",
-		"dcfNotReadyDesc": "Add a third closed fiscal year or explicit FCFF projections, or choose Upswitch Adaptive for a market valuation without DCF.",
+		"dcfNotReadyDesc": "Provide a verified company forecast or cash-flow schedule with source documents to use DCF, or choose another eligible valuation method.",
 		"calculationFailed": "Calculation failed",
 		"calculationFailedNoResult": "No result received.",
 		"serviceUnavailable": "The valuation service is temporarily unavailable. Please try again in a moment.",
 		"accountingReconnectRequired": "Reconnect accounting before calculating again.",
 		"insufficientCreditsDesc": "There are not enough credits left to run this valuation.",
 		"calculationFailedReview": "The valuation could not be completed. Please review your inputs and try again.",
+		"sourcePolicyReportMismatch": "Report consistency check failed",
+		"sourcePolicyReportMismatchDesc": "Some report figures differ from the calculation. Recalculate from verified financial records before saving. Contact support if this persists.",
 		"taxLatencyReviewRequired": "Review the tax latency",
 		"taxLatencyReviewRequiredDesc": "A stored tax latency is incomplete or contains conflicting values. Review the entry before calculating again.",
 		"review": "Review",
@@ -2413,6 +2444,10 @@
 		"normalizationsSaved": "Normalizations saved",
 		"versionRestored": "Version {version} restored",
 		"versionRestoreFailed": "Version restore failed",
+		"versionRestoreInProgress": "Another version is being restored. Wait for it to finish before choosing a different version.",
+		"versionRestoreEditsKept": "Your newer inputs and adjustments were kept. Recalculate to update the report with those edits.",
+		"versionRestoreEditsSaveFailed": "The version was restored, but your newer edits could not be saved. Keep this report open and retry saving.",
+		"versionRestoreRetrySave": "Retry save",
 		"importStarted": "{source} import started",
 		"importStartedDesc": "Normalizations are being analyzed...",
 		"importAnalyzed": "I analyzed {source} and found {count} potential normalizations.",
@@ -2421,7 +2456,7 @@
 		"normNormalized": "{label} normalized to €{value}",
 		"readyForRecalculation": "Ready for recalculation",
 		"unnamed": "Unnamed",
-		"newEstimation": "New Estimation",
+		"newEstimation": "New valuation",
 		"company": "Company",
 		"reportPreview": "Report Preview",
 		"reportPreviewDesc": "The full report template will be shown here.",
@@ -2441,7 +2476,7 @@
 		"swap": "Swap versions",
 		"version": "Version",
 		"changes": "Changes",
-		"valuation": "Indicative estimate",
+		"valuation": "Indicative valuation",
 		"ebitda": "EBITDA",
 		"multiple": "Multiple",
 		"title": "Version Comparison",
@@ -2450,9 +2485,12 @@
 		"older": "Older",
 		"newer": "Newer",
 		"enterpriseValue": "Enterprise Value",
-		"bandwidth": "Bandwidth",
+		"bandwidth": "Valuation range",
 		"close": "Close",
-		"restoreTo": "Restore to v{version}"
+		"restoreTo": "Restore to v{version}",
+		"metric": "Metric",
+		"unavailable": "Not available",
+		"description": "Compare version {from} with version {to}. Changes are measured from the first version to the second."
 	},
 	"historyPanel": {
 		"startProposalVersionLabel": "v1 · First estimate",
@@ -2479,7 +2517,7 @@
 		"invalidDate": "Invalid date",
 		"loadMore": "Load More ({displayed} of {total})",
 		"valuationFlow": "Estimate progression",
-		"indicativeEV": "Indicative Enterprise Value (EV)",
+		"indicativeValuation": "Indicative valuation",
 		"current": "CURRENT",
 		"bandwidth": "Range",
 		"normalizedEbitda": "Normalized EBITDA",
@@ -3690,6 +3728,7 @@
 		"methodologyDesc": "This indicative business estimate is based on comparable transaction analysis with sector-specific EBITDA multiples (Damodaran). The range accounts for current market conditions, company-specific risk factors and growth trajectory.",
 		"disclaimer": "Disclaimer: This document is an indicative business estimate and does not constitute a formal valuation in accordance with international standards. For formal transactions, a certified valuation by an accredited expert must be performed.",
 		"waterfall": {
+			"unavailable": "The value bridge is not available yet. Complete and review its inputs before displaying this chart.",
 			"title": "Enterprise value → equity bridge",
 			"subtitle": "Cash, debt, and working capital adjustments use the same balance-sheet inputs as your accounting import or manual entry.",
 			"ariaLabel": "Enterprise value to equity waterfall chart"

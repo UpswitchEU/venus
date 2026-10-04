@@ -497,6 +497,10 @@ export interface MultiplePipeline {
 /** Omni-Calc: a single valuation method's result. */
 export interface ValuationMethodResult {
   value: number | null
+  value_low?: number | string | null
+  value_high?: number | string | null
+  equity_value_low?: number | string | null
+  equity_value_high?: number | string | null
   label: string
   multiple_used?: number | null
   wacc?: number | null

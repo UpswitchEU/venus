@@ -25,7 +25,7 @@
     "guard:file-size": "node scripts/guard-file-size.mjs",
     "guard:file-size:update": "node scripts/guard-file-size.mjs --write-baseline",
     "guard:store-cycles": "node scripts/guard-store-cycles.mjs",
-    "guard:repo-hygiene": "node scripts/guard-repo-hygiene.mjs && node scripts/guard-standalone-deps.mjs",
+    "guard:repo-hygiene": "node scripts/guard-repo-hygiene.mjs && node scripts/guard-standalone-deps.mjs && node scripts/platform-checks.mjs guard:standalone && node --test scripts/platform-checks.test.mjs",
     "guard:exact-boundary": "node scripts/guard-exact-boundary.cjs",
     "guard:type-debt": "node scripts/guard-type-debt.mjs",
     "guard:type-debt:update": "node scripts/guard-type-debt.mjs --write-baseline",
@@ -46,27 +46,22 @@
     "bundle-report": "node scripts/analyze-bundle.js",
     "i18n:check": "node scripts/check-translations.cjs",
     "verify:messages": "node scripts/verify-messages-json.mjs",
-    "verify:shared-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:shared-contracts",
-    "verify:sellability-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:sellability-contracts",
-    "verify:preparer-multiple-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:preparer-multiple-contracts",
-    "verify:ai-conversation-key-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:ai-conversation-key-contracts",
-    "verify:ai-tool-result-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:ai-tool-result-contracts",
-    "verify:ai-dock-shells": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:ai-dock-shells",
-    "verify:business-type-selector": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:business-type-selector",
-    "verify:internal-email-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:internal-email-contracts",
-    "verify:auth-fetch-timeout-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:auth-fetch-timeout-contracts",
-    "verify:valuation-extract": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:valuation-extract",
-    "verify:valuation-method-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:valuation-method-contracts",
-    "verify:brand-favicons": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs verify:brand-favicons",
-    "sync:shared-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs sync:shared-contracts",
-    "sync:ai-actions-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs sync:ai-actions-contracts",
-    "sync:ai-dock-shells": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs sync:ai-dock-shells",
-    "sync:business-type-selector": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs sync:business-type-selector",
-    "sync:valuation-method-contracts": "node ../../packages/platform-scripts/bin/upswitch-platform.mjs sync:valuation-method-contracts",
+    "verify:shared-contracts": "node scripts/platform-checks.mjs verify:shared-contracts",
+    "verify:preparer-multiple-contracts": "node scripts/platform-checks.mjs verify:preparer-multiple-contracts",
+    "verify:ai-conversation-key-contracts": "node scripts/platform-checks.mjs verify:ai-conversation-key-contracts",
+    "verify:ai-tool-result-contracts": "node scripts/platform-checks.mjs verify:ai-tool-result-contracts",
+    "verify:business-type-selector": "node scripts/platform-checks.mjs verify:business-type-selector",
+    "verify:internal-email-contracts": "node scripts/platform-checks.mjs verify:internal-email-contracts",
+    "verify:auth-fetch-timeout-contracts": "node scripts/platform-checks.mjs verify:auth-fetch-timeout-contracts",
+    "verify:valuation-extract": "node scripts/platform-checks.mjs verify:valuation-extract",
     "deploy": "./deploy.sh",
     "deploy:vercel": "./deploy.sh vercel",
     "deploy:netlify": "./deploy.sh netlify",
-    "deploy:aws": "./deploy.sh aws"
+    "deploy:aws": "./deploy.sh aws",
+    "guard:standalone": "node scripts/platform-checks.mjs guard:standalone && node --test scripts/platform-checks.test.mjs",
+    "verify:valuation-method-contracts": "node scripts/platform-checks.mjs verify:valuation-method-contracts",
+    "test:platform-checks": "node --test scripts/platform-checks.test.mjs",
+    "verify:brand-favicons": "node scripts/verify-brand-favicons.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -87,7 +82,7 @@
     "@visx/scale": "^3.12.0",
     "@visx/shape": "^3.12.0",
     "@visx/tooltip": "^3.12.0",
-    "axios": "^1.18.0",
+    "axios": "^1.20.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "d3-array": "^3.2.4",
@@ -131,7 +126,6 @@
     "@types/node": "^24.3.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@upswitch/platform-scripts": "file:./vendor/platform-scripts",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/ui": "^4.1.11",
     "autoprefixer": "^10.4.18",
@@ -164,9 +158,6 @@
   },
   "homepage": "https://www.upswitch.app",
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "sharp"
-    ],
     "overrides": {
       "@babel/core": "7.29.6",
       "baseline-browser-mapping": "^2.11.0",
@@ -188,7 +179,8 @@
       "rollup": "^4.59.0",
       "sharp": "0.35.4",
       "vite": "^7.3.5",
-      "ws": "8.21.0"
+      "ws": "8.21.0",
+      "dompurify": "3.4.16"
     }
   },
   "resolutions": {

@@ -92,6 +92,18 @@ describe('useManualSubmitErrorHandler', () => {
     vi.clearAllMocks()
   })
 
+  it('shows localized report-consistency remediation without retrying a rejected save', () => {
+    const error = new ValidationError('Unprocessable Entity', 'current_year_data.cash', undefined, {
+      code: 'SOURCE_POLICY_REPORT_MISMATCH',
+      correlationId: 'synthetic-source-check',
+    })
+    const { retrySubmit } = callHandler(error)
+    expect(toast.error).toHaveBeenCalledWith('sourcePolicyReportMismatch', {
+      description: 'sourcePolicyReportMismatchDesc',
+    })
+    expect(retrySubmit).not.toHaveBeenCalled()
+  })
+
   it('opens recovery instead of offering a blind retry for reconnect-required 409s', () => {
     const onAccountingReconnectRequired = vi.fn()
     const { result } = renderHook(() =>

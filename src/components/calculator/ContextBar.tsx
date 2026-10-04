@@ -7,7 +7,7 @@
  * Firm branding, Client, Business, Draft status, Client approval status
  */
 
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import {
   AlertCircle,
   Building2,
@@ -56,6 +56,9 @@ export function ContextBar({
 }: ContextBarProps) {
   const t = useTranslations('calculator.contextBar')
   const locale = useLocale()
+  const reducedMotion = useReducedMotion()
+  const ClientIdentity = onClientClick ? 'button' : 'span'
+  const BusinessIdentity = onBusinessClick ? 'button' : 'span'
   const currencyLocale = locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE'
   if (!clientName && !businessName) return null
 
@@ -65,7 +68,7 @@ export function ContextBar({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
+      initial={reducedMotion ? false : { opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={springDefault}
       className={cn(
@@ -96,25 +99,35 @@ export function ContextBar({
         )}
 
         {clientName && (
-          <button
+          <ClientIdentity
+            type={onClientClick ? 'button' : undefined}
             onClick={onClientClick}
-            className="flex min-h-[40px] min-w-0 shrink-0 items-center gap-1.5 text-foreground/60 transition-colors hover:text-foreground sm:min-h-0"
+            className={cn(
+              'flex min-h-[40px] min-w-0 shrink-0 items-center gap-1.5 text-muted-foreground sm:min-h-6',
+              onClientClick &&
+                'rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+            )}
           >
             <User className="w-3.5 h-3.5 shrink-0" />
             <span className="max-w-[42vw] truncate sm:max-w-[260px]">{clientName}</span>
-          </button>
+          </ClientIdentity>
         )}
 
         {clientName && businessName && <ChevronRight className="w-3.5 h-3.5 text-foreground/30" />}
 
         {businessName && (
-          <button
+          <BusinessIdentity
+            type={onBusinessClick ? 'button' : undefined}
             onClick={onBusinessClick}
-            className="flex min-h-[40px] min-w-0 shrink-0 items-center gap-1.5 font-medium text-foreground transition-colors hover:text-primary sm:min-h-0"
+            className={cn(
+              'flex min-h-[40px] min-w-0 shrink-0 items-center gap-1.5 font-medium text-foreground sm:min-h-6',
+              onBusinessClick &&
+                'rounded-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+            )}
           >
             <Building2 className="w-3.5 h-3.5 shrink-0" />
             <span className="max-w-[48vw] truncate sm:max-w-[260px]">{businessName}</span>
-          </button>
+          </BusinessIdentity>
         )}
       </div>
 
@@ -180,6 +193,9 @@ export function ContextBar({
         {clientApprovalStatus !== 'none' && <div className="h-4 w-px bg-foreground/[0.08]" />}
 
         <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           className={cn(
             'flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs sm:min-h-0',
             draftStatus === 'saved'
@@ -187,8 +203,8 @@ export function ContextBar({
               : draftStatus === 'unsaved'
                 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
                 : draftStatus === 'saving'
-                  ? 'bg-foreground/[0.06] text-foreground/50'
-                  : 'bg-foreground/[0.04] text-foreground/40'
+                  ? 'bg-foreground/[0.06] text-muted-foreground'
+                  : 'bg-foreground/[0.04] text-muted-foreground'
           )}
         >
           {draftStatus === 'unsaved' ? (
@@ -204,7 +220,7 @@ export function ContextBar({
           ) : draftStatus === 'saving' ? (
             <>
               <motion.div
-                animate={{ rotate: 360 }}
+                animate={reducedMotion ? undefined : { rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
               >
                 <Clock className="w-3 h-3" />
@@ -220,7 +236,7 @@ export function ContextBar({
         </div>
 
         {lastSaved && draftStatus === 'saved' && (
-          <span className="text-xs text-foreground/40">{formatTime(lastSaved)}</span>
+          <span className="text-xs text-muted-foreground">{formatTime(lastSaved)}</span>
         )}
       </div>
     </motion.div>

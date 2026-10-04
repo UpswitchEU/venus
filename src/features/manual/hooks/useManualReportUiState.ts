@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
+import { useReportAssetSaveFailure } from '../../../hooks/useReportAssetSaveFailure'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 
@@ -22,18 +23,24 @@ export function useManualReportUiState({ initialTab }: UseManualReportUiStatePar
   const sessionDirty = useSessionStore((state) => state.hasUnsavedChanges)
   const sessionSaveError = useSessionStore((state) => state.saveErrorMessage)
   const sessionSavedAt = useSessionStore((state) => state.lastSaved)
+  const sessionReportId = useSessionStore((state) => state.session?.reportId)
+  const resultSaveFailure = useReportAssetSaveFailure(sessionReportId)
   // A rendered calculation is not a persistence acknowledgement. Session
   // failures and pending edits take precedence over an older calculation save.
-  const draftStatus: 'draft' | 'saved' | 'saving' | 'unsaved' = sessionSaveError
-    ? 'unsaved'
-    : sessionSaving || calculationSaveStatus === 'saving'
-      ? 'saving'
-      : sessionDirty
-        ? 'draft'
-        : sessionSavedAt
-          ? 'saved'
-          : calculationSaveStatus
-  const lastSaved = sessionSavedAt ?? calculationSavedAt
+  const draftStatus: 'draft' | 'saved' | 'saving' | 'unsaved' =
+    sessionSaveError || resultSaveFailure
+      ? 'unsaved'
+      : sessionSaving || calculationSaveStatus === 'saving'
+        ? 'saving'
+        : sessionDirty
+          ? 'draft'
+          : sessionSavedAt
+            ? 'saved'
+            : calculationSaveStatus
+  const lastSaved =
+    sessionSavedAt && (!calculationSavedAt || sessionSavedAt >= calculationSavedAt)
+      ? sessionSavedAt
+      : calculationSavedAt
 
   return {
     draftStatus,

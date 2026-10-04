@@ -13,6 +13,7 @@ import '../src/utils/performance/rum'
 // Auth is auto-initialized on import
 import '../src/lib/auth'
 import { installMercuryAuthBootstrapListener } from '../src/utils/auth/mercury-auth-bootstrap'
+import { installWorkspaceHistory } from '../src/utils/workspaceHistory'
 
 // Install the Mercury → Engine auth bootstrap listener as early as possible
 // (before bootstrap resolvers run). When Venus loads inside the Mercury
@@ -21,6 +22,7 @@ import { installMercuryAuthBootstrapListener } from '../src/utils/auth/mercury-a
 // `/api/auth/me` round-trip on the warm path.
 if (typeof window !== 'undefined') {
   installMercuryAuthBootstrapListener()
+  installWorkspaceHistory()
 }
 
 /**

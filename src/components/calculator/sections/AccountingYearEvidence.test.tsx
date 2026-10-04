@@ -5,8 +5,12 @@ import { AccountingYearEvidence } from './AccountingYearEvidence'
 
 vi.mock('next-intl', () => ({
   useLocale: () => 'nl-BE',
-  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
-    values ? `${key}:${Object.values(values).join('|')}` : key,
+  useTranslations: () =>
+    Object.assign(
+      (key: string, values?: Record<string, string | number>) =>
+        values ? `${key}:${Object.values(values).join('|')}` : key,
+      { has: (key: string) => key.startsWith('deficiencies.') }
+    ),
 }))
 
 const quality: ImportQualityPerYear = {
@@ -33,6 +37,34 @@ const quality: ImportQualityPerYear = {
 }
 
 describe('AccountingYearEvidence', () => {
+  it('keeps required source evidence visible when the year card explains its status', () => {
+    render(
+      <AccountingYearEvidence
+        attentionExplained
+        formatCurrency={(amount) => `€${amount}`}
+        importQuality={{
+          ...quality,
+          audit_flags: [
+            {
+              field: 'accounting_basis',
+              code: 'SOURCE_PERIOD_NOT_CLOSED',
+              severity: 'error',
+              message: 'Source period is not closed',
+            },
+          ],
+        }}
+        yearData={{
+          year: '2024',
+          revenue: 19_180,
+          ebitda: 18_792,
+          source_provider: 'silverfin',
+          source_kind: 'accounting_integration',
+          quality_state: 'blocked',
+        }}
+      />
+    )
+    expect(screen.getByText('deficiencies.SOURCE_PERIOD_NOT_CLOSED')).toBeInTheDocument()
+  })
   it('says nothing for a clean imported year: the section already names the source once', () => {
     const { container } = render(
       <AccountingYearEvidence

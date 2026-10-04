@@ -80,6 +80,13 @@ export function AccountingYearEvidence({
 }: AccountingYearEvidenceProps) {
   const locale = useLocale()
   const copy = useTranslations('manualInput.sourceEvidence')
+  const sourceDeficiencies = [
+    ...new Set(
+      (importQuality?.audit_flags ?? [])
+        .filter((flag) => flag.severity === 'error' && copy.has(`deficiencies.${flag.code}`))
+        .map((flag) => flag.code)
+    ),
+  ]
   const provenance = importQuality?.source_provenance
   const provider = yearData.source_provider ?? provenance?.provider
   const isImported = yearData.source_kind !== 'manual' && Boolean(provider || importQuality)
@@ -92,7 +99,10 @@ export function AccountingYearEvidence({
     valuesDiffer(sourceRevenue, yearData.revenue) || valuesDiffer(sourceEbitda, yearData.ebitda)
   const isCorrected =
     yearData.quality_state === 'advisor_corrected' || Boolean(yearData.correction_id)
-  const isBlocked = yearData.quality_state === 'blocked' || Boolean(yearData.eligibility_reason)
+  const isBlocked =
+    yearData.quality_state === 'blocked' ||
+    Boolean(yearData.eligibility_reason) ||
+    sourceDeficiencies.length > 0
   const hasSourceWarning =
     yearData.quality_state === 'source_warning' ||
     yearData.warning_codes?.includes('EXTREME_EBITDA_MARGIN') === true
@@ -113,7 +123,7 @@ export function AccountingYearEvidence({
             : null
   if (!tone) return null
   const showsStatus = !(tone === 'attention' && attentionExplained)
-  if (!showsStatus && !showsComparison) return null
+  if (!showsStatus && !showsComparison && sourceDeficiencies.length === 0) return null
 
   const statusLabel = isBlocked
     ? copy('statusBlocked')
@@ -169,6 +179,14 @@ export function AccountingYearEvidence({
             </span>
           ) : null}
         </div>
+      ) : null}
+
+      {sourceDeficiencies.length > 0 ? (
+        <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-700 dark:text-amber-300">
+          {sourceDeficiencies.map((code) => (
+            <li key={code}>{copy(`deficiencies.${code}`)}</li>
+          ))}
+        </ul>
       ) : null}
 
       {showsComparison ? (

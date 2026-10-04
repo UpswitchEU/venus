@@ -214,16 +214,16 @@ export function buildValuationRequest(
     'current_year_data.revenue'
   )
 
-  // EBITDA: accept 0 as a legitimate break-even value; only warn if truly absent.
-  const rawEbitdaInput = currentYearFinancials.ebitdaInput
-  const rawEbitda = toFiniteNumber(rawEbitdaInput)
-  if (rawEbitda === null) {
-    generalLogger.warn(
-      '[buildValuationRequest] EBITDA is missing or non-numeric — using 0. Ensure the form validates EBITDA before submission.',
-      { industry }
+  // Zero is observed break-even; an absent observation cannot price a run.
+  const ebitda = toFiniteNumber(currentYearFinancials.ebitdaInput)
+  if (ebitda === null) {
+    throw new ValidationError(
+      'EBITDA is not available for the selected financial period.',
+      'current_year_data.ebitda',
+      undefined,
+      { reason: 'missing_financial_basis', assessmentRequired: true }
     )
   }
-  const ebitda = rawEbitda ?? 0
   logUnusualEbitdaMargin({
     fiscalYear: currentFiscalYear,
     revenue,

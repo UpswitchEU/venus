@@ -5,6 +5,7 @@ import {
   countNormalizationsBoundToFiscalYear,
   findAcceptedAutoNormalizationCapBreaches,
   getNormalizationAmountForBase,
+  getFirstFiniteNumber,
   getReportedEbitdaBaseline,
   getReportedFinancialEbitda,
   normalizationItemTouchesYear,
@@ -15,6 +16,15 @@ import {
 } from '../normalizationMath'
 
 describe('normalizationMath', () => {
+  it('skips absent and malformed candidates without replacing real earnings with zero', () => {
+    expect(getFirstFiniteNumber(null, '', ' ', false, {}, 'n/a', '125.000,50')).toBe(125000.5)
+    expect(getFirstFiniteNumber(null, undefined)).toBeUndefined()
+    expect(getFirstFiniteNumber(0, 125000)).toBe(0)
+    expect(getFirstFiniteNumber(-125000, 0)).toBe(-125000)
+    expect(getReportedEbitdaBaseline({ year: 2025, fallbackCandidates: [null, 125000] })).toBe(
+      125000
+    )
+  })
   it('keeps the Bakker Bas reported EBITDA baseline at 100k', () => {
     const original = getReportedEbitdaBaseline({
       year: 2025,

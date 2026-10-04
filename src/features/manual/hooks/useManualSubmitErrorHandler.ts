@@ -52,6 +52,21 @@ export function useManualSubmitErrorHandler({
 
       if (
         error instanceof ValidationError &&
+        error.context?.code === 'SOURCE_POLICY_REPORT_MISMATCH'
+      ) {
+        toast.error(translate('sourcePolicyReportMismatch'), {
+          description: translate('sourcePolicyReportMismatchDesc'),
+        })
+        generalLogger.warn('[ManualValuationWorkspace] Report consistency check rejected saving', {
+          code: error.context.code,
+          correlationId: error.context.correlationId,
+          field: error.field,
+        })
+        return
+      }
+
+      if (
+        error instanceof ValidationError &&
         error.context?.code === 'ACCOUNTING_RECONNECT_REQUIRED'
       ) {
         onAccountingReconnectRequired?.(error.context)

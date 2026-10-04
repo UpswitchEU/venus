@@ -17,8 +17,8 @@
  */
 
 import type { ValuationReportData } from '@/components/calculator'
-import { coalesceFiniteNumber } from '@/lib/omniPreview'
 import type { ValuationResponse } from '@/types/valuation'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 import { getFirstRenderableReportHtml } from '@/utils/safetyNetReportHtml'
 import { deriveManualReportPresentation } from '../components/manualReportPresentation'
 import { resultHasWeightedSynthesisSignal } from './weightedSynthesisSignals'
@@ -53,7 +53,13 @@ export interface MapValuationResultToReportOpts {
 }
 
 type ReportResultRecord = Record<string, unknown> & {
-  current_year_data?: { ebitda?: unknown; revenue?: unknown }
+  current_year_data?: {
+    ebitda?: unknown
+    revenue?: unknown
+    reported_ebitda?: unknown
+    normalized_ebitda?: unknown
+    ebitda_normalization_metadata?: { reported_ebitda?: unknown; normalized_ebitda?: unknown }
+  }
   multiples_valuation?: {
     p25_ebitda_multiple?: unknown
     p75_ebitda_multiple?: unknown
@@ -98,13 +104,35 @@ export function mapValuationResultToReport(
   const presentation = deriveManualReportPresentation(result, selectedMethod, {
     clientBlendedValue,
   })
-  const ebitda = coalesceFiniteNumber(r.current_year_data?.ebitda)
+  const financials = r.current_year_data
+  const ebitda =
+    parseFinancialTransportNumber(financials?.reported_ebitda) ??
+    parseFinancialTransportNumber(financials?.ebitda_normalization_metadata?.reported_ebitda) ??
+    parseFinancialTransportNumber(financials?.ebitda)
   const latestNormRaw = r.latest_normalized_ebitda
   const normalizedEbitda =
-    latestNormRaw != null && Number.isFinite(Number(latestNormRaw)) ? Number(latestNormRaw) : ebitda
-  const revenue = coalesceFiniteNumber(r.current_year_data?.revenue)
-  const p25 = coalesceFiniteNumber(r.multiples_valuation?.p25_ebitda_multiple)
-  const p75 = coalesceFiniteNumber(r.multiples_valuation?.p75_ebitda_multiple)
+    parseFinancialTransportNumber(latestNormRaw) ??
+    parseFinancialTransportNumber(financials?.normalized_ebitda) ??
+    parseFinancialTransportNumber(financials?.ebitda_normalization_metadata?.normalized_ebitda) ??
+    parseFinancialTransportNumber(financials?.ebitda) ??
+    ebitda
+  const revenue = parseFinancialTransportNumber(financials?.revenue)
+  const currency =
+    typeof r.currency === 'string' && /^[A-Z]{3}$/.test(r.currency.trim().toUpperCase())
+      ? r.currency.trim().toUpperCase()
+      : 'EUR'
+  const revenueLabel =
+    revenue != null
+      ? new Intl.NumberFormat('en-BE', {
+          style: 'currency',
+          currency,
+          notation: 'compact',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(revenue)
+      : '—'
+  const p25 = parseFinancialTransportNumber(r.multiples_valuation?.p25_ebitda_multiple)
+  const p75 = parseFinancialTransportNumber(r.multiples_valuation?.p75_ebitda_multiple)
   const rawConfidence = r.overall_confidence ?? r.details?.overall_confidence
   const confidence =
     typeof rawConfidence === 'string'
@@ -112,10 +140,8 @@ export function mapValuationResultToReport(
       : undefined
 
   const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
-  const askingPrice =
-    askingRaw != null && Number.isFinite(Number(askingRaw)) && Number(askingRaw) > 0
-      ? Number(askingRaw)
-      : undefined
+  const parsedAsking = parseFinancialTransportNumber(askingRaw)
+  const askingPrice = parsedAsking != null && parsedAsking > 0 ? parsedAsking : undefined
   const hasSynthesisHeadline = resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
   const recommendedAskingPrice = hasSynthesisHeadline
     ? presentation.valuation
@@ -144,6 +170,7 @@ export function mapValuationResultToReport(
       readOptionalString(r.company_name) ||
       readOptionalString(r.business_name) ||
       tReport('defaultCompanyName'),
+    currency,
     valuation: presentation.valuation,
     valuationLow:
       presentation.valuationLow != null && Number.isFinite(presentation.valuationLow)
@@ -153,12 +180,12 @@ export function mapValuationResultToReport(
       presentation.valuationHigh != null && Number.isFinite(presentation.valuationHigh)
         ? presentation.valuationHigh
         : undefined,
-    ebitda,
-    normalizedEbitda: Number.isFinite(normalizedEbitda) ? normalizedEbitda : undefined,
+    ebitda: ebitda ?? 0,
+    normalizedEbitda,
     multiple: presentation.multiple ?? 0,
     multipleRange:
       presentation.multipleRange ??
-      (p25 != null && p75 != null ? { low: p25, high: p75 } : undefined),
+      (p25 != null && p75 != null && p25 <= p75 ? { low: p25, high: p75 } : undefined),
     generatedAt: new Date(),
     confidenceLevel: confidence || 'medium',
     htmlReport: htmlReport || undefined,
@@ -168,12 +195,12 @@ export function mapValuationResultToReport(
     metrics: [
       {
         label: tReport('metrics.avgRevenue'),
-        value: `€${(revenue / 1_000_000).toFixed(2)}M`,
+        value: revenueLabel,
       },
       {
         label: tReport('metrics.ebitdaMargin'),
         value:
-          revenue !== 0 && Number.isFinite(revenue)
+          ebitda != null && revenue != null && revenue !== 0
             ? `${((ebitda / revenue) * 100).toFixed(1)}%`
             : '—',
       },

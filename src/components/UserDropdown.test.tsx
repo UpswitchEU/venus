@@ -96,6 +96,12 @@ vi.mock('../services/urlGenerator', () => ({
 }))
 
 vi.mock('../utils/logger', () => ({
+  createContextLogger: () => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  }),
   generalLogger: {
     debug: vi.fn(),
     error: vi.fn(),
@@ -185,6 +191,7 @@ describe('UserDropdown return to Mercury', () => {
     resetManualValuationSaveReceiptsForTests()
     pageMock.returnsToMercury = true
     // The report shows an earlier result, as when Mercury re-opens it.
+    sessionStoreMock.state.hasUnsavedChanges = false
     sessionStoreMock.state.session.reportId = SAVED_REPORT_ID
     sessionStoreMock.state.session.valuationResult = { equity_value_mid: 310_000 }
   })
@@ -194,6 +201,7 @@ describe('UserDropdown return to Mercury', () => {
     pageMock.returnsToMercury = false
     sessionStoreMock.state.session.reportId = 'report-123'
     sessionStoreMock.state.session.valuationResult = null
+    sessionStoreMock.state.hasUnsavedChanges = true
   })
 
   it.each(mercuryExits)('%s: an earlier result alone is a plain return', (_exit, leave) => {

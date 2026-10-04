@@ -89,13 +89,13 @@ describe('manualRestoredFinancialSnapshot', () => {
     })
   })
 
-  it('returns null when no restored financial rows are meaningful', () => {
+  it('returns null when no financial observations are available', () => {
     expect(buildManualRestoredFinancialSnapshot(null)).toBeNull()
     expect(
       buildManualRestoredFinancialSnapshot({
-        current_year_data: { year: 2025, revenue: 0, ebitda: 0 },
-        historical_years_data: [{ year: 2024, revenue: 0, ebitda: 0 }],
-        forecast_years_data: [{ year: 2026, revenue: 0, ebitda: 0 }],
+        current_year_data: { year: 2025, revenue: null, ebitda: null },
+        historical_years_data: [{ year: 2024, revenue: null, ebitda: null }],
+        forecast_years_data: [{ year: 2026, revenue: null, ebitda: null }],
       })
     ).toBeNull()
   })
@@ -117,3 +117,15 @@ describe('manualRestoredFinancialSnapshot', () => {
     ])
   })
 })
+
+it.each([null, undefined, '', 'invalid'])('preserves absent EBITDA %s on reload', (ebitda) => {
+  const restored = buildManualRestoredFinancialSnapshot({current_year_data: {year: 2025, revenue: 1000, ebitda}});
+  expect(restored?.revenue).toBe(1000);
+  expect(restored?.ebitda).toBeUndefined();
+  expect(restored?.yearlyFinancials[0]?.ebitda).toBeUndefined();
+});
+
+it('retains observed zero revenue and EBITDA as financial observations', () => {
+  const restored = buildManualRestoredFinancialSnapshot({current_year_data: {year: 2025, revenue: 0, ebitda: 0}});
+  expect(restored).toMatchObject({revenue: 0, ebitda: 0, yearlyFinancials: [{year: '2025', revenue: 0, ebitda: 0}]});
+});

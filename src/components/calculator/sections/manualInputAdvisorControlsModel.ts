@@ -64,7 +64,11 @@ export function resolveAdvisorSectorAverageMultiple(businessContext: unknown): n
   ]
 
   for (const candidate of candidates) {
-    const value = toPositiveNumber(candidate)
+    // A terminal multiplication symbol belongs to a multiple, not a money
+    // parser. Preserve strict financial parsing for EBITDA amounts below.
+    const numericMultiple =
+      typeof candidate === 'string' ? candidate.replace(/\s*[x×]$/i, '') : candidate
+    const value = toPositiveNumber(numericMultiple)
     if (value != null) return value
   }
 

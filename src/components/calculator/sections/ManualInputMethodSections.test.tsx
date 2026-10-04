@@ -38,10 +38,11 @@ const baseProps = {
   effectiveMethod: 'ebitda_multiple',
   effectiveMethods: ['ebitda_multiple'],
   formData: {
+    company_name: 'Example BV',
     business_context: { ev_ebitda_median: 5.5 },
     current_year_data: { year: 2025, revenue: 1_000_000, ebitda: 100_000 },
     historical_years_data: [],
-  } as never,
+  } as unknown as import('../../../types/valuation').ManualValuationFormData,
   hasDcfForecastWorkspace: false,
   historicalCardRows: [{ year: 2025 }],
   normalizedData: { totalYearsWithData: 0, averageNormalizedEbitda: 0 } as never,
@@ -64,6 +65,21 @@ const baseProps = {
 }
 
 describe('ManualInputMethodSections expert mode', () => {
+  it('waits for company entry before exposing modelling controls without changing defaults', () => {
+    render(
+      <ManualInputMethodSections
+        {...baseProps}
+        formData={{ ...baseProps.formData, company_name: '' }}
+        advisorExpertModeDefault
+      />
+    )
+    expect(screen.queryByTestId('advisor-controls-trigger-stub')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('radio', { name: 'advisorExpertMode.expert' })
+    ).not.toBeInTheDocument()
+    expect(baseProps.setFormData).not.toHaveBeenCalled()
+  })
+
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()

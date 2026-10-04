@@ -31,7 +31,7 @@ export function ManualLayoutContextBar({
   const sameName =
     Boolean(clientContextName && businessName) &&
     clientContextName?.trim().toLowerCase() === businessName?.trim().toLowerCase()
-  const clientCrumb = sameName ? undefined : clientContextName?.split(' ')[0]
+  const clientCrumb = sameName ? undefined : clientContextName?.trim()
 
   return (
     <ContextBar
@@ -39,11 +39,7 @@ export function ManualLayoutContextBar({
       businessName={businessName}
       draftStatus={draftStatus}
       lastSaved={lastSaved}
-      onClientClick={() => {
-        if (clientContextId) {
-          onOpenMercuryClientForInvite()
-        }
-      }}
+      onClientClick={clientContextId ? onOpenMercuryClientForInvite : undefined}
       onBusinessClick={clientContextId ? onOpenMercuryClientForInvite : undefined}
       clientApprovalStatus="none"
       onResendApproval={() => toast.info(translate('reminderSent'))}

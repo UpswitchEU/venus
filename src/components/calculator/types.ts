@@ -17,6 +17,7 @@ export interface ReportMetric {
 export interface ValuationReportData {
   id: string
   companyName: string
+  currency?: string
   valuation: number
   valuationLow?: number
   valuationHigh?: number

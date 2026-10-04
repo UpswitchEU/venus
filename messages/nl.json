@@ -1,4 +1,12 @@
 {
+	"navigationSave": {
+		"saving": "Wijzigingen opslaan voordat u vertrekt…",
+		"failed": "Uw laatste wijzigingen konden niet worden opgeslagen.",
+		"busy": "Uw waardering wordt nog bijgewerkt.",
+		"keptOpen": "Uw rapport is nog open. Probeer opnieuw of werk verder aan uw wijzigingen.",
+		"retry": "Opnieuw proberen",
+		"navigationFailed": "Uw wijzigingen zijn opgeslagen, maar de bestemming kon niet worden geopend."
+	},
 	"common": {
 		"cancel": "Annuleren",
 		"optional": "Optioneel",
@@ -684,12 +692,14 @@
 		"defaultFilename": "Rapport",
 		"pdfSuffix": "Schattingsrapport",
 		"placeholder": {
-			"title": "Nog geen waardering",
-			"description": "Controleer de invoer en kies dan Waarde bepalen.",
+			"title": "Je waardering begint bij het bedrijf",
+			"description": "Kies een bedrijf en voeg de financiële cijfers toe. Je waarderingsbandbreedte en onderbouwend rapport verschijnen hier.",
 			"context": "Bedrijfscontext geladen",
 			"financials": "Financieel bewijs vooraf ingevuld",
-			"result": "Waarde en rapport na beoordeling",
-			"time": "De meeste gekoppelde waarderingen duren minder dan 5 minuten"
+			"result": "Bereken de waardering en bekijk de bandbreedte en aannames.",
+			"time": "De meeste gekoppelde waarderingen duren minder dan 5 minuten",
+			"company": "Kies of vul het bedrijf in.",
+			"figures": "Voeg de financiële cijfers toe en controleer de bron."
 		},
 		"workspace": {
 			"input": "Invoer",
@@ -980,6 +990,7 @@
 			"exitWithoutSaving": "Afsluiten zonder opslaan",
 			"saving": "Opslaan...",
 			"saveAndExit": "Opslaan en afsluiten",
+			"saveFailed": "Het opslaan kon niet worden bevestigd. Uw rapport is nog open. Probeer opnieuw op te slaan voordat u vertrekt.",
 			"confirm": "Naar dashboard"
 		},
 		"flowSwitch": {
@@ -1434,7 +1445,21 @@
 			"sourceValues": "Geïmporteerd",
 			"effectiveValues": "Gebruikt",
 			"revenueShort": "Omzet",
-			"ebitdaShort": "EBITDA"
+			"ebitdaShort": "EBITDA",
+			"deficiencies": {
+				"SOURCE_CHART_UNSUPPORTED": "Bezorg het bronrekeningschema met geverifieerde koppelingen vóór de waardering.",
+				"SOURCE_CURRENCY_UNSUPPORTED": "Bezorg bronbewijs van een ondersteunde rapporteringsvaluta.",
+				"SOURCE_CURRENCY_UNPROVEN": "Bevestig de rapporteringsvaluta in de boekhoudbron.",
+				"ACCOUNTING_CLASSIFICATION_UNRESOLVED": "Bezorg rekeningdetails die afschrijvingen, waardeverminderingen en voorzieningen onderscheiden.",
+				"SOURCE_PERIOD_NOT_CLOSED": "Bezorg een bevestiging dat de boekhoudperiode is afgesloten.",
+				"SOURCE_COMPLETENESS_UNPROVEN": "Bezorg een volledige proef- en saldibalans en bevestig dat alle rekeningen zijn opgenomen.",
+				"SOURCE_PERIOD_BOUNDARIES_MISSING": "Bezorg de begin- en einddatum van de financiële bronperiode.",
+				"SOURCE_MIXING_REQUIRES_RECONCILIATION": "Sluit de geselecteerde financiële gegevens aan op hun brondocumenten.",
+				"FORECAST_EVIDENCE_MISSING": "DCF vereist een geverifieerde bedrijfsprognose of kasstroomschema met brondocumenten.",
+				"REVENUE_BASIS_MISMATCH": "Bevestig dat de omzetdefinitie overeenkomt met de benchmarkgroep.",
+				"EQUITY_BRIDGE_INCOMPLETE": "De aandelenwaarde is niet beschikbaar totdat cash, schulden en overdrachtsbalansgegevens zijn geverifieerd.",
+				"CALIBRATION_UNVERIFIED": "Prijsnauwkeurigheid en dekking van de bandbreedte zijn nog niet getoetst aan afgeronde transacties."
+			}
 		},
 		"adjust": "Aanpassen",
 		"normalize": "Normaliseren",
@@ -1536,9 +1561,9 @@
 		"removeForecastDescription": "De prognosejaren en hun ingevulde gegevens worden verwijderd uit uw waardering.",
 		"calculating": "Berekenen...",
 		"calculateEstimate": "Bereken Schatting",
-		"determineValue": "Waarde bepalen",
+		"determineValue": "Waardering berekenen",
 		"updateValue": "Waarde bijwerken",
-		"determiningValue": "Waarde bepalen...",
+		"determiningValue": "Waardering berekenen...",
 		"updatingValue": "Waarde bijwerken...",
 		"liveAccountingImportHint": "Haal historische cijfers op of vernieuw ze vanuit uw gekoppelde {provider}-account.",
 		"silverfin": {
@@ -2214,7 +2239,9 @@
 				"modalDescription": "Premie boven sectorgemiddelde, risico-/discountweging, historische EBITDA-weging en weergave van de Enterprise-to-Equity Bridge in het rapport. Deze keuzes gelden alleen voor deze waardering.",
 				"openModalButton": "Calibratie & weging",
 				"openModalButtonHint": "Risico, premie en bridge",
-				"kebabMenuItem": "Adviseurcontrole"
+				"kebabMenuItem": "Adviseurcontrole",
+				"loadingControls": "Kalibratie en weging laden…",
+				"closeControls": "Kalibratie en weging sluiten"
 			},
 			"terminalGrowthHighWarning": "Eeuwigdurende groei boven het langetermijngroeipad van de economie is zeldzaam; controleurs bekritiseren vaak tarieven boven 3%. Gebruik enkel hoger als je het in het dossier kunt onderbouwen.",
 			"terminalGrowthWaccSpreadWarning": "Eeuwigdurende groei moet lager blijven dan de WACC ({wacc}%) voor DCF met eeuwigdurende groei.",
@@ -2322,17 +2349,19 @@
 		"employeeCountMissing": "Totaal FTE ontbreekt",
 		"employeeCountMissingDesc": "Vul het totaal aantal FTE in, eigenaars meegeteld, om verder te gaan.",
 		"startProposalSkipped": "Startvoorstel niet aangemaakt",
-		"startProposalSkippedDesc": "Vul de cijfers aan en kies dan Waarde bepalen.",
+		"startProposalSkippedDesc": "Vul de cijfers aan en kies dan Waardering berekenen.",
 		"financialDataIncomplete": "Financiële gegevens onvolledig",
 		"financialDataIncompleteDesc": "Vul minstens 1 jaar met omzet én EBITDA in.",
 		"dcfNotReady": "DCF-gegevens onvolledig",
-		"dcfNotReadyDesc": "Voeg een derde afgesloten boekjaar of expliciete FCFF-projecties toe, of kies Upswitch Adaptive voor een marktwaardering zonder DCF.",
+		"dcfNotReadyDesc": "Lever een geverifieerde bedrijfsprognose of kasstroomschema met brondocumenten aan om DCF te gebruiken, of kies een andere geschikte waarderingsmethode.",
 		"calculationFailed": "Berekening mislukt",
 		"calculationFailedNoResult": "Geen resultaat ontvangen.",
 		"serviceUnavailable": "De waarderingsservice is tijdelijk niet beschikbaar. Probeer het over een ogenblik opnieuw.",
 		"accountingReconnectRequired": "Koppel het boekhoudpakket opnieuw voordat u opnieuw berekent.",
 		"insufficientCreditsDesc": "Er zijn niet genoeg kredieten meer om deze waardering uit te voeren.",
 		"calculationFailedReview": "De waardering kon niet worden voltooid. Controleer uw invoer en probeer het opnieuw.",
+		"sourcePolicyReportMismatch": "Rapportcontrole mislukt",
+		"sourcePolicyReportMismatchDesc": "Sommige rapportcijfers wijken af van de berekening. Bereken opnieuw met geverifieerde financiële gegevens voordat u opslaat. Neem contact op met support als dit blijft gebeuren.",
 		"taxLatencyReviewRequired": "Controleer de belastinglatentie",
 		"taxLatencyReviewRequiredDesc": "Een opgeslagen belastinglatentie is onvolledig of bevat tegenstrijdige waarden. Controleer de regel voordat u opnieuw berekent.",
 		"review": "Controleren",
@@ -2400,6 +2429,10 @@
 		"normalizationsSaved": "Normalisaties opgeslagen",
 		"versionRestored": "Versie {version} hersteld",
 		"versionRestoreFailed": "Versie herstellen mislukt",
+		"versionRestoreInProgress": "Er wordt al een versie hersteld. Wacht tot dit klaar is voordat je een andere versie kiest.",
+		"versionRestoreEditsKept": "Je nieuwere invoer en correcties zijn behouden. Bereken opnieuw om het rapport met die wijzigingen bij te werken.",
+		"versionRestoreEditsSaveFailed": "De versie is hersteld, maar je nieuwere wijzigingen konden niet worden opgeslagen. Houd dit rapport open en probeer opnieuw op te slaan.",
+		"versionRestoreRetrySave": "Opnieuw opslaan",
 		"importStarted": "{source} import gestart",
 		"importStartedDesc": "Normalisaties worden geanalyseerd...",
 		"importAnalyzed": "Ik heb {source} geanalyseerd en {count} potentiële normalisaties gevonden.",
@@ -2408,7 +2441,7 @@
 		"normNormalized": "{label} genormaliseerd naar €{value}",
 		"readyForRecalculation": "Klaar voor herberekening",
 		"unnamed": "Onbenoemd",
-		"newEstimation": "Nieuwe Schatting",
+		"newEstimation": "Nieuwe waardering",
 		"company": "Bedrijf",
 		"reportPreview": "Rapport Voorbeeld",
 		"reportPreviewDesc": "De volledige rapport sjabloon wordt hier getoond.",
@@ -2443,18 +2476,21 @@
 		"swap": "Versies wisselen",
 		"version": "Versie",
 		"changes": "Wijzigingen",
-		"valuation": "Indicatieve bedrijfsschatting",
+		"valuation": "Indicatieve waardering",
 		"ebitda": "EBITDA",
 		"multiple": "Multiple",
 		"title": "Versie Vergelijking",
 		"current": "HUIDIG",
 		"comparisonDetails": "Gedetailleerde Wijzigingen",
-		"older": "Vorige",
-		"newer": "Nieuw",
+		"older": "Oudere versie",
+		"newer": "Nieuwere versie",
 		"enterpriseValue": "Ondernemingswaarde",
-		"bandwidth": "Bandbreedte",
+		"bandwidth": "Waarderingsbandbreedte",
 		"close": "Sluiten",
-		"restoreTo": "Herstel naar v{version}"
+		"restoreTo": "Herstel naar v{version}",
+		"metric": "Maatstaf",
+		"unavailable": "Niet beschikbaar",
+		"description": "Vergelijk versie {from} met versie {to}. Wijzigingen worden gemeten van de eerste versie naar de tweede."
 	},
 	"historyPanel": {
 		"startProposalVersionLabel": "v1 · Startvoorstel",
@@ -2481,7 +2517,7 @@
 		"invalidDate": "Ongeldige datum",
 		"loadMore": "Meer laden ({displayed} van {total})",
 		"valuationFlow": "Indicatieve bedrijfsschattingsverloop",
-		"indicativeEV": "Indicatieve Ondernemingswaarde (EV)",
+		"indicativeValuation": "Indicatieve waardering",
 		"current": "HUIDIG",
 		"bandwidth": "Bandbreedte",
 		"normalizedEbitda": "Genormaliseerde EBITDA",
@@ -3692,6 +3728,7 @@
 		"methodologyDesc": "Deze indicatieve bedrijfsschatting is gebaseerd op vergelijkbare transactieanalyse met sectorspecifieke EBITDA-multiples (Damodaran). Het bereik houdt rekening met huidige marktomstandigheden, bedrijfsspecifieke risicofactoren en groeitraject.",
 		"disclaimer": "Disclaimer: Dit document betreft een indicatieve bedrijfsschatting en vormt geen formele waardering conform internationale standaarden. Voor formele transacties dient een gecertificeerde waardering door een erkend expert te worden uitgevoerd.",
 		"waterfall": {
+			"unavailable": "De waardebrug is nog niet beschikbaar. Vul de invoer aan en controleer die voordat deze grafiek wordt getoond.",
 			"title": "Ondernemingswaarde → aandelenwaarde",
 			"subtitle": "Kas, schuld en werkkapitaal gebruiken dezelfde balansinputs als uw import of handmatige invoer.",
 			"ariaLabel": "Watervalgrafiek van ondernemingswaarde naar aandelenwaarde"

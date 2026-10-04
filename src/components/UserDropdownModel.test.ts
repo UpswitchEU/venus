@@ -17,6 +17,19 @@ const user: User = {
 }
 
 describe('UserDropdownModel', () => {
+  it.each([
+    '',
+    '/en',
+    '/nl',
+    '/fr',
+  ])('recognizes report routes and excludes new reports in %s', (prefix) => {
+    expect(isReportPathname(`${prefix}/reports/report-123`)).toBe(true)
+    expect(isReportPathname(`${prefix}/reports/new`)).toBe(false)
+    expect(isReportPathname(`${prefix}/reports/new/`)).toBe(false)
+    expect(isReportPathname(`${prefix}/reports/new?source=mercury`)).toBe(false)
+    expect(isReportPathname(`${prefix}/reports/`)).toBe(false)
+    expect(isReportPathname(`${prefix}/home`)).toBe(false)
+  })
   it('derives stable accountant initials from names', () => {
     expect(getUserInitials(user)).toBe('AL')
     expect(getUserInitials({ ...user, name: 'Ada' })).toBe('AD')
