@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
 import resolveConfig from 'tailwindcss/resolveConfig'
+import { describe, expect, it } from 'vitest'
 import tailwindConfig from '../../tailwind.config'
 
 type RGB = [number, number, number]
 const css = readFileSync('src/styles/design-tokens/colors.css', 'utf8')
 const colors = resolveConfig(tailwindConfig).theme.colors as Record<string, any>
 function hsl(value: string): RGB {
-  const [h, s, l] = value.match(/[\d.]+/g)!.map(Number)
+  const channels = value.match(/[\d.]+/g)
+  if (!channels || channels.length !== 3) throw new Error(`Invalid HSL token: ${value}`)
+  const [h, s, l] = channels.map(Number)
   const a = (s / 100) * Math.min(l / 100, 1 - l / 100)
   return [0, 8, 4].map((n) => {
     const k = (n + h / 30) % 12
@@ -16,11 +18,13 @@ function hsl(value: string): RGB {
 }
 function parse(value: string, scope: string): RGB {
   const token = value.match(/var\((--[\w-]+)\)/)?.[1]
-  if (token) return hsl(scope.match(new RegExp(`${token}: ([^;]+);`))![1])
-  return value
-    .slice(1)
-    .match(/../g)!
-    .map((v) => parseInt(v, 16) / 255) as RGB
+  if (token) {
+    const resolved = scope.match(new RegExp(`${token}: ([^;]+);`))?.[1]
+    if (!resolved) throw new Error(`Missing color token: ${token}`)
+    return hsl(resolved)
+  }
+  if (!/^#[a-f0-9]{6}$/i.test(value)) throw new Error(`Invalid hex token: ${value}`)
+  return [1, 3, 5].map((index) => parseInt(value.slice(index, index + 2), 16) / 255) as RGB
 }
 function luminance(rgb: RGB) {
   return rgb.reduce(

@@ -1,4 +1,6 @@
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
+import { FinancialDecimal as Decimal } from '../../../utils/financialDecimal'
+import { normalizeImportedLedgerReviewStatuses } from '../../../utils/importedLedgerNormalization'
 import { getNormalizationAmountForBase } from '../../../utils/normalizationMath'
 import { getAnnualFictiveRentDeductionForDisplay } from '../../../utils/realEstateCarveOutDisplay'
 import { isCompleteYearlyFinancial } from '../../../utils/yearlyFinancials'
@@ -31,7 +33,17 @@ export function buildManualInputNormalizedData({
   normalizationItems,
   yearlyFinancials,
 }: BuildManualInputNormalizedDataParams): ManualInputNormalizedData {
-  const acceptedItems = normalizationItems.filter((n) => n.status === 'accepted')
+  const reportedByYear = Object.fromEntries(
+    yearlyFinancials.flatMap((year) =>
+      typeof year.ebitda === 'number' && Number.isFinite(year.ebitda)
+        ? [[Number(year.year), year.ebitda]]
+        : []
+    )
+  )
+  const acceptedItems = normalizeImportedLedgerReviewStatuses(
+    normalizationItems,
+    reportedByYear
+  ).filter((n) => n.status === 'accepted')
   const annualFictiveRentDeduction = getAnnualFictiveRentDeductionForDisplay(
     excludeRealEstate,
     estimatedMarketRent
@@ -46,12 +58,14 @@ export function buildManualInputNormalizedData({
     })
     const rawEbitda = Number(yf.ebitda)
     const yearEbitda = Number.isFinite(rawEbitda) ? rawEbitda : 0
-    const totalAdjustment = yearNorms.reduce(
-      (sum, n) => sum + getNormalizationAmountForBase(n, yearEbitda),
-      0
-    )
+    const totalAdjustment = yearNorms
+      .reduce((sum, n) => sum.plus(getNormalizationAmountForBase(n, yearEbitda)), new Decimal(0))
+      .toNumber()
     const safeTotalAdj = Number.isFinite(totalAdjustment) ? totalAdjustment : 0
-    const normalizedEbitda = yearEbitda + safeTotalAdj - annualFictiveRentDeduction
+    const normalizedEbitda = new Decimal(yearEbitda)
+      .plus(safeTotalAdj)
+      .minus(annualFictiveRentDeduction)
+      .toNumber()
     return {
       ...yf,
       normalizedEbitda,
@@ -67,18 +81,18 @@ export function buildManualInputNormalizedData({
     )
     .sort((a, b) => Number(a.year) - Number(b.year))
   const completeHistoricalYears = validYears.filter((y) => isCompleteYearlyFinancial(y))
-  let weightedSum = 0
+  let weightedSum = new Decimal(0)
   let totalWeight = 0
   completeHistoricalYears.forEach((y, index) => {
     const weight = index + 1
     const norm = Number.isFinite(y.normalizedEbitda) ? y.normalizedEbitda : 0
-    weightedSum += norm * weight
+    weightedSum = weightedSum.plus(new Decimal(norm).mul(weight))
     totalWeight += weight
   })
 
   return {
     years,
-    averageNormalizedEbitda: totalWeight > 0 ? weightedSum / totalWeight : 0,
+    averageNormalizedEbitda: totalWeight > 0 ? weightedSum.div(totalWeight).toNumber() : 0,
     totalYearsWithData: completeHistoricalYears.length,
     annualFictiveRentDeduction,
   }

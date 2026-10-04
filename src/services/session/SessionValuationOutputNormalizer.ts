@@ -1,6 +1,7 @@
 import { coalesceFiniteNumber } from '../../lib/omniPreview'
 import type { PresentationContract, ValuationResponse } from '../../types/valuation'
 import { hydrateClientValuationResultsMap } from '../../utils/extractValuationResultsMap'
+import { parseFinancialTransportNumber } from '../../utils/financialTransport'
 import { normalizeValuationResultEnvelope } from '../../utils/resolveAcademicValidationIssues'
 import { getFirstRenderableReportHtml } from '../../utils/safetyNetReportHtml'
 
@@ -19,19 +20,7 @@ function optionalString(value: unknown): string | undefined {
 }
 
 function finiteNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : null
-}
-
-function positiveFiniteNumber(value: unknown): number | null {
-  const numeric = finiteNumber(value)
-  return numeric != null && numeric > 0 ? numeric : null
-}
-
-function midpointFromPositiveRange(min: number | null, max: number | null): number | null {
-  if (min == null || max == null || min <= 0 || max <= 0) return null
-  return Math.round((min + max) / 2)
+  return parseFinancialTransportNumber(value) ?? null
 }
 
 export interface PricingRange {
@@ -46,14 +35,24 @@ function toPricingRange(value: unknown): PricingRange | null {
   if (!record) return null
   const min = finiteNumber(record.min)
   const max = finiteNumber(record.max)
-  const rawMid = finiteNumber(record.mid)
-  const mid = positiveFiniteNumber(rawMid) ?? midpointFromPositiveRange(min, max) ?? rawMid
+  const mid = finiteNumber(record.mid)
+  const currency = optionalString(record.currency)
+  if (
+    min == null ||
+    mid == null ||
+    max == null ||
+    min > mid ||
+    mid > max ||
+    !currency ||
+    !/^[A-Z]{3}$/.test(currency)
+  )
+    return null
 
   return {
-    min: min ?? 0,
-    mid: mid ?? 0,
-    max: max ?? 0,
-    currency: optionalString(record.currency) ?? 'EUR',
+    min,
+    mid,
+    max,
+    currency,
   }
 }
 
@@ -245,19 +244,10 @@ export function extractPricingRange(
       finiteNumber(valuationResult.equity_value_low) ?? finiteNumber(valuationRecord.valuation_min)
     const max =
       finiteNumber(valuationResult.equity_value_high) ?? finiteNumber(valuationRecord.valuation_max)
-    const rawMid =
+    const mid =
       finiteNumber(valuationResult.equity_value_mid) ??
       finiteNumber(valuationRecord.valuation_midpoint)
-    const mid = positiveFiniteNumber(rawMid) ?? midpointFromPositiveRange(min, max) ?? rawMid
-
-    if (min != null || mid != null || max != null) {
-      return {
-        min: min ?? 0,
-        mid: mid ?? 0,
-        max: max ?? 0,
-        currency: optionalString(valuationRecord.currency) ?? 'EUR',
-      }
-    }
+    return toPricingRange({ min, mid, max, currency: valuationRecord.currency })
   }
 
   return null

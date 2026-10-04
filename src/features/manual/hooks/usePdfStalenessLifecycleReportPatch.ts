@@ -21,6 +21,7 @@ export type PdfStaleReportPatch = Pick<
   | 'renderFingerprint'
   | 'pdfRenderFingerprint'
   | 'pdfCoherent'
+  | 'valueBasis'
   | 'valuation'
   | 'valuationLow'
   | 'valuationHigh'
@@ -75,13 +76,16 @@ export function reportPatchFromFreshResponse(
       typeof fresh.pdf_render_fingerprint === 'string' ? fresh.pdf_render_fingerprint : null,
     pdfCoherent: typeof fresh.pdf_coherent === 'boolean' ? fresh.pdf_coherent : null,
     valuation: presentation.valuation,
+    valueBasis: presentation.valueBasis,
     valuationLow: presentation.valuationLow,
     valuationHigh: presentation.valuationHigh,
-    ...(shouldAlignRecommendedAskingWithSynthesis(fresh, {
-      preSelectedMethods: presentationState.preSelectedMethods,
-      userWeights: presentationState.userWeights,
-    })
-      ? { recommendedAskingPrice: presentation.valuation }
-      : {}),
+    ...(presentation.valuation == null || presentation.valueBasis === 'enterprise_value'
+      ? { recommendedAskingPrice: undefined }
+      : shouldAlignRecommendedAskingWithSynthesis(fresh, {
+            preSelectedMethods: presentationState.preSelectedMethods,
+            userWeights: presentationState.userWeights,
+          })
+        ? { recommendedAskingPrice: presentation.valuation }
+        : {}),
   }
 }

@@ -22,6 +22,66 @@ function report(fields: Record<string, unknown>) {
 
 describe('report financial integrity audit', () => {
   it.each([
+    0, -20,
+  ])('retains observed equity %s without pricing an unrelated range midpoint', (value) => {
+    const saved = response({
+      valuation_results: {
+        ebitda_multiple: {
+          available: true,
+          value,
+          value_basis: 'equity_value',
+          value_low: 100,
+          value_high: 200,
+        },
+      },
+    })
+    const presentation = deriveManualReportPresentation(saved, 'ebitda_multiple')
+    expect(presentation.valuation).toBe(value)
+    expect(presentation.valuationLow).toBeUndefined()
+    expect(presentation.valuationHigh).toBeUndefined()
+    expect(deriveNavPricesForVersionNav(saved, 'ebitda_multiple')?.askPrice).toBeUndefined()
+  })
+
+  it('retains the enterprise basis of a legacy saved value without an equity bridge', () => {
+    const saved = response(
+      JSON.parse(
+        JSON.stringify({
+          report_context: { enterprise_value_mid: '150.08', applied_multiple: '1.5' },
+        })
+      )
+    )
+    expect(deriveManualReportPresentation(saved, 'omzet_multiple')).toMatchObject({
+      valuation: 150.08,
+      valueBasis: 'enterprise_value',
+    })
+    expect(deriveNavPricesForVersionNav(saved, 'omzet_multiple')).toBeNull()
+  })
+
+  it('uses an enterprise method band without inheriting a conflicting equity band', () => {
+    const saved = response({
+      equity_value_low: 900,
+      equity_value_high: 1100,
+      valuation_results: {
+        omzet_multiple: {
+          available: true,
+          value: 150.08,
+          value_basis: 'enterprise_value',
+          value_low: '0',
+          value_high: '190.10',
+          equity_value_low: null,
+          equity_value_high: null,
+        },
+      },
+    })
+    expect(deriveManualReportPresentation(saved, 'omzet_multiple')).toMatchObject({
+      valuation: 150.08,
+      valuationLow: 0,
+      valuationHigh: 190.1,
+      valueBasis: 'enterprise_value',
+    })
+  })
+
+  it.each([
     true,
     false,
     '',
@@ -37,7 +97,7 @@ describe('report financial integrity audit', () => {
       }),
       'ebitda_multiple'
     )
-    expect(presentation.valuation).toBe(300_000)
+    expect(presentation.valuation).toBeNull()
   })
 
   it('requires a true availability flag before selecting a method', () => {
@@ -50,7 +110,7 @@ describe('report financial integrity audit', () => {
       }),
       'ebitda_multiple'
     )
-    expect(presentation.valuation).toBe(300_000)
+    expect(presentation.valuation).toBeNull()
   })
 
   it('retains an explicit zero method conclusion rather than pricing the range midpoint', () => {
@@ -100,8 +160,10 @@ describe('report financial integrity audit', () => {
       recommended_asking_price: true,
       valuation_results: { ebitda_multiple: { available: true, value: 500_000 } },
     }
-    expect(report(fields).recommendedAskingPrice).toBe(500_000)
-    expect(deriveNavPricesForVersionNav(response(fields), 'ebitda_multiple').askPrice).toBe(500_000)
+    expect(report(fields).recommendedAskingPrice).toBeUndefined()
+    expect(
+      deriveNavPricesForVersionNav(response(fields), 'ebitda_multiple')?.askPrice
+    ).toBeUndefined()
   })
 
   it('uses the selected method band rather than the overall adaptive range', () => {
@@ -263,4 +325,50 @@ describe('report financial integrity audit', () => {
     expect(mapped.metrics?.[1].value).toBe('—')
     expect(mapped.normalizedEbitda).toBeUndefined()
   })
+})
+
+describe('unavailable monetary facts', () => {
+  it('does not fabricate earnings, a multiple, a currency, confidence or a point valuation', () => {
+    const mapped = report({})
+    expect(mapped.valuation).toBeNull()
+    expect(mapped.ebitda).toBeNull()
+    expect(mapped.multiple).toBeNull()
+    expect(mapped.currency).toBeNull()
+    expect(mapped.confidenceLevel).toBeUndefined()
+    expect(mapped.recommendedAskingPrice).toBeUndefined()
+    expect(deriveNavPricesForVersionNav(response({}))).toBeNull()
+  })
+  it('does not estimate a point from a range whose point is unavailable', () => {
+    expect(
+      deriveManualReportPresentation(response({ equity_value_low: 100, equity_value_high: 300 }))
+        .valuation
+    ).toBeNull()
+  })
+  it.each([
+    0, -100.25,
+  ])('preserves reported EBITDA %s without filling missing normalized evidence', (ebitda) => {
+    expect(report({ current_year_data: { ebitda } }).ebitda).toBe(ebitda)
+  })
+})
+
+it('never proposes a shareholder asking price from an enterprise-only valuation', () => {
+  const result = response({
+    currency: 'GBP',
+    valuation_results: {
+      ebitda_multiple: {
+        available: true,
+        value: 100,
+        value_basis: 'enterprise_value',
+        enterprise_value: 100,
+        value_low: 90,
+        value_high: 110,
+        equity_value: null,
+      },
+    },
+  })
+  const mapped = report(result as unknown as Record<string, unknown>)
+  expect(mapped.valuation).toBe(100)
+  expect(mapped.valueBasis).toBe('enterprise_value')
+  expect(mapped.recommendedAskingPrice).toBeUndefined()
+  expect(deriveNavPricesForVersionNav(result, 'ebitda_multiple')).toBeNull()
 })

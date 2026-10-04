@@ -5,8 +5,8 @@ import type { ValuationReportData } from '@/components/calculator'
 import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
 import type { ValuationResponse } from '@/types/valuation'
 import {
+  deriveNavPricesForVersionNav,
   resolveSynthesisAwarePresentation,
-  shouldAlignRecommendedAskingWithSynthesis,
 } from '../components/manualReportPresentation'
 
 export interface UseSynthesisReportHeadlineSyncParams {
@@ -17,7 +17,7 @@ export interface UseSynthesisReportHeadlineSyncParams {
 }
 
 /**
- * Keeps `report.valuation` / range aligned with live Waarderingssynthese weights
+ * Keeps `report.valuation`, range and asking price aligned with the saved engine result
  * without re-running the full result→report bridge (PDF gen, panel flip, etc.).
  */
 export function useSynthesisReportHeadlineSync({
@@ -37,28 +37,14 @@ export function useSynthesisReportHeadlineSync({
     const nextValuation = presentation.valuation
     const nextLow = presentation.valuationLow
     const nextHigh = presentation.valuationHigh
-    const alignAsk = shouldAlignRecommendedAskingWithSynthesis(result, {
-      preSelectedMethods,
-      userWeights,
-    })
-    const hasPositiveNextValuation = Number.isFinite(nextValuation) && nextValuation > 0
-    const reportAsk =
-      report.recommendedAskingPrice == null ? null : Number(report.recommendedAskingPrice)
-    const reportAskIsBroken =
-      report.recommendedAskingPrice != null &&
-      (!Number.isFinite(reportAsk) || (reportAsk != null && reportAsk <= 0))
-    const shouldWriteAsk = alignAsk || (reportAskIsBroken && hasPositiveNextValuation)
-    const nextAsk = shouldWriteAsk
-      ? hasPositiveNextValuation
-        ? nextValuation
-        : undefined
-      : report.recommendedAskingPrice
+    const nextAsk = deriveNavPricesForVersionNav(result, selectedMethod)?.askPrice
 
     if (
       report.valuation === nextValuation &&
+      (report.valueBasis ?? null) === (presentation.valueBasis ?? null) &&
       report.valuationLow === nextLow &&
       report.valuationHigh === nextHigh &&
-      (!shouldWriteAsk || report.recommendedAskingPrice === nextAsk)
+      report.recommendedAskingPrice === nextAsk
     ) {
       return
     }
@@ -68,9 +54,10 @@ export function useSynthesisReportHeadlineSync({
         ? {
             ...prev,
             valuation: nextValuation,
+            valueBasis: presentation.valueBasis,
             valuationLow: nextLow,
             valuationHigh: nextHigh,
-            ...(shouldWriteAsk ? { recommendedAskingPrice: nextAsk } : {}),
+            recommendedAskingPrice: nextAsk,
           }
         : prev
     )

@@ -42,6 +42,7 @@ import {
 } from './HistoryPanelModel'
 import { ValuationSummaryCard, VisualTimeline } from './HistoryPanelSections'
 import { type HistoryVersion, VersionCompareModal } from './VersionCompareModal'
+import { financialVersionsComparable } from './VersionCompareModel'
 
 // Re-export types
 export type { HistoryVersion }
@@ -155,8 +156,10 @@ export function HistoryPanel({
     }
   }, [selectedForCompare, historyVersions])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Selection and pending UI belong to one report.
+  const selectionReportRef = useRef<string | null | undefined>(null)
   useEffect(() => {
+    if (selectionReportRef.current === reportId) return
+    selectionReportRef.current = reportId
     restoreAttempt.current = null
     didAutoExpand.current = false
     setRestoringVersion(null)
@@ -339,7 +342,9 @@ export function HistoryPanel({
             const detailsId = `${panelId}-${version.id}-details`
             const prevVersion = historyVersions[index + 1]
             const valuationDiff =
-              version.valuation && prevVersion?.valuation
+              financialVersionsComparable(version, prevVersion) &&
+              version.valuation != null &&
+              prevVersion?.valuation != null
                 ? version.valuation - prevVersion.valuation
                 : 0
             const isSelectedForCompare = selectedForCompare.has(version.id)
@@ -431,10 +436,10 @@ export function HistoryPanel({
 
                   {/* Right side - Valuation + Expand */}
                   <div className="col-start-2 sm:col-start-auto flex items-center justify-between sm:justify-start gap-3">
-                    {version.valuation && (
+                    {version.valuation != null && (
                       <div className="text-left sm:text-right">
                         <p className="text-sm font-semibold text-foreground/90 font-mono tabular-nums">
-                          {formatHistoryCurrency(version.valuation, locale)}
+                          {formatHistoryCurrency(version.valuation, locale, version.currency)}
                         </p>
                         {/* Deltas: Success (green) for positive, Secondary (clay) for negative */}
                         {valuationDiff !== 0 && (
@@ -445,7 +450,7 @@ export function HistoryPanel({
                             )}
                           >
                             {valuationDiff > 0 ? '+' : ''}
-                            {formatHistoryCurrency(valuationDiff, locale)}
+                            {formatHistoryCurrency(valuationDiff, locale, version.currency)}
                           </p>
                         )}
                       </div>
@@ -520,7 +525,11 @@ export function HistoryPanel({
                                       )}
                                     >
                                       {change.impact > 0 ? '+' : ''}
-                                      {formatHistoryCurrency(change.impact, locale)}
+                                      {formatHistoryCurrency(
+                                        change.impact,
+                                        locale,
+                                        version.currency
+                                      )}
                                     </span>
                                   )}
                                 </div>

@@ -55,6 +55,8 @@ const STORAGE_KEY = 'venus_new_valuation_prefill'
 
 /** Soft cap mirroring the original manual workspace guard against huge payloads. */
 const MAX_PAYLOAD_BYTES = 500_000
+const forbiddenRecoveryKey =
+  /(?:token|password|secret|credential|cookie|html|valuation.?result|session.?data|partial.?data|__proto__|constructor|prototype)/i
 
 /**
  * Identity fields stripped from any restored payload as a defensive net.
@@ -241,8 +243,10 @@ export function writeNewValuationPrefill(
 
   let json: string
   try {
-    json = JSON.stringify(payload, (_, value) =>
-      typeof value === 'function' || typeof value === 'symbol' ? undefined : value
+    json = JSON.stringify(payload, (key, value) =>
+      forbiddenRecoveryKey.test(key) || typeof value === 'function' || typeof value === 'symbol'
+        ? undefined
+        : value
     )
   } catch {
     return false
@@ -306,11 +310,14 @@ export function readNewValuationPrefill(
 
   let parsed: unknown
   try {
-    parsed = JSON.parse(raw)
+    if (new TextEncoder().encode(raw).length >= MAX_PAYLOAD_BYTES) return null
+    parsed = JSON.parse(raw, (key, value: unknown) =>
+      forbiddenRecoveryKey.test(key) ? undefined : value
+    )
   } catch {
     return null
   }
-  if (!parsed || typeof parsed !== 'object') return null
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
   const envelope = parsed as StoredPrefillEnvelope
   if (envelope._fromNewValuation !== true) return null
 

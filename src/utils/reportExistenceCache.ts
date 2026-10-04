@@ -8,6 +8,7 @@
  */
 
 import { createContextLogger } from './logger'
+import { reportAccessScope } from './reportAccessScope'
 
 const existenceLogger = createContextLogger('ReportExistenceCache')
 
@@ -24,7 +25,7 @@ interface ExistenceCacheEntry {
  * Get cache key for report existence
  */
 function getCacheKey(reportId: string): string {
-  return `${EXISTENCE_PREFIX}${reportId}`
+  return `${EXISTENCE_PREFIX}${reportAccessScope()}:${reportId}`
 }
 
 /**
@@ -34,10 +35,11 @@ function getCacheKey(reportId: string): string {
  */
 export function markReportExists(reportId: string): void {
   try {
+    const cachedAt = Date.now()
     const entry: ExistenceCacheEntry = {
       exists: true,
-      cachedAt: Date.now(),
-      expiresAt: Date.now() + EXISTENCE_TTL_MS,
+      cachedAt,
+      expiresAt: cachedAt + EXISTENCE_TTL_MS,
     }
 
     sessionStorage.setItem(getCacheKey(reportId), JSON.stringify(entry))
@@ -59,10 +61,11 @@ export function markReportExists(reportId: string): void {
  */
 export function markReportNotExists(reportId: string): void {
   try {
+    const cachedAt = Date.now()
     const entry: ExistenceCacheEntry = {
       exists: false,
-      cachedAt: Date.now(),
-      expiresAt: Date.now() + EXISTENCE_TTL_MS,
+      cachedAt,
+      expiresAt: cachedAt + EXISTENCE_TTL_MS,
     }
 
     sessionStorage.setItem(getCacheKey(reportId), JSON.stringify(entry))
@@ -95,7 +98,16 @@ export function checkReportExists(reportId: string): boolean | null {
     const entry: ExistenceCacheEntry = JSON.parse(cached)
 
     // Check expiry
-    if (Date.now() > entry.expiresAt) {
+    if (
+      !entry ||
+      typeof entry.exists !== 'boolean' ||
+      !Number.isFinite(entry.cachedAt) ||
+      !Number.isFinite(entry.expiresAt) ||
+      entry.cachedAt > Date.now() ||
+      entry.expiresAt <= Date.now() ||
+      entry.expiresAt <= entry.cachedAt ||
+      entry.expiresAt - entry.cachedAt > EXISTENCE_TTL_MS
+    ) {
       sessionStorage.removeItem(key)
       existenceLogger.debug('Existence cache expired', { reportId })
       return null // Expired
@@ -177,7 +189,16 @@ export function cleanExpiredExistenceCaches(): void {
 
         const entry: ExistenceCacheEntry = JSON.parse(cached)
 
-        if (Date.now() > entry.expiresAt) {
+        if (
+          !entry ||
+          typeof entry.exists !== 'boolean' ||
+          !Number.isFinite(entry.cachedAt) ||
+          !Number.isFinite(entry.expiresAt) ||
+          entry.cachedAt > Date.now() ||
+          entry.expiresAt <= Date.now() ||
+          entry.expiresAt <= entry.cachedAt ||
+          entry.expiresAt - entry.cachedAt > EXISTENCE_TTL_MS
+        ) {
           sessionStorage.removeItem(key)
           cleanedCount++
         }

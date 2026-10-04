@@ -20,3 +20,15 @@ export function formatComparisonRange(
   if (!validMetric(low) || !validMetric(high) || low > high) return undefined
   return `${format(low)} – ${format(high)}`
 }
+export function financialVersionsComparable(
+  a: { currency?: string | null; valueBasis?: string | null } | undefined,
+  b: { currency?: string | null; valueBasis?: string | null } | undefined
+): boolean {
+  return (
+    !!a?.currency &&
+    /^[A-Z]{3}$/.test(a.currency) &&
+    a.currency === b?.currency &&
+    !!a.valueBasis &&
+    a.valueBasis === b?.valueBasis
+  )
+}

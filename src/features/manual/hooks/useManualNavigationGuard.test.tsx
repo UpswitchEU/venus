@@ -81,7 +81,9 @@ describe('navigation save guard', () => {
       expect.objectContaining({ duration: Infinity })
     )
     await act(async () => {
-      env.error.mock.lastCall![1].action.onClick()
+      const notice = env.error.mock.lastCall
+      if (!notice) throw new Error('Expected a save-failure retry notice')
+      notice[1].action.onClick()
     })
     expect(destination).toHaveBeenCalledOnce()
   })
@@ -140,7 +142,9 @@ describe('navigation save guard', () => {
     })
     env.state = { ...env.state, engineRevision: 2 }
     await act(async () => {
-      env.error.mock.lastCall![1].action.onClick()
+      const notice = env.error.mock.lastCall
+      if (!notice) throw new Error('Expected a save-failure retry notice')
+      notice[1].action.onClick()
     })
     expect(env.save).toHaveBeenCalledOnce()
     expect(destination).not.toHaveBeenCalled()

@@ -136,7 +136,10 @@ export function DcfForecastWorkspace({
     derivedProjectionPreview,
   ])
 
-  const fmt = useCallback((value: number) => currency.format(value), [currency])
+  const fmt = useCallback(
+    (value: number | null) => (value == null ? '—' : currency.format(value)),
+    [currency]
+  )
 
   const fmtPct = useCallback((value: number | null | undefined) => {
     if (value == null || !Number.isFinite(value)) return '—'
@@ -155,12 +158,17 @@ export function DcfForecastWorkspace({
     return projectionRows.map((row, i) => {
       const prevRev = i === 0 ? (latestHistoricalRevenue ?? 0) : projectionRows[i - 1].revenue
       const yoyPct =
-        prevRev !== 0 && Number.isFinite(prevRev) ? ((row.revenue - prevRev) / prevRev) * 100 : null
+        prevRev != null && prevRev !== 0 && row.revenue != null && Number.isFinite(prevRev)
+          ? ((row.revenue - prevRev) / prevRev) * 100
+          : null
       const revDenom = Number.isFinite(row.revenue) && row.revenue !== 0 ? row.revenue : null
-      const marginPct = revDenom != null ? (row.ebitda / revDenom) * 100 : 0
-      const capexPctOfRev = revDenom != null ? (row.capex / revDenom) * 100 : 0
-      const daPctOfRev = revDenom != null ? (row.da / revDenom) * 100 : 0
-      const nwcPctOfRev = revDenom != null ? (row.nwcChange / revDenom) * 100 : 0
+      const marginPct =
+        revDenom != null && row.ebitda != null ? (row.ebitda / revDenom) * 100 : null
+      const capexPctOfRev =
+        revDenom != null && row.capex != null ? (row.capex / revDenom) * 100 : null
+      const daPctOfRev = revDenom != null && row.da != null ? (row.da / revDenom) * 100 : null
+      const nwcPctOfRev =
+        revDenom != null && row.nwcChange != null ? (row.nwcChange / revDenom) * 100 : null
       return { yoyPct, marginPct, capexPctOfRev, daPctOfRev, nwcPctOfRev }
     })
   }, [projectionRows, latestHistoricalRevenue])

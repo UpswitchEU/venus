@@ -17,13 +17,14 @@ export interface ReportMetric {
 export interface ValuationReportData {
   id: string
   companyName: string
-  currency?: string
-  valuation: number
+  currency?: string | null
+  valueBasis?: 'enterprise_value' | 'equity_value' | null
+  valuation: number | null
   valuationLow?: number
   valuationHigh?: number
-  ebitda: number
+  ebitda: number | null
   normalizedEbitda?: number
-  multiple: number
+  multiple: number | null
   multipleRange?: { low: number; high: number }
   generatedAt: Date
   confidenceLevel?: 'high' | 'medium' | 'low'
@@ -32,7 +33,7 @@ export interface ValuationReportData {
   /** Full HTML report from ValuationIQ - single source of truth for report content */
   htmlReport?: string
   /** Recommended asking price */
-  recommendedAskingPrice?: number
+  recommendedAskingPrice?: number | null
   /** Titan `updated_at` on the report row — compared to PDF generation time */
   reportUpdatedAt?: Date
   pdfGeneratedAt?: Date | null

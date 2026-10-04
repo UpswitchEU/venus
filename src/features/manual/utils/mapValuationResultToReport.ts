@@ -120,9 +120,9 @@ export function mapValuationResultToReport(
   const currency =
     typeof r.currency === 'string' && /^[A-Z]{3}$/.test(r.currency.trim().toUpperCase())
       ? r.currency.trim().toUpperCase()
-      : 'EUR'
+      : null
   const revenueLabel =
-    revenue != null
+    revenue != null && currency != null
       ? new Intl.NumberFormat('en-BE', {
           style: 'currency',
           currency,
@@ -135,17 +135,17 @@ export function mapValuationResultToReport(
   const p75 = parseFinancialTransportNumber(r.multiples_valuation?.p75_ebitda_multiple)
   const rawConfidence = r.overall_confidence ?? r.details?.overall_confidence
   const confidence =
-    typeof rawConfidence === 'string'
+    typeof rawConfidence === 'string' &&
+    ['high', 'medium', 'low'].includes(rawConfidence.toLowerCase())
       ? (rawConfidence.toLowerCase() as 'high' | 'medium' | 'low')
       : undefined
 
   const askingRaw = r.recommended_asking_price ?? r.details?.recommended_asking_price
   const parsedAsking = parseFinancialTransportNumber(askingRaw)
-  const askingPrice = parsedAsking != null && parsedAsking > 0 ? parsedAsking : undefined
-  const hasSynthesisHeadline = resultHasWeightedSynthesisSignal(r as Record<string, unknown>)
-  const recommendedAskingPrice = hasSynthesisHeadline
-    ? presentation.valuation
-    : (askingPrice ?? presentation.valuation)
+  const recommendedAskingPrice =
+    presentation.valuation != null && parsedAsking != null && parsedAsking >= 0
+      ? parsedAsking
+      : undefined
   const htmlReport = getFirstRenderableReportHtml(
     readOptionalString(r.html_report),
     readOptionalString(r.htmlReport),
@@ -171,6 +171,7 @@ export function mapValuationResultToReport(
       readOptionalString(r.business_name) ||
       tReport('defaultCompanyName'),
     currency,
+    valueBasis: presentation.valueBasis,
     valuation: presentation.valuation,
     valuationLow:
       presentation.valuationLow != null && Number.isFinite(presentation.valuationLow)
@@ -180,18 +181,21 @@ export function mapValuationResultToReport(
       presentation.valuationHigh != null && Number.isFinite(presentation.valuationHigh)
         ? presentation.valuationHigh
         : undefined,
-    ebitda: ebitda ?? 0,
+    ebitda: ebitda ?? null,
     normalizedEbitda,
-    multiple: presentation.multiple ?? 0,
+    multiple: presentation.multiple ?? null,
     multipleRange:
       presentation.multipleRange ??
       (p25 != null && p75 != null && p25 <= p75 ? { low: p25, high: p75 } : undefined),
     generatedAt: new Date(),
-    confidenceLevel: confidence || 'medium',
+    confidenceLevel: confidence,
     htmlReport: htmlReport || undefined,
     dcfHistoricalFcfReadiness:
       dcfHistoricalFcfReadiness as ValuationReportData['dcfHistoricalFcfReadiness'],
-    recommendedAskingPrice,
+    recommendedAskingPrice:
+      presentation.valueBasis === 'enterprise_value'
+        ? undefined
+        : (recommendedAskingPrice ?? undefined),
     metrics: [
       {
         label: tReport('metrics.avgRevenue'),
@@ -221,7 +225,7 @@ export function mapValuationResultToReport(
     renderFingerprint: readOptionalString(r.render_fingerprint) ?? null,
     pdfRenderFingerprint: readOptionalString(r.pdf_render_fingerprint) ?? null,
     pdfCoherent: typeof r.pdf_coherent === 'boolean' ? r.pdf_coherent : null,
-  } as ValuationReportData
+  }
 }
 
 /**

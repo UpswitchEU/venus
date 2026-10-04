@@ -8,9 +8,10 @@
  */
 
 import { create } from 'zustand'
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import { useAuthStore } from '../lib/auth/store'
 import { VersionAPI } from '../services/api/version/VersionAPI'
+import { useClientContext } from '../stores/clientContext'
 import type {
   CreateVersionRequest,
   UpdateVersionRequest,
@@ -21,6 +22,8 @@ import type {
 } from '../types/ValuationVersion'
 import { createContextLogger } from '../utils/logger'
 import { reportAccessScope, watchReportAccessScope } from '../utils/reportAccessScope'
+import { resolvedRecoveryScope } from '../utils/resolvedRecoveryScope'
+import { createWorkflowRecoveryStorage } from '../utils/workflowRecoveryStorage'
 import {
   applyCreatedBackendVersion,
   buildLocalFallbackVersionCreation,
@@ -30,6 +33,7 @@ import {
 import {
   compareValuationVersions,
   deduplicateVersionsByNumber,
+  isVersionSelection,
   mergeBackendVersionsByNumber,
   partializeVersionHistoryState,
 } from './versionHistoryModel'
@@ -37,52 +41,6 @@ import { enrichCreateVersionRequestFromStores } from './versionHistoryRequestEnr
 
 const versionLogger = createContextLogger('VersionHistoryStore')
 const versionAPI = new VersionAPI()
-
-/**
- * Storage adapter that catches QuotaExceededError and gracefully degrades.
- * Prevents "Failed to execute 'setItem' on 'Storage'" from breaking the app.
- */
-function createQuotaSafeStorage(): StateStorage {
-  return {
-    getItem: (name: string): string | null => {
-      try {
-        return localStorage.getItem(name)
-      } catch {
-        return null
-      }
-    },
-    setItem: (name: string, value: string): void => {
-      try {
-        localStorage.setItem(name, value)
-      } catch (e) {
-        const isQuotaError =
-          e instanceof DOMException &&
-          (e.code === 22 ||
-            e.code === 1014 ||
-            e.name === 'QuotaExceededError' ||
-            e.name === 'NS_ERROR_DOM_QUOTA_REACHED')
-        if (isQuotaError) {
-          versionLogger.warn('Version history storage quota exceeded, clearing to free space', {
-            key: name,
-          })
-          try {
-            localStorage.removeItem(name)
-          } catch {
-            // Ignore
-          }
-          // Don't retry - avoid loop. Next persist will use fresh partialize.
-        }
-      }
-    },
-    removeItem: (name: string): void => {
-      try {
-        localStorage.removeItem(name)
-      } catch {
-        // Ignore
-      }
-    },
-  }
-}
 
 // ✅ FIX: Track pending version creations to prevent duplicates
 const pendingVersionCreations = new Set<string>()
@@ -599,58 +557,40 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
     }),
     {
       name: 'version-history-storage',
-      storage: createJSONStorage(() => createQuotaSafeStorage()),
-      partialize: (state: VersionHistoryStore) => ({
-        ...partializeVersionHistoryState(state),
-        // Browser-local identity that wrote this snapshot (see reportAccessScope).
-        scope: reportAccessScope(),
-      }),
+      storage: createWorkflowRecoveryStorage(isVersionSelection, resolvedRecoveryScope),
+      partialize: (state: VersionHistoryStore) => partializeVersionHistoryState(state),
       merge: (persisted, current) => mergePersistedVersionHistory(persisted, current),
     }
   )
 )
 
-/**
- * The persisted snapshot is keyed by report id only, so on a shared browser
- * it used to rehydrate the previous user's version history (labels, form
- * snapshots, valuation figures) for whoever signs in next. A snapshot written
- * under another signed-in user never hydrates; one written before sign-in
- * (user id null) or by the same user does. When the signed-in user changes
- * later in the tab's lifetime the in-memory history is dropped as well.
- */
-function scopeUserId(scope: string | undefined): string | null {
-  if (typeof scope !== 'string') return null
-  try {
-    const parsed = JSON.parse(scope)
-    return Array.isArray(parsed) && typeof parsed[0] === 'string' ? parsed[0] : null
-  } catch {
-    return null
-  }
-}
-
+/** Recovery storage checks the exact user and delegated-client scope before this merge. */
 export function mergePersistedVersionHistory(
   persisted: unknown,
   current: VersionHistoryStore
 ): VersionHistoryStore {
-  if (!persisted || typeof persisted !== 'object') return current
-  const snapshot = persisted as Partial<VersionHistoryStore> & { scope?: string }
-  const persistedUser = scopeUserId(snapshot.scope)
-  const liveUser = scopeUserId(reportAccessScope())
-  if (persistedUser && liveUser && persistedUser !== liveUser) {
-    versionLogger.warn('Dropping persisted version history written under another user')
-    return current
-  }
-  const { scope: _scope, ...rest } = snapshot
-  return { ...current, ...rest }
+  if (!isVersionSelection(persisted)) return current
+  return { ...current, activeVersions: persisted.activeVersions }
 }
 
-let versionHistoryUserId = scopeUserId(reportAccessScope())
-useAuthStore.subscribe(() => {
-  const nextUser = scopeUserId(reportAccessScope())
-  if (nextUser === versionHistoryUserId) return
-  const previousUser = versionHistoryUserId
-  versionHistoryUserId = nextUser
-  // null -> user is the sign-in after a cold start: keep what was hydrated.
-  if (previousUser === null) return
-  useVersionHistoryStore.setState({ versions: {}, activeVersions: {}, syncStatus: {} })
-})
+let versionHistoryScope = resolvedRecoveryScope()
+const clearOnScopeChange = () => {
+  const nextScope = resolvedRecoveryScope()
+  if (nextScope === versionHistoryScope) return
+  const previous = versionHistoryScope
+  versionHistoryScope = nextScope
+  if (previous === null && nextScope !== null) {
+    void useVersionHistoryStore.persist.rehydrate()
+    return
+  }
+  useVersionHistoryStore.persist.clearStorage()
+  useVersionHistoryStore.setState({
+    versions: {},
+    activeVersions: {},
+    syncStatus: {},
+    loading: false,
+    error: null,
+  })
+}
+useAuthStore.subscribe(clearOnScopeChange)
+useClientContext.subscribe(clearOnScopeChange)

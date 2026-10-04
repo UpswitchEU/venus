@@ -4,6 +4,7 @@ import {
   appliesToYear,
   countNormalizationsBoundToFiscalYear,
   findAcceptedAutoNormalizationCapBreaches,
+  getFirstFiniteNumber,
   getNormalizationAmountForBase,
   getFirstFiniteNumber,
   getReportedEbitdaBaseline,

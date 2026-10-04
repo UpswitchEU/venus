@@ -1,84 +1,86 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useAuthStore } from '../../lib/auth/store'
 import { useClientContext } from '../../stores/clientContext'
+import type { ValuationVersion } from '../../types/ValuationVersion'
 import { mergePersistedVersionHistory, useVersionHistoryStore } from '../useVersionHistoryStore'
 
 const version = {
   id: 'v1',
   reportId: 'report-a',
   versionNumber: 1,
-  createdAt: new Date('2026-09-01T00:00:00.000Z'),
+  createdAt: new Date('2026-09-01T00:00:00Z'),
   formData: {},
-} as any
-const scopeFor = (userId: string | null) => JSON.stringify([userId, null, null])
-const snapshot = (userId: string | null) => ({
-  scope: scopeFor(userId),
-  versions: { 'report-a': [version] },
-  activeVersions: { 'report-a': 1 },
-})
+} as ValuationVersion
+const populate = () =>
+  useVersionHistoryStore.setState({
+    versions: { 'report-a': [version] },
+    activeVersions: { 'report-a': 1 },
+  })
 
-describe('version history persistence is scoped to the signed-in user', () => {
+describe('version selection recovery', () => {
   beforeEach(() => {
+    sessionStorage.clear()
+    localStorage.clear()
     useClientContext.setState({ isActingAsClient: false, accountant: null, relationshipId: null })
-    useAuthStore.setState({ user: null } as never)
+    useAuthStore.setState({ user: null, loading: false, isInitializing: false })
     useVersionHistoryStore.setState({ versions: {}, activeVersions: {}, syncStatus: {} })
   })
 
-  it('never hydrates a snapshot written by another signed-in user', () => {
-    useAuthStore.setState({ user: { id: 'user-b' } } as never)
-    const merged = mergePersistedVersionHistory(
-      snapshot('user-a'),
-      useVersionHistoryStore.getState()
+  it('rejects legacy full-history snapshots and injected actions', () => {
+    const state = useVersionHistoryStore.getState()
+    expect(
+      mergePersistedVersionHistory(
+        { activeVersions: {}, versions: { 'report-a': [version] } },
+        state
+      )
+    ).toBe(state)
+    expect(mergePersistedVersionHistory({ activeVersions: {}, fetchVersions: null }, state)).toBe(
+      state
     )
-    expect(merged.versions).toEqual({})
-    expect(merged.activeVersions).toEqual({})
+    expect(mergePersistedVersionHistory({ activeVersions: { report: -1 } }, state)).toBe(state)
   })
 
-  it('hydrates the same user\u2019s snapshot and a snapshot written before sign-in', () => {
-    useAuthStore.setState({ user: { id: 'user-a' } } as never)
-    expect(
-      mergePersistedVersionHistory(snapshot('user-a'), useVersionHistoryStore.getState()).versions
-    ).toEqual({ 'report-a': [version] })
-    expect(
-      mergePersistedVersionHistory(snapshot(null), useVersionHistoryStore.getState()).versions
-    ).toEqual({ 'report-a': [version] })
+  it('persists only selections in bounded session recovery', () => {
+    populate()
+    const raw = sessionStorage.getItem('version-history-storage')
+    if (!raw) throw new Error('Expected recovery entry')
+    expect(JSON.parse(raw).value.snapshot.state).toEqual({ activeVersions: { 'report-a': 1 } })
+    expect(localStorage.getItem('version-history-storage')).toBeNull()
   })
 
-  it('keeps a snapshot on a cold start where the auth store has not resolved yet', () => {
-    expect(
-      mergePersistedVersionHistory(snapshot('user-a'), useVersionHistoryStore.getState()).versions
-    ).toEqual({ 'report-a': [version] })
-  })
-
-  it('does not leak the scope marker into the store state', () => {
-    const merged = mergePersistedVersionHistory(snapshot(null), useVersionHistoryStore.getState())
-    expect(merged).not.toHaveProperty('scope')
-  })
-
-  it('drops the in-memory history when a different user signs in on the same tab', () => {
-    useAuthStore.setState({ user: { id: 'user-a' } } as never)
-    useVersionHistoryStore.setState({
-      versions: { 'report-a': [version] },
-      activeVersions: { 'report-a': 1 },
-    })
-    useAuthStore.setState({ user: { id: 'user-b' } } as never)
+  it.each([
+    'sign-out',
+    'different user',
+    'sign-in',
+    'delegated client',
+  ])('clears in-memory history on %s', (transition) => {
+    if (transition !== 'sign-in') useAuthStore.setState({ user: { id: 'user-a' } } as never)
+    populate()
+    if (transition === 'delegated client') {
+      useClientContext.setState({ isActingAsClient: true, relationshipId: 'client-b' })
+    } else {
+      useAuthStore.setState({ user: transition === 'sign-out' ? null : { id: 'user-b' } } as never)
+    }
     expect(useVersionHistoryStore.getState().versions).toEqual({})
     expect(useVersionHistoryStore.getState().activeVersions).toEqual({})
   })
 
-  it('keeps the history across the cold-start sign-in (no user -> user)', () => {
-    useVersionHistoryStore.setState({
-      versions: { 'report-a': [version] },
-      activeVersions: { 'report-a': 1 },
-    })
+  it('restores selection after cold-start authentication without exposing report payloads', async () => {
     useAuthStore.setState({ user: { id: 'user-a' } } as never)
-    expect(useVersionHistoryStore.getState().versions).toEqual({ 'report-a': [version] })
-  })
-
-  it('drops the history on sign-out', () => {
-    useAuthStore.setState({ user: { id: 'user-a' } } as never)
-    useVersionHistoryStore.setState({ versions: { 'report-a': [version] } })
-    useAuthStore.setState({ user: null } as never)
+    populate()
+    const raw = sessionStorage.getItem('version-history-storage')
+    if (!raw) throw new Error('Expected recovery entry')
+    useAuthStore.setState({ user: null, loading: true, isInitializing: true })
+    sessionStorage.setItem('version-history-storage', raw)
+    await useVersionHistoryStore.persist.rehydrate()
+    expect(useVersionHistoryStore.getState().activeVersions).toEqual({})
+    expect(sessionStorage.getItem('version-history-storage')).toBe(raw)
+    useAuthStore.setState({
+      user: { id: 'user-a' },
+      loading: false,
+      isInitializing: false,
+    } as never)
+    expect(useVersionHistoryStore.getState().activeVersions).toEqual({ 'report-a': 1 })
     expect(useVersionHistoryStore.getState().versions).toEqual({})
   })
 })

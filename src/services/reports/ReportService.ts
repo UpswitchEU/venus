@@ -7,7 +7,6 @@
  */
 
 import type { ValuationRequest, ValuationSession } from '../../types/valuation'
-import { appendBrowserRecoveryListItem } from '../../utils/browserRecoveryStorage'
 import { getApiUrl } from '../../utils/getMercuryUrl'
 import { createContextLogger } from '../../utils/logger'
 import { generateReportId } from '../../utils/reportIdGenerator'
@@ -17,15 +16,7 @@ import { normalizeReportListPayload } from './ReportListNormalizer'
 // AUTH-FIRST: guestSessionService removed - authentication is required
 
 const reportLogger = createContextLogger('ReportService')
-const PENDING_SYNC_STORAGE_KEY = 'venus_pending_syncs'
 type UnknownRecord = Record<string, unknown>
-type OptimisticValuationSession = ValuationSession & { _optimistic?: boolean }
-type PendingSyncRetry = {
-  reportId: string
-  session: ValuationSession
-  retryCount: number
-  lastAttempt: number
-}
 type PaywallError = Error & {
   isPaywallError: true
   current?: unknown
@@ -45,17 +36,6 @@ function asString(value: unknown): string | undefined {
 
 function isPaywallError(error: unknown): error is PaywallError {
   return error instanceof Error && (error as Partial<PaywallError>).isPaywallError === true
-}
-
-function isPendingSyncRetry(value: unknown): value is PendingSyncRetry {
-  const record = asRecord(value)
-  if (!record) return false
-  return (
-    typeof record.reportId === 'string' &&
-    asRecord(record.session) !== null &&
-    typeof record.retryCount === 'number' &&
-    typeof record.lastAttempt === 'number'
-  )
 }
 
 export interface ListReportsOptions {
@@ -280,30 +260,12 @@ class ReportServiceImpl implements ReportService {
     }
   }
 
-  /**
-   * Create new report with optimistic updates
-   *
-   * World-Class Optimistic Updates:
-   * - Returns optimistic report immediately (<10ms)
-   * - Syncs in background
-   * - Handles sync failures gracefully
-   * - Shows sync status indicator
-   */
+  /** Return a report only after Titan acknowledges its durable creation. */
   async createReport(initialData?: Partial<ValuationRequest>): Promise<ValuationSession> {
     const reportId = generateReportId()
-
     try {
-      reportLogger.info('Creating new report (optimistic)', {
-        reportId,
-        hasInitialData: !!initialData && Object.keys(initialData).length > 0,
-      })
-
-      // 1. Check plan enforcement BEFORE creating valuation
-      // This is synchronous and fast, so we do it before returning optimistic result
       await this.checkValuationLimit()
-
-      // 2. Create optimistic session object (return immediately)
-      const optimisticSession: OptimisticValuationSession = {
+      const session: ValuationSession = {
         reportId,
         currentView: 'manual',
         dataSource: 'manual',
@@ -312,64 +274,22 @@ class ReportServiceImpl implements ReportService {
         partialData: initialData || {},
         sessionData: initialData || {},
       }
-
-      // Mark as optimistic for UI to show sync status
-      optimisticSession._optimistic = true
-
-      // 3. Sync to backend in background (don't await)
-      this.syncReportToBackend(optimisticSession)
-        .then((syncedSession) => {
-          reportLogger.info('Report synced successfully', {
-            reportId,
-            syncedAt: syncedSession.updatedAt,
-          })
-
-          // Broadcast report creation event for cross-subdomain sync
-          if (typeof window !== 'undefined') {
-            try {
-              const { broadcastReportCreated } = require('../../utils/auth/cross-domain-logout')
-              broadcastReportCreated({
-                reportId,
-                reportName: syncedSession.name,
-                createdAt: syncedSession.createdAt,
-                clientId: this.getClientId(),
-              })
-            } catch (error) {
-              // Non-critical - sync still succeeded
-              reportLogger.warn('Failed to broadcast report creation', { reportId, error })
-            }
-          }
-        })
-        .catch((error) => {
-          // Handle sync failure gracefully
-          reportLogger.warn('Report sync failed (non-critical)', {
-            reportId,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            note: 'Report exists locally and can be synced later',
-          })
-
-          // Store sync failure for retry later
-          this.queueSyncRetry(reportId, optimisticSession)
-        })
-
-      // Broadcast optimistic creation immediately (before sync completes)
+      const saved = await this.syncReportToBackend(session)
+      if (!saved?.reportId) throw new Error('Report creation was not confirmed')
       if (typeof window !== 'undefined') {
         try {
           const { broadcastReportCreated } = require('../../utils/auth/cross-domain-logout')
           broadcastReportCreated({
-            reportId,
-            reportName: optimisticSession.name,
-            createdAt: optimisticSession.createdAt,
+            reportId: saved.reportId,
+            reportName: saved.name,
+            createdAt: saved.createdAt,
             clientId: this.getClientId(),
           })
         } catch (error) {
-          // Non-critical - optimistic creation still succeeded
-          reportLogger.warn('Failed to broadcast optimistic report creation', { reportId, error })
+          reportLogger.warn('Failed to broadcast report creation', { reportId, error })
         }
       }
-
-      // 4. Return optimistic session immediately
-      return optimisticSession
+      return saved
     } catch (error) {
       // If it's a paywall error, re-throw with additional context
       if (isPaywallError(error)) {
@@ -389,37 +309,17 @@ class ReportServiceImpl implements ReportService {
   }
 
   /**
-   * Sync report to backend (background operation)
+   * Persist report to the authoritative backend
    */
   private async syncReportToBackend(session: ValuationSession): Promise<ValuationSession> {
     const response = await backendAPI.createValuationSession(session)
+    if (!response?.session?.reportId) throw new Error('Report creation was not confirmed')
 
     // Log usage after successful sync
     await this.logValuationUsage(session.reportId)
 
-    // Return synced session (without _optimistic flag)
+    // The caller validates acknowledgement before reporting success.
     return response.session
-  }
-
-  /**
-   * Queue sync retry for failed syncs
-   */
-  private queueSyncRetry(reportId: string, session: ValuationSession): void {
-    const queued = appendBrowserRecoveryListItem<PendingSyncRetry>(
-      PENDING_SYNC_STORAGE_KEY,
-      {
-        reportId,
-        session,
-        retryCount: 0,
-        lastAttempt: Date.now(),
-      },
-      isPendingSyncRetry,
-      { maxEntries: 10 }
-    )
-
-    if (!queued) {
-      reportLogger.warn('Failed to queue sync retry', { reportId })
-    }
   }
 
   /**

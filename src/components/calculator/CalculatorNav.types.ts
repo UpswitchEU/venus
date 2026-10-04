@@ -11,8 +11,9 @@ export interface RecentValuation {
 export interface ValuationVersion {
   id: string
   label: string
-  priceRange: { min: number; max: number }
-  askPrice: number
+  priceRange?: { min: number; max: number }
+  askPrice?: number
+  currency?: string | null
   timestamp: Date
   isActive?: boolean
   pricesPending?: boolean
@@ -62,7 +63,8 @@ export interface CalculatorNavProps {
   valuationSummary?: {
     priceRange: { min: number; max: number }
     askPrice: number
-    confidence: 'high' | 'medium' | 'low'
+    confidence?: 'high' | 'medium' | 'low'
+    currency?: string | null
   }
   valuationVersions?: ValuationVersion[]
   selectedVersionId?: string

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { User } from '@/contexts/AuthContextTypes'
 import {
@@ -64,6 +64,15 @@ vi.mock('../hooks/useEmbeddedMode', () => ({
     isEmbedded: false,
     closeEmbedded: vi.fn(),
   }),
+}))
+
+vi.mock('../hooks/useReportAssetSaveFailure', () => ({
+  useReportAssetSaveFailure: () => null,
+}))
+
+vi.mock('../services/report/ReportAssetService', () => ({
+  pendingReportAssetSave: vi.fn().mockReturnValue(null),
+  reportAssetService: { retryFailedSave: vi.fn().mockResolvedValue(true) },
 }))
 
 vi.mock('../store/useSessionStore', () => ({
@@ -168,7 +177,14 @@ const mercuryExits: Array<[string, () => void]> = [
       openMenuAndChoose('backToDashboard')
     },
   ],
-  ['Back to Home', () => openMenuAndChoose('backToHome')],
+  [
+    'Back to Home',
+    () => {
+      openMenuAndChoose('backToHome')
+      // Returning to Mercury now shares the same unsaved-work confirmation.
+      fireEvent.click(screen.getByRole('button', { name: 'confirm-exit' }))
+    },
+  ],
   ['the exit dialog', leaveThroughExitDialog],
   [
     'the exit dialog after a failed cleanup',
@@ -204,19 +220,19 @@ describe('UserDropdown return to Mercury', () => {
     sessionStoreMock.state.hasUnsavedChanges = true
   })
 
-  it.each(mercuryExits)('%s: an earlier result alone is a plain return', (_exit, leave) => {
+  it.each(mercuryExits)('%s: an earlier result alone is a plain return', async (_exit, leave) => {
     leave()
 
-    expect(navigateMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1))
     expect(navigateMock.mock.calls[0]?.[0]).toMatchObject({ hasCompletedValuation: false })
   })
 
-  it.each(mercuryExits)('%s: a result saved this visit names its report', (_exit, leave) => {
+  it.each(mercuryExits)('%s: a result saved this visit names its report', async (_exit, leave) => {
     recordManualValuationSaved([SAVED_REPORT_ID])
 
     leave()
 
-    expect(navigateMock).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1))
     expect(navigateMock.mock.calls[0]?.[0]).toMatchObject({
       hasCompletedValuation: true,
       reportId: SAVED_REPORT_ID,

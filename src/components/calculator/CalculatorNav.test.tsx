@@ -119,6 +119,7 @@ describe('CalculatorNav', () => {
         valuationVersions={[
           {
             id: 'version-1',
+            currency: 'EUR',
             label: 'v1',
             askPrice: 360050,
             priceRange: { min: 288000, max: 485000 },
@@ -157,6 +158,7 @@ describe('CalculatorNav', () => {
         valuationVersions={[
           {
             id: 'version-1',
+            currency: 'EUR',
             label: 'v1',
             askPrice: 220000,
             priceRange: { min: 180000, max: 260000 },
@@ -192,6 +194,7 @@ describe('CalculatorNav', () => {
         companyName="Restaurant Decan"
         hasReport
         valuationSummary={{
+          currency: 'EUR',
           askPrice: 389000,
           priceRange: { min: 288000, max: 485000 },
           confidence: 'high',
@@ -208,12 +211,13 @@ describe('CalculatorNav', () => {
     expect(screen.getAllByText('€288K–€485K')).toHaveLength(2)
   })
 
-  it('infers the displayed headline from range when a summary ask price is zero', () => {
+  it('preserves the displayed zero without inventing a summary midpoint', () => {
     render(
       <CalculatorNav
         companyName="LGS workshop"
         hasReport
         valuationSummary={{
+          currency: 'EUR',
           askPrice: 0,
           priceRange: { min: 12_800_000, max: 18_400_000 },
           confidence: 'high',
@@ -221,12 +225,12 @@ describe('CalculatorNav', () => {
       />
     )
 
-    expect(screen.queryByText('€0K')).not.toBeInTheDocument()
-    expect(screen.getByText('€15.6M')).toBeInTheDocument()
+    expect(screen.queryByText('€15.6M')).not.toBeInTheDocument()
+    expect(screen.getByText('€0')).toBeInTheDocument()
     expect(screen.getByText('€12.8M–€18.4M')).toBeInTheDocument()
   })
 
-  it('infers the displayed headline from range when the active version ask price is zero', () => {
+  it('preserves the displayed zero from an active version', () => {
     render(
       <CalculatorNav
         companyName="LGS workshop"
@@ -234,6 +238,7 @@ describe('CalculatorNav', () => {
         valuationVersions={[
           {
             id: 'version-1',
+            currency: 'EUR',
             label: 'v1',
             askPrice: 0,
             priceRange: { min: 12_800_000, max: 18_400_000 },
@@ -244,8 +249,8 @@ describe('CalculatorNav', () => {
       />
     )
 
-    expect(screen.queryByText('€0K')).not.toBeInTheDocument()
-    expect(screen.getByText('€15.6M')).toBeInTheDocument()
+    expect(screen.queryByText('€15.6M')).not.toBeInTheDocument()
+    expect(screen.getByText('€0')).toBeInTheDocument()
     expect(screen.getByText('€12.8M–€18.4M')).toBeInTheDocument()
   })
 })

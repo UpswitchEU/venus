@@ -22,6 +22,7 @@ import { useEffect, useRef } from 'react'
 import { getCookiePreferences, isAnalyticsConsentGranted } from '@/lib/analytics-consent'
 import { classifyTrafficType, detectLocaleFromPath } from '@/lib/analytics-context'
 import { initVenusPostHog, syncPostHogConsent } from '@/lib/posthog-init'
+import { clearRetiredBrowserStorage } from '@/utils/retiredBrowserStorage'
 
 const VENUS_MEASUREMENT_ID = 'G-0RW0LNCVBG'
 
@@ -34,6 +35,7 @@ export function VenusAnalytics() {
 
   // PostHog: early init (idempotent; no-op when token not set).
   useEffect(() => {
+    clearRetiredBrowserStorage()
     initVenusPostHog()
   }, [])
 

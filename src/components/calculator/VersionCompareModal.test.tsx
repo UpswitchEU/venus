@@ -15,6 +15,8 @@ vi.mock('@/design-system', async () => ({
 }))
 
 const older: HistoryVersion = {
+  currency: 'EUR',
+  valueBasis: 'equity_value',
   id: 'v1',
   version: 1,
   timestamp: new Date('2026-09-01T12:00:00Z'),
@@ -93,7 +95,7 @@ describe('VersionCompareModal', () => {
     expect(range).toHaveTextContent('Not available')
     expect(range).not.toHaveTextContent('€0')
     expect(
-      within(screen.getByRole('region', { name: 'Version 1' })).getByText('€0')
+      within(screen.getByRole('region', { name: 'Version 1' })).getByText('€0.00')
     ).toBeInTheDocument()
   })
   it('localizes metric labels, dialog description, currency and close controls', () => {
@@ -104,7 +106,7 @@ describe('VersionCompareModal', () => {
     expect(screen.getAllByRole('button', { name: 'Fermer' })).toHaveLength(2)
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
     const table = screen.getByRole('table', { name: 'Modifications détaillées' })
-    expect(within(table).getByRole('row', { name: /BAIIA/ })).toHaveTextContent('0 €')
+    expect(within(table).getByRole('row', { name: /BAIIA/ })).toHaveTextContent('0,00 €')
     expect(screen.queryByText('Ondernemingswaarde')).not.toBeInTheDocument()
     expect(
       within(table).getByRole('row', { name: /Fourchette de valorisation/ })

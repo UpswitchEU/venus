@@ -1,9 +1,12 @@
 import type { ValuationVersion } from '../types/ValuationVersion'
+import { parseFinancialTransportNumber } from '../utils/financialTransport'
 import {
+  financialResultsComparable,
   getEquityValueHigh,
   getEquityValueLow,
   getEquityValueMid,
   getFinalValuation,
+  getFinancialValueBasis,
   getRecommendedAskingPrice,
 } from '../utils/valuationResultAccess'
 import { buildVersionDisplayList } from '../utils/versionDisplayModel'
@@ -19,11 +22,12 @@ export interface VersionTimelineListModel {
 }
 
 export interface VersionTimelineValuationCardModel {
+  currency?: string | null
   currentValuation: number
-  equityValueLow: number
+  equityValueLow: number | null
   equityValueMid: number
-  equityValueHigh: number
-  recommendedAskingPrice: number
+  equityValueHigh: number | null
+  recommendedAskingPrice: number | null
   premiumPercent: number
 }
 
@@ -31,7 +35,7 @@ export interface VersionTimelineItemModel {
   currentValuation: number | null
   previousValuation: number | null
   priceChange: number
-  priceChangePercent: number
+  priceChangePercent: number | null
   hasChanges: boolean
   normalizedYearsCount: number
   hasNormalizedEbitda: boolean
@@ -39,8 +43,8 @@ export interface VersionTimelineItemModel {
 }
 
 export function positiveFiniteNumber(value: unknown): number | null {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : null
+  const numeric = parseFinancialTransportNumber(value)
+  return numeric != null && numeric > 0 ? numeric : null
 }
 
 export function buildSortedTimelineVersions(
@@ -76,19 +80,23 @@ function buildValuationCardModel(
   currentValuation: number | null
 ): VersionTimelineValuationCardModel | null {
   if (!valuationResult || currentValuation === null) return null
+  if (getFinancialValueBasis(valuationResult) === 'enterprise_value') return null
 
-  const equityValueLow = positiveFiniteNumber(getEquityValueLow(valuationResult)) ?? 0
-  const equityValueMid =
-    positiveFiniteNumber(getEquityValueMid(valuationResult)) ?? currentValuation
-  const equityValueHigh = positiveFiniteNumber(getEquityValueHigh(valuationResult)) ?? 0
-  const recommendedAskingPrice =
-    positiveFiniteNumber(getRecommendedAskingPrice(valuationResult)) ?? 0
+  const rawLow = getEquityValueLow(valuationResult)
+  const equityValueMid = getEquityValueMid(valuationResult) ?? currentValuation
+  const rawHigh = getEquityValueHigh(valuationResult)
+  const coherentBand =
+    rawLow != null && rawHigh != null && rawLow <= equityValueMid && equityValueMid <= rawHigh
+  const equityValueLow = coherentBand ? rawLow : null
+  const equityValueHigh = coherentBand ? rawHigh : null
+  const recommendedAskingPrice = getRecommendedAskingPrice(valuationResult)
   const premiumPercent =
-    recommendedAskingPrice && equityValueMid
+    recommendedAskingPrice != null && equityValueMid > 0
       ? Math.round(((recommendedAskingPrice - equityValueMid) / equityValueMid) * 100)
       : 0
 
   return {
+    currency: valuationResult.currency,
     currentValuation,
     equityValueLow,
     equityValueMid,
@@ -110,18 +118,22 @@ export function buildVersionTimelineItemModel({
   version: ValuationVersion
   previousVersion: ValuationVersion | null
 }): VersionTimelineItemModel {
-  const currentValuation = positiveFiniteNumber(getFinalValuation(version.valuationResult))
+  const currentValuation = getFinalValuation(version.valuationResult)
   const previousValuation = previousVersion
-    ? positiveFiniteNumber(getFinalValuation(previousVersion.valuationResult))
+    ? getFinalValuation(previousVersion.valuationResult)
     : null
+  const comparable = financialResultsComparable(
+    version.valuationResult,
+    previousVersion?.valuationResult
+  )
   const priceChange =
-    currentValuation !== null && previousValuation !== null
+    comparable && currentValuation !== null && previousValuation !== null
       ? currentValuation - previousValuation
       : 0
   const priceChangePercent =
-    currentValuation !== null && previousValuation !== null
+    comparable && currentValuation !== null && previousValuation !== null && previousValuation > 0
       ? ((currentValuation - previousValuation) / previousValuation) * 100
-      : 0
+      : null
   const ebitdaYearsCount = normalizedYearsCount(version)
 
   return {

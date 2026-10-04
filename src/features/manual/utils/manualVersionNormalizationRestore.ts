@@ -4,6 +4,7 @@ import type {
   NormalizationType,
 } from '@/components/calculator'
 import { mapBackendCategoryToFrontend } from '@/store/useNormalizationStore'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 
 const FRONTEND_NORMALIZATION_CATEGORIES = new Set<NormalizationItem['category']>([
   'salary',
@@ -39,16 +40,13 @@ const NORMALIZATION_TYPES = new Set<NormalizationType>([
 ])
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
 }
 
 function readString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
-}
-
-function readFiniteNumber(value: unknown): number {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : 0
 }
 
 function restoreNormalizationCategory(rawCategory: string): NormalizationItem['category'] {
@@ -76,22 +74,41 @@ export function buildManualNormalizationsFromVersionSnapshot(
   if (!snapshot) return []
 
   const items: NormalizationItem[] = []
+  const groups = new Map<string, NormalizationItem>()
   for (const [yearKey, yearData] of Object.entries(snapshot)) {
     const year = Number(yearKey)
     const yearRecord = asRecord(yearData)
-    const adjustments = yearRecord?.adjustments
-    if (!Number.isFinite(year) || !Array.isArray(adjustments)) continue
+    if (!Number.isInteger(year) || year < 2000 || year > 2100 || !yearRecord) continue
+    const adjustments = [
+      ...(Array.isArray(yearRecord.adjustments) ? yearRecord.adjustments : []),
+      ...(Array.isArray(yearRecord.custom_adjustments) ? yearRecord.custom_adjustments : []),
+    ]
 
     adjustments.forEach((rawAdjustment, index) => {
       const adjustmentRecord = asRecord(rawAdjustment)
       if (!adjustmentRecord) return
 
-      const amount = readFiniteNumber(adjustmentRecord.amount ?? adjustmentRecord.adjustment)
+      const amount = parseFinancialTransportNumber(
+        adjustmentRecord.amount ?? adjustmentRecord.adjustment
+      )
+      if (amount === undefined) return
       const rawCategory = readString(adjustmentRecord.category) || ''
-      const normalizationType =
+      const savedType =
         readNormalizationType(
           adjustmentRecord.normalization_type ?? adjustmentRecord.normalizationType
         ) || (amount >= 0 ? 'add' : 'subtract')
+      const savedValue = adjustmentRecord.normalization_value ?? adjustmentRecord.normalizationValue
+      // A monetary delta does not tell us the original percentage or absolute target.
+      // Legacy snapshots without that instruction retain their accepted annual delta.
+      const normalizationType =
+        savedValue == null &&
+        (savedType === 'add_percent' ||
+          savedType === 'subtract_percent' ||
+          savedType === 'absolute')
+          ? amount >= 0
+            ? 'add'
+            : 'subtract'
+          : savedType
       const reviewedAt =
         readString(adjustmentRecord.reviewed_at) || readString(adjustmentRecord.reviewedAt)
       const confidence =
@@ -100,37 +117,81 @@ export function buildManualNormalizationsFromVersionSnapshot(
         adjustmentRecord.confidence === 'low'
           ? adjustmentRecord.confidence
           : undefined
+      const value = parseFinancialTransportNumber(savedValue ?? Math.abs(amount))
+      if (value === undefined) return
+      const frontendId = readString(adjustmentRecord.frontend_id)
+      const ownerRole = adjustmentRecord.owner_role
+      const actualCompensation = parseFinancialTransportNumber(
+        adjustmentRecord.actual_owner_compensation
+      )
+      const replacementCompensation = parseFinancialTransportNumber(
+        adjustmentRecord.replacement_owner_compensation
+      )
+      const ruleVersion = readString(adjustmentRecord.rule_version)
 
-      items.push({
-        id: `version-${year}-${index}`,
+      const item: NormalizationItem = {
+        id: frontendId || `version-${year}-${index}`,
         ledgerCode:
           readString(adjustmentRecord.ledger_code) || readString(adjustmentRecord.ledgerCode) || '',
         ledgerName:
           readString(adjustmentRecord.ledger_name) ||
           readString(adjustmentRecord.ledgerName) ||
           readString(adjustmentRecord.note) ||
+          readString(adjustmentRecord.description) ||
           rawCategory,
         category: restoreNormalizationCategory(rawCategory),
         backendCategory: rawCategory,
         type: normalizationType,
-        value: readFiniteNumber(
-          adjustmentRecord.normalization_value ??
-            adjustmentRecord.normalizationValue ??
-            Math.abs(amount)
-        ),
+        value,
         adjustment: amount,
         reason: readString(adjustmentRecord.note) || readString(adjustmentRecord.reason),
         source: readNormalizationSource(adjustmentRecord.source) || 'manual',
         sourceRef:
-          readString(adjustmentRecord.source_ref) ||
-          readString(adjustmentRecord.sourceRef) ||
-          'version',
-        status: 'accepted',
+          readString(adjustmentRecord.source_ref) || readString(adjustmentRecord.sourceRef),
+        status:
+          adjustmentRecord.status === 'rejected'
+            ? 'rejected'
+            : adjustmentRecord.status === undefined ||
+                adjustmentRecord.status === 'accepted' ||
+                adjustmentRecord.status === 'verified' ||
+                adjustmentRecord.status === 'applied'
+              ? 'accepted'
+              : 'pending',
         ...(reviewedAt ? { reviewedAt } : {}),
-        applyAllYears: false,
+        // Annual snapshots are the evidence of scope; do not price absent years merely
+        // because a legacy row claims them in apply_years.
+        applyAllYears: adjustmentRecord.apply_all_years === true,
+        ...(frontendId ? { applyYears: [year] } : {}),
         year,
         ...(confidence ? { confidence } : {}),
-      })
+        ...(ownerRole === 'working' || ownerRole === 'passive' ? { ownerRole } : {}),
+        ...(actualCompensation !== undefined
+          ? { actualOwnerCompensation: actualCompensation }
+          : {}),
+        ...(replacementCompensation !== undefined
+          ? { replacementOwnerCompensation: replacementCompensation }
+          : {}),
+        ...(ruleVersion ? { ruleVersion } : {}),
+      }
+      // The same reviewed percentage/absolute instruction has a different annual
+      // delta on different reported baselines. Group the instruction, not its delta.
+      const { year: _year, applyYears: _years, adjustment, ...instruction } = item
+      const variableDelta =
+        item.type === 'add_percent' || item.type === 'subtract_percent' || item.type === 'absolute'
+      const key = JSON.stringify({ ...instruction, ...(variableDelta ? {} : { adjustment }) })
+      const existing = frontendId ? groups.get(key) : undefined
+      if (existing) {
+        existing.applyYears = [
+          ...new Set([...(existing.applyYears ?? [existing.year]), year]),
+        ].sort((a, b) => a - b)
+      } else {
+        // Distinct instructions sharing a corrupt legacy id must remain independently
+        // addressable, so changing one review decision cannot change both.
+        if (items.some((previous) => previous.id === item.id))
+          item.id = `${item.id}:${year}:${index}`
+        items.push(item)
+        if (frontendId) groups.set(key, item)
+      }
     })
   }
 

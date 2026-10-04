@@ -1,5 +1,6 @@
 'use client'
 
+import { useId } from 'react'
 import { AuroraInput } from '@/design-system/components/Input'
 import { cn } from '@/design-system/utils'
 import { useDecimalTextInputState } from '@/hooks/useDecimalTextInputState'
@@ -41,6 +42,7 @@ export function AdaptivePercentInput({
   trailingLabelAccessory,
   step: _step,
 }: AdaptivePercentInputProps) {
+  const inputId = useId()
   const {
     display,
     onFocus,
@@ -50,6 +52,7 @@ export function AdaptivePercentInput({
 
   return (
     <AuroraInput
+      id={inputId}
       label={label}
       type="text"
       inputMode="decimal"

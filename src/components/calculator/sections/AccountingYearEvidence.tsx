@@ -63,8 +63,12 @@ function isCalendarYearPeriod(
   )
 }
 
-function valuesDiffer(source: number | null, effective: number): boolean {
-  return source !== null && Number.isFinite(effective) && Math.abs(source - effective) > 0.005
+function valuesDiffer(source: number | null, effective: number | undefined): boolean {
+  return (
+    source !== null &&
+    (effective === undefined ||
+      (Number.isFinite(effective) && Math.abs(source - effective) > 0.005))
+  )
 }
 
 /**
@@ -209,10 +213,12 @@ export function AccountingYearEvidence({
           <div className="min-w-0">
             <p className="font-medium text-foreground/50">{copy('effectiveValues')}</p>
             <p className="mt-0.5 truncate font-mono tabular-nums text-foreground">
-              {copy('revenueShort')} {formatCurrency(yearData.revenue)}
+              {copy('revenueShort')}{' '}
+              {yearData.revenue === undefined ? '—' : formatCurrency(yearData.revenue)}
             </p>
             <p className="truncate font-mono tabular-nums text-foreground">
-              {copy('ebitdaShort')} {formatCurrency(yearData.ebitda)}
+              {copy('ebitdaShort')}{' '}
+              {yearData.ebitda === undefined ? '—' : formatCurrency(yearData.ebitda)}
             </p>
           </div>
         </div>

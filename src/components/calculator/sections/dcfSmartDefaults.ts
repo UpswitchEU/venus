@@ -4,8 +4,8 @@ import { isYearRowForecast } from '@/utils/yearData'
 
 export interface DcfYearlyFinancialsLike {
   year: string
-  revenue: unknown
-  ebitda: unknown
+  revenue?: unknown
+  ebitda?: unknown
   isForecast?: boolean
   is_forecast?: boolean
 }

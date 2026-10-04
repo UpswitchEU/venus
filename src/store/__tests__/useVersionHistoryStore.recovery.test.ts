@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAuthStore } from '../../lib/auth/store'
 import { VersionAPI } from '../../services/api/version/VersionAPI'
 import { VersionAPIClient } from '../../services/api/version/VersionAPIClient'
 import { useClientContext } from '../../stores/clientContext'
@@ -21,6 +22,7 @@ const response = {
 
 describe('version history refresh recovery with the real store', () => {
   beforeEach(() => {
+    useAuthStore.setState({ loading: false, isInitializing: false })
     useClientContext.setState({ isActingAsClient: false, relationshipId: null })
     useVersionHistoryStore.setState({
       versions: { 'report-a': [original] },
@@ -82,8 +84,10 @@ describe('version history refresh recovery with the real store', () => {
     useClientContext.setState({ isActingAsClient: false, relationshipId: null })
     resolve({ ...response, versions: [], activeVersion: 99 })
     await first
-    expect(useVersionHistoryStore.getState().versions['report-a']).toEqual([original])
-    expect(useVersionHistoryStore.getState().activeVersions['report-a']).toBe(1)
+    // Switching delegated clients clears the old client's in-memory data.
+    // The obsolete response must not restore it when the user switches back.
+    expect(useVersionHistoryStore.getState().versions).toEqual({})
+    expect(useVersionHistoryStore.getState().activeVersions).toEqual({})
     expect(useVersionHistoryStore.getState().loading).toBe(false)
     expect(useVersionHistoryStore.getState().syncStatus['report-a'].isSyncing).toBe(false)
   })

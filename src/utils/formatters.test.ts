@@ -20,7 +20,7 @@ function version(valuationResult: ValuationVersion['valuationResult']): Valuatio
 }
 
 describe('formatVersionLabel', () => {
-  it('falls back to the positive range midpoint when recommended ask is zero', () => {
+  it('retains observed zero and withholds a contradictory positive range', () => {
     expect(
       formatVersionLabel(
         version({
@@ -28,8 +28,36 @@ describe('formatVersionLabel', () => {
           equity_value_mid: 0,
           equity_value_high: 18_400_000,
           recommended_asking_price: 0,
+          currency: 'EUR',
         } as ValuationVersion['valuationResult'])
       )
-    ).toBe('€12.8M - €18.4M (Ask: €15.6M)')
+    ).toBe('€0.00 (Ask: €0.00)')
+  })
+
+  it('does not invent an asking price for a loss or default its currency to euros', () => {
+    expect(
+      formatVersionLabel(
+        version({
+          equity_value_mid: -10.25,
+          currency: 'USD',
+        } as ValuationVersion['valuationResult'])
+      )
+    ).toBe('-$10.25')
+    expect(
+      formatVersionLabel(version({ equity_value_mid: 0 } as ValuationVersion['valuationResult']))
+    ).toBe('0 (currency unknown)')
+  })
+
+  it('uses the native currency precision and preserves an enterprise basis', () => {
+    expect(
+      formatVersionLabel(
+        version({
+          value: 1000,
+          value_basis: 'enterprise_value',
+          currency: 'JPY',
+          recommended_asking_price: 1200,
+        } as ValuationVersion['valuationResult'])
+      )
+    ).toBe('Enterprise value: ¥1,000')
   })
 })

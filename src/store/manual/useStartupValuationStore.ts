@@ -13,6 +13,10 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useAuthStore } from '../../lib/auth/store'
+import { useClientContext } from '../../stores/clientContext'
+import { resolvedRecoveryScope } from '../../utils/resolvedRecoveryScope'
+import { createWorkflowRecoveryStorage } from '../../utils/workflowRecoveryStorage'
 import { createStartupValuationActions } from './startupValuationActions'
 import { INITIAL_STARTUP_VALUATION_STATE } from './startupValuationInitialState'
 import {
@@ -21,6 +25,7 @@ import {
   STARTUP_VALUATION_PERSIST_NAME,
   STARTUP_VALUATION_PERSIST_VERSION,
 } from './startupValuationPersistence'
+import { isStartupRecoveryState } from './startupValuationRecovery'
 import type { StartupValuationStore } from './startupValuationStoreTypes'
 
 export type {
@@ -68,8 +73,27 @@ export const useStartupValuationStore = create<StartupValuationStore>()(
     {
       name: STARTUP_VALUATION_PERSIST_NAME,
       version: STARTUP_VALUATION_PERSIST_VERSION,
+      storage: createWorkflowRecoveryStorage(isStartupRecoveryState, resolvedRecoveryScope),
       migrate: migrateStartupValuationState,
       partialize: partializeStartupValuationState,
     }
   )
 )
+
+// A new account or delegated company starts with a fresh in-memory draft.
+// Explicit signup/session handoffs restore their own validated snapshot afterward.
+let startupRecoveryScope = resolvedRecoveryScope()
+const clearStartupOnScopeChange = () => {
+  const next = resolvedRecoveryScope()
+  if (next === startupRecoveryScope) return
+  const previous = startupRecoveryScope
+  startupRecoveryScope = next
+  if (previous === null && next !== null) {
+    void useStartupValuationStore.persist.rehydrate()
+    return
+  }
+  useStartupValuationStore.persist.clearStorage()
+  useStartupValuationStore.getState().reset()
+}
+useAuthStore.subscribe(clearStartupOnScopeChange)
+useClientContext.subscribe(clearStartupOnScopeChange)

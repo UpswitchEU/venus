@@ -1582,7 +1582,7 @@
 			"historyRange": "Historische jaren",
 			"years3": "Laatste 3 boekjaren",
 			"years5": "Laatste 5 boekjaren",
-			"manualOverride": "Behoud manuele override na import",
+			"manualOverride": "WACC {wacc}% — aangeleverde of illustratieve modelaanname (CAPM-opbouw hieronder wijkt af)",
 			"fetchPhasesHint": "Historische data ophalen, daarna budget- of prognoserijen wanneer beschikbaar.",
 			"loadingCompanies": "Bizzcontrol-klantdashboards laden...",
 			"importCta": "Data ophalen",
@@ -1600,7 +1600,7 @@
 			"historyRange": "Historische jaren",
 			"years3": "Laatste 3 boekjaren",
 			"years5": "Laatste 5 boekjaren",
-			"manualOverride": "Behoud manuele override na import",
+			"manualOverride": "WACC {wacc}% — aangeleverde of illustratieve modelaanname (CAPM-opbouw hieronder wijkt af)",
 			"fetchPhasesHint": "Proefbalans-snapshots ophalen; SDE-flags en kas/schuld-brug volgen in de workflow.",
 			"loadingCompanies": "Octopus-dossiers laden...",
 			"importCta": "Data ophalen",
@@ -1643,7 +1643,8 @@
 			"fteRequired": "Vul het totaal aantal FTE in, eigenaars meegeteld",
 			"fteOver10k": "Meer dan 10.000 FTE — controleer",
 			"yearRange": "Moet tussen 1800 en {year} liggen",
-			"fcffRequired": "Vul een geldige FCFF voor elk prognosejaar in"
+			"fcffRequired": "Vul een geldige FCFF voor elk prognosejaar in",
+			"forecastFinancialsRequired": "Vul het prognosebedrag in, ook nul wanneer van toepassing."
 		},
 		"startupValuation": {
 			"panelTitle": "Startup waarderingsmotor",
@@ -1894,7 +1895,7 @@
 			"showAdvancedDrivers": "Bewerk FCFF-drivers",
 			"hideAdvancedDrivers": "Verberg FCFF-drivers",
 			"advancedDriversTitle": "Geavanceerde FCFF-drivers",
-			"advancedDriversHelp": "De meeste adviseurs kunnen deze sectorstandaarden laten staan en ze alleen aanpassen als een specifiek dossier dat vraagt.",
+			"advancedDriversHelp": "Dit zijn modelaannames. Stem ze af op de prognoses en het kasbelastingregime van het dossier.",
 			"advancedDriversSummary": "CapEx {capex}%, afschrijvingen {da}%, NWC-ratio {nwc}%, belasting {tax}%.",
 			"fcffOnlyForecastDefaultsNotice": "In de modus ‘Zonder EBITDA’ vul je jaarlijkse FCFF in de prognosetabel hieronder in, dus groei-, marge- en brugpercentages worden hier niet gebruikt.",
 			"dcfCapexFootnote": "CapEx zijn kasuitgaven voor investeringen. Ontbreken historische cijfers, dan kan de waarderingsmotor afschrijvingen als benadering voor onderhoudscapex gebruiken.",
@@ -2280,10 +2281,10 @@
 			"waccBreakdown": {
 				"expand": "Toon aannames",
 				"collapse": "Verberg aannames",
-				"sectorBand": "Sectorbandbreedte: {min}%–{max}% (mediaan {median}%, {sector})",
-				"sectorBandSource": "Damodaran 2026, EU SMB-cohort",
+				"sectorBand": "Illustratieve modelbandbreedte: {min}%–{max}% (midden {median}%, {sector})",
+				"sectorBandSource": "Modelaanname; empirische dekking niet vastgesteld",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
-				"manualOverride": "WACC {wacc}% — handmatig / sector mediaan (CAPM-opbouw hieronder wijkt af)",
+				"manualOverride": "WACC {wacc}% — aangeleverde of illustratieve modelaanname (CAPM-opbouw hieronder wijkt af)",
 				"outOfBandHigh": "Boven de sectorbandbreedte — laat reviewer dit aftekenen.",
 				"outOfBandLow": "Onder de sectorbandbreedte — laat reviewer dit aftekenen."
 			},
@@ -3570,6 +3571,13 @@
 		}
 	},
 	"calculationBreakdown": {
+		"reportedEbitdaDescription": "Resultaat uit de financiële brongegevens, vóór waarderingscorrecties.",
+		"appliedMultiple": "Toegepaste multiple",
+		"appliedMultipleDescription": "De multiple van de geselecteerde berekening, indien van toepassing.",
+		"valuationResult": "Waarderingsresultaat",
+		"equityValue": "Aandeelhouderswaarde",
+		"valuationResultDescription": "Het geselecteerde resultaat op de waardebasis die in het rapport staat.",
+		"evidenceNote": "Raadpleeg het rapport voor bronnen, aannames, methodetoepasbaarheid en de brug van ondernemingswaarde naar aandeelhouderswaarde. Ontbrekende waarden worden als een streepje weergegeven.",
 		"title": "Berekeningsdetails",
 		"noCalculationAvailable": "Geen berekening beschikbaar",
 		"noCalculationDesc": "Vul de bedrijfsgegevens in en bereken de schatting om de berekeningsdetails te zien.",
@@ -3841,6 +3849,9 @@
 		"copyFailed": "Kon link niet kopiëren"
 	},
 	"omniCalc": {
+		"columnValue": "Waarde",
+		"currencyUnknown": "Valuta onbekend",
+		"valueBasisUnknown": "Waardebasis onbekend",
 		"title": "Hoofdcijfer & methodes",
 		"subtitle": "Kies welk berekend resultaat als hoofdwaarde in het cliëntrapport en de exporten verschijnt.",
 		"available": "klaar",
@@ -4080,6 +4091,12 @@
 		"multiplePipeline": "Multiple-pijplijn",
 		"comparablesCount": "Vergelijkbare bedrijven",
 		"comparablesQuality": "Kwaliteit vergelijkbaren",
+		"sensitivityUnavailableNote": "—: scenario niet beschikbaar met de vermelde aannames.",
+		"sensitivityApvDescription": "Elk scenario bevat het toegelaten belastingschild eenmaal. De renteas toont het basisrendement zonder schuld.",
+		"sensitivityApvGrowthHeader": "Basisrendement / g",
+		"sensitivityApvExitHeader": "Basisrendement / exit",
+		"sensitivityApvFixedRateNote": "De expliciete discontovoet voor het belastingschild blijft gelijk in de scenario’s voor het basisrendement.",
+		"sensitivityApvBaseRateNote": "De discontovoet voor het belastingschild volgt als aanname het basisrendement.",
 		"sensitivityTitle": "DCF-gevoeligheidsmatrix",
 		"sensitivityDescription": "Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en terminale groei.",
 		"sensitivityDescriptionExitMultiple": "Ondernemingswaarde bij wijzigingen van +/-1 punt in WACC en exit multiple.",

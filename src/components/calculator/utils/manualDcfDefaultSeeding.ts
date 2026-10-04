@@ -16,11 +16,10 @@ function assignParsedOrDefault<TField extends keyof ManualValuationFormData>(
   patch: Partial<ManualValuationFormData>,
   formData: ManualValuationFormData,
   field: TField,
-  fallback: number,
-  options?: { treatZeroAsMissing?: boolean }
+  fallback: number
 ) {
   const parsed = parseFlexibleNumber(formData[field])
-  if (parsed == null || (options?.treatZeroAsMissing && parsed === 0)) {
+  if (parsed == null) {
     patch[field] = fallback as ManualValuationFormData[TField]
     return
   }
@@ -98,9 +97,7 @@ export function buildManualDcfDefaultsPatch({
       latestHistoricalEbitda,
     })
 
-  assignParsedOrDefault(patch, formData, 'dcf_ebitda_margin_pct', ebitdaMarginFallback, {
-    treatZeroAsMissing: ebitdaMarginFallback > 0,
-  })
+  assignParsedOrDefault(patch, formData, 'dcf_ebitda_margin_pct', ebitdaMarginFallback)
   assignParsedOrDefault(
     patch,
     formData,
@@ -114,6 +111,7 @@ export function buildManualDcfDefaultsPatch({
     integrationDerivedDaPct ?? smartDefaults?.daPct ?? DCF_DEFAULT_DA_PCT
   )
   assignParsedOrDefault(patch, formData, 'dcf_nwc_pct', DCF_DEFAULT_NWC_PCT)
+  // Keep the deployed legacy tax contract until the compatible engine policy is released.
   assignParsedOrDefault(
     patch,
     formData,

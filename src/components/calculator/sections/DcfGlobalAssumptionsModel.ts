@@ -109,14 +109,10 @@ function seedIfMissing(
   patch: DcfGlobalAssumptionsSeedPatch,
   current: number | undefined,
   field: DcfGlobalAssumptionsSeedField,
-  value: number | undefined,
-  options?: { treatZeroAsMissing?: boolean }
+  value: number | undefined
 ) {
   const currentParsed = toFinite(current)
-  if (
-    currentParsed !== undefined &&
-    !(options?.treatZeroAsMissing === true && currentParsed === 0 && (value ?? 0) > 0)
-  ) {
+  if (currentParsed !== undefined) {
     if (current !== currentParsed) patch[field] = currentParsed
     return
   }
@@ -178,7 +174,6 @@ export function buildDcfGlobalAssumptionsSeedPatch({
   variant,
   dcfInputMode,
   terminalValueMethod,
-  repairZeroEbitdaMarginPlaceholder,
   currentValues,
   smartDefaults,
   integrationCapexPct,
@@ -201,8 +196,7 @@ export function buildDcfGlobalAssumptionsSeedPatch({
       patch,
       currentValues.dcfEbitdaMarginPct,
       'dcf_ebitda_margin_pct',
-      pickFinite(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT),
-      { treatZeroAsMissing: repairZeroEbitdaMarginPlaceholder }
+      pickFinite(smartDefaults?.ebitdaMarginPct, DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT)
     )
     seedIfMissing(
       patch,

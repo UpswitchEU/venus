@@ -1582,7 +1582,7 @@
 			"historyRange": "Années historiques",
 			"years3": "3 derniers exercices",
 			"years5": "5 derniers exercices",
-			"manualOverride": "Conserver le remplacement manuel disponible après l'importation",
+			"manualOverride": "WACC {wacc}% — donnée fournie ou hypothèse de modélisation illustrative (la construction CAPM ci-dessous diffère)",
 			"fetchPhasesHint": "Récupération des données historiques, puis des lignes de budget ou de prévision lorsqu'elles sont disponibles.",
 			"loadingCompanies": "Chargement des tableaux de bord du client Bizzcontrol...",
 			"importCta": "Extraire des données",
@@ -1600,7 +1600,7 @@
 			"historyRange": "Années historiques",
 			"years3": "3 derniers exercices",
 			"years5": "5 derniers exercices",
-			"manualOverride": "Conserver le remplacement manuel disponible après l'importation",
+			"manualOverride": "WACC {wacc}% — donnée fournie ou hypothèse de modélisation illustrative (la construction CAPM ci-dessous diffère)",
 			"fetchPhasesHint": "Récupérer des instantanés de la balance de vérification ; Les indicateurs SDE et le pont trésorerie/dette suivent dans le flux de travail.",
 			"loadingCompanies": "Chargement des dossiers Octopus...",
 			"importCta": "Extraire des données",
@@ -1643,7 +1643,8 @@
 			"fteRequired": "Entrez l'ETP total, propriétaires inclus",
 			"fteOver10k": "Plus de 10 000 ETP — vérifier",
 			"yearRange": "Doit être compris entre 1800 et {year}",
-			"fcffRequired": "Saisissez un montant FCFF valide pour chaque année de prévision"
+			"fcffRequired": "Saisissez un montant FCFF valide pour chaque année de prévision",
+			"forecastFinancialsRequired": "Saisissez le montant prévisionnel, y compris zéro le cas échéant."
 		},
 		"startupValuation": {
 			"panelTitle": "Moteur de valorisation de startup",
@@ -1894,7 +1895,7 @@
 			"showAdvancedDrivers": "Modifier les pilotes FCFF",
 			"hideAdvancedDrivers": "Masquer les pilotes FCFF",
 			"advancedDriversTitle": "Pilotes FCFF avancés",
-			"advancedDriversHelp": "La plupart des conseillers peuvent les laisser sur les défauts du secteur et les ajuster uniquement lorsqu'un cas spécifique le nécessite.",
+			"advancedDriversHelp": "Il s’agit d’hypothèses de modélisation. Adaptez-les aux prévisions et au régime de trésorerie fiscale du dossier.",
 			"advancedDriversSummary": "CapEx {capex}%, D&A {da}%, ratio NWC {nwc}%, taxe {tax}%.",
 			"fcffOnlyForecastDefaultsNotice": "En mode « Sans EBITDA », vous saisissez le FCFF annuel dans le tableau de prévisions ci-dessous. Les pourcentages de croissance, de marge et de facteurs de transition ne sont donc pas utilisés ici.",
 			"dcfCapexFootnote": "Les CapEx sont des investissements en espèces. Si l'historique des investissements est manquant dans vos données, le moteur de valorisation peut utiliser la dépréciation comme proxy des investissements de maintenance lors du calcul des défauts.",
@@ -2280,10 +2281,10 @@
 			"waccBreakdown": {
 				"expand": "Afficher les entrées",
 				"collapse": "Masquer les entrées",
-				"sectorBand": "Plage sectorielle : {min}% – {max}% (médiane {median}%, {sector})",
-				"sectorBandSource": "Damodaran 2026, cohorte PME de l'UE",
+				"sectorBand": "Plage de modélisation illustrative : {min}%–{max}% (centre {median}%, {sector})",
+				"sectorBandSource": "Hypothèse de modélisation ; couverture empirique non établie",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
-				"manualOverride": "WACC {wacc}% — médiane manuelle/sectorielle (la constitution du CAPM ci-dessous diffère)",
+				"manualOverride": "WACC {wacc}% — donnée fournie ou hypothèse de modélisation illustrative (la construction CAPM ci-dessous diffère)",
 				"outOfBandHigh": "Au-dessus de la plage sectorielle – indicateur pour l’examinateur.",
 				"outOfBandLow": "En dessous de la plage sectorielle – indicateur pour l'évaluateur."
 			},
@@ -3570,6 +3571,13 @@
 		}
 	},
 	"calculationBreakdown": {
+		"reportedEbitdaDescription": "Résultat des données financières sources, avant ajustements de valorisation.",
+		"appliedMultiple": "Multiple appliqué",
+		"appliedMultipleDescription": "Le multiple utilisé par le calcul sélectionné, le cas échéant.",
+		"valuationResult": "Résultat de valorisation",
+		"equityValue": "Valeur des capitaux propres",
+		"valuationResultDescription": "Le résultat sélectionné selon la base de valeur indiquée dans le rapport.",
+		"evidenceNote": "Consultez le rapport pour les sources, hypothèses, méthodes applicables et le passage de la valeur d’entreprise aux capitaux propres. Les valeurs manquantes sont représentées par un tiret.",
 		"title": "Détails du calcul",
 		"noCalculationAvailable": "Aucun calcul disponible",
 		"noCalculationDesc": "Remplissez les détails de l'entreprise et calculez l'estimation pour voir les détails du calcul.",
@@ -3841,6 +3849,9 @@
 		"copyFailed": "Impossible de copier le lien"
 	},
 	"omniCalc": {
+		"columnValue": "Valeur",
+		"currencyUnknown": "Devise inconnue",
+		"valueBasisUnknown": "Base de valeur inconnue",
 		"title": "Chiffre principal & méthodes",
 		"subtitle": "Choisissez le résultat calculé qui apparaît comme valeur principale dans le rapport client et les exportations.",
 		"available": "prêt",
@@ -4080,6 +4091,12 @@
 		"multiplePipeline": "Pipeline multiple",
 		"comparablesCount": "Comparables",
 		"comparablesQuality": "Qualité comparable",
+		"sensitivityUnavailableNote": "— : scénario non disponible avec les hypothèses indiquées.",
+		"sensitivityApvDescription": "Chaque scénario inclut une seule fois le bouclier fiscal admis. L’axe des taux représente le rendement de base sans dette.",
+		"sensitivityApvGrowthHeader": "Rendement de base / g",
+		"sensitivityApvExitHeader": "Rendement de base / sortie",
+		"sensitivityApvFixedRateNote": "Le taux explicite du bouclier fiscal reste constant dans les scénarios de rendement de base.",
+		"sensitivityApvBaseRateNote": "Le taux du bouclier fiscal suit par hypothèse le rendement de base.",
 		"sensitivityTitle": "Matrice de sensibilité DCF",
 		"sensitivityDescription": "Valeur d'entreprise inférieure à +/-1 point de variation du WACC et de la croissance terminale.",
 		"sensitivityDescriptionExitMultiple": "Valeur d'entreprise sous une variation de +/-1 point du WACC et du multiple de sortie.",

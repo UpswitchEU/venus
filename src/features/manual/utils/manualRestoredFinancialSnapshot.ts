@@ -1,79 +1,24 @@
 import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
-import { getReportedFinancialEbitda } from '@/utils/normalizationMath'
-import type { SubmittedFinancialSnapshot, SubmittedFinancialYear } from './manualFinancialSnapshot'
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-}
-
-function readOptionalNumber(value: unknown): number | undefined {
-  return parseFlexibleNumber(value)
-}
-
-function rowHasFinancials(row: Record<string, unknown>): boolean {
-  return readOptionalNumber(row.revenue) !== undefined || readOptionalNumber(row.ebitda) !== undefined
-}
-
-function forecastRowHasFinancials(row: Record<string, unknown>): boolean {
-  return (
-    rowHasFinancials(row) ||
-    row.capex != null ||
-    row.nwc_change != null ||
-    row.free_cash_flow != null
-  )
-}
-
-function toSubmittedYear(row: Record<string, unknown>, isForecast = false): SubmittedFinancialYear {
-  return {
-    year: String(row.year),
-    revenue: readOptionalNumber(row.revenue),
-    ebitda: getReportedFinancialEbitda(row) ?? readOptionalNumber(row.ebitda),
-    capex: readOptionalNumber(row.capex),
-    nwc_change: readOptionalNumber(row.nwc_change),
-    ...(isForecast ? { isForecast: true } : {}),
-  }
-}
+import { FINANCIAL_YEAR_AMOUNT_KEYS, restoreFinancialYear } from '@/utils/restoredFinancialYear'
+import type { SubmittedFinancialSnapshot } from './manualFinancialSnapshot'
+import { buildManualLiveYearlyFinancials } from './manualLiveYearlyFinancials'
 
 export function buildManualRestoredFinancialSnapshot(
   formData: unknown
 ): SubmittedFinancialSnapshot | null {
-  const formRecord = asRecord(formData)
-  if (!formRecord) return null
-
-  const currentYearData = asRecord(formRecord.current_year_data)
-  const historicalRows = Array.isArray(formRecord.historical_years_data)
-    ? formRecord.historical_years_data
-        .map(asRecord)
-        .filter((row): row is Record<string, unknown> => Boolean(row))
-    : []
-  const forecastRows = Array.isArray(formRecord.forecast_years_data)
-    ? formRecord.forecast_years_data
-        .map(asRecord)
-        .filter((row): row is Record<string, unknown> => Boolean(row))
-    : []
-
-  const hasFinancials =
-    (currentYearData ? rowHasFinancials(currentYearData) : false) ||
-    historicalRows.some(rowHasFinancials) ||
-    forecastRows.some(forecastRowHasFinancials)
-
-  if (!hasFinancials) return null
-
-  const yearlyFinancials = [
-    ...(currentYearData ? [toSubmittedYear(currentYearData)] : []),
-    ...historicalRows.map((row) => toSubmittedYear(row)),
-    ...forecastRows.map((row) => toSubmittedYear(row, true)),
-  ].sort((a, b) => Number.parseInt(b.year, 10) - Number.parseInt(a.year, 10))
-
+  if (!formData || typeof formData !== 'object' || Array.isArray(formData)) return null
+  const form = formData as Record<string, unknown>
+  const yearlyFinancials = buildManualLiveYearlyFinancials({ formData })
+  if (
+    !yearlyFinancials.some((row) =>
+      FINANCIAL_YEAR_AMOUNT_KEYS.some((key) => row[key] !== undefined)
+    )
+  )
+    return null
+  const current = restoreFinancialYear(form.current_year_data)
   return {
-    revenue:
-      currentYearData && 'revenue' in currentYearData
-        ? readOptionalNumber(currentYearData.revenue)
-        : readOptionalNumber(formRecord.revenue),
-    ebitda:
-      currentYearData && 'ebitda' in currentYearData
-        ? (getReportedFinancialEbitda(currentYearData) ?? readOptionalNumber(currentYearData.ebitda))
-        : readOptionalNumber(formRecord.ebitda),
+    revenue: current ? current.revenue : parseFlexibleNumber(form.revenue),
+    ebitda: current ? current.ebitda : parseFlexibleNumber(form.ebitda),
     yearlyFinancials,
   }
 }

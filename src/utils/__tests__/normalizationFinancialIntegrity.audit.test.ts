@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { NormalizationItem } from '../../components/calculator/UnifiedNormalizationTypes'
 import {
@@ -14,6 +15,7 @@ import {
   summarizeAcceptedNormalizationsAcrossYears,
 } from '../normalizationMath'
 import { buildValuationRequestNormalizations } from '../valuationRequestNormalizations'
+import { buildValuationRequestYearData } from '../valuationRequestYearData'
 import { makeFormData } from './buildValuationRequest.testUtils'
 
 const year = getCurrentFilingYear()
@@ -52,6 +54,164 @@ function legacy(): EbitdaNormalization {
 afterEach(() => useEbitdaNormalizationStore.setState({ normalizations: {} }))
 
 describe('normalization financial integrity audit', () => {
+  it.each([
+    item({ adjustment: Number.NaN }),
+    item({ adjustment: Number.POSITIVE_INFINITY }),
+    item({ type: 'absolute', value: Number.NaN }),
+    item({ type: 'add_percent', value: Number.MAX_VALUE }),
+  ])('rejects corrupt or overflowing accepted amounts instead of pricing zero: $type', (row) => {
+    expect(() =>
+      buildValuationRequestNormalizations({
+        rawNormalizationItems: [row],
+        legacyNormalizations: {},
+        allDataYears: [year],
+        yearEbitdaMap: { [year]: 1000 },
+      })
+    ).toThrow(/normalization amount/)
+  })
+
+  it('requires the annual reported baseline and prevents duplicate decisions from double counting', () => {
+    const build = (items: NormalizationItem[], yearEbitdaMap: Record<number, number>) =>
+      buildValuationRequestNormalizations({
+        rawNormalizationItems: items,
+        yearEbitdaMap,
+        legacyNormalizations: {},
+        allDataYears: [year],
+      })
+    expect(() => build([item()], {})).toThrow('Enter reported EBITDA')
+    expect(() => build([item(), item()], { [year]: 100 })).toThrow('duplicate normalization')
+  })
+
+  it('an explicit unnormalized decision wins over stale normalized cache values after reload', () => {
+    const result = buildValuationRequestYearData({
+      currentFiscalYear: year,
+      revenue: 1000,
+      ebitda: 100,
+      effectiveCurrentYearData: {
+        year,
+        revenue: 1000,
+        ebitda: 100,
+        reported_ebitda: 100,
+        normalized_ebitda: 150,
+        ebitda_normalized: false,
+      },
+      actualHistoricalData: [
+        {
+          year: year - 1,
+          revenue: 900,
+          ebitda: -10,
+          reported_ebitda: -10,
+          normalized_ebitda: 50,
+          ebitda_normalized: false,
+        },
+      ],
+      rawForecastData: [],
+      normByYear: {},
+    })
+    expect(result.currentYearData.ebitda).toBe(100)
+    expect(result.currentYearData.normalized_ebitda).toBeUndefined()
+    expect(result.historicalYearsData[0].ebitda).toBe(-10)
+    expect(result.historicalYearsData[0].normalized_ebitda).toBeUndefined()
+  })
+
+  it('keeps exact replacement-compensation arithmetic without treating a missing amount as zero', () => {
+    const build = (replacement: unknown) =>
+      buildValuationRequestNormalizations({
+        rawNormalizationItems: [
+          item({
+            category: 'salary',
+            value: 100.1,
+            adjustment: 0.1,
+            ownerRole: 'working',
+            actualOwnerCompensation: 100.1,
+            replacementOwnerCompensation: replacement as number,
+          }),
+        ],
+        legacyNormalizations: {},
+        allDataYears: [year],
+        yearEbitdaMap: { [year]: 100 },
+      })[year].items[0]
+    expect(build(null)).toMatchObject({
+      actual_owner_compensation: 100.1,
+      replacement_owner_compensation: 100,
+    })
+    expect(build('')).toMatchObject({
+      actual_owner_compensation: 100.1,
+      replacement_owner_compensation: 100,
+    })
+    expect(build(100.005).replacement_owner_compensation).toBeUndefined()
+  })
+
+  it.each([
+    'pending',
+    'rejected',
+  ] as const)('a %s decision replaces cached normalized EBITDA for current and historical years', (status) => {
+    const previous = year - 1
+    const rows = [item({ status, year }), item({ id: 'previous', status, year: previous })]
+    const normByYear = buildValuationRequestNormalizations({
+      rawNormalizationItems: rows,
+      legacyNormalizations: {},
+      allDataYears: [previous, year],
+      yearEbitdaMap: { [year]: 100, [previous]: 80 },
+    })
+    const result = buildValuationRequestYearData({
+      currentFiscalYear: year,
+      revenue: 1000,
+      ebitda: 125,
+      effectiveCurrentYearData: {
+        year,
+        revenue: 1000,
+        ebitda: 125,
+        reported_ebitda: 100,
+        normalized_ebitda: 125,
+        ebitda_normalized: true,
+      },
+      actualHistoricalData: [
+        {
+          year: previous,
+          revenue: 900,
+          ebitda: 105,
+          reported_ebitda: 80,
+          normalized_ebitda: 105,
+          ebitda_normalized: true,
+        },
+      ],
+      rawForecastData: [],
+      normByYear,
+    })
+    expect(result.currentYearData.ebitda).toBe(100)
+    expect(result.currentYearData.normalized_ebitda).toBeUndefined()
+    expect(result.currentYearData.ebitda_normalized).toBe(false)
+    expect(result.currentYearData.ebitda_normalization_metadata?.normalized_ebitda).toBe(100)
+    expect(result.historicalYearsData[0].ebitda).toBe(80)
+    expect(result.historicalYearsData[0].normalized_ebitda).toBeUndefined()
+    expect(result.historicalYearsData[0].ebitda_normalized).toBe(false)
+    expect(result.historicalYearsData[0].ebitda_normalization_metadata?.normalized_ebitda).toBe(80)
+  })
+
+  it('keeps a genuine zero aggregate instead of replacing it with the fallback year', () => {
+    const result = summarizeAcceptedNormalizationsAcrossYears({
+      items: [item({ value: 0, adjustment: 0, applyYears: [year - 1, year] })],
+      availableYears: [year - 1, year],
+      reportedEbitdaByYear: { [year - 1]: 100, [year]: -100 },
+      fallbackYear: year,
+      fallbackReportedEbitda: 999,
+    })
+    expect(result).toMatchObject({ original: 0, adjustment: 0, normalized: 0 })
+  })
+
+  it('the process-global decimal settings cannot change the input bridge', () => {
+    const precision = Decimal.precision
+    try {
+      Decimal.set({ precision: 3 })
+      expect(computeNormalizedEbitda(12345.67, [item({ value: 0.12, adjustment: 0.12 })])).toBe(
+        12345.79
+      )
+    } finally {
+      Decimal.set({ precision })
+    }
+  })
+
   it.each([
     'add_percent',
     'subtract_percent',
@@ -158,4 +318,17 @@ describe('normalization financial integrity audit', () => {
     expect(request.current_year_data.ebitda).toBe(125_000)
     expect(request.normalizations).toHaveLength(1)
   })
+})
+
+it('sums decimal accepted addbacks without injecting a binary rounding residue', () => {
+  const result = buildValuationRequestNormalizations({
+    rawNormalizationItems: [
+      item({ id: 'one', value: 0.1, adjustment: 0.1 }),
+      item({ id: 'two', value: 0.2, adjustment: 0.2 }),
+    ],
+    legacyNormalizations: {},
+    allDataYears: [year],
+    yearEbitdaMap: { [year]: 0 },
+  })
+  expect(result[year].totalAdjustment).toBe(0.3)
 })

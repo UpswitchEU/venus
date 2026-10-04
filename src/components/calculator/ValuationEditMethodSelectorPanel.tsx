@@ -6,10 +6,10 @@ import { AuroraButton } from '@/design-system/components/Button'
 import { SegmentedControl } from '@/design-system/components/SegmentedControl'
 import { AuroraSelect } from '@/design-system/components/Select'
 import { cn } from '@/design-system/utils'
+import { formatMethodAmount, resolveMethodCurrency } from '@/utils/methodComparisonFinancials'
 import type { ValuationMethodResult } from '../../types/valuation'
 import { getValuationMethodResultForKey } from '../../utils/extractValuationResultsMap'
 import { OmniMethodPanorama } from './omni/OmniMethodPanorama'
-import { formatCurrency } from './ValuationEditModalFormatting'
 import {
   getValuationEditGuidanceTextKey,
   getValuationEditGuidanceVariant,
@@ -20,6 +20,8 @@ import {
 } from './ValuationEditModalModel'
 
 interface ValuationEditMethodSelectorPanelProps {
+  currency?: string | null
+  locale?: string
   valuationResults: Record<string, ValuationMethodResult>
   panoramaValuationResults: Record<string, ValuationMethodResult>
   selectedMethod: string
@@ -43,6 +45,8 @@ interface ValuationEditMethodSelectorPanelProps {
 }
 
 export function ValuationEditMethodSelectorPanel({
+  currency,
+  locale,
   valuationResults,
   panoramaValuationResults,
   selectedMethod,
@@ -150,6 +154,8 @@ export function ValuationEditMethodSelectorPanel({
 
       {showMethodList && (
         <OmniMethodPanorama
+          currency={currency}
+          locale={locale}
           valuationResults={panoramaValuationResults}
           selectedMethod={selectedMethod}
           pendingMethod={pendingMethod}
@@ -231,7 +237,11 @@ export function ValuationEditMethodSelectorPanel({
                 {t('fiscalAnchor')}
               </span>
               <span className="text-xs font-mono font-medium text-foreground/60 tabular-nums">
-                {formatCurrency(Number(fiscalAnchor))}
+                {formatMethodAmount(
+                  Number(fiscalAnchor),
+                  resolveMethodCurrency({ label: '', value: null, available: false }, currency),
+                  locale
+                )}
               </span>
             </div>
             <p className="text-[9px] text-foreground/40 leading-snug px-1">

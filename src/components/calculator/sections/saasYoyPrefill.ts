@@ -26,7 +26,7 @@
 
 export interface YearlyFinancialsRow {
   year: string | number
-  revenue: number
+  revenue?: number
   isForecast?: boolean
 }
 
@@ -44,7 +44,13 @@ export function computeYoyRevenueGrowthPct(
   const sorted = [...historical].sort((a, b) => Number(b.year) - Number(a.year))
   const latest = sorted[0]
   const prior = sorted[1]
-  if (!Number.isFinite(latest.revenue) || !Number.isFinite(prior.revenue)) return null
+  if (
+    typeof latest.revenue !== 'number' ||
+    typeof prior.revenue !== 'number' ||
+    !Number.isFinite(latest.revenue) ||
+    !Number.isFinite(prior.revenue)
+  )
+    return null
   if (prior.revenue <= 0) return null
   const ratio = (latest.revenue - prior.revenue) / prior.revenue
   const pct = ratio * 100

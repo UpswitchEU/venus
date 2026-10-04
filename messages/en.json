@@ -1582,7 +1582,7 @@
 			"historyRange": "Historical years",
 			"years3": "Last 3 fiscal years",
 			"years5": "Last 5 fiscal years",
-			"manualOverride": "Keep manual override available after import",
+			"manualOverride": "WACC {wacc}% — supplied or illustrative modeling input (CAPM build-up below differs)",
 			"fetchPhasesHint": "Fetching historical data, then budget or forecast rows when available.",
 			"loadingCompanies": "Loading Bizzcontrol client dashboards...",
 			"importCta": "Pull data",
@@ -1600,7 +1600,7 @@
 			"historyRange": "Historical years",
 			"years3": "Last 3 fiscal years",
 			"years5": "Last 5 fiscal years",
-			"manualOverride": "Keep manual override available after import",
+			"manualOverride": "WACC {wacc}% — supplied or illustrative modeling input (CAPM build-up below differs)",
 			"fetchPhasesHint": "Fetching trial balance snapshots; SDE flags and cash/debt bridge follow in the workflow.",
 			"loadingCompanies": "Loading Octopus dossiers...",
 			"importCta": "Pull data",
@@ -1643,7 +1643,8 @@
 			"fteRequired": "Enter the total FTE, owners included",
 			"fteOver10k": "Over 10,000 FTE — verify",
 			"yearRange": "Must be between 1800 and {year}",
-			"fcffRequired": "Enter a valid FCFF amount for each forecast year"
+			"fcffRequired": "Enter a valid FCFF amount for each forecast year",
+			"forecastFinancialsRequired": "Enter the forecast amount, including zero when applicable."
 		},
 		"startupValuation": {
 			"panelTitle": "Startup valuation engine",
@@ -1894,7 +1895,7 @@
 			"showAdvancedDrivers": "Edit FCFF drivers",
 			"hideAdvancedDrivers": "Hide FCFF drivers",
 			"advancedDriversTitle": "Advanced FCFF drivers",
-			"advancedDriversHelp": "Most advisors can leave these on sector defaults and only adjust them when a specific case needs it.",
+			"advancedDriversHelp": "These are modeling assumptions. Adjust them to the dossier’s forecasts and cash-tax regime.",
 			"advancedDriversSummary": "CapEx {capex}%, D&A {da}%, NWC ratio {nwc}%, tax {tax}%.",
 			"fcffOnlyForecastDefaultsNotice": "In “Without EBITDA” mode you enter yearly FCFF in the forecast table below, so growth, margin, and bridge-driver percentages are not used here.",
 			"dcfCapexFootnote": "CapEx is cash investments. If historical capex is missing in your data, the valuation engine may use depreciation as a maintenance-capex proxy when deriving defaults.",
@@ -2280,10 +2281,10 @@
 			"waccBreakdown": {
 				"expand": "Show inputs",
 				"collapse": "Hide inputs",
-				"sectorBand": "Sector range: {min}%–{max}% (median {median}%, {sector})",
-				"sectorBandSource": "Damodaran 2026, EU SMB cohort",
+				"sectorBand": "Illustrative modeling range: {min}%–{max}% (center {median}%, {sector})",
+				"sectorBandSource": "Modeling heuristic; no empirical coverage established",
 				"liveFormula": "= {equityWeight}% × Ke {costOfEquity}% + {debtWeight}% × Kd {costOfDebt}% × (1−{taxShield}%) = {wacc}%",
-				"manualOverride": "WACC {wacc}% — manual / sector median (CAPM build-up below differs)",
+				"manualOverride": "WACC {wacc}% — supplied or illustrative modeling input (CAPM build-up below differs)",
 				"outOfBandHigh": "Above sector range — flag for reviewer.",
 				"outOfBandLow": "Below sector range — flag for reviewer."
 			},
@@ -3570,6 +3571,13 @@
 		}
 	},
 	"calculationBreakdown": {
+		"reportedEbitdaDescription": "Earnings reported in the source financials, before valuation adjustments.",
+		"appliedMultiple": "Applied multiple",
+		"appliedMultipleDescription": "The multiple used by the selected calculation, where applicable.",
+		"valuationResult": "Valuation result",
+		"equityValue": "Equity value",
+		"valuationResultDescription": "The selected calculation result on the value basis shown in the report.",
+		"evidenceNote": "See the report for the source evidence, assumptions, method eligibility and any enterprise-to-equity bridge. Missing values are shown as a dash.",
 		"title": "Calculation details",
 		"noCalculationAvailable": "No calculation available",
 		"noCalculationDesc": "Fill in the business details and calculate the estimate to see the calculation details.",
@@ -3841,6 +3849,9 @@
 		"copyFailed": "Could not copy link"
 	},
 	"omniCalc": {
+		"columnValue": "Value",
+		"currencyUnknown": "Currency unknown",
+		"valueBasisUnknown": "Value basis unknown",
 		"title": "Headline & methods",
 		"subtitle": "Choose which calculated result appears as the headline value in the client report and exports.",
 		"available": "ready",
@@ -4080,6 +4091,12 @@
 		"multiplePipeline": "Multiple pipeline",
 		"comparablesCount": "Comparables",
 		"comparablesQuality": "Comparable quality",
+		"sensitivityUnavailableNote": "—: scenario unavailable under the stated assumptions.",
+		"sensitivityApvDescription": "Each scenario includes the admitted financing tax shield once. The rate axis represents the unlevered base return.",
+		"sensitivityApvGrowthHeader": "Base return / g",
+		"sensitivityApvExitHeader": "Base return / exit",
+		"sensitivityApvFixedRateNote": "The explicit tax-shield discount rate remains fixed across base-return scenarios.",
+		"sensitivityApvBaseRateNote": "The tax-shield discount rate follows the base return as an assumption.",
 		"sensitivityTitle": "DCF sensitivity matrix",
 		"sensitivityDescription": "Enterprise value under +/-1 point changes in WACC and terminal growth.",
 		"sensitivityDescriptionExitMultiple": "Enterprise value under +/-1 point changes in WACC and exit multiple.",

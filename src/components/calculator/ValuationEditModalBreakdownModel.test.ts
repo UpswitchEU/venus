@@ -57,7 +57,7 @@ describe('ValuationEditModalBreakdownModel', () => {
     expect(buildMultipleFormulaModel('dcf', model)).toBeNull()
   })
 
-  it('normalizes localized DCF result strings for report breakdown cards', () => {
+  it('does not reinterpret localized display strings as machine financial amounts', () => {
     const method = {
       available: true,
       label: 'Discounted Cash Flow',
@@ -79,25 +79,26 @@ describe('ValuationEditModalBreakdownModel', () => {
       result: {} as ValuationResponse,
     })
 
-    expect(model.wacc).toBe(0.11)
-    expect(model.equityValue).toBe(1_496_000)
-    expect(model.enterpriseValue).toBe(1_396_000)
-    expect(model.terminalValue).toBe(500_000)
-    expect(model.terminalExitMultiple).toBe(6.5)
-    expect(model.apvTaxShieldValue).toBe(3_000)
+    expect(model.wacc).toBeNull()
+    expect(model.equityValue).toBeNull()
+    expect(model.enterpriseValue).toBeNull()
+    expect(model.terminalValue).toBe(500)
+    expect(model.terminalExitMultiple).toBeNull()
+    expect(model.apvTaxShieldValue).toBe(3)
   })
 
   it('projects revenue multiple formulas from normalized model values', () => {
     const method = {
       available: true,
       label: 'Revenue multiple',
-      value: 575_000,
+      value: 585_000,
       details: {
         revenue: 300_000,
         enterprise_value: 600_000,
       },
     } as ValuationMethodResult
     const result = {
+      selected_valuation_method: 'revenue_multiple',
       details: {
         net_debt: 25_000,
         balance_sheet_adjustments: [{ amount: 10_000 }],
@@ -136,7 +137,7 @@ describe('ValuationEditModalBreakdownModel', () => {
     expect(formula).toEqual({
       balanceSheetAdjustments: 10_000,
       enterpriseValue: 600_000,
-      equity: 575_000,
+      equity: 585_000,
       metric: 300_000,
       multiple: 2,
       netDebt: 25_000,
@@ -147,4 +148,78 @@ describe('ValuationEditModalBreakdownModel', () => {
     expect(normalizeComparablesQualityKey(' moderate ')).toBe('medium')
     expect(normalizeComparablesQualityKey('HIGH')).toBe('high')
   })
+})
+
+describe('method explanation integrity', () => {
+  const method: ValuationMethodResult = {
+    available: true,
+    label: 'EV method',
+    value: 500,
+    value_basis: 'enterprise_value',
+    details: { normalized_ebitda: 100 },
+    multiple_used: 5,
+  }
+  it('never relabels enterprise value as equity or fabricates an equity formula', () => {
+    const model = buildMethodBreakdownModel({
+      method,
+      methodKey: 'ebitda_multiple',
+      appliedMultiple: null,
+      result: null,
+    })
+    expect(model.enterpriseValue).toBe(500)
+    expect(model.equityValue).toBeNull()
+    expect(buildMultipleFormulaModel('ebitda_multiple', model)).toBeNull()
+  })
+  it('does not borrow another selected method’s enterprise value or multiple', () => {
+    const model = buildMethodBreakdownModel({
+      method: { ...method, value_basis: 'equity_value', multiple_used: null, details: {} },
+      methodKey: 'revenue_multiple',
+      appliedMultiple: 7,
+      result: {
+        selected_valuation_method: 'ebitda_multiple',
+        multiples_valuation: { enterprise_value: 700 },
+        multiple_pipeline: { final_multiple: 7 },
+      } as ValuationResponse,
+    })
+    expect(model.enterpriseValue).toBeNull()
+    expect(model.effectiveAppliedMultiple).toBeNull()
+  })
+  it('suppresses equations whose product or bridge does not reconcile', () => {
+    const model = buildMethodBreakdownModel({
+      method: {
+        ...method,
+        value_basis: 'equity_value',
+        details: {
+          normalized_ebitda: 100,
+          enterprise_value: 501,
+          net_debt: 1,
+          balance_sheet_adjustments: 0,
+        },
+      },
+      methodKey: 'ebitda_multiple',
+      appliedMultiple: null,
+      result: null,
+    })
+    expect(buildMultipleFormulaModel('ebitda_multiple', model)).toBeNull()
+    expect(
+      buildMultipleFormulaModel('ebitda_multiple', { ...model, enterpriseValue: 500 })
+    ).toBeNull()
+    expect(
+      buildMultipleFormulaModel('ebitda_multiple', { ...model, enterpriseValue: 500, netDebt: 0 })
+        ?.equity
+    ).toBe(500)
+  })
+})
+
+it('does not use the multiples leg as missing selected DCF enterprise evidence', () => {
+  const model = buildMethodBreakdownModel({
+    method: { label: 'DCF', available: true, value: 100 },
+    methodKey: 'dcf',
+    appliedMultiple: null,
+    result: {
+      selected_valuation_method: 'dcf',
+      multiples_valuation: { enterprise_value: 900 },
+    } as ValuationResponse,
+  })
+  expect(model.enterpriseValue).toBeNull()
 })

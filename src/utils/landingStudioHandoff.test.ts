@@ -156,3 +156,38 @@ describe('landingStudioHandoff', () => {
     setItemSpy.mockRestore()
   })
 })
+
+describe('handoff payload boundaries', () => {
+  it('strips unknown identity, credentials and report assets at both boundaries', () => {
+    writeLandingStudioHandoff({
+      studio: { ...SAMPLE_STUDIO, secret: 'credential', cap_table: { safe_notes: [null] } },
+      formData: {
+        ...SAMPLE_FORM_DATA,
+        user_id: 'private-user',
+        html_report: '<h1>Private</h1>',
+        token: 'credential',
+      },
+    })
+    const raw = localStorage.getItem(STORAGE_KEY)
+    expect(raw).not.toContain('credential')
+    expect(raw).not.toContain('private-user')
+    expect(raw).not.toContain('<h1>')
+    expect(consumeLandingStudioHandoff()?.formData).toEqual(SAMPLE_FORM_DATA)
+  })
+
+  it('rejects and deletes future or expired data even during a peek', () => {
+    for (const timestamp of [Date.now() + 1_000, Date.now() - TTL_MS]) {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          studio: SAMPLE_STUDIO,
+          formData: SAMPLE_FORM_DATA,
+          source: 'landing',
+          written_at_ms: timestamp,
+        })
+      )
+      expect(hasLandingStudioHandoff()).toBe(false)
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+    }
+  })
+})

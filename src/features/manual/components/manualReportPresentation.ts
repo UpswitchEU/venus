@@ -7,7 +7,8 @@ import { parseFinancialTransportNumber } from '../../../utils/financialTransport
 import { resultHasWeightedSynthesisSignal } from '../utils/weightedSynthesisSignals'
 
 export type ManualReportPresentation = {
-  valuation: number
+  valuation: number | null
+  valueBasis?: 'enterprise_value' | 'equity_value' | null
   valuationLow?: number
   valuationHigh?: number
   multiple?: number
@@ -33,22 +34,9 @@ function readString(record: ManualReportRecord, key: string): string | undefined
   return typeof value === 'string' ? value : undefined
 }
 
-function isUsableRow(method: unknown): boolean {
-  if (!method || typeof method !== 'object' || Array.isArray(method)) return false
-  const m = method as Record<string, unknown>
-  return m.available === true && parseFinancialTransportNumber(m.value) != null
-}
-
 function positiveFiniteNumber(value: unknown): number | null {
   const numeric = parseFinancialTransportNumber(value)
   return numeric != null && numeric > 0 ? numeric : null
-}
-
-function midpointFromRange(low: unknown, high: unknown): number | null {
-  const lowValue = positiveFiniteNumber(low)
-  const highValue = positiveFiniteNumber(high)
-  if (lowValue == null || highValue == null) return null
-  return Math.round((lowValue + highValue) / 2)
 }
 
 export type DeriveManualReportPresentationOpts = {
@@ -58,7 +46,7 @@ export type DeriveManualReportPresentationOpts = {
 
 function readSynthesisHeadlineFromResult(r: ManualReportRecord): number | null {
   const weighted = asRecord(r.weighted_valuation)
-  const fromWeighted = positiveFiniteNumber(weighted.blended_equity_value)
+  const fromWeighted = parseFinancialTransportNumber(weighted.blended_equity_value)
   if (fromWeighted != null) return fromWeighted
 
   const candidates = [
@@ -71,7 +59,7 @@ function readSynthesisHeadlineFromResult(r: ManualReportRecord): number | null {
   ]
 
   for (const candidate of candidates) {
-    const value = positiveFiniteNumber(
+    const value = parseFinancialTransportNumber(
       candidate.synthesis_blended_value ?? candidate.blended_equity_value
     )
     if (value != null) return value
@@ -93,34 +81,23 @@ function scopedMethodRange(
 ): { low: unknown; high: unknown } | null {
   const row = asRecord(method)
   for (const [source, lowKey, highKey] of [
-    [row, 'equity_value_low', 'equity_value_high'],
+    [
+      row,
+      row.value_basis === 'enterprise_value' ? 'enterprise_value_low' : 'equity_value_low',
+      row.value_basis === 'enterprise_value' ? 'enterprise_value_high' : 'equity_value_high',
+    ],
     [row, 'value_low', 'value_high'],
-    [details, 'equity_range_low', 'equity_range_high'],
+    [
+      details,
+      row.value_basis === 'enterprise_value' ? 'enterprise_value_low' : 'equity_range_low',
+      row.value_basis === 'enterprise_value' ? 'enterprise_value_high' : 'equity_range_high',
+    ],
   ] as const) {
     if (lowKey in source || highKey in source) {
       return { low: source[lowKey], high: source[highKey] }
     }
   }
   return null
-}
-
-function resolvePreferredMethodKey(
-  valuationResults: Record<string, ValuationMethodResult>,
-  requestedMethod?: string | null
-): string | null {
-  if (requestedMethod) {
-    const row = getValuationMethodResultForKey(valuationResults, requestedMethod)
-    if (isUsableRow(row)) return requestedMethod
-  }
-
-  if (isUsableRow(getValuationMethodResultForKey(valuationResults, 'upswitch_adaptive'))) {
-    return 'upswitch_adaptive'
-  }
-
-  const firstAvailable = Object.keys(valuationResults).find((k) =>
-    isUsableRow(getValuationMethodResultForKey(valuationResults, k))
-  )
-  return firstAvailable ?? null
 }
 
 /** True when client-facing headline should follow Waarderingssynthese (not engine adaptive alone). */
@@ -156,7 +133,7 @@ export function deriveManualReportPresentation(
   selectedMethod?: string | null,
   opts?: DeriveManualReportPresentationOpts
 ): ManualReportPresentation {
-  if (!result) return { valuation: 0 }
+  if (!result) return { valuation: null }
   void opts
   const r = asRecord(result)
 
@@ -167,19 +144,28 @@ export function deriveManualReportPresentation(
     asRecordOrNull(valuationResult.report_context) ??
     asRecordOrNull(details.report_context) ??
     {}
-  const hydrated = hydrateClientValuationResultsMap(r) ?? {}
-  const hydratedMap = hydrated as Record<string, ValuationMethodResult>
   const methodKey =
-    resolvePreferredMethodKey(
-      hydratedMap,
-      selectedMethod ??
-        readString(r, 'selected_valuation_method') ??
-        readString(r, 'selectedMethod') ??
-        'upswitch_adaptive'
-    ) ?? 'upswitch_adaptive'
+    selectedMethod ??
+    readString(r, 'selected_valuation_method') ??
+    readString(r, 'selectedMethod') ??
+    'upswitch_adaptive'
+  const hydrated =
+    hydrateClientValuationResultsMap(r, {
+      selectedValuationMethodOverride: methodKey,
+    }) ?? {}
+  const hydratedMap = hydrated as Record<string, ValuationMethodResult>
   const methodData = getValuationMethodResultForKey(hydratedMap, methodKey)
   const methodDetails = asRecord(methodData?.details)
   const multiplesValuation = asRecord(r.multiples_valuation)
+  const hasSynthesis = resultHasWeightedSynthesisSignal(r)
+  const synthesisHeadline = hasSynthesis ? readSynthesisHeadlineFromResult(r) : null
+  const hasMethodInventory = Object.keys(hydratedMap).length > 0
+  if (
+    (hasSynthesis && synthesisHeadline == null) ||
+    (!hasSynthesis && hasMethodInventory && methodData?.available !== true)
+  ) {
+    return { valuation: null, valueBasis: null }
+  }
 
   // Compatibility for saved reports whose API method card predates the final
   // missing-balance bridge. Read the published report decision, never reprice.
@@ -192,14 +178,9 @@ export function deriveManualReportPresentation(
 
   const methodValueRaw =
     (usePublishedAdaptive ? positiveFiniteNumber(reportContext.equity_value) : null) ??
-    methodData?.value ??
-    r.equity_value_mid ??
-    r.valuation_midpoint ??
-    details.equity_value_mid
-
-  const synthesisHeadline = resultHasWeightedSynthesisSignal(r)
-    ? readSynthesisHeadlineFromResult(r)
-    : null
+    (hasMethodInventory
+      ? methodData?.value
+      : (r.equity_value_mid ?? r.valuation_midpoint ?? details.equity_value_mid))
   // Select one economic source for both endpoints. Explicit nulls and partial
   // method bands must not be completed from the overall report's other method.
   const range =
@@ -215,12 +196,13 @@ export function deriveManualReportPresentation(
   const valuationHighRaw = range.high
   const parsedLow = parseFinancialTransportNumber(valuationLowRaw)
   const parsedHigh = parseFinancialTransportNumber(valuationHighRaw)
-  const reversedRange = parsedLow != null && parsedHigh != null && parsedLow > parsedHigh
-  const methodValuation =
-    parseFinancialTransportNumber(methodValueRaw) ??
-    midpointFromRange(valuationLowRaw, valuationHighRaw) ??
-    0
+  const methodValuation = parseFinancialTransportNumber(methodValueRaw) ?? null
   const valuation = synthesisHeadline ?? methodValuation
+  const inconsistentRange =
+    parsedLow != null &&
+    parsedHigh != null &&
+    (parsedLow > parsedHigh ||
+      (valuation != null && (valuation < parsedLow || valuation > parsedHigh)))
   const multipleRaw =
     methodData?.multiple_used ??
     valuationResult.multiple ??
@@ -239,8 +221,20 @@ export function deriveManualReportPresentation(
 
   return {
     valuation,
-    valuationLow: reversedRange ? undefined : parsedLow,
-    valuationHigh: reversedRange ? undefined : parsedHigh,
+    valueBasis:
+      synthesisHeadline != null
+        ? 'equity_value'
+        : asRecord(methodData).value_basis === 'enterprise_value'
+          ? 'enterprise_value'
+          : asRecord(methodData).value_basis === 'equity_value' ||
+              methodData?.equity_value != null ||
+              r.equity_value_mid != null ||
+              r.valuation_midpoint != null ||
+              usePublishedAdaptive
+            ? 'equity_value'
+            : null,
+    valuationLow: inconsistentRange ? undefined : parsedLow,
+    valuationHigh: inconsistentRange ? undefined : parsedHigh,
     multiple: parseFinancialTransportNumber(multipleRaw),
     multipleRange:
       multipleLow != null && multipleHigh != null && multipleLow <= multipleHigh
@@ -251,38 +245,41 @@ export function deriveManualReportPresentation(
 
 /** Price range + ask for CalculatorNav version dropdown — mirrors `valuationSummary` / `setReport` bridge. */
 export type NavVersionPrices = {
-  priceRange: { min: number; max: number }
-  askPrice: number
+  priceRange?: { min: number; max: number }
+  askPrice?: number
 }
 
 export function deriveNavPricesForVersionNav(
   result: ValuationResponse | null | undefined,
   selectedMethod?: string | null,
   opts?: DeriveManualReportPresentationOpts
-): NavVersionPrices {
+): NavVersionPrices | null {
   const r = asRecord(result)
   const details = asRecord(r.details)
   const presentation = deriveManualReportPresentation(result, selectedMethod, opts)
   const valuationLow = presentation.valuationLow
   const valuationHigh = presentation.valuationHigh
   const valuation = presentation.valuation
+  if (valuation == null || presentation.valueBasis === 'enterprise_value') return null
   const context = asRecord(r.report_context ?? details.report_context)
   const publishedAsking =
     (!selectedMethod || selectedMethod === 'upswitch_adaptive') &&
     (context.recommended_asking_price_buffer_suppressed === true ||
       context.recommended_asking_price_realigned === true)
-      ? positiveFiniteNumber(context.recommended_asking_price)
+      ? parseFinancialTransportNumber(context.recommended_asking_price)
       : null
   const askingRaw =
     publishedAsking ?? r.recommended_asking_price ?? details.recommended_asking_price
-  const askingFinite = positiveFiniteNumber(askingRaw) ?? undefined
-  const rangeMidpoint = midpointFromRange(valuationLow, valuationHigh)
-  const askPrice = askingFinite ?? (valuation > 0 ? valuation : (rangeMidpoint ?? valuation))
+  const askingFinite = parseFinancialTransportNumber(askingRaw)
+  const askPrice = askingFinite != null && askingFinite >= 0 ? askingFinite : undefined
   return {
-    priceRange: {
-      min: valuationLow != null && Number.isFinite(valuationLow) ? valuationLow : valuation,
-      max: valuationHigh != null && Number.isFinite(valuationHigh) ? valuationHigh : valuation,
-    },
+    priceRange:
+      valuationLow != null &&
+      valuationHigh != null &&
+      valuationLow <= valuation &&
+      valuation <= valuationHigh
+        ? { min: valuationLow, max: valuationHigh }
+        : undefined,
     askPrice,
   }
 }

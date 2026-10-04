@@ -1,0 +1,284 @@
+{
+  "reviewer": "Codex implementation audit under the authorized release task",
+  "scope": "Source payload/retention review with regression checks; not a certification of all live user journeys. Original expired default remains; source or dependency changes invalidate this evidence.",
+  "surfaces": {
+    "src/features/manual/components/AccountingReconnectRecovery.tsx": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "4374cd53a7cdc2558a671b90f4a5bc1b3d9f22ba9227406150f94802f4142315",
+      "assessment": "A one-tab boolean marker only; no draft, token, or company payload.",
+      "dependencies": {}
+    },
+    "src/features/manual/hooks/useManualStartValuationIntent.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "b71791485b7b5a7f21e11c6ff7588916cb11d2aceafd138bbcbc65b99f7eac3c",
+      "assessment": "Opaque report ID with completion marker or a five-minute reservation timestamp.",
+      "dependencies": {}
+    },
+    "src/lib/analytics.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "84f77bf7f7f0c6ad5d2edb4c53180bb6ce0e9fd5bc2e6c6b991ac8188b3dc0c3",
+      "assessment": "One-tab boolean per event and validated resolution hash; no financial payload.",
+      "dependencies": {}
+    },
+    "src/utils/journeyTrace.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "0a0d7aefd48314064befd9a3ce3ea8b77b56dfb30bde046b4f6688f633f08112",
+      "assessment": "A validated random journey UUID only; grants no access and contains no identity or figures.",
+      "dependencies": {}
+    },
+    "src/utils/silverfin-oauth-state.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "64f352c0130a72ef52bdb1f0639f41762e67a63f6da3fb7fe0c77999bb94e8ad",
+      "assessment": "One-use callback nonce consumed before comparison, strict finite ten-minute expiry. No provider access/refresh token is persisted.",
+      "dependencies": {}
+    },
+    "src/components/AuthGate.tsx": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "2c1c9f34447bcd6eb4b0990c3daf4e9583fbad5b98ea1d55fc314042ab0336ba",
+      "assessment": "Prevents redirect loops inside one browser tab.",
+      "dependencies": {}
+    },
+    "src/components/calculator/hooks/useManualAccountingImportController.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "f92e54f72507c19498838e1b5f3592f8f2e223de4e68c34725e772147a1f19e3",
+      "assessment": "Prevents duplicate accounting-provider OAuth launches.",
+      "dependencies": {}
+    },
+    "src/components/calculator/venus-ai-dock-resize-model.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "663e20b5f9b3aa68f661fa42b5fafddbb4b45457ce158c7b48a8954a2126943d",
+      "assessment": "Stores only the resizable AI dock width in pixels.",
+      "dependencies": {}
+    },
+    "src/config/features.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "319bb651b6cd1bf8765461e6da83e900aa12e01ea4968ee94f1b5ebb4c1e14d7",
+      "assessment": "Keeps rollout bucket stable without user/company payloads.",
+      "dependencies": {}
+    },
+    "src/features/manual/hooks/useManualNormalizationModalController.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "a72a17c92e1718bce31c1b088ff249d24513a0ae69c205e48199e9f87afd2c2e",
+      "assessment": "Avoids reopening the same non-authoritative modal in one tab.",
+      "dependencies": {}
+    },
+    "src/features/startup-studio/components/PresetPicker.tsx": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "961c22f6d858002c32529893c3e382728f4f062e6f1810853154e6ec3cea6653",
+      "assessment": "Restores the active startup preset chip during tab navigation.",
+      "dependencies": {}
+    },
+    "src/features/startup-studio/components/StudioCoPilot.tsx": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "7fe035777e6ccd09d7678dc3601464debd09b091c2f2c5b631fdac88d160bfc8",
+      "assessment": "Stores only a one-tab co-pilot snooze marker.",
+      "dependencies": {}
+    },
+    "src/hooks/useEmbeddedMode.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "d2145664c90e5b3407cde3f7df6e6624560c92c5aba85c82c9ca6c1324ed1e4a",
+      "assessment": "Preserves embedded-mode routing context in one browser tab.",
+      "dependencies": {}
+    },
+    "src/hooks/panelResizeModel.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "37bbc792e56983c957daa4e293459808d02543186e1ae73da605e22aabc6b33b",
+      "assessment": "Centralizes numeric panel-width preference persistence for calculator layouts.",
+      "dependencies": {}
+    },
+    "src/hooks/useReportIdTracking.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "185fbc10137cec08599275bae866c9674ebf382f3a8a153d6fa9e0434c429cd0",
+      "assessment": "Keeps report context stable across remounts in one tab.",
+      "dependencies": {}
+    },
+    "src/lib/auth/initGuards.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "fed9eff9abd8615585ada0cbfcb8f5baef2e7238f4a99308a46abafd96a2b19c",
+      "assessment": "Prevents auth initialization reload loops without storing tokens.",
+      "dependencies": {}
+    },
+    "src/lib/auth/initializeAuth.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "f337c2497e1390ad2d00375560589c5d1a8bf1249dcc633e6e225071071af57b",
+      "assessment": "Safe Mercury return URL and source only in session storage; destination allowlist checked before write. Cookie/session authorization independent.",
+      "dependencies": {}
+    },
+    "src/services/cache/businessTypesCache.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "ccffa47c584a481280ad0d1bc115bd7da37a6afad9e21eed31c481b7de0f25ed",
+      "assessment": "Public reference catalog only; bounded 24-hour envelope with finite/future-date validation. Aggregate hit/miss statistics have a non-sensitive lifetime exemption.",
+      "dependencies": {}
+    },
+    "src/store/manual/useStartupValuationStore.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "7fab72706b35b8b5d35867a77a4b7fa32b4828c35f5466b16d551c22ae2d0657",
+      "assessment": "Replaced indefinite local draft with validated session recovery (24 hours, 100 kB), exact resolved user/client scope, cold-auth deferral and account/client-change clearing. Backend session remains durable authority.",
+      "dependencies": {
+        "src/store/manual/startupValuationPersistence.ts": "1e835a0c96ef719bcb352c4bdf3812b8e01cc0a8c1611221f260300f1b808b25",
+        "src/store/manual/startupValuationRecovery.ts": "f5843e19b12829027cc3750bec231c59e57e87e40e6157754edf62ec5ad600d0",
+        "src/store/manual/startupValuationInitialState.ts": "e6ec98c998fb3317289d235bae9eac18a3fdc4a865edbbd53495e80527904cef",
+        "src/utils/workflowRecoveryStorage.ts": "272f950a875673ddf3fafb4a1ec97b1374e9c7c48eb26141d3b5e677fc8099c4",
+        "src/utils/resolvedRecoveryScope.ts": "47c1f39fdc8fd18e21a7996b992915f68ecbe4ed4f76dfb4303cd664032c0c00"
+      }
+    },
+    "src/store/useVersionHistoryStore.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "db632da52ed1c5f1f738aa8614c11554c58b1e4a7d3a88dbb499f5c664d61654",
+      "assessment": "Removed all version content, company identity, figures, reports and arbitrary spreads from persistence. Only ten report/version selections, bounded in-session TTL and full resolved user/client scope.",
+      "dependencies": {
+        "src/store/versionHistoryModel.ts": "7e8033ccf58dae2de69c8b9e64c5bd1adb4d3969e0ade0ff3b84d42f1263a27b",
+        "src/utils/workflowRecoveryStorage.ts": "272f950a875673ddf3fafb4a1ec97b1374e9c7c48eb26141d3b5e677fc8099c4",
+        "src/utils/resolvedRecoveryScope.ts": "47c1f39fdc8fd18e21a7996b992915f68ecbe4ed4f76dfb4303cd664032c0c00"
+      }
+    },
+    "src/stores/clientContext.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "00549cf693a68129cff6d9e9d02d6dd4f4a8a49e0c032947a98bcddb9abbc4c8",
+      "assessment": "Typed display/navigation fields only. Rehydration rejects malformed, future, expired and URL-mismatched context; local checks cannot extend server freshness. Titan verifies delegated headers independently.",
+      "dependencies": {
+        "src/lib/auth/persistedClientContext.ts": "8feeab8265a24e0fda58f7086d78c4cb44dc3342736c3c52482a4302be322fd1"
+      }
+    },
+    "src/utils/auth/cross-tab-refresh.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "0cbfc1bdb62effb88d2cfc5b10682ba106dc26ea86b5c899d0d942f26fdc6cdf",
+      "assessment": "A timestamp only; rejects/removes nonfinite, future, and >=one-hour-old entries. Four-minute dedupe is not an authorization decision.",
+      "dependencies": {}
+    },
+    "src/utils/auth/sessionSync.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "04aa4a54f42784d4d465dc20424ccf27ecf379499e0f59c836f02002b7608b9a",
+      "assessment": "Broadcast message contains event type/domain/timestamp and optional opaque user ID only; local signal removed after 100 ms. No token or profile data.",
+      "dependencies": {}
+    },
+    "src/utils/browserRecoveryStorage.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190",
+      "assessment": "Central classified envelope enforces maximum 24-hour retention, finite timestamps, expiry/ordering checks, byte bounds and malformed removal. Legacy normalization/tax callers consume entries immediately; signup legacy also has its own finite bounded timestamp.",
+      "dependencies": {}
+    },
+    "src/utils/capitalHistoryPrefill.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "6baedfc52e365b9dbc23a0b993d3e626f2df78aaf7363ca9594b235ae1bd846e",
+      "assessment": "One-shot session handoff of two finite numeric fields and fixed source; always consumed before parse/restore, no company identity or report assets.",
+      "dependencies": {}
+    },
+    "src/utils/newValuationPrefillStorage.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "18d1b24c89eec53546328134a87f2417cefd4b7f2e326092a14be907821926f8",
+      "assessment": "One-shot tab prefill bounded to 500 kB on write; company fingerprint prevents cross-company restoration, identity/HTML/results removed. Legacy path strips identity. Form input continuity, not durable storage.",
+      "dependencies": {}
+    },
+    "src/utils/reportExistenceCache.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "86fcea27e6b792a7e1d0ccbf997ff5fab1aa3013b4fd3b3642d21db490fcb518",
+      "assessment": "Only existence booleans; exact user/client scope in key, finite timestamp validation and thirty-minute expiry. Server report access remains mandatory.",
+      "dependencies": {}
+    },
+    "src/utils/reportIdentityPromotion.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "fe2c87b83c5611ae43e7e40b297e78aa0de290ec29d9d18037c27984f3857886",
+      "assessment": "Only Titan-confirmed session-key/report-UUID aliases keyed by full user/client scope; UUID validated. No valuation or user profile payload, no access grant.",
+      "dependencies": {
+        "src/utils/reportAccessScope.ts": "eaafce4f1cff0f51c323f33cc5a1046c6eee9b519eb52cb154516080b5bbb5d2"
+      }
+    },
+    "src/utils/sessionCacheManager.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "11e808fbc74d862f7e58eb46304dc92148d176e003fad7333b77c52c380a3f4c",
+      "assessment": "Writes explicit session metadata only (no names, sessionData, partialData, HTML, valuation or buyer-readiness payload); user/client-keyed, twenty entries, enforced finite 24-hour timestamps.",
+      "dependencies": {
+        "src/utils/reportAccessScope.ts": "eaafce4f1cff0f51c323f33cc5a1046c6eee9b519eb52cb154516080b5bbb5d2"
+      }
+    },
+    "src/utils/workflowRecoveryStorage.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "272f950a875673ddf3fafb4a1ec97b1374e9c7c48eb26141d3b5e677fc8099c4",
+      "assessment": "Reviewed common adapter: central TTL, typed snapshots, 100 kB, session-only, legacy local deletion, no read/write before identity resolution, stale update removal on failed writes.",
+      "dependencies": {
+        "src/utils/browserRecoveryStorage.ts": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190"
+      }
+    },
+    "src/services/businessTypeSuggestionApi.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "13af62bd082ee328026d8d31abb584b1fa256e3561f5d0872a289e32f66e25b2",
+      "assessment": "Removed user IDs and context. Fifty labels limited to 500 characters; envelope and individual entry age both bounded to 24 hours; unbounded legacy entries rejected.",
+      "dependencies": {}
+    },
+    "src/utils/landingStudioHandoff.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "6793c61b9d125f512032cb7ad50ddab7edcd803b3788e5e39ca3b86fcd617960",
+      "assessment": "Replaced arbitrary form snapshot with explicit startup/company-form field projection; one-shot 24-hour/100 kB recovery. Rejects malformed/future/expired entries including legacy timestamped envelopes. Company form identity is intentional signup context, never user authorization.",
+      "dependencies": {
+        "src/utils/startupHandoffPayload.ts": "f49cf55d68a2af6e09d6cb323279491230195ae9be0e185c901bfe8dae4e05ab",
+        "src/utils/browserRecoveryStorage.ts": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190"
+      }
+    },
+    "src/features/manual/utils/accountingReconnectResume.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "ad6f7e99a33d3af4c387efd822ebef40e66173407139d5dc61c25348b5de4884",
+      "assessment": "One thirty-minute draft with sanitized form fields, provider/client/report binding, byte bound, state validation and consumption after resume. OAuth nonce is correlation, not provider credentials.",
+      "dependencies": {
+        "src/features/manual/utils/accountingReconnectDraft.ts": "1e384193480cd154f33e6c4eab0b774d0fc1b793a1d066c4a87a26c90736fd79",
+        "src/utils/browserRecoveryStorage.ts": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190"
+      }
+    },
+    "src/store/useNormalizationStore.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "05de9e40b7d9aae1fc0eaf555268907437d6d71e0e33eafbcb50892c435d438a",
+      "assessment": "Central 24-hour pending-normalization recovery keyed by report. Arrays filtered through item validator and consumed on read; use after authenticated session restoration. No auth material or report assets produced by writer.",
+      "dependencies": {}
+    },
+    "src/store/useTaxLatencyStore.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "9bbe231d9a4f35217413b537aceea8a22defe5fe21b94df9628af1e086c75153",
+      "assessment": "Central 24-hour pending-tax recovery keyed by report. Entries canonicalized and consumed on read after session restoration; no report assets or authorization decisions.",
+      "dependencies": {}
+    },
+    "src/lib/posthog-init.ts": {
+      "reviewedAt": "2026-10-01",
+      "reviewBy": "2026-12-31",
+      "sourceSha256": "55eac64fe1d568f266eb2d667ff942fa58c664e67649a3d2e55f2273572c4269",
+      "assessment": "Both capture and persistence opt out by default; SDK-consented persistence only. Scrubbed event properties, 50-entry memory queues, no autocapture or recordings; unknown SDK consent state fails closed.",
+      "dependencies": {
+        "src/lib/pii-redact.ts": "569f35bed130c46d8f4808e294bea66613710bb2764343141f321224c0283164"
+      }
+    }
+  }
+}

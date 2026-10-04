@@ -5,10 +5,11 @@ import { actingAccountantUserId } from '../lib/auth/actingAccountant'
 import {
   clearDelegatedClientContext,
   discardStalePersistedClientContextOnRehydrate,
+  isClientContextTimestampFresh,
   isPersistedContextStaleForUrl,
   urlRequiresDelegatedClientContext,
+  validatedPersistedClientContext,
 } from '../lib/auth/persistedClientContext'
-import { getApiUrl } from '../utils/getMercuryUrl'
 import { generalLogger } from '../utils/logger'
 import {
   createManagedInterval,
@@ -61,7 +62,6 @@ interface ClientContextState {
   getContextHeaders: () => Record<string, string>
 }
 
-const CONTEXT_VALIDITY_TTL = 24 * 60 * 60 * 1000 // 24 hours
 const CONTEXT_VALIDATION_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
 
 export const useClientContext = create<ClientContextState>()(
@@ -125,7 +125,7 @@ export const useClientContext = create<ClientContextState>()(
         }
 
         // Check if context is expired (older than TTL)
-        if (state.lastValidatedAt && Date.now() - state.lastValidatedAt > CONTEXT_VALIDITY_TTL) {
+        if (!isClientContextTimestampFresh(state.lastValidatedAt)) {
           generalLogger.warn('[ClientContext] Context expired, clearing')
           clearDelegatedClientContext(() => get().clearClientContext())
           return false
@@ -143,28 +143,18 @@ export const useClientContext = create<ClientContextState>()(
           return false
         }
 
-        // Try to refresh context from backend if needed
-        // This is a lightweight check - just verify the relationship still exists
-        try {
-          const _API_URL = getApiUrl()
-
-          // Quick validation endpoint (if available)
-          // For now, just check if we have valid IDs
-          // In production, you might want to call an actual validation endpoint
-
-          // Update lastValidatedAt
-          set({ lastValidatedAt: Date.now() })
-          return true
-        } catch (error) {
-          generalLogger.warn('[ClientContext] Validation failed, clearing context', { error })
-          clearDelegatedClientContext(() => get().clearClientContext())
-          return false
-        }
+        // This validates local structure only. Only a successful server context
+        // exchange in setClientContext may renew lastValidatedAt.
+        return true
       },
 
       getContextHeaders: (): Record<string, string> => {
         const state = get()
         if (!state.isActingAsClient) return {} as Record<string, string>
+        if (!isClientContextTimestampFresh(state.lastValidatedAt)) {
+          clearDelegatedClientContext(() => get().clearClientContext())
+          return {}
+        }
 
         if (urlRequiresDelegatedClientContext() && !state.contextGateResolved) {
           return {} as Record<string, string>
@@ -199,6 +189,10 @@ export const useClientContext = create<ClientContextState>()(
     }),
     {
       name: 'client-context',
+      merge: (persisted, current) => ({
+        ...current,
+        ...validatedPersistedClientContext(persisted),
+      }),
       partialize: (state) => ({
         isActingAsClient: state.isActingAsClient,
         accountant: state.accountant,

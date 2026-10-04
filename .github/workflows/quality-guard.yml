@@ -6,6 +6,8 @@ on:
       - "app/**"
       - "src/**"
       - "scripts/**"
+      - "docs/security/browser-persistence*.json"
+      - "docs/security/browser-persistence*.md"
       - "docs/architecture/file-size-baseline.json"
       - "docs/architecture/type-debt-baseline.json"
       - "docs/architecture/debug-surface-baseline.json"
@@ -25,6 +27,8 @@ on:
       - "app/**"
       - "src/**"
       - "scripts/**"
+      - "docs/security/browser-persistence*.json"
+      - "docs/security/browser-persistence*.md"
       - "docs/architecture/file-size-baseline.json"
       - "docs/architecture/type-debt-baseline.json"
       - "docs/architecture/debug-surface-baseline.json"
@@ -65,6 +69,9 @@ jobs:
       - name: Guard auth surface
         run: pnpm run guard:auth-surface
 
+      - name: Verify persistence review enforcement
+        run: node scripts/test-browser-persistence-guard.mjs
+
       - name: Guard browser persistence
         run: pnpm run guard:browser-persistence
 
@@ -97,3 +104,6 @@ jobs:
 
       - name: Guard bundle budget
         run: pnpm run guard:bundle-budget
+
+      - name: Verify build tooling is absent from production traces
+        run: node --test scripts/verify-production-build-dependencies.test.mjs && node scripts/verify-production-build-dependencies.mjs

@@ -129,6 +129,7 @@ describe('HistoryPanel', () => {
         report={{
           id: 'report-1',
           companyName: 'Restaurant Decan',
+          currency: 'EUR',
           valuation: 293_000,
           valuationLow: 220_000,
           valuationHigh: 367_000,
@@ -146,7 +147,7 @@ describe('HistoryPanel', () => {
     expect(screen.getAllByText('HUIDIG').length).toBeGreaterThan(0)
   })
 
-  it('uses the live report valuation when the current snapshot is zero-only metadata', async () => {
+  it('retains the saved zero result when the current live report is positive', async () => {
     useVersionHistoryStore.setState({
       activeVersions: { 'report-1': 1 },
       versions: {
@@ -160,6 +161,7 @@ describe('HistoryPanel', () => {
             isActive: true,
             formData: {},
             valuationResult: {
+              currency: 'EUR',
               equity_value_high: 0,
               equity_value_low: 0,
               equity_value_mid: 0,
@@ -175,6 +177,7 @@ describe('HistoryPanel', () => {
         report={{
           id: 'report-1',
           companyName: 'Restaurant Decan',
+          currency: 'EUR',
           valuation: 293_000,
           valuationLow: 220_000,
           valuationHigh: 367_000,
@@ -186,10 +189,112 @@ describe('HistoryPanel', () => {
     )
 
     expect(await screen.findByText('Version 1')).toBeInTheDocument()
-    expect(screen.getAllByText(/€\s*293\.000/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/€\s*220\.000/)).toBeInTheDocument()
-    expect(screen.getByText(/€\s*367\.000/)).toBeInTheDocument()
-    expect(screen.queryByText(/€\s*0\b/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/€\s*0\b/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/€\s*293\.000/)).not.toBeInTheDocument()
+  })
+  function setupHistory() {
+    useVersionHistoryStore.setState({
+      activeVersions: { 'report-1': 3 },
+      versions: {
+        'report-1': [1, 2, 3].map(
+          (versionNumber) =>
+            ({
+              id: `version-${versionNumber}`,
+              reportId: 'report-1',
+              versionNumber,
+              versionLabel: `Version ${versionNumber}`,
+              createdAt: new Date(),
+              formData: {},
+              valuationResult: {
+                currency: 'EUR',
+                value_basis: 'equity_value',
+                equity_value_mid: versionNumber * 100000,
+              },
+              isActive: versionNumber === 3,
+            }) as unknown as ValuationVersion
+        ),
+      },
+    })
+    return { id: 'report-1', companyName: 'Test company', valuation: 300000 }
+  }
+
+  it('exposes expanded and selected states for keyboard and assistive technology', () => {
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" />)
+    const first = screen.getByRole('button', { name: /Version 1/ })
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(first).toHaveAttribute('type', 'button')
+    fireEvent.click(first)
+    expect(first).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById(first.getAttribute('aria-controls') ?? '')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'compare' }))
+    fireEvent.click(first)
+    expect(first).toHaveAttribute('aria-pressed', 'true')
+    expect(first).not.toHaveAttribute('aria-expanded')
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    expect(screen.getByRole('button', { name: /Version 3/ })).toBeDisabled()
+  })
+
+  it('keeps every restore control unavailable while a restore is pending', async () => {
+    let finish!: () => void
+    const restore = vi.fn(
+      () =>
+        new Promise<void>((done) => {
+          finish = done
+        })
+    )
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" onVersionRestore={restore} />)
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    const actions = screen.getAllByRole('button', { name: 'restoreToVersion' })
+    fireEvent.click(actions[0])
+    expect(screen.getByRole('button', { name: 'restoring' })).toHaveAttribute('aria-busy', 'true')
+    expect(actions[1]).toBeDisabled()
+    fireEvent.click(actions[1])
+    expect(restore).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'compare' }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'compare (2)' }))
+    expect(screen.getByRole('button', { name: 'Comparison restore' })).toBeDisabled()
+    await act(async () => {
+      finish()
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Comparison restore' })).toBeEnabled()
+    )
+  })
+
+  it('recovers the restore controls after a rejected callback', async () => {
+    render(
+      <HistoryPanel
+        report={setupHistory()}
+        reportId="report-1"
+        onVersionRestore={vi.fn().mockRejectedValue(new Error('Offline'))}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'restoreToVersion' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('versionRestoreFailed'))
+    expect(screen.getByRole('button', { name: 'restoreToVersion' })).toBeEnabled()
+  })
+
+  it('does not offer a restore action without a restore handler', () => {
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    expect(screen.queryByRole('button', { name: 'restoreToVersion' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'compare' }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'compare (2)' }))
+    expect(screen.queryByRole('button', { name: 'Comparison restore' })).not.toBeInTheDocument()
+  })
+
+  it('allows the current version to stay collapsed after its initial expansion', () => {
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" />)
+    const current = screen.getByRole('button', { name: /Version 3/ })
+    expect(current).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(current)
+    expect(current).toHaveAttribute('aria-expanded', 'false')
   })
   function setupHistory() {
     useVersionHistoryStore.setState({

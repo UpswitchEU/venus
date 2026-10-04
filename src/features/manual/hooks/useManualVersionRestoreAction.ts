@@ -81,12 +81,19 @@ export function useManualVersionRestoreAction({
     },
     []
   )
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Dismiss the prior report's retry action when its target changes.
+  const noticeTargetRef = useRef(target)
+  useEffect(() => {
+    if (noticeTargetRef.current !== target && noticeRef.current) {
+      toast.dismiss(noticeRef.current)
+      noticeRef.current = null
+    }
+    noticeTargetRef.current = target
+  }, [target])
   useEffect(
     () => () => {
       if (noticeRef.current) toast.dismiss(noticeRef.current)
     },
-    [target]
+    []
   )
   const handleVersionRestore = useCallback(
     (version: unknown) => {
