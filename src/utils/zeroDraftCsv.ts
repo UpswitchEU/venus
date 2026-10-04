@@ -63,15 +63,6 @@ export function buildZeroDraftCsv(params: {
     'value',
     'range_low',
     'range_high',
-    'range_type',
-    'multiple_used',
-    'wacc',
-    'unavailable_reason',
-    'currency',
-    'value_basis',
-    'value',
-    'range_low',
-    'range_high',
   ])
 
   const entries = Object.entries(params.methods).sort(([a], [b]) => a.localeCompare(b))

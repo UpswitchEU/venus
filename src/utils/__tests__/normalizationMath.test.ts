@@ -6,7 +6,6 @@ import {
   findAcceptedAutoNormalizationCapBreaches,
   getFirstFiniteNumber,
   getNormalizationAmountForBase,
-  getFirstFiniteNumber,
   getReportedEbitdaBaseline,
   getReportedFinancialEbitda,
   normalizationItemTouchesYear,

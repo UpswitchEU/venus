@@ -181,8 +181,7 @@ const mercuryExits: Array<[string, () => void]> = [
     'Back to Home',
     () => {
       openMenuAndChoose('backToHome')
-      // Returning to Mercury now shares the same unsaved-work confirmation.
-      fireEvent.click(screen.getByRole('button', { name: 'confirm-exit' }))
+      // Clean, persisted reports return directly; dirty reports are covered below.
     },
   ],
   ['the exit dialog', leaveThroughExitDialog],

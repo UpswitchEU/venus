@@ -296,32 +296,6 @@ describe('HistoryPanel', () => {
     fireEvent.click(current)
     expect(current).toHaveAttribute('aria-expanded', 'false')
   })
-  function setupHistory() {
-    useVersionHistoryStore.setState({
-      activeVersions: { 'report-1': 3 },
-      versions: {
-        'report-1': [1, 2, 3].map(
-          (versionNumber) =>
-            ({
-              id: `version-${versionNumber}`,
-              reportId: 'report-1',
-              versionNumber,
-              versionLabel: `Version ${versionNumber}`,
-              createdAt: new Date(),
-              formData: {},
-              valuationResult: {
-                currency: 'EUR',
-                value_basis: 'equity_value',
-                equity_value_mid: versionNumber * 100000,
-              },
-              isActive: versionNumber === 3,
-            }) as unknown as ValuationVersion
-        ),
-      },
-    })
-    return { id: 'report-1', companyName: 'Test company', valuation: 300000 }
-  }
-
   it('exposes expanded and selected states for keyboard and assistive technology', () => {
     render(<HistoryPanel report={setupHistory()} reportId="report-1" />)
     const first = screen.getByRole('button', { name: /Version 1/ })

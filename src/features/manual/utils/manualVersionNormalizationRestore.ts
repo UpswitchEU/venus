@@ -81,7 +81,19 @@ export function buildManualNormalizationsFromVersionSnapshot(
     if (!/^\d{4}$/.test(yearKey) || year < 2000 || year > 2100 || !yearRecord) continue
     const adjustments = [
       ...(Array.isArray(yearRecord.adjustments) ? yearRecord.adjustments : []),
-      ...(Array.isArray(yearRecord.custom_adjustments) ? yearRecord.custom_adjustments : []),
+      ...(Array.isArray(yearRecord.custom_adjustments)
+        ? yearRecord.custom_adjustments.filter((raw) => {
+            const item = asRecord(raw)
+            if (!item) return false
+            try {
+              normalizationNumber(item.amount ?? item.adjustment)
+              return true
+            } catch {
+              // Legacy custom rows without a valid amount cannot become priced adjustments.
+              return false
+            }
+          })
+        : []),
     ]
 
     const seenIds = new Set<string>()
