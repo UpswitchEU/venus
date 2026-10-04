@@ -309,7 +309,11 @@ describe('HistoryPanel', () => {
               versionLabel: `Version ${versionNumber}`,
               createdAt: new Date(),
               formData: {},
-              valuationResult: { equity_value_mid: versionNumber * 100000 },
+              valuationResult: {
+                currency: 'EUR',
+                value_basis: 'equity_value',
+                equity_value_mid: versionNumber * 100000,
+              },
               isActive: versionNumber === 3,
             }) as unknown as ValuationVersion
         ),

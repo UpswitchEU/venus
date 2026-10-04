@@ -2,6 +2,7 @@ import { getNormalizationAmountForBase } from '@/utils/normalizationMath'
 // @vitest-environment node
 
 import { describe, expect, it } from 'vitest'
+import { getNormalizationAmountForBase } from '@/utils/normalizationMath'
 import { buildManualNormalizationsFromVersionSnapshot } from './manualVersionNormalizationRestore'
 
 describe('manualVersionNormalizationRestore', () => {
@@ -147,4 +148,22 @@ describe('manualVersionNormalizationRestore', () => {
     expect(buildManualNormalizationsFromVersionSnapshot(null)).toEqual([])
     expect(buildManualNormalizationsFromVersionSnapshot([])).toEqual([])
   })
+})
+
+it('restores legacy custom deductions without inventing malformed zero adjustments', () => {
+  const restored = buildManualNormalizationsFromVersionSnapshot({
+    '2025': {
+      custom_adjustments: [
+        { description: 'Replacement rent', amount: '-0.1' },
+        { description: 'Reviewed nil', amount: 0 },
+        { description: 'Corrupt value', amount: true },
+        { description: 'Missing amount', amount: null },
+        { amount: '0x10' },
+      ],
+    },
+  })
+  expect(restored.map(({ adjustment, ledgerName }) => ({ adjustment, ledgerName }))).toEqual([
+    { adjustment: -0.1, ledgerName: 'Replacement rent' },
+    { adjustment: 0, ledgerName: 'Reviewed nil' },
+  ])
 })
