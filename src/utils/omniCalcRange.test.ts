@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getOmniMethodEquityRange } from './omniCalcRange'
+import { getOmniMethodEquityRange, getOmniMethodRange } from './omniCalcRange'
 
 describe('method range integrity', () => {
   it.each([
@@ -34,5 +34,57 @@ describe('method range integrity', () => {
         details: { equity_low: '1.123', equity_high: '20.456' },
       })
     ).toEqual({ low: 1.123, high: 20.456, source: 'model' })
+  })
+
+  it.each([
+    { equity_value_low: 0, equity_value_high: 20, value_low: 1, value_high: 20 },
+    { value_low: 0, value_high: 20, details: { equity_low: 0, equity_high: 30 } },
+    { value_low: 0, value_high: 20, details: { equity_low: 0 } },
+    { value_low: 0, value_high: 20, details: { equity_low: '0x0', equity_high: 20 } },
+  ])('withholds conflicting or corrupt secondary equity evidence %#', (input) => {
+    expect(getOmniMethodEquityRange({ available: true, value: 10, ...input })).toBeNull()
+  })
+
+  it('accepts agreeing decimal aliases for the same published range', () => {
+    expect(
+      getOmniMethodEquityRange({
+        available: true,
+        value: 10,
+        value_low: 0,
+        value_high: 20.05,
+        details: { equity_low: '0.00', equity_high: '20.050' },
+      })
+    ).toEqual({ low: 0, high: 20.05, source: 'model' })
+  })
+
+  it.each([
+    { enterprise_value_low: 0, enterprise_value_high: 30 },
+    { enterprise_range_low: 0 },
+    { enterprise_value_low: 'invalid', enterprise_value_high: 20 },
+  ])('withholds conflicting or corrupt enterprise evidence %#', (details) => {
+    expect(
+      getOmniMethodRange({
+        available: true,
+        value_basis: 'enterprise_value',
+        value: 10,
+        value_low: 0,
+        value_high: 20,
+        details,
+      })
+    ).toBeNull()
+  })
+
+  it('does not compare an enterprise band against separate equity endpoints', () => {
+    expect(
+      getOmniMethodRange({
+        available: true,
+        value_basis: 'enterprise_value',
+        value: 10,
+        value_low: 0,
+        value_high: 20,
+        equity_value_low: -50,
+        equity_value_high: -30,
+      })
+    ).toEqual({ low: 0, high: 20, source: 'model' })
   })
 })
