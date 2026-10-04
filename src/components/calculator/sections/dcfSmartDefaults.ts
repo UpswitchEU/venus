@@ -1,8 +1,9 @@
+import type { FinancialObservationStatus } from '@/types/valuation/request'
 import { businessTypeCategoryStrings } from '@/utils/businessTypeCategory'
-import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
-import { isYearRowForecast } from '@/utils/yearData'
+import { dcfHistoricalBasis } from './dcfHistoricalBasis'
 
 export interface DcfYearlyFinancialsLike {
+  financial_observations?: Record<string, FinancialObservationStatus>
   year: string
   revenue?: unknown
   ebitda?: unknown
@@ -17,15 +18,12 @@ export interface DcfSmartDefaults {
   daPct: number
   /** Optional; projection preview falls back when absent (see `deriveDcfProjectionPreview`). */
   nwcPct?: number
-  taxRatePct: number
+  /** Compatibility input only; historical earnings do not establish a cash-tax regime. */
+  taxRatePct?: number
   waccPct: number
   terminalGrowthPct: number
   exitMultiple: number
   historicalYearsUsed: number
-}
-
-function toFinite(value: unknown): number | null {
-  return parseFlexibleNumber(value) ?? null
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -53,8 +51,8 @@ function classifyWaccBase(businessCategory?: unknown): number {
 
 /**
  * Sector WACC band (min / median / max) used as a UI anchor next to the WACC input.
- * Calibrated to Damodaran 2026 EU SMB WACC distributions, narrowed to a ±2.5pp window
- * around the median per sector. Median maps to the same value as `classifyWaccBase`.
+ * Illustrative modeling band; no transaction sample or empirical coverage is established.
+ * The center maps to the heuristic in `classifyWaccBase`.
  *
  * Returns a label and a min/max for "Sector range: 8.5%–13.5% (median 11.0%)".
  */
@@ -95,21 +93,7 @@ export function deriveDcfSmartDefaults(args: {
   yearlyFinancials?: DcfYearlyFinancialsLike[]
   businessCategory?: unknown
 }): DcfSmartDefaults | null {
-  const historical = (args.yearlyFinancials ?? [])
-    .filter((row) => !isYearRowForecast(row))
-    .map((row) => {
-      const revenue = toFinite(row.revenue)
-      const ebitda = toFinite(row.ebitda)
-      const year = Number.parseInt(row.year, 10)
-      return revenue == null || ebitda == null || !Number.isFinite(year)
-        ? null
-        : { year, revenue, ebitda }
-    })
-    .filter(
-      (row): row is { year: number; revenue: number; ebitda: number } =>
-        row != null && row.revenue > 0
-    )
-    .sort((a, b) => a.year - b.year)
+  const historical = dcfHistoricalBasis(args.yearlyFinancials)
 
   if (historical.length === 0) return null
 
@@ -134,7 +118,6 @@ export function deriveDcfSmartDefaults(args: {
 
   const capexPct = round1(clamp(Math.max(2, Math.abs(ebitdaMarginPct) * 0.2), 2, 6))
   const daPct = round1(clamp(capexPct * 0.8, 2, 5))
-  const taxRatePct = 25
   const waccBase = classifyWaccBase(args.businessCategory)
   const growthRiskAdjustment = revenueGrowthPct > 12 ? 0.5 : revenueGrowthPct < 0 ? 1 : 0
   const waccPct = round1(clamp(waccBase + growthRiskAdjustment, 9, 14))
@@ -147,7 +130,6 @@ export function deriveDcfSmartDefaults(args: {
     ebitdaMarginPct,
     capexPct,
     daPct,
-    taxRatePct,
     waccPct,
     terminalGrowthPct,
     exitMultiple: 6,

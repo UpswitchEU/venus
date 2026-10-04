@@ -14,7 +14,6 @@ import {
   DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
   DCF_DEFAULT_NWC_PCT,
   DCF_DEFAULT_REVENUE_GROWTH_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
 } from './dcfEngineDefaults'
 
 type DcfDefaultsProvenance = 'none' | 'history' | 'integration' | 'both'
@@ -68,7 +67,7 @@ export function DcfForecastDefaultsBlock({
     capex: (dcfCapexPct ?? DCF_DEFAULT_CAPEX_PCT).toFixed(1),
     da: (dcfDaPct ?? DCF_DEFAULT_DA_PCT).toFixed(1),
     nwc: (dcfNwcPct ?? DCF_DEFAULT_NWC_PCT).toFixed(1),
-    tax: (dcfTaxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT).toFixed(1),
+    tax: dcfTaxRatePct == null ? '—' : dcfTaxRatePct.toFixed(1),
   })
 
   return (
@@ -232,7 +231,8 @@ export function DcfForecastDefaultsBlock({
                     label={t('fields.dcfTaxRatePct')}
                     value={dcfTaxRatePct}
                     onChange={(value) => onFieldChange('dcf_tax_rate_pct', value)}
-                    placeholder={String(DCF_DEFAULT_TAX_RATE_PCT)}
+                    placeholder="—"
+                    description={t('dcfCashTaxInputHelp')}
                     disabled={disabled}
                     truncateLabel={false}
                   />

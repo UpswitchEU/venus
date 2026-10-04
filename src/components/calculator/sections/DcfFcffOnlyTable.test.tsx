@@ -84,9 +84,9 @@ describe('DcfFcffOnlyTable', () => {
       />
     )
 
-    expect(screen.getByLabelText('dcfFcffOnlyTable.inputAria:year=2025')).toHaveValue('125.000')
+    expect(screen.getByLabelText('dcfFcffOnlyTable.inputAria:year=2025')).toHaveValue('125,000')
     expect(screen.getByLabelText('dcfFcffOnlyTable.taxShieldInputAria:year=2025')).toHaveValue(
-      '1.500'
+      '1,500'
     )
   })
 })

@@ -30,7 +30,6 @@ describe('DcfGlobalAssumptionsModel', () => {
       dcf_capex_pct: 4.4,
       dcf_da_pct: 3.3,
       dcf_nwc_pct: 1.2,
-      dcf_tax_rate_pct: 25,
     })
   })
 
@@ -118,7 +117,7 @@ describe('DcfGlobalAssumptionsModel', () => {
     })
   })
 
-  it('preserves zero EBITDA margin when a legacy caller requests placeholder repair', () => {
+  it('preserves a restored zero EBITDA margin when history implies a positive margin', () => {
     const patch = buildDcfGlobalAssumptionsSeedPatch({
       variant: 'forecastDefaultsOnly',
       dcfInputMode: 'ebitda',

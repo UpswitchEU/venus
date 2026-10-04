@@ -5,7 +5,6 @@ import {
   DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
   DCF_DEFAULT_NWC_PCT,
   DCF_DEFAULT_REVENUE_GROWTH_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
   DCF_DEFAULT_TERMINAL_GROWTH_PCT,
   DCF_DEFAULT_WACC_PCT,
 } from './dcfEngineDefaults'
@@ -216,12 +215,7 @@ export function buildDcfGlobalAssumptionsSeedPatch({
       'dcf_nwc_pct',
       pickFinite(smartDefaults?.nwcPct, DCF_DEFAULT_NWC_PCT)
     )
-    seedIfMissing(
-      patch,
-      currentValues.dcfTaxRatePct,
-      'dcf_tax_rate_pct',
-      pickFinite(smartDefaults?.taxRatePct, DCF_DEFAULT_TAX_RATE_PCT)
-    )
+    seedIfMissing(patch, currentValues.dcfTaxRatePct, 'dcf_tax_rate_pct', undefined)
   }
 
   if (inDiscountBlock) {

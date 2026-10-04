@@ -45,6 +45,7 @@ export function AdaptivePercentInput({
   const inputId = useId()
   const {
     display,
+    error,
     onFocus,
     onBlur,
     onChange: onDecChange,
@@ -59,6 +60,8 @@ export function AdaptivePercentInput({
       autoComplete="off"
       size={size}
       value={display}
+      error={error}
+      touched={Boolean(error)}
       onChange={onDecChange}
       onFocus={onFocus}
       onBlur={onBlur}

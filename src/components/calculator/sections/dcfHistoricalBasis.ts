@@ -1,4 +1,4 @@
-import { parseFlexibleNumber } from '@/utils/isFiniteNumeric'
+import { availableFinancialNumber } from '@/utils/financialObservations'
 import { isYearRowForecast } from '@/utils/yearData'
 import type { DcfYearlyFinancialsLike } from './dcfSmartDefaults'
 
@@ -17,8 +17,8 @@ export function dcfHistoricalBasis(
     if (isYearRowForecast(row)) continue
     const year = Number(row.year)
     if (!Number.isInteger(year) || year < 2000 || year > 2100) return []
-    const revenue = parseFlexibleNumber(row.revenue)
-    const ebitda = parseFlexibleNumber(row.ebitda)
+    const revenue = availableFinancialNumber(row, 'revenue')
+    const ebitda = availableFinancialNumber(row, 'ebitda')
     const prior = byYear.get(year)
     if (prior && (prior.revenue !== revenue || prior.ebitda !== ebitda)) return []
     byYear.set(year, { revenue, ebitda })

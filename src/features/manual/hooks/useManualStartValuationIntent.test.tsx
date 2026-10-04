@@ -255,7 +255,7 @@ describe('useManualStartValuationIntent', () => {
   it('drops the intent when the form is invalid on arrival and stays inert once it becomes valid', async () => {
     const onStart = vi.fn().mockResolvedValue(true)
     const onAutomaticStartSkipped = vi.fn()
-    const invalidData = { ...readyData, businessType: '' } as ValuationFormData
+    const invalidData = { ...readyData, companyName: '' } as ValuationFormData
     const { rerender } = renderHook(
       (props: { data: ValuationFormData }) =>
         useManualStartValuationIntent({
@@ -276,7 +276,7 @@ describe('useManualStartValuationIntent', () => {
     )
 
     await waitFor(() => expect(onAutomaticStartSkipped).toHaveBeenCalledTimes(1))
-    expect(onAutomaticStartSkipped).toHaveBeenCalledWith('form_invalid', 'businessTypeMissing')
+    expect(onAutomaticStartSkipped).toHaveBeenCalledWith('form_invalid', 'companyNameMissing')
     expect(window.location.search).toBe('?source=mercury')
     expect(onStart).not.toHaveBeenCalled()
 
@@ -289,9 +289,8 @@ describe('useManualStartValuationIntent', () => {
     expect(window.sessionStorage.getItem(startValuationIntentStorageKey('val_1_demo'))).toBeNull()
   })
 
-  // E-04a: with no headcount from Mercury the automatic run used to go out with an
-  // invented one; now it waits for the advisor like every other calculate path.
-  it('drops the intent when no source gave a headcount', async () => {
+  // Missing headcount enters the partial assessment path without fabricating one.
+  it('starts an assessment when no source gave a headcount', async () => {
     const onStart = vi.fn().mockResolvedValue(true)
     const onAutomaticStartSkipped = vi.fn()
     const noHeadcountData = { ...readyData, fteEmployees: undefined } as ValuationFormData
@@ -312,9 +311,17 @@ describe('useManualStartValuationIntent', () => {
       })
     )
 
-    await waitFor(() => expect(onAutomaticStartSkipped).toHaveBeenCalledTimes(1))
-    expect(onAutomaticStartSkipped).toHaveBeenCalledWith('form_invalid', 'employeeCountMissing')
-    expect(onStart).not.toHaveBeenCalled()
+    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
+    expect(onAutomaticStartSkipped).not.toHaveBeenCalled()
+    expect(noHeadcountData.fteEmployees).toBeUndefined()
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem(startValuationIntentStorageKey('val_1_demo'))).toBe(
+        'complete'
+      )
+    )
+    // Starting a sparse assessment must never persist the financial input payload.
+    expect(window.sessionStorage.length).toBe(1)
+    expect(window.sessionStorage.key(0)).toBe(startValuationIntentStorageKey('val_1_demo'))
   })
 
   it('drops the intent once the advisor has started editing before the gates open', async () => {

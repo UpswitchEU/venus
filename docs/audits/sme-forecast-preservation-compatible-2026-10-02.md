@@ -1,5 +1,7 @@
 # Saved SME forecast preservation — 2 October 2026
 
+Integration note: this document records the separately deployed compatibility release 54b863a0. The combined financial-accuracy candidate retains the coordinated engine tax-policy correction and adds observation-aware editing/autofill; see `sme-dcf-input-integrity-2026-10-02.md`. Its release remains held for compatible backends.
+
 This release repairs client financial facts while retaining the deployed tax request contract. Titan remains authoritative for admission/persistence and ValuationIQ for numerical valuations. Historical engine runs and reports are unchanged.
 
 ## Repairs

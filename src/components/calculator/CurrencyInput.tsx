@@ -1,28 +1,13 @@
 'use client'
 
 /**
- * CurrencyInput -- Euro-formatted text input for accountants
- *
- * Displays nl-BE thousand separators (dots) while typing.
- * Stores raw number internally, formats display string live.
+ * Currency entry with explicit locale parsing and lossless numeric compatibility.
  */
 
 import { useLocale } from 'next-intl'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AuroraInput } from '@/design-system'
-
-function parseRawDigits(str: string): number | undefined {
-  const digits = str.replace(/\D/g, '')
-  if (!digits) return undefined
-  return parseInt(digits, 10)
-}
-
-function parseSignedRawDigits(str: string): number | undefined {
-  const sign = str.trim().startsWith('-') ? -1 : 1
-  const digits = str.replace(/\D/g, '')
-  if (!digits) return undefined
-  return sign * parseInt(digits, 10)
-}
+import { parseDecimalTextInput } from '@/utils/decimalTextInput'
 
 export interface CurrencyInputProps {
   value?: number
@@ -69,8 +54,8 @@ export function CurrencyInput({
   const resolvedId = id ?? name ?? inputId
   const formatter = useMemo(
     () =>
-      new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-BE' : 'nl-BE', {
-        maximumFractionDigits: 0,
+      new Intl.NumberFormat(locale === 'fr' ? 'fr-BE' : locale === 'en' ? 'en-GB' : 'nl-BE', {
+        maximumFractionDigits: 8,
         useGrouping: true,
       }),
     [locale]
@@ -83,48 +68,57 @@ export function CurrencyInput({
     [formatter]
   )
   const [display, setDisplay] = useState(() => formatValue(value))
+  const [editing, setEditing] = useState(false)
+  const [invalid, setInvalid] = useState(false)
+  const inputLocale = locale === 'en' ? 'en' : locale === 'fr' ? 'fr' : 'nl'
+  const validationMessage =
+    inputLocale === 'nl'
+      ? 'Voer een geldig bedrag in zonder verlies van precisie.'
+      : inputLocale === 'fr'
+        ? 'Saisissez un montant valide sans perte de précision.'
+        : 'Enter a valid amount without loss of precision.'
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setDisplay(formatValue(value))
-  }, [formatValue, value])
+    if (!editing && !invalid) setDisplay(formatValue(value))
+  }, [editing, invalid, formatValue, value])
+
+  const commitDraft = useCallback(
+    (raw: string) => {
+      const num = parseDecimalTextInput(raw, inputLocale)
+      const isInvalid = raw.trim() !== '' && (num === undefined || (!allowNegative && num < 0))
+      setEditing(true)
+      setDisplay(raw)
+      setInvalid(isInvalid)
+      inputRef.current?.setCustomValidity(isInvalid ? validationMessage : '')
+      onChange(isInvalid ? undefined : num)
+    },
+    [allowNegative, inputLocale, onChange, validationMessage]
+  )
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value
-      const num = allowNegative ? parseSignedRawDigits(raw) : parseRawDigits(raw)
-      setDisplay(
-        num !== undefined
-          ? formatter.format(num)
-          : raw.replace(/\D/g, '') === '' || (allowNegative && raw.trim() === '-')
-            ? raw.trim() === '-'
-              ? '-'
-              : ''
-            : ''
-      )
-      onChange(num)
+      commitDraft(e.target.value)
     },
-    [allowNegative, formatter, onChange]
+    [commitDraft]
   )
 
   const handleFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    setEditing(true)
     requestAnimationFrame(() => e.target.select())
   }, [])
 
   const handleBlur = useCallback(() => {
-    const num = allowNegative ? parseSignedRawDigits(display) : parseRawDigits(display)
-    setDisplay(formatValue(num))
-  }, [allowNegative, display, formatValue])
+    setEditing(false)
+    if (!invalid) setDisplay(formatValue(parseDecimalTextInput(display, inputLocale)))
+  }, [display, formatValue, inputLocale, invalid])
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLInputElement>) => {
       e.preventDefault()
-      const pasted = e.clipboardData.getData('text')
-      const num = allowNegative ? parseSignedRawDigits(pasted) : parseRawDigits(pasted)
-      setDisplay(num ? formatter.format(num) : '')
-      onChange(num)
+      commitDraft(e.clipboardData.getData('text'))
     },
-    [allowNegative, formatter, onChange]
+    [commitDraft]
   )
 
   return (
@@ -134,9 +128,11 @@ export function CurrencyInput({
         id={resolvedId}
         name={name}
         type="text"
-        inputMode={allowNegative ? 'text' : 'numeric'}
+        inputMode="decimal"
         label={label}
         value={display}
+        error={invalid ? validationMessage : undefined}
+        touched={invalid}
         onChange={handleChange}
         onFocus={handleFocus}
         onBlur={handleBlur}

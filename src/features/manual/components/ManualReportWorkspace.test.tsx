@@ -1,6 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useManualResultsStore } from '@/store/manual/useManualResultsStore'
+import { usePartialAssessmentStore } from '@/store/manual/usePartialAssessmentStore'
+import producer from '../../../utils/__fixtures__/partial-report.v1.json'
 import { ManualReportWorkspace } from './ManualReportWorkspace'
+
+vi.mock('@/components/results/SavedPartialReport', () => ({
+  SavedPartialReport: ({ reportId }: { reportId: string }) => (
+    <div data-testid="partial-report">{reportId}</div>
+  ),
+}))
 
 const sessionState = vi.hoisted(() => ({
   renderError: null as null | 'html_recovery_failed' | 'payload_too_large',
@@ -49,6 +58,8 @@ const report = {
 describe('ManualReportWorkspace', () => {
   beforeEach(() => {
     sessionState.renderError = null
+    usePartialAssessmentStore.getState().clear()
+    useManualResultsStore.setState({ result: null })
   })
 
   it('does not render the KBO/NACE sector mismatch warning in the report panel header', () => {
@@ -69,6 +80,33 @@ describe('ManualReportWorkspace', () => {
     expect(screen.getByRole('heading', { name: 'Report ready' })).toBeInTheDocument()
     expect(screen.queryByText(/KBO\/NACE activity suggests/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/forms\.warnings\.sectorMismatch/i)).not.toBeInTheDocument()
+  })
+
+  it('shows a newly saved assessment but does not override a restored numerical result', () => {
+    usePartialAssessmentStore
+      .getState()
+      .setSaved('report-1', { partial_valuation: producer.partial_valuation })
+    const props = {
+      isCalculating: false,
+      isGenerating: false,
+      isMethodSwitchRendering: false,
+      onVersionRestore: vi.fn(),
+      report,
+      reportId: 'report-1',
+      rightPanelView: 'preview' as const,
+      translate: (key: string) => key,
+      translateReport: (key: string) => key,
+    }
+    const view = render(<ManualReportWorkspace {...props} />)
+    expect(screen.getByTestId('partial-report')).toBeInTheDocument()
+    useManualResultsStore.setState({
+      result: { valuation_id: 'report-1' } as NonNullable<
+        ReturnType<typeof useManualResultsStore.getState>['result']
+      >,
+    })
+    view.rerender(<ManualReportWorkspace {...props} />)
+    expect(screen.queryByTestId('partial-report')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Report ready' })).toBeInTheDocument()
   })
 
   it('offers one-click report recovery without asking the user to recalculate', () => {

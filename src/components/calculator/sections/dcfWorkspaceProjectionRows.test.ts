@@ -31,7 +31,11 @@ describe('buildDcfWorkspaceProjectionRows', () => {
       derivedProjectionPreview: [derivedRow],
     })
 
-    expect(rows).toEqual([derivedRow])
+    // This row has no earnings observations. Retain the supplied diagnostic
+    // preview and ignore the stale FCFF; the zero-fact cases below must keep
+    // their explicit zeroes instead of taking this branch.
+    expect(rows[0]).toEqual(derivedRow)
+    expect(rows[0].fcff).not.toBe(1)
   })
 
   it.each([

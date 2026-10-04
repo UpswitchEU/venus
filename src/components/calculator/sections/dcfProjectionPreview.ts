@@ -1,13 +1,13 @@
 import Decimal from 'decimal.js'
-import type { DcfForecastInputsSnapshot } from '../../../types/valuation/manual'
+import type { DcfForecastInputsSnapshot } from '@/types/valuation/manual'
+import type { FinancialObservationStatus } from '@/types/valuation/request'
+import {
+  availableFinancialNumber,
+  setFinancialObservationStatuses,
+} from '@/utils/financialObservations'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
 import { isYearRowForecast } from '../../../utils/yearData'
-import {
-  DCF_DEFAULT_CAPEX_PCT,
-  DCF_DEFAULT_DA_PCT,
-  DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
-} from './dcfEngineDefaults'
+import { DCF_DEFAULT_CAPEX_PCT, DCF_DEFAULT_DA_PCT, DCF_DEFAULT_NWC_PCT } from './dcfEngineDefaults'
 import { dcfHistoricalBasis } from './dcfHistoricalBasis'
 import type { DcfSmartDefaults, DcfYearlyFinancialsLike } from './dcfSmartDefaults'
 
@@ -25,6 +25,7 @@ export interface DcfProjectionPreviewRow {
 }
 
 export interface DcfProjectionAutofillRow {
+  financial_observations?: Record<string, FinancialObservationStatus>
   year: string
   revenue?: number
   ebitda?: number
@@ -46,9 +47,7 @@ function toFinite(value: unknown): number | null {
 const PreviewDecimal = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN })
 
 function taxRateFraction(value: unknown): Decimal | null {
-  // Compatibility with the deployed legacy tax contract. Country-policy deferral
-  // is released separately with the corresponding ValuationIQ policy correction.
-  const parsed = value == null ? DCF_DEFAULT_TAX_RATE_PCT : toFinite(value)
+  const parsed = toFinite(value)
   return parsed == null || parsed < 0 || parsed > 100 ? null : new PreviewDecimal(parsed).div(100)
 }
 
@@ -65,6 +64,7 @@ function asDecimal(value: number): Decimal {
  */
 export function buildProjectionRowFromForecastRow(
   row: {
+    financial_observations?: Record<string, FinancialObservationStatus>
     year: string
     revenue?: number
     ebitda?: number
@@ -84,12 +84,12 @@ export function buildProjectionRowFromForecastRow(
 ): DcfProjectionPreviewRow {
   const parsedYear = Number.parseInt(String(row.year), 10)
   const year = Number.isFinite(parsedYear) ? parsedYear : 0
-  const revenue = toFinite(row.revenue)
-  const ebitda = toFinite(row.ebitda)
-  const explicitFcff = toFinite(row.free_cash_flow)
-  const suppliedDa = toFinite(row.depreciation)
-  const suppliedCapex = toFinite(row.capex)
-  const suppliedNwc = toFinite(row.nwc_change)
+  const revenue = availableFinancialNumber(row, 'revenue') ?? null
+  const ebitda = availableFinancialNumber(row, 'ebitda') ?? null
+  const explicitFcff = availableFinancialNumber(row, 'free_cash_flow') ?? null
+  const suppliedDa = availableFinancialNumber(row, 'depreciation') ?? null
+  const suppliedCapex = availableFinancialNumber(row, 'capex') ?? null
+  const suppliedNwc = availableFinancialNumber(row, 'nwc_change') ?? null
 
   if (explicitFcff != null) {
     return {
@@ -315,6 +315,11 @@ export function applyDcfProjectionPreviewToForecastRows<T extends DcfProjectionA
       capex: projection.capex,
       depreciation: projection.da,
       nwc_change: projection.nwcChange,
+      financial_observations: setFinancialObservationStatuses(
+        row.financial_observations,
+        ['revenue', 'ebitda', 'capex', 'depreciation', 'nwc_change'],
+        'derived'
+      ),
       dcf_model_snapshot: {
         schema_version: 'dcf_forecast_inputs.v2',
         revenue: projection.revenue,

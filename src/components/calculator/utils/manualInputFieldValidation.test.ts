@@ -46,7 +46,7 @@ describe('buildManualInputFieldValidation', () => {
     expect(result.hasErrors).toBe(false)
   })
 
-  it('still requires a headcount from a company with owner-managers', () => {
+  it('warns about missing headcount from a company with owner-managers', () => {
     const result = buildManualInputFieldValidation(
       {
         companyName: 'Acme',
@@ -60,12 +60,13 @@ describe('buildManualInputFieldValidation', () => {
       2026
     )
 
-    expect(result.errors.fteEmployees).toBe('validation.fteRequired')
+    expect(result.warnings.fteEmployees).toBe('validation.fteRequired')
+    expect(result.errors.fteEmployees).toBeUndefined()
   })
 
   // Clearing the owner field (it reads as 0) used to hide this error, yet the request
   // still goes out with one owner and then no employees.
-  it('still requires a headcount when the owner count was cleared', () => {
+  it('warns about missing headcount when the owner count was cleared', () => {
     const result = buildManualInputFieldValidation(
       {
         companyName: 'Acme',
@@ -79,8 +80,9 @@ describe('buildManualInputFieldValidation', () => {
       2026
     )
 
-    expect(result.errors.fteEmployees).toBe('validation.fteRequired')
-    expect(result.hasErrors).toBe(true)
+    expect(result.warnings.fteEmployees).toBe('validation.fteRequired')
+    expect(result.errors.fteEmployees).toBeUndefined()
+    expect(result.hasErrors).toBe(false)
   })
 
   // The copy no longer mentions 0; it must still be a valid answer.

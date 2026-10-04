@@ -1,3 +1,4 @@
+import { setFinancialObservationStatuses } from '@/utils/financialObservations'
 import { dcfSmartDefaultsFromForm } from '../../../lib/methods/dcf/smartDefaultsFromForm'
 import type { ManualValuationFormData, YearlyFinancials } from '../../../types/valuation'
 import { parseFlexibleNumber } from '../../../utils/isFiniteNumeric'
@@ -5,7 +6,6 @@ import {
   DCF_DEFAULT_CAPEX_PCT,
   DCF_DEFAULT_DA_PCT,
   DCF_DEFAULT_NWC_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
 } from '../sections/dcfEngineDefaults'
 import {
   type DcfForecastModelSnapshot,
@@ -161,6 +161,11 @@ export function syncManualDcfForecastRowsFromProjection({
       depreciation: projection.da,
       nwc_change: projection.nwcChange,
       free_cash_flow: undefined,
+      financial_observations: setFinancialObservationStatuses(
+        yearlyFinancial.financial_observations,
+        ['revenue', 'ebitda', 'capex', 'depreciation', 'nwc_change'],
+        'derived'
+      ),
       dcf_model_snapshot: {
         schema_version: 'dcf_forecast_inputs.v2' as const,
         ...modelSnapshot,
@@ -199,7 +204,7 @@ export function switchManualDcfInputMode(
       daPct: numberOrDefault(formData.dcf_da_pct, DCF_DEFAULT_DA_PCT),
       capexPct: numberOrDefault(formData.dcf_capex_pct, DCF_DEFAULT_CAPEX_PCT),
       nwcPct: numberOrDefault(formData.dcf_nwc_pct, DCF_DEFAULT_NWC_PCT),
-      taxRatePct: numberOrDefault(formData.dcf_tax_rate_pct, DCF_DEFAULT_TAX_RATE_PCT),
+      taxRatePct: parseFlexibleNumber(formData.dcf_tax_rate_pct),
     }
     const previousRevenueByYear = new Map<string, number>()
     let previousRevenue: number | undefined

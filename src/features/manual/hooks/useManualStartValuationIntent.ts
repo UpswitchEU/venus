@@ -178,7 +178,7 @@ export function useManualStartValuationIntent({
 
     const submitData = buildSubmitData()
     const validationIssue = getManualSubmitValidationIssue(submitData, effectiveMethod)
-    if (validationIssue) {
+    if (validationIssue === 'companyNameMissing') {
       dropIntent('form_invalid', validationIssue)
       return
     }

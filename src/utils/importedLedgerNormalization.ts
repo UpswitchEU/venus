@@ -11,6 +11,7 @@ import type { NormalizationItem } from '../components/calculator/UnifiedNormaliz
 import { requiresIndividualImportedNormalizationReview } from '../components/calculator/UnifiedNormalizationTypes'
 import { isMarPersonnelSocialChargesBucket } from '../lib/mar/marAccountCodes'
 import { coalesceFiniteNumber } from '../lib/omniPreview'
+import { FinancialDecimal } from './financialDecimal'
 import { getCurrentFilingYear } from './fiscalYear'
 
 /** Minimal shape for flags from `_imported_ledger_analysis` or bootstrap financials */
@@ -87,12 +88,16 @@ export function buildReportedEbitdaByYearFromFormRecords(options: {
 function resolveAutoImportedNormStatus(
   adjustment: number,
   year: number,
-  reportedEbitdaByYear?: Record<number, number>
+  reportedEbitdaByYear?: Record<number, number | string | null>
 ): NormalizationItem['status'] {
   const reported = reportedEbitdaByYear?.[year]
   if (!(adjustment > 0)) return 'accepted'
-  if (reported == null || !(reported > 0)) return 'pending'
-  return adjustment / reported > AUTO_NORM_DEFENSIBILITY_CAP_RATIO ? 'pending' : 'accepted'
+  if (reported == null) return 'pending'
+  const basis = new FinancialDecimal(reported)
+  if (!basis.isFinite() || !basis.gt(0)) return 'pending'
+  return new FinancialDecimal(adjustment).gt(basis.mul(AUTO_NORM_DEFENSIBILITY_CAP_RATIO))
+    ? 'pending'
+    : 'accepted'
 }
 
 function resolveImportedFlagYear(
@@ -131,7 +136,7 @@ function importedItemTargetYears(item: NormalizationItem): number[] {
 
 export function normalizeImportedLedgerReviewStatuses(
   items: readonly NormalizationItem[],
-  reportedEbitdaByYear: Record<number, number>
+  reportedEbitdaByYear: Record<number, number | string | null>
 ): NormalizationItem[] {
   let changed = false
   const next = items.map((item) => {

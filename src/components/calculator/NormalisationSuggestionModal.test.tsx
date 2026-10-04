@@ -27,6 +27,47 @@ afterEach(() => {
 })
 
 describe('NormalisationSuggestionModal', () => {
+  it.each([
+    '12abc',
+    '1.2.3',
+    '',
+    '9007199254740993,25',
+  ])('rejects malformed or lossy edits: %s', (value) => {
+    const onAccept = vi.fn()
+    render(
+      <NormalisationSuggestionModal
+        open
+        onOpenChange={vi.fn()}
+        suggestion={baseSuggestion}
+        onAccept={onAccept}
+        onReject={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'edit' }))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value } })
+    expect(screen.getByRole('button', { name: 'apply' })).toBeDisabled()
+    expect(onAccept).not.toHaveBeenCalled()
+  })
+
+  it('preserves localized cents and explicit zero on acceptance', () => {
+    vi.useFakeTimers()
+    const onAccept = vi.fn()
+    render(
+      <NormalisationSuggestionModal
+        open
+        onOpenChange={vi.fn()}
+        suggestion={baseSuggestion}
+        onAccept={onAccept}
+        onReject={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'edit' }))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '-1.000,25' } })
+    fireEvent.click(screen.getByRole('button', { name: 'apply' }))
+    act(() => vi.advanceTimersByTime(300))
+    expect(onAccept).toHaveBeenCalledWith(baseSuggestion, -1000.25)
+  })
+
   it('cancels a pending accept when the modal unmounts', () => {
     vi.useFakeTimers()
     const onAccept = vi.fn()

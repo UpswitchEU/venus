@@ -1,3 +1,4 @@
+import { setFinancialObservationStatuses } from '@/utils/financialObservations'
 import type { ManualValuationFormData } from '../../../types/valuation'
 import {
   canRemoveHistoricalYear,
@@ -28,7 +29,15 @@ export function updateManualYearlyFinancialsRows({
     // An explicit edit revokes model ownership, including edits equal to the model.
     // Retained earnings remain available when the user edits direct FCFF.
     const { dcf_model_snapshot: _modelSnapshot, ...retained } = row
-    return { ...retained, [field]: value }
+    return {
+      ...retained,
+      [field]: value,
+      financial_observations: setFinancialObservationStatuses(
+        row.financial_observations,
+        [field],
+        value === undefined ? 'missing' : Number.isFinite(value) ? 'observed' : 'unknown'
+      ),
+    }
   })
 }
 
