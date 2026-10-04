@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
+import { type DecimalInputLocale, parseDecimalTextInput } from '@/utils/decimalTextInput'
 import type { AttentionItem, AttentionSeverity } from './AttentionSummaryModel'
 import type { QualityWarning } from './ChatAssistantTypes'
 
@@ -206,19 +208,31 @@ interface InlineFixFormProps {
 }
 
 function InlineFixForm({ fields, labels, onApply, onCancel }: InlineFixFormProps) {
+  const appLocale = useLocale()
+  const locale: DecimalInputLocale = appLocale.startsWith('nl')
+    ? 'nl'
+    : appLocale.startsWith('fr')
+      ? 'fr'
+      : 'en'
   const [raw, setRaw] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const mountedRef = useRef(true)
   useEffect(() => () => void (mountedRef.current = false), [])
 
-  const anyFilled = fields.some((field) => (raw[field.key] ?? '').length > 0)
+  const anyFilled = fields.some((field) => (raw[field.key] ?? '').trim().length > 0)
+  const isInvalid = (key: string) =>
+    Boolean((raw[key] ?? '').trim()) && parseDecimalTextInput(raw[key], locale) === undefined
+  const hasInvalid = fields.some((field) => isInvalid(field.key))
 
   const handleApply = async () => {
-    if (submitting || !anyFilled) return
+    if (submitting || !anyFilled || hasInvalid) return
     const values: Record<string, number> = {}
     for (const field of fields) {
-      const digits = (raw[field.key] ?? '').replace(/\D/g, '')
-      values[field.key] = digits ? Number.parseInt(digits, 10) : 0
+      const text = (raw[field.key] ?? '').trim()
+      if (!text) continue
+      const amount = parseDecimalTextInput(text, locale)
+      if (amount === undefined) return
+      values[field.key] = amount
     }
     setSubmitting(true)
     try {
@@ -247,14 +261,15 @@ function InlineFixForm({ fields, labels, onApply, onCancel }: InlineFixFormProps
               <span className="pl-2.5 pr-1 text-sm text-foreground/40 select-none">€</span>
               <input
                 type="text"
-                inputMode="numeric"
+                inputMode="decimal"
                 autoComplete="off"
                 aria-label={field.label}
+                aria-invalid={isInvalid(field.key)}
                 value={raw[field.key] ?? ''}
                 onChange={(event) =>
                   setRaw((prev) => ({
                     ...prev,
-                    [field.key]: event.target.value.replace(/\D/g, ''),
+                    [field.key]: event.target.value,
                   }))
                 }
                 disabled={submitting}
@@ -269,7 +284,7 @@ function InlineFixForm({ fields, labels, onApply, onCancel }: InlineFixFormProps
           <button
             type="button"
             onClick={handleApply}
-            disabled={submitting || !anyFilled}
+            disabled={submitting || !anyFilled || hasInvalid}
             className={cn(
               'min-h-11 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors touch-manipulation sm:min-h-0 sm:px-3 sm:py-1',
               'bg-primary text-primary-foreground hover:bg-primary/90',

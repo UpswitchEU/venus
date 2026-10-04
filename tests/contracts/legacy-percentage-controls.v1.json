@@ -1,0 +1,643 @@
+{
+  "schema_version": "legacy_percentage_controls.v1",
+  "source_revision": "9a0c46ae41645a2adcb95005911fbdb48a227c35",
+  "meaning": "Preserve actual legacy engine interpretation on context promotion; not inferred author intent. Tax uses dcf_tax_policy.v2 percentage points.",
+  "cases": [
+    {
+      "key": "dcf_capex_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_capex_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_capex_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_company_specific_risk_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_company_specific_risk_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_company_specific_risk_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_cost_of_debt_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_cost_of_debt_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_cost_of_debt_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_da_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_da_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_da_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_debt_equity_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_debt_equity_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_debt_equity_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_ebitda_margin_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_ebitda_margin_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_ebitda_margin_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_equity_risk_premium_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_equity_risk_premium_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_equity_risk_premium_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_nwc_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_nwc_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_nwc_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_revenue_growth_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_revenue_growth_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_revenue_growth_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_risk_free_rate_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_risk_free_rate_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_risk_free_rate_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_sensitivity_ebitda_margin_max_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_sensitivity_ebitda_margin_max_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_sensitivity_ebitda_margin_max_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_sensitivity_ebitda_margin_min_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_sensitivity_ebitda_margin_min_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_sensitivity_ebitda_margin_min_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_sensitivity_terminal_growth_max_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_sensitivity_terminal_growth_max_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_sensitivity_terminal_growth_max_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_sensitivity_terminal_growth_min_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_sensitivity_terminal_growth_min_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_sensitivity_terminal_growth_min_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_sensitivity_wacc_delta_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_sensitivity_wacc_delta_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_sensitivity_wacc_delta_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_size_premium_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_size_premium_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_size_premium_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_tax_rate_pct",
+      "raw": 0.5,
+      "fraction": "0.005",
+      "control_points": "0.500"
+    },
+    {
+      "key": "dcf_tax_rate_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_tax_rate_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_tax_shield_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_tax_shield_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_tax_shield_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_terminal_growth_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_terminal_growth_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_terminal_growth_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "dcf_wacc_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "dcf_wacc_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "dcf_wacc_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "rev_gross_churn_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "rev_gross_churn_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "rev_gross_churn_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "rev_recurring_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "rev_recurring_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "rev_recurring_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "rev_top_client_concentration_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "rev_top_client_concentration_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "rev_top_client_concentration_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_arr_growth_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_arr_growth_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_arr_growth_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_churn_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_churn_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_churn_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_customer_churn_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_customer_churn_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_customer_churn_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_customer_concentration_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_customer_concentration_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_customer_concentration_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_expansion_revenue_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_expansion_revenue_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_expansion_revenue_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_gross_margin_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_gross_margin_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_gross_margin_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": 0.5,
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": 1,
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": 1.2,
+      "fraction": "0.012",
+      "control_points": "1.200"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "0.005",
+      "fraction": "0.005",
+      "control_points": "0.500"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "-.005",
+      "fraction": "-0.005",
+      "control_points": "-0.500"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "12.200",
+      "fraction": "122",
+      "control_points": "12200"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "0,5",
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "0,005",
+      "fraction": "0.05",
+      "control_points": "5.00"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "1.234,56",
+      "fraction": "12.3456",
+      "control_points": "1234.5600"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "1,234.56",
+      "fraction": "12.3456",
+      "control_points": "1234.5600"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "1e-2",
+      "fraction": "0.01",
+      "control_points": "1.00"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "0.5%",
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "0.5\uff05",
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": " 0.5 ",
+      "fraction": "0.5",
+      "control_points": "50.0"
+    },
+    {
+      "key": "saas_nrr_pct",
+      "raw": "1\u00a0234,5",
+      "fraction": "12.345",
+      "control_points": "1234.500"
+    },
+    {
+      "key": "dcf_tax_rate_pct",
+      "raw": "12.200",
+      "fraction": "0.122",
+      "control_points": "12.200"
+    },
+    {
+      "key": "dcf_tax_rate_pct",
+      "raw": ".500",
+      "fraction": "0.005",
+      "control_points": "0.500"
+    },
+    {
+      "key": "dcf_tax_rate_pct",
+      "raw": "0.0001",
+      "fraction": "0.000001",
+      "control_points": "0.000100"
+    },
+    {
+      "key": "dcf_tax_rate_pct",
+      "raw": "1e-2",
+      "fraction": "0.0001",
+      "control_points": "0.0100"
+    }
+  ]
+}

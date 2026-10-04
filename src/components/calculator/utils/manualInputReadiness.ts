@@ -47,6 +47,8 @@ export function deriveManualInputReadiness({
     hasFinancials,
     hasEbitdaValue: totalYearsWithEbitda > 0,
     totalYearsWithEbitda,
-    canSubmit: hasCompanyInfo && hasBusinessType && hasFinancials && canSave,
+    // Incomplete financial evidence produces an assessment in the submit controller.
+    // Authentication/bootstrap and a company label are still required to save it.
+    canSubmit: hasCompanyInfo && canSave,
   }
 }

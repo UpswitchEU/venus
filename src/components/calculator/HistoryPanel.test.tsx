@@ -296,4 +296,82 @@ describe('HistoryPanel', () => {
     fireEvent.click(current)
     expect(current).toHaveAttribute('aria-expanded', 'false')
   })
+  it('exposes expanded and selected states for keyboard and assistive technology', () => {
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" />)
+    const first = screen.getByRole('button', { name: /Version 1/ })
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(first).toHaveAttribute('type', 'button')
+    fireEvent.click(first)
+    expect(first).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById(first.getAttribute('aria-controls') ?? '')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'compare' }))
+    fireEvent.click(first)
+    expect(first).toHaveAttribute('aria-pressed', 'true')
+    expect(first).not.toHaveAttribute('aria-expanded')
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    expect(screen.getByRole('button', { name: /Version 3/ })).toBeDisabled()
+  })
+
+  it('keeps every restore control unavailable while a restore is pending', async () => {
+    let finish!: () => void
+    const restore = vi.fn(
+      () =>
+        new Promise<void>((done) => {
+          finish = done
+        })
+    )
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" onVersionRestore={restore} />)
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    const actions = screen.getAllByRole('button', { name: 'restoreToVersion' })
+    fireEvent.click(actions[0])
+    expect(screen.getByRole('button', { name: 'restoring' })).toHaveAttribute('aria-busy', 'true')
+    expect(actions[1]).toBeDisabled()
+    fireEvent.click(actions[1])
+    expect(restore).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'compare' }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'compare (2)' }))
+    expect(screen.getByRole('button', { name: 'Comparison restore' })).toBeDisabled()
+    await act(async () => {
+      finish()
+    })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Comparison restore' })).toBeEnabled()
+    )
+  })
+
+  it('recovers the restore controls after a rejected callback', async () => {
+    render(
+      <HistoryPanel
+        report={setupHistory()}
+        reportId="report-1"
+        onVersionRestore={vi.fn().mockRejectedValue(new Error('Offline'))}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'restoreToVersion' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('versionRestoreFailed'))
+    expect(screen.getByRole('button', { name: 'restoreToVersion' })).toBeEnabled()
+  })
+
+  it('does not offer a restore action without a restore handler', () => {
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    expect(screen.queryByRole('button', { name: 'restoreToVersion' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'compare' }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Version 2/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'compare (2)' }))
+    expect(screen.queryByRole('button', { name: 'Comparison restore' })).not.toBeInTheDocument()
+  })
+
+  it('allows the current version to stay collapsed after its initial expansion', () => {
+    render(<HistoryPanel report={setupHistory()} reportId="report-1" />)
+    const current = screen.getByRole('button', { name: /Version 3/ })
+    expect(current).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(current)
+    expect(current).toHaveAttribute('aria-expanded', 'false')
+  })
 })

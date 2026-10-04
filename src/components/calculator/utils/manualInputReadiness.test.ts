@@ -12,7 +12,7 @@ function makeFormData(overrides: Partial<ManualValuationFormData> = {}): ManualV
 }
 
 describe('deriveManualInputReadiness', () => {
-  it('requires company, business type, financials, and save permission before submit', () => {
+  it('requires company identity and save permission before submitting', () => {
     expect(
       deriveManualInputReadiness({
         canSave: false,
@@ -42,6 +42,18 @@ describe('deriveManualInputReadiness', () => {
     ).toBe(true)
   })
 
+  it('enables an assessment for sparse evidence without claiming full readiness', () => {
+    const readiness = deriveManualInputReadiness({
+      canSave: true,
+      formData: makeFormData({ companyName: 'Sparse SME' }),
+      hasSelectedBusinessType: false,
+      hasSelectedCompany: false,
+    })
+    expect(readiness.canSubmit).toBe(true)
+    expect(readiness.hasBusinessType).toBe(false)
+    expect(readiness.hasFinancials).toBe(false)
+    expect(readiness.hasEbitdaValue).toBe(false)
+  })
   it('accepts multi-segment business type selection as a business type signal', () => {
     const readiness = deriveManualInputReadiness({
       canSave: true,

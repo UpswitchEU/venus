@@ -54,6 +54,7 @@ export function XMultiplierInput({
 }: XMultiplierInputProps) {
   const {
     display,
+    error,
     onFocus,
     onBlur,
     onChange: onDecChange,
@@ -66,6 +67,8 @@ export function XMultiplierInput({
       autoComplete="off"
       size="sm"
       value={display}
+      error={error}
+      touched={Boolean(error)}
       onChange={onDecChange}
       onFocus={onFocus}
       onBlur={onBlur}

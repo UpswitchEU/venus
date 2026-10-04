@@ -58,7 +58,7 @@ describe('useManualDcfForecastController', () => {
       expect(formStateRef.current.dcf_capex_pct).toBeDefined()
       expect(formStateRef.current.dcf_da_pct).toBeDefined()
       expect(formStateRef.current.dcf_nwc_pct).toBeDefined()
-      expect(formStateRef.current.dcf_tax_rate_pct).toBe(25)
+      expect(formStateRef.current.dcf_tax_rate_pct).toBeUndefined()
     })
   })
 

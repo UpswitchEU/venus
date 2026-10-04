@@ -4,7 +4,8 @@ import type {
   NormalizationSource,
   SuggestedNormalisation,
 } from '@/components/calculator'
-import { mapBackendCategoryToFrontend } from '@/store/useNormalizationStore'
+import { mapBackendCategoryToFrontend } from '@/store/normalizationStoreModel'
+import { normalizationNumber } from '@/utils/normalizationAmount'
 
 type ManualChatNormalisationSuggestion = NonNullable<
   ChatMessage['normalisationSuggestions']
@@ -63,11 +64,6 @@ function readBoolean(value: unknown): boolean {
   return value === true
 }
 
-function readFiniteNumber(value: unknown): number {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(numeric) ? numeric : 0
-}
-
 function readFrontendCategory(value: unknown): NormalizationItem['category'] {
   return typeof value === 'string' &&
     FRONTEND_NORMALIZATION_CATEGORIES.has(value as NormalizationItem['category'])
@@ -116,16 +112,16 @@ export function buildManualImportedNormalizationSuggestions({
   const sourceLabel = MANUAL_NORMALIZATION_IMPORT_SOURCE_LABELS[source]
   const items: NormalizationItem[] = suggestions.map((suggestion, index) => {
     const record = asRecord(suggestion) ?? {}
-    const amount = readFiniteNumber(record.amount ?? record.value)
+    const amount = normalizationNumber(record.amount ?? record.adjustment ?? record.value)
 
     return {
       id: readString(record.id) || `${source}-${index + 1}`,
       ledgerCode: readString(record.code) || readString(record.ledgerCode) || '',
       ledgerName: readString(record.description) || readString(record.ledgerName) || '',
       category: readFrontendCategory(record.category),
-      type: 'add',
-      value: amount,
-      adjustment: readFiniteNumber(record.amount ?? record.adjustment),
+      type: amount < 0 ? 'subtract' : 'add',
+      value: Math.abs(amount),
+      adjustment: amount,
       reason: readString(record.reason) || '',
       source,
       sourceRef: readString(record.sourceRef) || sourceLabel,
@@ -164,10 +160,10 @@ export function buildManualAiNormalizationSuggestions({
   const items: NormalizationItem[] = suggestions.map((suggestion) => {
     const record = asRecord(suggestion) ?? {}
     const backendCategory = readString(record.category)
-    const amount = readFiniteNumber(record.amount)
+    const amount = normalizationNumber(record.amount)
 
     return {
-      id: createId(),
+      id: readString(record.id) || createId(),
       ledgerCode: readString(record.ledgerCode) || '',
       ledgerName: readString(record.description) || '',
       category: backendCategory ? mapBackendCategoryToFrontend(backendCategory) : 'other',

@@ -35,6 +35,48 @@ function makeItem(overrides: Partial<NormalizationItem> = {}): NormalizationItem
 }
 
 describe('normalizationStoreModel', () => {
+  it.each([
+    undefined,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('never manufactures a reported EBITDA for %s', (reportedEbitda) => {
+    expect(() =>
+      buildTitanNormalizationRequest({
+        reportId: 'test',
+        year: 2024,
+        reportedEbitda,
+        items: [makeItem()],
+      })
+    ).toThrow()
+  })
+
+  it('restores an ambiguous legacy review as pending', () => {
+    const items = mapTitanNormalizationsToItems([
+      {
+        year: 2024,
+        adjustments: [{ category: 'personal_expenses', amount: 0 }],
+        custom_adjustments: [],
+      },
+    ])
+    expect(items[0]).toMatchObject({ status: 'pending', adjustment: 0 })
+  })
+
+  it.each([
+    '12abc',
+    'NaN',
+    '9007199254740993.25',
+  ])('refuses malformed or lossy restored adjustments: %s', (amount) => {
+    expect(() =>
+      mapTitanNormalizationsToItems([
+        {
+          year: 2024,
+          adjustments: [{ category: 'personal_expenses', amount: amount as unknown as number }],
+          custom_adjustments: [],
+        },
+      ])
+    ).toThrow()
+  })
+
   it('makes repeated imports idempotent within the same batch and across retries', () => {
     const accepted = makeItem()
     const imported = makeItem({ id: 'imported', status: 'pending' })
@@ -57,7 +99,7 @@ describe('normalizationStoreModel', () => {
   it('builds finite Titan requests and filters accepted items by target year', () => {
     const request = buildTitanNormalizationRequest({
       reportId: 'val-normalization-123',
-      reportedEbitda: Number.NaN,
+      reportedEbitda: 100000,
       year: 2024,
       items: [
         makeItem({
@@ -73,10 +115,10 @@ describe('normalizationStoreModel', () => {
       ],
     })
 
-    expect(request.reported_ebitda).toBe(0)
+    expect(request.reported_ebitda).toBe(100000)
     expect(request.adjustments).toHaveLength(1)
     expect(request.adjustments[0]).toMatchObject({
-      amount: 0,
+      amount: 10000,
       apply_years: [2024, 2025],
       category: 'tax_optimization_reversal',
       frontend_id: 'accepted-2024',

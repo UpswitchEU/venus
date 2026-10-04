@@ -1,4 +1,19 @@
-import type { BusinessModel, ValuationFormData, YearDataInput } from './request'
+import type {
+  BusinessModel,
+  FinancialObservationStatus,
+  ValuationFormData,
+  YearDataInput,
+} from './request'
+
+/** Client projection ownership only; this is not an earnings approval or engine valuation. */
+export interface DcfForecastInputsSnapshot {
+  schema_version: 'dcf_forecast_inputs.v2'
+  revenue: number | null
+  ebitda: number | null
+  capex: number | null
+  depreciation: number | null
+  nwc_change: number | null
+}
 
 /** Client projection ownership only; this is not an earnings approval or engine valuation. */
 export interface DcfForecastInputsSnapshot {
@@ -19,6 +34,7 @@ export interface DcfForecastInputsSnapshot {
  * are strings; the shape is not sent as-is to the engine — it becomes `YearDataInput`.
  */
 export interface YearlyFinancials {
+  financial_observations?: Record<string, FinancialObservationStatus>
   year: string
   revenue?: number
   ebitda?: number

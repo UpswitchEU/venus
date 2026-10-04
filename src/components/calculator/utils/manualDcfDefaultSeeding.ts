@@ -6,7 +6,6 @@ import {
   DCF_DEFAULT_EBITDA_MARGIN_FALLBACK_PCT,
   DCF_DEFAULT_NWC_PCT,
   DCF_DEFAULT_REVENUE_GROWTH_PCT,
-  DCF_DEFAULT_TAX_RATE_PCT,
   DCF_DEFAULT_TERMINAL_GROWTH_PCT,
   DCF_DEFAULT_WACC_PCT,
 } from '../sections/dcfEngineDefaults'
@@ -111,13 +110,11 @@ export function buildManualDcfDefaultsPatch({
     integrationDerivedDaPct ?? smartDefaults?.daPct ?? DCF_DEFAULT_DA_PCT
   )
   assignParsedOrDefault(patch, formData, 'dcf_nwc_pct', DCF_DEFAULT_NWC_PCT)
-  // Keep the deployed legacy tax contract until the compatible engine policy is released.
-  assignParsedOrDefault(
-    patch,
-    formData,
-    'dcf_tax_rate_pct',
-    smartDefaults?.taxRatePct ?? DCF_DEFAULT_TAX_RATE_PCT
-  )
+  // Tax eligibility and country policy cannot be inferred from historical earnings.
+  const suppliedTax = parseFlexibleNumber(formData.dcf_tax_rate_pct)
+  if (suppliedTax !== undefined && formData.dcf_tax_rate_pct !== suppliedTax) {
+    patch.dcf_tax_rate_pct = suppliedTax
+  }
 
   return patch
 }

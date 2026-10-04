@@ -11,7 +11,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { StartupBenchmarkRow } from '@/lib/benchmarks/useStartupBenchmark'
-import { backendAPI } from '@/services/backendApi'
 import { useManualFormStore } from '@/store/manual/useManualFormStore'
 import {
   type InceptionLens,
@@ -231,8 +230,10 @@ function schedulePreview(
   const entry: PreviewEntry = { listeners: new Set() }
   entry.timer = setTimeout(() => {
     entry.timer = undefined
-    entry.promise = backendAPI
-      .calculateStartupPreview(request)
+    // Load the API client only once the founder has supplied a business type
+    // and the debounced preview is actually needed.
+    entry.promise = import('@/services/backendApi')
+      .then(({ backendAPI }) => backendAPI.calculateStartupPreview(request))
       .then((response) => {
         entry.value = valuationIqPreviewToLiveValuation(response, fallbackLens)
         for (const listener of entry.listeners) listener(entry.value)

@@ -19,6 +19,8 @@ export type NormalizationStatus = 'pending' | 'accepted' | 'rejected'
 
 export interface NormalizationItem {
   id: string
+  /** Original economic identity when a saved multi-year row is expanded for editing. */
+  sourceAdjustmentId?: string
   ledgerCode: string
   ledgerName: string
   category: 'salary' | 'rent' | 'vehicle' | 'one-time' | 'personal' | 'depreciation' | 'other'
