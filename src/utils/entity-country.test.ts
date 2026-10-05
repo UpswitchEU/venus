@@ -1,10 +1,11 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest'
+
 import {
   getLegalFormOptions,
   LEGAL_FORMS_BY_COUNTRY,
   normalizeLegalForm,
 } from '@upswitch/types/entity-country'
+import { describe, expect, it } from 'vitest'
 import { deriveNavPricesForVersionNav } from '../features/manual/components/manualReportPresentation'
 import type { ValuationResponse } from '../types/valuation'
 

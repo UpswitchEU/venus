@@ -1,10 +1,10 @@
 'use client'
 
 import type { BusinessTypeOption as SharedBusinessTypeOption } from '@upswitch/business-type-selector'
+import { COUNTRY_CURRENCIES } from '@upswitch/types/entity-country'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { COUNTRY_CURRENCIES } from '@upswitch/types/entity-country'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { useMemo } from 'react'
 import {
