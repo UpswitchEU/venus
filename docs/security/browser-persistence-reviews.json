@@ -38,10 +38,10 @@
       "dependencies": {}
     },
     "src/components/AuthGate.tsx": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-05",
       "reviewBy": "2026-12-31",
-      "sourceSha256": "2c1c9f34447bcd6eb4b0990c3daf4e9583fbad5b98ea1d55fc314042ab0336ba",
-      "assessment": "Prevents redirect loops inside one browser tab.",
+      "sourceSha256": "095fea5edfbea848f53698bcb5a79996d5b60aa54b691bedb5f399b403791bd9",
+      "assessment": "Re-reviewed after optimistic recovery rendering changed. The only persisted payload is a numeric redirect count under upswitch_venus_redirect_count in sessionStorage; it is cleared on successful authentication and retry. No identity, credentials, company inputs or valuation data are written. Retention remains one browser tab session.",
       "dependencies": {}
     },
     "src/components/calculator/hooks/useManualAccountingImportController.ts": {
