@@ -950,7 +950,7 @@
 			},
 			"access_denied": {
 				"title": "U heeft geen toegang tot dit rapport",
-				"message": "Dit rapport hoort bij een andere werkruimte. Vraag de maker om het met u te delen, of ga terug naar uw eigen klanten."
+				"message": "Uw huidige account kan dit rapport niet openen. Ga terug naar Upswitch en meld u aan met het account dat toegang heeft tot deze klant, of vraag de maker van het rapport om toegang."
 			},
 			"temporary": {
 				"title": "We konden dit rapport nu niet laden",

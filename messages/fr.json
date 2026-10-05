@@ -950,7 +950,7 @@
 			},
 			"access_denied": {
 				"title": "Vous n'avez pas accès à ce rapport",
-				"message": "Ce rapport appartient à un autre espace de travail. Demandez à son auteur de le partager avec vous, ou revenez à vos propres clients."
+				"message": "Votre compte actuel ne peut pas ouvrir ce rapport. Revenez à Upswitch et connectez-vous avec le compte qui a accès à ce client, ou demandez l'accès à l'auteur du rapport."
 			},
 			"temporary": {
 				"title": "Nous n'avons pas pu charger ce rapport pour le moment",
