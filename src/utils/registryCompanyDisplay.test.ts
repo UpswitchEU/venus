@@ -9,7 +9,9 @@ import {
 
 describe('formatLegalFormLabel', () => {
   it('maps truncated BV long form to BV', () => {
-    expect(formatLegalFormLabel('Besloten vennootschap met beperkte aansprakelijkhe')).toEqual({
+    expect(
+      formatLegalFormLabel('Besloten vennootschap met beperkte aansprakelijkhe', 'BE')
+    ).toEqual({
       label: 'BV',
       title: 'Besloten vennootschap met beperkte aansprakelijkhe',
     })
@@ -17,6 +19,17 @@ describe('formatLegalFormLabel', () => {
 
   it('returns short codes uppercased', () => {
     expect(formatLegalFormLabel('bv')).toEqual({ label: 'BV' })
+  })
+
+  it('uses the registry jurisdiction for French legal forms', () => {
+    expect(formatLegalFormLabel('Société à responsabilité limitée', 'FR')).toEqual({
+      label: 'SARL',
+      title: 'Société à responsabilité limitée',
+    })
+    expect(formatLegalFormLabel('Société à responsabilité limitée', 'BE')).toEqual({
+      label: 'BV',
+      title: 'Société à responsabilité limitée',
+    })
   })
 
   it('returns empty for blank input', () => {

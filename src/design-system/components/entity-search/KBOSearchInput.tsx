@@ -551,7 +551,10 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                       </p>
                       <p className="mt-0.5 text-xs text-foreground/50">
                         {(() => {
-                          const { label } = formatLegalFormLabel(company.legalForm)
+                          const { label } = formatLegalFormLabel(
+                            company.legalForm,
+                            company.countryCode
+                          )
                           const kbo = safeString(company.kboNumber)
                           const city = safeString(company.city)
                           return [label, kbo, city].filter(Boolean).join(' · ')

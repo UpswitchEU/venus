@@ -193,8 +193,17 @@ export function CalculatorNavValuationSummary({
                                         )}
                                       </span>
                                       <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
-                                        {formatPrice(version.priceRange.min, version.currency)}–
-                                        {formatPrice(version.priceRange.max, version.currency)}
+                                        {formatPrice(
+                                          version.priceRange.min,
+                                          version.currency,
+                                          navLocale
+                                        )}
+                                        –
+                                        {formatPrice(
+                                          version.priceRange.max,
+                                          version.currency,
+                                          navLocale
+                                        )}
                                       </span>
                                     </>
                                   )}
@@ -228,12 +237,14 @@ export function CalculatorNavValuationSummary({
                               <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
                                 {formatPrice(
                                   displaySummary.priceRange.min,
-                                  displaySummary.currency
+                                  displaySummary.currency,
+                                  navLocale
                                 )}
                                 –
                                 {formatPrice(
                                   displaySummary.priceRange.max,
-                                  displaySummary.currency
+                                  displaySummary.currency,
+                                  navLocale
                                 )}
                               </span>
                             </div>

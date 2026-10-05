@@ -52,7 +52,10 @@ export function buildManualInputInitialData({
     legalForm: collectedData.legalForm,
     businessStructure:
       collectedData.businessStructure ||
-      mapLegalFormToBusinessStructure(collectedData.legalForm || '', collectedData.country),
+      mapLegalFormToBusinessStructure(
+        collectedData.legalForm || '',
+        formStoreData.registry_country || collectedData.country
+      ),
     address: collectedData.address,
     city: collectedData.city,
     naceCode: formActivityCode || formNaceCode || collectedData.naceCode,

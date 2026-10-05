@@ -21,14 +21,31 @@ function cleanPart(value?: string | null): string {
  * Prefer a short registry label (BV, NV, …) over truncated DB long forms.
  * Returns `{ label, title }` where `title` holds the raw value when abbreviated.
  */
-export function formatLegalFormLabel(legalForm?: string | null): {
+export function formatLegalFormLabel(
+  legalForm?: string | null,
+  countryCode?: string | null
+): {
   label: string
   title?: string
 } {
   const raw = cleanPart(legalForm)
   if (!raw) return { label: '' }
 
-  const mapped = mapLegalFormToBusinessStructure(raw)
+  const country = countryCode?.trim().toUpperCase()
+  // Older Belgian/Dutch registry rows truncate the long legal description.
+  // This is display-only abbreviation; never infer a company jurisdiction.
+  const truncatedDutchForm =
+    country === 'BE' || country === 'NL'
+      ? /^besloten vennootschap\b/i.test(raw)
+        ? 'bv'
+        : /^naamloze vennootschap\b/i.test(raw)
+          ? 'nv'
+          : ''
+      : ''
+  const mapped = mapLegalFormToBusinessStructure(raw, country) || truncatedDutchForm
+  if (!mapped && STRUCTURE_TO_LABEL[raw.toLowerCase()]) {
+    return { label: STRUCTURE_TO_LABEL[raw.toLowerCase()] }
+  }
   if (mapped) {
     const shortLabel = STRUCTURE_TO_LABEL[mapped] ?? mapped.toUpperCase()
     if (shortLabel.toLowerCase() !== raw.toLowerCase()) {
@@ -56,7 +73,7 @@ export function formatRegistryNumber(raw: string, countryCode = 'BE'): string {
   if (country === 'NL') {
     return digits.length === 8 ? digits : raw
   }
-  if (digits.length !== 10) return raw
+  if (country !== 'BE' || digits.length !== 10) return raw
   return `${digits.slice(0, 4)}.${digits.slice(4, 7)}.${digits.slice(7, 10)}`
 }
 

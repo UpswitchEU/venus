@@ -31,7 +31,10 @@ export const CompanyPreviewCard: React.FC<CompanyPreviewCardProps> = ({
   const [justVerified, showJustVerified] = useTransientFlag(2000)
   const wasVerifying = useRef(false)
 
-  const { label: legalFormLabel, title: legalFormTitle } = formatLegalFormLabel(company.legal_form)
+  const { label: legalFormLabel, title: legalFormTitle } = formatLegalFormLabel(
+    company.legal_form,
+    company.country_code
+  )
   const registration = company.registration_number
     ? formatRegistryNumber(company.registration_number, company.country_code ?? 'BE')
     : ''

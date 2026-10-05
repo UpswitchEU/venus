@@ -9,6 +9,7 @@ describe('manualInputData', () => {
       buildManualInputInitialData({
         collectedData: {
           companyName: 'Acme',
+          country: 'BE',
           legalForm: 'BV',
           ownerManagers: 1,
           fteEmployees: 3,

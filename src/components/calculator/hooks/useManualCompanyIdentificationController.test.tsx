@@ -269,7 +269,9 @@ describe('useManualCompanyIdentificationController', () => {
     expect(next).toMatchObject({
       companyName: manual.companyName,
       businessType: 'accounting',
-      legalForm: manual.legalForm,
+      legalForm: 'BV',
+      businessStructure: 'bv',
+      registry_country: 'BE',
       kboNumber: '0123.456.789',
       address: 'Registry street',
       yearlyFinancials: manual.yearlyFinancials,

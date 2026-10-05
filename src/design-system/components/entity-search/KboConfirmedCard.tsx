@@ -25,7 +25,10 @@ export function KboConfirmedCard({
   className,
 }: KboConfirmedCardProps) {
   const name = safeString(company.name)
-  const { label: legalFormLabel, title: legalFormTitle } = formatLegalFormLabel(company.legalForm)
+  const { label: legalFormLabel, title: legalFormTitle } = formatLegalFormLabel(
+    company.legalForm,
+    company.countryCode
+  )
   const kboRaw = safeString(company.kboNumber)
   const kboFormatted = kboRaw ? formatRegistryNumber(kboRaw, company.countryCode ?? 'BE') : ''
   const location = formatRegistryCompanyLocation({

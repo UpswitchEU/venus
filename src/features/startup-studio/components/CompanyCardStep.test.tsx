@@ -275,6 +275,8 @@ describe('CompanyCardStep — identity bridge', () => {
         ...useManualFormStore.getState(),
         formData: {
           ...useManualFormStore.getState().formData,
+          country_code: 'BE',
+          registry_country: 'BE',
           legal_form: 'BV',
         },
       },

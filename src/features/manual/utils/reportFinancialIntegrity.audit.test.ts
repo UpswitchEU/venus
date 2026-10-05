@@ -54,7 +54,12 @@ describe('report financial integrity audit', () => {
       valuation: 150.08,
       valueBasis: 'enterprise_value',
     })
-    expect(deriveNavPricesForVersionNav(saved, 'omzet_multiple')).toBeNull()
+    expect(deriveNavPricesForVersionNav(saved, 'omzet_multiple')).toMatchObject({
+      valuation: 150.08,
+      valueBasis: 'enterprise_value',
+      askPrice: undefined,
+      priceRange: undefined,
+    })
   })
 
   it('uses an enterprise method band without inheriting a conflicting equity band', () => {
@@ -370,5 +375,11 @@ it('never proposes a shareholder asking price from an enterprise-only valuation'
   expect(mapped.valuation).toBe(100)
   expect(mapped.valueBasis).toBe('enterprise_value')
   expect(mapped.recommendedAskingPrice).toBeUndefined()
-  expect(deriveNavPricesForVersionNav(result, 'ebitda_multiple')).toBeNull()
+  expect(deriveNavPricesForVersionNav(result, 'ebitda_multiple')).toMatchObject({
+    valuation: 100,
+    valueBasis: 'enterprise_value',
+    currency: 'GBP',
+    priceRange: { min: 90, max: 110 },
+    askPrice: undefined,
+  })
 })

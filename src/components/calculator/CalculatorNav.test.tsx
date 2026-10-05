@@ -188,6 +188,24 @@ describe('CalculatorNav', () => {
     expect(within(currentVersionRow as HTMLElement).getByText('HUIDIG')).toBeInTheDocument()
   })
 
+  it('shows the central enterprise valuation and range without an asking price', () => {
+    render(
+      <CalculatorNav
+        companyName="Le Tagine"
+        hasReport
+        valuationSummary={{
+          currency: 'EUR',
+          valuation: 354467,
+          valueBasis: 'enterprise_value',
+          priceRange: { min: 273499, max: 435435 },
+        }}
+      />
+    )
+    expect(screen.getByText('€ 354,5K')).toBeInTheDocument()
+    expect(screen.getByText('€ 273,5K–€ 435,4K')).toBeInTheDocument()
+    expect(screen.getByText('EV')).toBeInTheDocument()
+  })
+
   it('shows a polished current-version fallback when only a valuation summary exists', () => {
     render(
       <CalculatorNav
@@ -207,8 +225,8 @@ describe('CalculatorNav', () => {
     expect(screen.getByText('Huidige versie')).toBeInTheDocument()
     expect(screen.getByText('1 versie · Audit trail')).toBeInTheDocument()
     expect(screen.getByText('HUIDIG')).toBeInTheDocument()
-    expect(screen.getAllByText('€389K')).toHaveLength(2)
-    expect(screen.getAllByText('€288K–€485K')).toHaveLength(2)
+    expect(screen.getAllByText('€ 389K')).toHaveLength(2)
+    expect(screen.getAllByText('€ 288K–€ 485K')).toHaveLength(2)
   })
 
   it('preserves the displayed zero without inventing a summary midpoint', () => {
@@ -226,8 +244,8 @@ describe('CalculatorNav', () => {
     )
 
     expect(screen.queryByText('€15.6M')).not.toBeInTheDocument()
-    expect(screen.getByText('€0')).toBeInTheDocument()
-    expect(screen.getByText('€12.8M–€18.4M')).toBeInTheDocument()
+    expect(screen.getByText('€ 0')).toBeInTheDocument()
+    expect(screen.getByText('€ 12,8 mln.–€ 18,4 mln.')).toBeInTheDocument()
   })
 
   it('preserves the displayed zero from an active version', () => {
@@ -250,7 +268,7 @@ describe('CalculatorNav', () => {
     )
 
     expect(screen.queryByText('€15.6M')).not.toBeInTheDocument()
-    expect(screen.getByText('€0')).toBeInTheDocument()
-    expect(screen.getByText('€12.8M–€18.4M')).toBeInTheDocument()
+    expect(screen.getByText('€ 0')).toBeInTheDocument()
+    expect(screen.getByText('€ 12,8 mln.–€ 18,4 mln.')).toBeInTheDocument()
   })
 })
