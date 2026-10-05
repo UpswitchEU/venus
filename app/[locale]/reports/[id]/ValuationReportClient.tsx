@@ -354,10 +354,9 @@ export default function ValuationReportClient({
           the get-client-context fetch driven by ?clientId. By that point
           useClientContext is populated, so the bootstrap POST carries the
           correct delegated headers.
-        • If auth fails, AuthGate's useEffect still runs and either redirects
-          (most common) or sets an error state (silently swallowed by the
-          optimistic branch). The 30s session-load timeout backstops any
-          edge case where neither happens.
+        • If auth fails, AuthGate redirects to login or replaces the shell
+          with recovery actions. The session-load deadline also surfaces
+          failures when bootstrap cannot finish.
 
         Strict (blocking) path stays in place when a clientToken is present:
         the exchange-client-context handshake MUST complete before bootstrap

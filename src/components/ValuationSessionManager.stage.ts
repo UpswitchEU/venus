@@ -39,6 +39,11 @@ export function resolveValuationSessionStage({
   // A background refresh must never unmount a report that is already usable.
   if (isSameReportIdentity(session?.reportId, reportId) && hasAssetsInSession(session))
     return 'data-entry'
+
+  // The load deadline is independent of bootstrap readiness. Waiting for
+  // bootstrap to finish here can hide the timeout behind an endless skeleton.
+  if (status === 'error') return 'error'
+
   if (
     !isLoading &&
     !isInitializing &&
@@ -62,10 +67,6 @@ export function resolveValuationSessionStage({
     })
   ) {
     return 'data-entry'
-  }
-
-  if (status === 'error' && !isBootstrapping) {
-    return 'error'
   }
 
   if (

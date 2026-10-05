@@ -96,7 +96,7 @@ interface AuthGateProps {
   returnUrl?: string
   /**
    * Optimistic mode: render children immediately without waiting for auth.
-   * Auth still runs in the background; if it fails the user is redirected.
+   * Auth runs in the background; failures still show recovery or redirect to login.
    * Use for Mercury→Venus flows where cookies are already present.
    */
   optimistic?: boolean
@@ -524,13 +524,8 @@ export function AuthGate({
     return <>{children}</>
   }
 
-  // In optimistic mode, render children immediately.
-  // Auth still runs in the background via the useEffect above.
-  // If auth fails, the useEffect will redirect to login.
-  if (optimistic) {
-    return <>{children}</>
-  }
-
+  // Optimistic rendering only skips the initial wait. A terminal auth failure
+  // must replace the shell so the user can retry or sign in.
   if (state === 'error' && error) {
     if (errorComponent) {
       return <>{errorComponent}</>
@@ -544,6 +539,10 @@ export function AuthGate({
         onRetry={handleRetry}
       />
     )
+  }
+
+  if (optimistic) {
+    return <>{children}</>
   }
 
   if (!isReady && !wasAuthReady) {
