@@ -14,6 +14,7 @@ export interface ManualInitialPrefillData {
   companyName?: string
   registry_country?: string
   registration_number?: string
+  currency?: string
   country?: string
   fteEmployees?: number
   industry?: string
@@ -40,6 +41,7 @@ export function buildManualInitialPrefillData(
     city: initialData.city,
     companyName: initialData.companyName,
     country: initialData.country,
+    currency: initialData.currency,
     registry_country: initialData.registry_country,
     registration_number: initialData.registration_number,
     fteEmployees: initialData.fteEmployees,
@@ -152,6 +154,7 @@ export function applyManualInitialPrefill({
   maybeApplyScalarPrefill(previous, updates, 'businessType', businessTypeToApply || undefined)
   maybeApplyScalarPrefill(previous, updates, 'businessTypeCode', prefill.businessTypeCode)
   maybeApplyScalarPrefill(previous, updates, 'industry', industryToApply)
+  maybeApplyScalarPrefill(previous, updates, 'currency', prefill.currency)
   maybeApplyScalarPrefill(previous, updates, 'registry_country', prefill.registry_country)
   maybeApplyScalarPrefill(previous, updates, 'registration_number', prefill.registration_number)
   maybeApplyCountryPrefill({

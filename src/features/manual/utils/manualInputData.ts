@@ -45,6 +45,7 @@ export function buildManualInputInitialData({
 }: BuildManualInputInitialDataParams): Partial<ManualValuationFormData> {
   return {
     companyName: collectedData.companyName,
+    currency: formStoreData.currency,
     registry_country: formStoreData.registry_country,
     registration_number: formStoreData.registration_number,
     kboNumber: collectedData.kboNumber,

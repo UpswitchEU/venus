@@ -247,10 +247,8 @@ export function useManualCompanyIdentificationController({
 
       updateFormData({
         country_code: formData.country || company.countryCode || searchCountry,
-        registry_country: formData.country || company.countryCode || searchCountry,
         registry_country: company.countryCode || searchCountry,
         registration_number: company.kboNumber || undefined,
-        registration_number: company.kboNumber ?? '',
         kbo_number: (company.countryCode || searchCountry) === 'BE' ? company.kboNumber : undefined,
         company_name: baseUpdates.companyName,
         legal_form: baseUpdates.legalForm,
