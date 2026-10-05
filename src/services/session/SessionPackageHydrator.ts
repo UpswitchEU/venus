@@ -113,15 +113,15 @@ function hydrateManualResultFromPackage(
   const existingResult = manualStore.result || {}
   const pkgRenderableHtml = getFirstRenderableReportHtml(pkg.htmlReport)
   const fullResult = {
-    valuation_id: reportId,
     ...pricingResult,
+    // Summary refreshes must not reprice an already restored calculation.
+    // Keep explicit nulls (e.g. unpriced shareholder value) and its currency.
+    ...existingResult,
+    valuation_id: reportId,
     html_report: pkgRenderableHtml,
     valuation_results: hydrateClientValuationResultsMap(existingResult) ?? undefined,
   }
-  manualStore.setResult({
-    ...existingResult,
-    ...fullResult,
-  } as ValuationResponse)
+  manualStore.setResult(fullResult as ValuationResponse)
   if (pkgRenderableHtml) manualStore.setHtmlReport(pkgRenderableHtml)
 
   const mergedAfterSet = useManualResultsStore.getState().result as Record<string, unknown> | null

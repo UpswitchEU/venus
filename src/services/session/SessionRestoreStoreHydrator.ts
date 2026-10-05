@@ -191,16 +191,18 @@ export function hydrateRestoredValuationResult(
       hydrateClientValuationResultsMap(existingResult, mergeHydrateOpts)
     const renderableMergeHtml = extractRenderableHtmlFromSessionPayload(sessionHtmlPayload)
     const fullResult = {
-      ...(data.valuationResult || {}),
-      valuation_id: asString(vr?.valuation_id) || data.reportId,
-      html_report: renderableMergeHtml,
-      valuation_results: normalizedValuationResults ?? undefined,
+      // The price snapshot only fills absent legacy fields. It cannot replace
+      // a saved calculation or turn an explicitly unpriced equity value into EV.
       ...(data.pricingRange && {
         equity_value_low: data.pricingRange.min,
         equity_value_mid: data.pricingRange.mid,
         equity_value_high: data.pricingRange.max,
         currency: data.pricingRange.currency,
       }),
+      ...(data.valuationResult || {}),
+      valuation_id: asString(vr?.valuation_id) || data.reportId,
+      html_report: renderableMergeHtml,
+      valuation_results: normalizedValuationResults ?? undefined,
     }
 
     if (data.flowType === 'conversational') {

@@ -169,6 +169,77 @@ describe('SessionRestorationService', () => {
     expect(state.result?.html_report).toBe('<html>Fresh report</html>')
   })
 
+  it('does not replace saved values or currency with a stale package price range', () => {
+    useManualResultsStore.setState({
+      result: valuationResultFixture({
+        equity_value_low: 100000,
+        equity_value_mid: 200000,
+        equity_value_high: 300000,
+        currency: 'USD',
+      }),
+    })
+    SessionRestorationService.hydrateFromPackage(
+      'val_test',
+      {
+        htmlReport: '<html>Saved report</html>',
+        pricingRange: { min: 800000, mid: 900000, max: 1000000, currency: 'EUR' },
+        versions: { current: 1, total: 1, history: [] },
+        pdf: { url: null, status: 'none' },
+        formData: {},
+      },
+      'manual'
+    )
+    expect(useManualResultsStore.getState().result).toMatchObject({
+      equity_value_low: 100000,
+      equity_value_mid: 200000,
+      equity_value_high: 300000,
+      currency: 'USD',
+    })
+  })
+
+  it('preserves unpriced shareholder values when restoring an enterprise-only result', async () => {
+    await SessionRestorationService.restore('val_enterprise_only', {
+      reportId: 'val_enterprise_only',
+      sessionData: {
+        _pricingRange: { min: 270000, mid: 350000, max: 430000, currency: 'EUR' },
+      },
+      valuationResult: {
+        valuation_id: 'val_enterprise_only',
+        enterprise_value_mid: 350000,
+        equity_value_low: null,
+        equity_value_mid: null,
+        equity_value_high: null,
+        currency: 'USD',
+      },
+    })
+    expect(useManualResultsStore.getState().result).toMatchObject({
+      enterprise_value_mid: 350000,
+      equity_value_low: null,
+      equity_value_mid: null,
+      equity_value_high: null,
+      currency: 'USD',
+    })
+  })
+
+  it('restores missing legacy currency from the persisted pricing snapshot', async () => {
+    await SessionRestorationService.restore('val_legacy_currency', {
+      reportId: 'val_legacy_currency',
+      sessionData: {
+        _pricingRange: { min: 273499, mid: 354467, max: 435435, currency: 'EUR' },
+      },
+      valuationResult: {
+        valuation_id: 'val_legacy_currency',
+        equity_value_low: 273499,
+        equity_value_mid: 354467,
+        equity_value_high: 435435,
+      },
+    })
+    expect(useManualResultsStore.getState().result).toMatchObject({
+      equity_value_mid: 354467,
+      currency: 'EUR',
+    })
+  })
+
   it('package-only hydration demotes legacy accepted imported ledger addbacks above the defensibility cap', () => {
     SessionRestorationService.hydrateFromPackage(
       'val_package_legacy_imported_norm',
