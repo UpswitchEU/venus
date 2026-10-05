@@ -19,7 +19,11 @@ describe('incident version history summary parity', () => {
         expect(prices.priceRange.min).toBeCloseTo(1047822.40332, 2)
         expect(prices.priceRange.max).toBeCloseTo(1753841.77668, 2)
       } else {
-        expect(prices).toEqual({ askPrice: 1218800, priceRange: { min: 950057, max: 1487543 } })
+        expect(prices).toMatchObject({
+          valuation: 1218800,
+          askPrice: 1218800,
+          priceRange: { min: 950057, max: 1487543 },
+        })
       }
     }
   })

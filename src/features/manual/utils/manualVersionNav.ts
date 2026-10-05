@@ -11,7 +11,9 @@ import {
 
 type CurrentValuationSummary = {
   priceRange: { min: number; max: number }
-  askPrice: number
+  valuation?: number
+  valueBasis?: 'enterprise_value' | 'equity_value' | null
+  askPrice?: number
 } | null
 
 export interface BuildManualVersionHistoryForNavParams {
@@ -35,15 +37,17 @@ function pricesFromCurrentSummary(
   summary: CurrentValuationSummary | undefined,
   report: ValuationReportData | null
 ): NavVersionPrices | null {
-  if (report?.valueBasis === 'enterprise_value') return null
   if (summary) {
     const askPrice = finiteNumber(summary.askPrice)
     const min = finiteNumber(summary.priceRange?.min)
     const max = finiteNumber(summary.priceRange?.max)
-    const valuation = finiteNumber(report?.valuation)
-    if (askPrice != null && askPrice >= 0) {
+    const valuation = finiteNumber(summary.valuation ?? report?.valuation)
+    if (valuation != null) {
       return {
-        askPrice,
+        askPrice: askPrice ?? undefined,
+        valuation: valuation ?? undefined,
+        valueBasis: summary.valueBasis ?? report?.valueBasis,
+        currency: report?.currency,
         priceRange:
           valuation != null && min != null && max != null && min <= valuation && valuation <= max
             ? { min, max }
@@ -65,6 +69,8 @@ function pricesFromCurrentSummary(
       : undefined
   return {
     askPrice,
+    valuation,
+    valueBasis: report.valueBasis,
     priceRange:
       min != null && max != null && min <= valuation && valuation <= max ? { min, max } : undefined,
   }
@@ -89,6 +95,8 @@ export function buildManualVersionHistoryForNav({
         label: currentVersionLabel,
         priceRange: currentPrices?.priceRange,
         askPrice: currentPrices?.askPrice,
+        valuation: currentPrices?.valuation,
+        valueBasis: currentPrices?.valueBasis,
         ...(!currentPrices ? { pricesPending: true } : {}),
         timestamp: report.generatedAt,
         isActive: true,
@@ -114,10 +122,15 @@ export function buildManualVersionHistoryForNav({
 
     return {
       id: version.id,
-      currency: version.valuationResult?.currency ?? (isCurrentVersion ? report?.currency : null),
+      currency:
+        prices?.currency ??
+        version.valuationResult?.currency ??
+        (isCurrentVersion ? report?.currency : null),
       label: version.versionLabel,
       priceRange: prices?.priceRange,
       askPrice: prices?.askPrice,
+      valuation: prices?.valuation,
+      valueBasis: prices?.valueBasis,
       timestamp: version.createdAt,
       isActive: isCurrentVersion,
       ...(!hasUsableNavPrices(prices) && (!version.valuationResult || version.isSummary)

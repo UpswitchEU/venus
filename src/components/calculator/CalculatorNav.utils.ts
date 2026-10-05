@@ -20,10 +20,10 @@ export const formatTimeAgo = (
   return t('common.time.daysAgo', { count: days })
 }
 
-export const formatPrice = (value: number | undefined, currency?: string | null) => {
+export const formatPrice = (value: number | undefined, currency?: string | null, locale = 'en') => {
   if (value == null || !Number.isFinite(value) || !currency || !/^[A-Z]{3}$/.test(currency))
     return '—'
-  return new Intl.NumberFormat('en-BE', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     notation: 'compact',
@@ -42,9 +42,15 @@ export function normalizeCalculatorNavDisplaySummary(
   if (!summary) return null
   const min = finiteNumber(summary.priceRange?.min)
   const max = finiteNumber(summary.priceRange?.max)
+  const valuation = finiteNumber(summary.valuation ?? summary.askPrice)
   const askPrice = finiteNumber(summary.askPrice)
-  if (min == null || max == null || askPrice == null || min > max) return null
-  return { ...summary, askPrice, priceRange: { min, max } }
+  if (min == null || max == null || valuation == null || min > max) return null
+  return {
+    ...summary,
+    ...(summary.valuation != null ? { valuation } : {}),
+    ...(askPrice != null ? { askPrice } : {}),
+    priceRange: { min, max },
+  }
 }
 
 export function confidenceDotClassName(confidence?: 'high' | 'medium' | 'low') {

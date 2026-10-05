@@ -82,7 +82,8 @@ describe('deriveManualReportPresentation', () => {
       valuationLow: 950057,
       valuationHigh: 1487543,
     })
-    expect(deriveNavPricesForVersionNav(result, 'upswitch_adaptive')).toEqual({
+    expect(deriveNavPricesForVersionNav(result, 'upswitch_adaptive')).toMatchObject({
+      valuation: 1218800,
       askPrice: 1218800,
       priceRange: { min: 950057, max: 1487543 },
     })

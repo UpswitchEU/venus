@@ -99,17 +99,11 @@ export function resolveValuationRequestIdentity({
     countryCode === 'NL' ? contextCompanyId : null
   )
   const kboNumber =
-    countryCode === 'BE'
-      ? firstNonEmptyString(contextKboAlias, topLevelKboAlias)
-      : countryCode === 'NL'
-        ? undefined
-        : topLevelKboAlias
+    countryCode === 'BE' ? firstNonEmptyString(contextKboAlias, topLevelKboAlias) : undefined
   const kvkNumber =
     countryCode === 'NL'
       ? firstNonEmptyString(contextKvkAlias, topLevelKvkAlias, topLevelKboAlias)
-      : countryCode === 'BE'
-        ? undefined
-        : topLevelKvkAlias
+      : undefined
   const contextIdentityApplied =
     countryCode === 'BE'
       ? !!contextKboAlias
@@ -131,6 +125,7 @@ export function resolveValuationRequestIdentity({
     firstNonEmptyString(
       contextRegistrationNumber,
       contextIdentityApplied ? null : topLevelRegistrationAlias,
+      contextIdentityApplied ? null : topLevelKboAlias,
       countryCode === 'NL' ? kvkNumber : kboNumber,
       kboNumber,
       kvkNumber,

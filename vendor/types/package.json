@@ -28,6 +28,11 @@
       "types": "./dist/esm/valuation-methods.d.ts",
       "import": "./dist/esm/valuation-methods.js",
       "require": "./dist/cjs/valuation-methods.js"
+    },
+    "./entity-country": {
+      "types": "./dist/esm/entity-country.d.ts",
+      "import": "./dist/esm/entity-country.js",
+      "require": "./dist/cjs/entity-country.js"
     }
   },
   "files": [

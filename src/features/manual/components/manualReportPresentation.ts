@@ -136,6 +136,31 @@ export function deriveManualReportPresentation(
   if (!result) return { valuation: null }
   void opts
   const r = asRecord(result)
+  const conclusion = asRecord(r.valuation_conclusion ?? asRecord(r.details).valuation_conclusion)
+  if (
+    Object.keys(conclusion).length &&
+    (!selectedMethod || conclusion.selected_method === selectedMethod)
+  ) {
+    const low = parseFinancialTransportNumber(conclusion.low)
+    const mid = parseFinancialTransportNumber(conclusion.mid)
+    const high = parseFinancialTransportNumber(conclusion.high)
+    if (
+      conclusion.schema_version !== 'valuation_conclusion.v1' ||
+      low == null ||
+      mid == null ||
+      high == null ||
+      low > mid ||
+      mid > high ||
+      !['enterprise_value', 'equity_value'].includes(String(conclusion.value_basis))
+    )
+      return { valuation: null }
+    return {
+      valuation: mid,
+      valuationLow: low,
+      valuationHigh: high,
+      valueBasis: conclusion.value_basis as 'enterprise_value' | 'equity_value',
+    }
+  }
 
   const valuationResult = asRecord(r.valuation_result)
   const details = asRecord(r.details)
@@ -246,6 +271,9 @@ export function deriveManualReportPresentation(
 /** Price range + ask for CalculatorNav version dropdown — mirrors `valuationSummary` / `setReport` bridge. */
 export type NavVersionPrices = {
   priceRange?: { min: number; max: number }
+  valuation?: number
+  valueBasis?: 'enterprise_value' | 'equity_value' | null
+  currency?: string | null
   askPrice?: number
 }
 
@@ -260,7 +288,7 @@ export function deriveNavPricesForVersionNav(
   const valuationLow = presentation.valuationLow
   const valuationHigh = presentation.valuationHigh
   const valuation = presentation.valuation
-  if (valuation == null || presentation.valueBasis === 'enterprise_value') return null
+  if (valuation == null) return null
   const context = asRecord(r.report_context ?? details.report_context)
   const publishedAsking =
     (!selectedMethod || selectedMethod === 'upswitch_adaptive') &&
@@ -272,7 +300,14 @@ export function deriveNavPricesForVersionNav(
     publishedAsking ?? r.recommended_asking_price ?? details.recommended_asking_price
   const askingFinite = parseFinancialTransportNumber(askingRaw)
   const askPrice = askingFinite != null && askingFinite >= 0 ? askingFinite : undefined
+  const conclusion = asRecord(r.valuation_conclusion ?? details.valuation_conclusion)
+  const run = asRecord(r.valuation_run ?? details.valuation_run)
+  const rawCurrency = conclusion.currency ?? run.currency ?? r.currency ?? details.currency
   return {
+    valuation,
+    valueBasis: presentation.valueBasis,
+    currency:
+      typeof rawCurrency === 'string' && /^[A-Z]{3}$/.test(rawCurrency) ? rawCurrency : null,
     priceRange:
       valuationLow != null &&
       valuationHigh != null &&

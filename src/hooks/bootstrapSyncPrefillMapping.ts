@@ -128,6 +128,10 @@ export function buildPrefillSessionFields(prefillData: PrefillDataParam): Record
   else if (prefillData.kboData?.kboNumber) fields.kbo_number = prefillData.kboData.kboNumber
   if (prefillData.companyInfo?.vatNumber) fields.vat_number = prefillData.companyInfo.vatNumber
   else if (prefillData.kboData?.vatNumber) fields.vat_number = prefillData.kboData.vatNumber
+  if (prefillData.companyInfo?.registrationNumber)
+    fields.registration_number = prefillData.companyInfo.registrationNumber
+  if (prefillData.companyInfo?.registryCountry)
+    fields.registry_country = prefillData.companyInfo.registryCountry
   if (prefillData.companyInfo?.legalForm) fields.legal_form = prefillData.companyInfo.legalForm
   else if (prefillData.kboData?.legalForm) fields.legal_form = prefillData.kboData.legalForm
   if (prefillData.companyInfo?.city) fields.city = prefillData.companyInfo.city

@@ -45,11 +45,13 @@ export function buildManualInputInitialData({
 }: BuildManualInputInitialDataParams): Partial<ManualValuationFormData> {
   return {
     companyName: collectedData.companyName,
+    registry_country: formStoreData.registry_country,
+    registration_number: formStoreData.registration_number,
     kboNumber: collectedData.kboNumber,
     legalForm: collectedData.legalForm,
     businessStructure:
       collectedData.businessStructure ||
-      mapLegalFormToBusinessStructure(collectedData.legalForm || ''),
+      mapLegalFormToBusinessStructure(collectedData.legalForm || '', collectedData.country),
     address: collectedData.address,
     city: collectedData.city,
     naceCode: formActivityCode || formNaceCode || collectedData.naceCode,

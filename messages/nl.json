@@ -1390,6 +1390,8 @@
 		},
 		"balanceSheetAndTransaction": "Activa & balans (transactiestructuur)",
 		"fields": {
+			"registrationCountry": "Land van registratie",
+			"figuresCurrency": "Valuta van de financiële cijfers",
 			"operatingCountry": "Land van vestiging",
 			"operatingCountryHelp": "Bepaalt KBO-zoekopdracht (België) of KVK-zoekopdracht (Nederland) en terminologie.",
 			"companyNameOptionalRegistry": "Bedrijfsnaam (register opzoeken is optioneel)",

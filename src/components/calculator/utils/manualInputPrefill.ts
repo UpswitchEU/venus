@@ -12,6 +12,8 @@ export interface ManualInitialPrefillData {
   canonicalNaceCode?: string
   city?: string
   companyName?: string
+  registry_country?: string
+  registration_number?: string
   country?: string
   fteEmployees?: number
   industry?: string
@@ -38,6 +40,8 @@ export function buildManualInitialPrefillData(
     city: initialData.city,
     companyName: initialData.companyName,
     country: initialData.country,
+    registry_country: initialData.registry_country,
+    registration_number: initialData.registration_number,
     fteEmployees: initialData.fteEmployees,
     industry: initialData.industry,
     kboNumber: initialData.kboNumber,
@@ -127,7 +131,10 @@ export function applyManualInitialPrefill({
   previous,
 }: ApplyManualInitialPrefillParams): AppliedManualInitialPrefill {
   const updates: Partial<ManualValuationFormData> = {}
-  const mappedBusinessStructure = mapLegalFormToBusinessStructure(prefill.legalForm)
+  const mappedBusinessStructure = mapLegalFormToBusinessStructure(
+    prefill.legalForm,
+    prefill.registry_country || prefill.country || previous.registry_country || previous.country
+  )
 
   maybeApplyScalarPrefill(previous, updates, 'companyName', prefill.companyName)
   maybeApplyScalarPrefill(previous, updates, 'kboNumber', prefill.kboNumber)
@@ -145,6 +152,8 @@ export function applyManualInitialPrefill({
   maybeApplyScalarPrefill(previous, updates, 'businessType', businessTypeToApply || undefined)
   maybeApplyScalarPrefill(previous, updates, 'businessTypeCode', prefill.businessTypeCode)
   maybeApplyScalarPrefill(previous, updates, 'industry', industryToApply)
+  maybeApplyScalarPrefill(previous, updates, 'registry_country', prefill.registry_country)
+  maybeApplyScalarPrefill(previous, updates, 'registration_number', prefill.registration_number)
   maybeApplyCountryPrefill({
     countryUserOverridden,
     previous,

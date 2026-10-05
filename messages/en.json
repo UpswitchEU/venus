@@ -1390,6 +1390,8 @@
 		},
 		"balanceSheetAndTransaction": "Assets & balance sheet (transaction structure)",
 		"fields": {
+			"registrationCountry": "Country of registration",
+			"figuresCurrency": "Financial figures currency",
 			"operatingCountry": "Operating country",
 			"operatingCountryHelp": "Chooses KBO (Belgium) or KVK (Netherlands) company search and terminology.",
 			"companyNameOptionalRegistry": "Company name (registry lookup optional)",

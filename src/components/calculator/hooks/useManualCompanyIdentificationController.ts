@@ -81,7 +81,7 @@ export function useManualCompanyIdentificationController({
   updateFormData,
 }: UseManualCompanyIdentificationControllerParams): UseManualCompanyIdentificationControllerResult {
   const [selectedBusinessType, setSelectedBusinessType] = useState<SearchBusinessType | null>(null)
-  const searchCountry = formData.country || initialCountry || 'BE'
+  const searchCountry = formData.registry_country || formData.country || initialCountry || ''
 
   const kboSearchFn = useCallback(
     async (query: string, signal?: AbortSignal): Promise<KBOCompany[]> => {
@@ -226,22 +226,32 @@ export function useManualCompanyIdentificationController({
 
       const baseUpdates: Partial<ValuationFormData> = {
         companyName,
+        country: formData.country || company.countryCode || searchCountry,
+        registry_country: company.countryCode || searchCountry,
+        registration_number: company.kboNumber || undefined,
         kboNumber: company.kboNumber ?? '',
-        legalForm: formData.legalForm || company.legalForm || '',
+        legalForm: company.legalForm || '',
         address: formData.address || company.address || '',
         city: formData.city || company.city || '',
         naceCode: displayCode,
         canonicalNaceCode: canonical,
         naceDescription: company.naceDescription ?? '',
-        businessStructure:
-          formData.businessStructure || mapLegalFormToBusinessStructure(company.legalForm ?? ''),
+        businessStructure: mapLegalFormToBusinessStructure(
+          company.legalForm ?? '',
+          company.countryCode || searchCountry
+        ),
       }
 
       setFormData((prev) => ({ ...prev, ...baseUpdates }))
       clearNacePrefillError()
 
       updateFormData({
-        kbo_number: company.kboNumber ?? '',
+        country_code: formData.country || company.countryCode || searchCountry,
+        registry_country: formData.country || company.countryCode || searchCountry,
+        registry_country: company.countryCode || searchCountry,
+        registration_number: company.kboNumber || undefined,
+        registration_number: company.kboNumber ?? '',
+        kbo_number: (company.countryCode || searchCountry) === 'BE' ? company.kboNumber : undefined,
         company_name: baseUpdates.companyName,
         legal_form: baseUpdates.legalForm,
         nace_code: canonical,

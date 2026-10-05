@@ -92,7 +92,7 @@ export function useManualCollectedDataSync<TCollectedData extends ManualCollecte
       if (yearStr && yearStr !== prev.yearFounded) next.yearFounded = yearStr
       if (kboNumber && kboNumber !== prev.kboNumber) next.kboNumber = kboNumber
       if (legalForm && legalForm !== prev.legalForm) next.legalForm = legalForm
-      const derivedBusinessStructure = mapLegalFormToBusinessStructure(legalForm || '')
+      const derivedBusinessStructure = mapLegalFormToBusinessStructure(legalForm || '', country)
       next.businessStructure = derivedBusinessStructure || prev.businessStructure || undefined
       if (address && address !== prev.address) next.address = address
       if (city && city !== prev.city) next.city = city
@@ -324,7 +324,7 @@ function mergeManualSessionIdentityIntoCollectedData<
   if (session.kbo && !previous.kboNumber) next.kboNumber = session.kbo
   if (session.legal && !previous.legalForm) {
     next.legalForm = session.legal
-    const mapped = mapLegalFormToBusinessStructure(session.legal)
+    const mapped = mapLegalFormToBusinessStructure(session.legal, session.country)
     if (mapped && !previous.businessStructure) next.businessStructure = mapped
   }
   if (session.address && !previous.address) next.address = session.address

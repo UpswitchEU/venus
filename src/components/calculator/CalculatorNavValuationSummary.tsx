@@ -73,7 +73,11 @@ export function CalculatorNavValuationSummary({
                       aria-hidden
                     />
                     <span className="font-mono text-sm font-semibold leading-none tracking-normal text-foreground tabular-nums">
-                      {formatPrice(displaySummary.askPrice, displaySummary.currency)}
+                      {formatPrice(
+                        displaySummary.valuation ?? displaySummary.askPrice,
+                        displaySummary.currency,
+                        navLocale
+                      )}
                     </span>
                     <span
                       className={cn(
@@ -84,9 +88,29 @@ export function CalculatorNavValuationSummary({
                         'lg:inline-flex'
                       )}
                     >
-                      {formatPrice(displaySummary.priceRange.min, displaySummary.currency)}–
-                      {formatPrice(displaySummary.priceRange.max, displaySummary.currency)}
+                      {formatPrice(
+                        displaySummary.priceRange.min,
+                        displaySummary.currency,
+                        navLocale
+                      )}
+                      –
+                      {formatPrice(
+                        displaySummary.priceRange.max,
+                        displaySummary.currency,
+                        navLocale
+                      )}
                     </span>
+                    {displaySummary.valueBasis && (
+                      <span className="text-[10px] text-foreground/55">
+                        {displaySummary.valueBasis === 'enterprise_value'
+                          ? 'EV'
+                          : navLocale === 'fr'
+                            ? 'Fonds propres'
+                            : navLocale === 'nl'
+                              ? 'Aandelen'
+                              : 'Equity'}
+                      </span>
+                    )}
                     <ChevronDown className="h-3 w-3 text-foreground/30 transition-colors group-hover:text-foreground/50" />
                   </button>
                 }
@@ -155,14 +179,18 @@ export function CalculatorNavValuationSummary({
                                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                   {version.pricesPending ||
                                   !version.priceRange ||
-                                  version.askPrice == null ? (
+                                  (version.valuation ?? version.askPrice) == null ? (
                                     <span className="text-xs text-foreground/50">
                                       {t('versions.actions.view')}
                                     </span>
                                   ) : (
                                     <>
                                       <span className="font-mono text-xs font-semibold leading-none tracking-normal text-foreground/80 tabular-nums">
-                                        {formatPrice(version.askPrice, version.currency)}
+                                        {formatPrice(
+                                          version.valuation ?? version.askPrice,
+                                          version.currency,
+                                          navLocale
+                                        )}
                                       </span>
                                       <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
                                         {formatPrice(version.priceRange.min, version.currency)}–
@@ -191,7 +219,11 @@ export function CalculatorNavValuationSummary({
                             </div>
                             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                               <span className="font-mono text-xs font-semibold leading-none tracking-normal text-foreground/80 tabular-nums">
-                                {formatPrice(displaySummary.askPrice, displaySummary.currency)}
+                                {formatPrice(
+                                  displaySummary.valuation ?? displaySummary.askPrice,
+                                  displaySummary.currency,
+                                  navLocale
+                                )}
                               </span>
                               <span className="inline-flex h-5 items-center rounded-full border border-foreground/[0.07] bg-background/40 px-2 font-mono text-[11px] font-semibold leading-none tracking-normal text-foreground/50 tabular-nums">
                                 {formatPrice(

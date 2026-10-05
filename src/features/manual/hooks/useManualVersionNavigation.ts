@@ -18,7 +18,9 @@ export interface UseManualVersionNavigationParams {
   initialVersion?: number
   currentValuationSummary?: {
     priceRange: { min: number; max: number }
-    askPrice: number
+    valuation?: number
+    valueBasis?: 'enterprise_value' | 'equity_value' | null
+    askPrice?: number
   } | null
   currentVersionLabel: string
   onVersionHistoryLocked: () => void

@@ -9,56 +9,7 @@ import { STARTUP_STAGE_DEFAULT_RAISE } from '@/store/manual/useStartupValuationS
 import type { BusinessTypeSegmentInput, ValuationFormData } from '@/types/valuation'
 import { mapLegalFormToBusinessStructure } from '@/utils/legalFormMapping'
 
-export interface LegalFormOption {
-  value: string
-  label: string
-}
-
-/**
- * Country-scoped legal-form enum. Falls back to BE for unknown country
- * codes so legacy payloads keep rendering.
- */
-const LEGAL_FORM_OPTIONS_BY_COUNTRY: Record<string, ReadonlyArray<LegalFormOption>> = {
-  BE: [
-    { value: 'bv', label: 'BV' },
-    { value: 'nv', label: 'NV' },
-    { value: 'eenmanszaak', label: 'Eenmanszaak' },
-    { value: 'vof', label: 'VOF' },
-    { value: 'cvba', label: 'CVBA' },
-    { value: 'vzw', label: 'VZW' },
-  ],
-  NL: [
-    { value: 'bv', label: 'BV' },
-    { value: 'nv', label: 'NV' },
-    { value: 'eenmanszaak', label: 'Eenmanszaak' },
-    { value: 'vof', label: 'VOF' },
-    { value: 'cv', label: 'CV (Coöperatie)' },
-    { value: 'stichting', label: 'Stichting' },
-  ],
-  FR: [
-    { value: 'sas', label: 'SAS' },
-    { value: 'sasu', label: 'SASU' },
-    { value: 'sarl', label: 'SARL' },
-    { value: 'eurl', label: 'EURL' },
-    { value: 'sa', label: 'SA' },
-    { value: 'micro_entreprise', label: 'Micro-entreprise' },
-  ],
-  DE: [
-    { value: 'gmbh', label: 'GmbH' },
-    { value: 'ug', label: 'UG (haftungsbeschränkt)' },
-    { value: 'ag', label: 'AG' },
-    { value: 'gbr', label: 'GbR' },
-    { value: 'kg', label: 'KG' },
-    { value: 'einzelunternehmen', label: 'Einzelunternehmen' },
-  ],
-} as const
-
-export function getLegalFormOptions(countryCode: string): LegalFormOption[] {
-  return [
-    ...(LEGAL_FORM_OPTIONS_BY_COUNTRY[countryCode.toUpperCase()] ??
-      LEGAL_FORM_OPTIONS_BY_COUNTRY.BE),
-  ]
-}
+export { getLegalFormOptions, type LegalFormOption } from '@upswitch/types/entity-country'
 
 export function resolveStageDefaultRaiseSeed({
   stage,
@@ -111,6 +62,8 @@ export function buildCompanyCardCountryResetPatch(
     country_code: countryCode.toUpperCase(),
     company_name: '',
     kbo_number: undefined,
+    registration_number: undefined,
+    registry_country: undefined,
     legal_form: undefined,
     business_structure: undefined,
     nace_code: undefined,
@@ -124,6 +77,8 @@ export function buildCompanyCardClearPatch(): Partial<ValuationFormData> & Recor
   return {
     company_name: '',
     kbo_number: undefined,
+    registration_number: undefined,
+    registry_country: undefined,
     legal_form: undefined,
     business_structure: undefined,
     nace_code: undefined,
@@ -137,9 +92,10 @@ export function buildCompanyCardClearPatch(): Partial<ValuationFormData> & Recor
 }
 
 export function buildBusinessStructurePatch(
-  legalForm: string | null | undefined
+  legalForm: string | null | undefined,
+  countryCode?: string
 ): Partial<ValuationFormData> & Record<string, unknown> {
-  const businessStructure = mapLegalFormToBusinessStructure(legalForm ?? '')
+  const businessStructure = mapLegalFormToBusinessStructure(legalForm ?? '', countryCode)
   return { business_structure: businessStructure || undefined }
 }
 
@@ -201,9 +157,11 @@ export function buildCompanyCardRegistrySelectionPlan({
   const countryCode = (company.countryCode || fallbackCountry).toUpperCase()
   const formPatch: Partial<ValuationFormData> & Record<string, unknown> = {
     company_name: company.name,
-    kbo_number: company.kboNumber ?? '',
+    kbo_number: countryCode === 'BE' ? company.kboNumber : undefined,
+    registration_number: company.kboNumber ?? '',
+    registry_country: countryCode,
     legal_form: company.legalForm ?? '',
-    ...buildBusinessStructurePatch(company.legalForm),
+    ...buildBusinessStructurePatch(company.legalForm, countryCode),
     country_code: countryCode,
     nace_code: canonicalNaceCode || undefined,
     nace_description: company.naceDescription || undefined,

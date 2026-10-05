@@ -39,7 +39,9 @@ export function useManualCollectedDataController({
   const formBusinessModel = useManualFormStore((s) => s.formData.business_model)
   const formCountry = useManualFormStore((s) => s.formData.country_code)
   const formYearFounded = useManualFormStore((s) => s.formData.founding_year)
-  const formKboNumber = useManualFormStore((s) => s.formData.kbo_number)
+  const formKboNumber = useManualFormStore(
+    (s) => s.formData.registration_number || s.formData.kbo_number
+  )
   const formLegalForm = useManualFormStore((s) => s.formData.legal_form)
   const formCity = useManualFormStore((s) => s.formData.city)
   const formPostalCode = useManualFormStore((s) => s.formData.postal_code)
@@ -54,7 +56,8 @@ export function useManualCollectedDataController({
     companyName: companyName || '',
     kboNumber: formKboNumber || '',
     legalForm: formLegalForm || '',
-    businessStructure: mapLegalFormToBusinessStructure(formLegalForm || '') || undefined,
+    businessStructure:
+      mapLegalFormToBusinessStructure(formLegalForm || '', formCountry) || undefined,
     address: '',
     city: formCity || '',
     postalCode: formPostalCode || '',

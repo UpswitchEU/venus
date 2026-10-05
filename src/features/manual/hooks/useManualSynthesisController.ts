@@ -25,7 +25,9 @@ export interface ManualSynthesisController {
   navValuationSummary:
     | {
         priceRange: { min: number; max: number }
-        askPrice: number
+        valuation: number
+        valueBasis?: 'enterprise_value' | 'equity_value' | null
+        askPrice?: number
         confidence?: 'high' | 'medium' | 'low'
         currency?: string | null
       }
@@ -79,12 +81,14 @@ export function useManualSynthesisController({
   const navValuationSummary = useMemo(() => {
     if (!report || !result) return undefined
     const prices = deriveNavPricesForVersionNav(result, selectedMethod)
-    if (!prices?.priceRange || prices.askPrice == null) return undefined
+    if (!prices?.priceRange || prices.valuation == null) return undefined
     return {
       priceRange: prices.priceRange,
+      valuation: prices.valuation,
+      valueBasis: prices.valueBasis,
       askPrice: prices.askPrice,
       confidence: report.confidenceLevel,
-      currency: report.currency,
+      currency: prices.currency ?? report.currency,
     }
   }, [report, result, selectedMethod])
 

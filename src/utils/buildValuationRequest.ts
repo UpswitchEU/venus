@@ -1,3 +1,4 @@
+import { COUNTRY_CURRENCIES } from '@upswitch/types/entity-country'
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationTypes'
 import { useEbitdaNormalizationStore } from '../store/useEbitdaNormalizationStore'
 import { useNormalizationStore } from '../store/useNormalizationStore'
@@ -150,7 +151,10 @@ export function buildValuationRequest(
   // Prefer `country_code`; manual panel may only have synced `country` until the store bridge runs.
   const countryRaw =
     formData.country_code?.trim() || (formData as { country?: string }).country?.trim() || ''
-  const countryCode = coerceIso2OrNull(countryRaw) ?? 'BE'
+  const countryCode = coerceIso2OrNull(countryRaw)
+  if (!countryCode || !COUNTRY_CURRENCIES[countryCode]) {
+    throw new ValidationError('Select the operating country.', 'country_code', countryRaw)
+  }
   const rawCurrency =
     typeof formData.currency === 'string' ? formData.currency.trim().toUpperCase() : ''
   if (rawCurrency && !/^[A-Z]{3}$/.test(rawCurrency)) {
@@ -160,7 +164,7 @@ export function buildValuationRequest(
       formData.currency
     )
   }
-  const currency = rawCurrency || undefined
+  const currency = rawCurrency || COUNTRY_CURRENCIES[countryCode]
 
   // Normalize industry and business model
   // Priority: formData.industry > business_type metadata > default
@@ -504,7 +508,7 @@ export function buildValuationRequest(
   const sharesForSale = explicitSharesForSale ?? 100
   const { registrationNumber, kboNumber, kvkNumber, vatNumber, legalForm, postalCode, city } =
     resolveValuationRequestIdentity({
-      countryCode,
+      countryCode: formData.registry_country || countryCode,
       formDataRecord: fd,
       businessContext,
     })
@@ -534,6 +538,7 @@ export function buildValuationRequest(
       canonical_nace_code: formData.canonical_nace_code,
     }),
     ...(registrationNumber && { registration_number: registrationNumber }),
+    ...(formData.registry_country && { registry_country: formData.registry_country }),
     ...(kboNumber && { kbo_number: kboNumber }),
     ...(kvkNumber && { kvk_number: kvkNumber }),
     ...(vatNumber && { vat_number: vatNumber }),

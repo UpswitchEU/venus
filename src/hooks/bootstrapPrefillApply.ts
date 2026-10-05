@@ -98,6 +98,8 @@ export function applyBootstrapPrefillToForm(
       })
     }
     if (companyInfo.countryCode) allData.country_code = companyInfo.countryCode
+    if (companyInfo.registrationNumber) allData.registration_number = companyInfo.registrationNumber
+    if (companyInfo.registryCountry) allData.registry_country = companyInfo.registryCountry
     if (companyInfo.foundingYear) allData.founding_year = companyInfo.foundingYear
     if (companyInfo.city) allData.city = companyInfo.city
     if (companyInfo.postalCode) allData.postal_code = companyInfo.postalCode

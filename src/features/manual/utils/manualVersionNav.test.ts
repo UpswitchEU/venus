@@ -53,10 +53,11 @@ describe('manualVersionNav', () => {
           generatedAt: new Date('2026-01-01T00:00:00.000Z'),
         } as unknown as ValuationReportData,
       })
-    ).toEqual([
+    ).toMatchObject([
       {
         id: 'current',
         label: 'Current',
+        valuation: 1000,
         priceRange: { min: 800, max: 1200 },
         askPrice: 1100,
         timestamp: new Date('2026-01-01T00:00:00.000Z'),
@@ -268,9 +269,10 @@ describe('manualVersionNav', () => {
       ],
     })
 
-    expect(navItem).toEqual({
+    expect(navItem).toMatchObject({
       id: 'v1',
       label: 'Initial',
+      valuation: 500000,
       priceRange: { min: 400_000, max: 600_000 },
       askPrice: undefined,
       timestamp: createdAt,

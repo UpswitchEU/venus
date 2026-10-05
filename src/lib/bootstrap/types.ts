@@ -106,6 +106,8 @@ export const PREFILL_SOURCE_ACCOUNTING_INTEGRATION =
   'accounting_integration' as const satisfies PrefillSource
 
 export interface CompanyInfo {
+  registrationNumber?: string
+  registryCountry?: string
   companyName?: string
   kboNumber?: string
   vatNumber?: string

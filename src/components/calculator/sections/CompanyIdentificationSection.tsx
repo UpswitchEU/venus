@@ -4,6 +4,7 @@ import type { BusinessTypeOption as SharedBusinessTypeOption } from '@upswitch/b
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { COUNTRY_CURRENCIES } from '@upswitch/types/entity-country'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { useMemo } from 'react'
 import {
@@ -20,16 +21,8 @@ import type { BusinessType as ApiBusinessType } from '../../../services/business
 import type { ManualValuationFormData } from '../../../types/valuation'
 import { BusinessTypeSelector } from '../../BusinessTypeSelector'
 import { SECTION_HEADER_ROW_CLASS, SectionStatusCircle } from './index'
+import { LegalIdentityFields } from './LegalIdentityFields'
 import { SegmentWeightingPanel } from './SegmentWeightingPanel'
-
-const businessStructures = [
-  { value: 'bv', label: 'BV' },
-  { value: 'nv', label: 'NV' },
-  { value: 'eenmanszaak', label: 'Eenmanszaak' },
-  { value: 'vof', label: 'VOF' },
-  { value: 'cvba', label: 'CVBA' },
-  { value: 'vzw', label: 'VZW' },
-]
 
 function finiteNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -279,17 +272,49 @@ export function CompanyIdentificationSection({
           value: c.code,
           label: `${c.flag} ${c.name} (${c.currencySymbol})`,
         }))}
-        value={formData.country || initialData.country || 'BE'}
+        value={formData.country || initialData.country || ''}
         onChange={(val) => {
           countryUserOverrideRef.current = true
-          const prev = formData.country || initialData.country || 'BE'
+          const prev = formData.country || initialData.country || ''
           updateField('country', val)
           const cc = String(val).trim().toUpperCase().substring(0, 2)
           if (cc) updateFormData({ country_code: cc })
-          if (val !== prev) {
+          if (val !== prev && !formData.registry_country && !initialData.registry_country) {
+            updateField('businessStructure', '')
+            updateField('legalForm', '')
+            updateField('kboNumber', '')
+            updateFormData({
+              legal_form: undefined,
+              business_structure: undefined,
+              registration_number: undefined,
+              registry_country: undefined,
+              kbo_number: undefined,
+              kvk_number: undefined,
+              business_context: undefined,
+            })
             setSelectedCompany(null)
             setCompanySearchValue(formData.companyName || '')
           }
+        }}
+        size="sm"
+        disabled={isCalculating}
+      />
+
+      <AuroraSelect
+        label={mi('fields.figuresCurrency')}
+        options={[...new Set(Object.values(COUNTRY_CURRENCIES))].map((currency) => ({
+          value: currency,
+          label: currency,
+        }))}
+        value={
+          formData.currency ||
+          initialData.currency ||
+          COUNTRY_CURRENCIES[formData.country || initialData.country || ''] ||
+          ''
+        }
+        onChange={(currency) => {
+          updateField('currency', currency)
+          updateFormData({ currency })
         }}
         size="sm"
         disabled={isCalculating}
@@ -472,12 +497,13 @@ export function CompanyIdentificationSection({
               />
             )}
 
-            <AuroraSelect
-              label={mi('fields.legalForm')}
-              options={businessStructures}
-              value={formData.businessStructure}
-              onChange={(val) => updateField('businessStructure', val)}
-              size="sm"
+            <LegalIdentityFields
+              formData={formData}
+              initialData={initialData}
+              isCalculating={isCalculating}
+              updateField={updateField}
+              updateFormData={updateFormData}
+              onJurisdictionChange={() => setSelectedCompany(null)}
             />
           </motion.div>
         )}

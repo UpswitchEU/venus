@@ -12,6 +12,8 @@ export interface ValuationVersion {
   id: string
   label: string
   priceRange?: { min: number; max: number }
+  valuation?: number
+  valueBasis?: 'enterprise_value' | 'equity_value' | null
   askPrice?: number
   currency?: string | null
   timestamp: Date
@@ -62,7 +64,9 @@ export interface CalculatorNavProps {
   openTasksCount?: number
   valuationSummary?: {
     priceRange: { min: number; max: number }
-    askPrice: number
+    valuation?: number
+    valueBasis?: 'enterprise_value' | 'equity_value' | null
+    askPrice?: number
     confidence?: 'high' | 'medium' | 'low'
     currency?: string | null
   }

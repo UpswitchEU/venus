@@ -61,19 +61,17 @@ const registryCompany: KBOCompany = {
 }
 
 describe('getLegalFormOptions', () => {
-  it('returns country-specific legal forms and falls back to Belgium', () => {
+  it('returns country-specific legal forms without guessing an unknown jurisdiction', () => {
     expect(getLegalFormOptions('NL').map((option) => option.value)).toContain('stichting')
     expect(getLegalFormOptions('FR').map((option) => option.value)).toContain('sarl')
-    expect(getLegalFormOptions('XX').map((option) => option.value)).toEqual(
-      getLegalFormOptions('BE').map((option) => option.value)
-    )
+    expect(getLegalFormOptions('XX').map((option) => option.value)).toEqual(['other', 'unknown'])
   })
 
   it('returns a defensive copy so callers cannot mutate shared options', () => {
     const options = getLegalFormOptions('BE')
     options.pop()
 
-    expect(getLegalFormOptions('BE')).toHaveLength(6)
+    expect(getLegalFormOptions('BE')).toHaveLength(10)
   })
 })
 
@@ -132,7 +130,7 @@ describe('company-card form patches', () => {
   })
 
   it('bridges registry legal forms into the downstream business structure field', () => {
-    expect(buildBusinessStructurePatch('BV')).toEqual({ business_structure: 'bv' })
+    expect(buildBusinessStructurePatch('BV', 'BE')).toEqual({ business_structure: 'bv' })
     expect(buildBusinessStructurePatch('unknown form')).toEqual({ business_structure: undefined })
   })
 
@@ -198,7 +196,9 @@ describe('buildCompanyCardRegistrySelectionPlan', () => {
     expect(plan.descriptionSeed).toBe('Industrial automation software for SMEs')
     expect(plan.formPatch).toMatchObject({
       company_name: 'Acme Robotics',
-      kbo_number: '0123456789',
+      kbo_number: undefined,
+      registration_number: '0123456789',
+      registry_country: 'NL',
       legal_form: 'BV',
       business_structure: 'bv',
       country_code: 'NL',

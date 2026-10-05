@@ -57,6 +57,10 @@ export default defineConfig({
         __dirname,
         './vendor/types/src/normalization.ts'
       ),
+      '@upswitch/types/entity-country': path.resolve(
+        __dirname,
+        './vendor/types/src/entity-country.ts'
+      ),
       '@upswitch/types': path.resolve(__dirname, './vendor/types/src/index.ts'),
     },
   },

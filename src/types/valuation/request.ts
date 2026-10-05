@@ -362,6 +362,7 @@ export interface ValuationRequest {
   city?: string
 
   // Phase 1.1: Enhanced KBO registry fields
+  registry_country?: string
   registration_number?: string
   kbo_number?: string
   kvk_number?: string
@@ -798,6 +799,7 @@ export interface ValuationFormData extends Partial<ValuationRequest> {
   city?: string
 
   // Phase 1.1: Enhanced KBO registry fields (inherited from ValuationRequest)
+  registry_country?: string
   registration_number?: string
   kbo_number?: string
   kvk_number?: string

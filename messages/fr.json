@@ -1390,6 +1390,8 @@
 		},
 		"balanceSheetAndTransaction": "Actif et bilan (structure de la transaction)",
 		"fields": {
+			"registrationCountry": "Pays d’immatriculation",
+			"figuresCurrency": "Devise des données financières",
 			"operatingCountry": "Pays d'exploitation",
 			"operatingCountryHelp": "Choisit la recherche et la terminologie d'entreprise KBO (Belgique) ou KVK (Pays-Bas).",
 			"companyNameOptionalRegistry": "Nom de l’entreprise (recherche au registre facultative)",

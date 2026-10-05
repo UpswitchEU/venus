@@ -208,11 +208,11 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
   }, [naceCode, seedSectorFromNaceIfDefault])
 
   useEffect(() => {
-    const patch = buildBusinessStructurePatch(legalForm)
+    const patch = buildBusinessStructurePatch(legalForm, country)
     if (patch.business_structure !== businessStructure) {
       updateFormData(patch)
     }
-  }, [businessStructure, legalForm, updateFormData])
+  }, [businessStructure, legalForm, country, updateFormData])
 
   // Mercury → Venus deep-link prefill. Mercury can supply a rich
   // context envelope through URL params so the studio is already
@@ -495,7 +495,7 @@ export function CompanyCardStep(_props: CompanyCardStepProps) {
             const nextLegalForm = String(val)
             updateFormData({
               legal_form: nextLegalForm,
-              ...buildBusinessStructurePatch(nextLegalForm),
+              ...buildBusinessStructurePatch(nextLegalForm, country),
             })
           }}
           size="sm"
