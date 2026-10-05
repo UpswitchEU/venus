@@ -457,18 +457,6 @@ describe('sessionReadiness Mercury report URL contract', () => {
     expect(source).not.toMatch(/response\.status === 504\) && attempt/)
   })
 
-  it('useValuationSessionLoader clears session store before bootstrap retry', () => {
-    const path = join(__dirname, '../useValuationSessionLoader.ts')
-    const source = readFileSync(path, 'utf8')
-    expect(source).toMatch(/bootstrapError && refreshBootstrap/)
-    expect(source).toMatch(
-      /bootstrapError && refreshBootstrap[\s\S]*useSessionStore\.setState\([\s\S]*status: 'idle'[\s\S]*errorMessage: null[\s\S]*await refreshBootstrap/
-    )
-    expect(source).toMatch(
-      /} else {[\s\S]*useSessionStore\.setState\([\s\S]*status: 'idle'[\s\S]*loadSession\(reportId/
-    )
-  })
-
   it('useValuationSessionLoader skips loadSession when bootstrap failed', () => {
     const path = join(__dirname, '../useValuationSessionLoader.ts')
     const source = readFileSync(path, 'utf8')

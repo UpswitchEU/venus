@@ -49,8 +49,17 @@ const pending = {
 describe('report retry after bootstrap timeout', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('retries bootstrap after the session deadline, even without a bootstrap error', async () => {
-    const { result } = renderHook(() => useValuationSessionLoader(pending))
+  it.each([
+    { reason: 'pending bootstrap past the session deadline', overrides: {} },
+    { reason: 'incomplete bootstrap', overrides: { isBootstrapping: false } },
+    {
+      reason: 'failed bootstrap',
+      overrides: { isBootstrapping: false, bootstrapError: '[TIMEOUT] Please try again.' },
+    },
+  ])('clears the session error before retrying $reason', async ({ overrides }) => {
+    const { result } = renderHook(() => useValuationSessionLoader({ ...pending, ...overrides }))
+    // Observe the explicit retry independently of the initial session-load effect.
+    vi.clearAllMocks()
     await act(() => result.current.handleRetry())
     expect(mocks.cancelActiveLoad).toHaveBeenCalledWith('val_existing')
     expect(mocks.refreshBootstrap).toHaveBeenCalledTimes(1)
@@ -60,6 +69,9 @@ describe('report retry after bootstrap timeout', () => {
       errorMessage: null,
       renderError: null,
     })
+    expect(mocks.setState.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.refreshBootstrap.mock.invocationCallOrder[0]
+    )
   })
 
   it('loads the session directly when bootstrap has already completed', async () => {
@@ -74,5 +86,13 @@ describe('report retry after bootstrap timeout', () => {
     await act(() => result.current.handleRetry())
     expect(mocks.refreshBootstrap).not.toHaveBeenCalled()
     expect(mocks.loadSession).toHaveBeenCalledWith('val_existing', 'manual', null)
+    expect(mocks.setState).toHaveBeenCalledWith({
+      status: 'idle',
+      errorMessage: null,
+      renderError: null,
+    })
+    expect(mocks.setState.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.loadSession.mock.invocationCallOrder[0]
+    )
   })
 })

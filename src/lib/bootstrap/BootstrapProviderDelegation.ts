@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
 } from 'react'
+import { isAccountantTierRole } from '../../constants/accountantPlanMethods'
 import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
 import { useAuthStore } from '../auth'
@@ -155,11 +156,18 @@ export function useBootstrapDelegationReadiness({
 
   const authStoreReady = useAuthStore((s) => !s.loading && !s.isInitializing && !s.isRefreshing)
   const authError = useAuthStore((s) => s.error)
+  const authRole = useAuthStore((s) => s.user?.role)
   const authReady = authStoreReady && mercuryClientContextReady
 
   useEffect(() => {
     if (!needsMercuryClientContext || mercuryClientContextReady || !authStoreReady) return
-    const message = authError?.trim()
+    // Auth initialization only establishes delegated context for advisor roles.
+    // A settled buyer/owner session cannot satisfy this gate by waiting longer.
+    const message =
+      authError?.trim() ||
+      (typeof authRole === 'string' && !isAccountantTierRole(authRole)
+        ? '[ACCESS_DENIED] Open this report with the advisor account that has access to this client.'
+        : null)
     if (!message || bootstrapCompletedRef.current) return
 
     generalLogger.warn('[BootstrapProvider] Mercury client context failed — surfacing error', {
@@ -173,6 +181,7 @@ export function useBootstrapDelegationReadiness({
     mercuryClientContextReady,
     authStoreReady,
     authError,
+    authRole,
     activeContext.reportId,
     activeContext.clientId,
     bootstrapCompletedRef,

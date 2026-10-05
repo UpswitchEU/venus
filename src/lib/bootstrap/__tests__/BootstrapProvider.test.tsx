@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     isInitializing: false,
     isRefreshing: false,
     error: null as string | null,
+    user: { role: 'accountant' },
   }
   const clientContextState = {
     isActingAsClient: false,
@@ -151,6 +152,7 @@ describe('BootstrapProvider', () => {
   beforeEach(() => {
     resetBootstrapGuard()
     mocks.authState.error = null
+    mocks.authState.user = { role: 'accountant' }
     mocks.clientContextState.isActingAsClient = true
     mocks.clientContextState.accountant = { id: 'acc-1', email: 'acc@firm.be' }
     mocks.clientContextState.relationshipId = 'rel-1'
@@ -296,6 +298,25 @@ describe('BootstrapProvider', () => {
     await waitFor(() => {
       const text = screen.getByTestId('report-state').textContent ?? ''
       expect(text).toContain(':ready:Failed to establish client context')
+    })
+    expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+  })
+
+  it('shows an access recovery state for a buyer opening an advisor client URL', async () => {
+    mocks.authState.user = { role: 'buyer' }
+    mocks.clientContextState.isActingAsClient = false
+    render(
+      <BootstrapProvider
+        context={makeContext('val_advisor_report', {
+          clientId: 'rel-advisor',
+          mercuryPersonaMode: 'accountant',
+        })}
+      >
+        <Probe />
+      </BootstrapProvider>
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('report-state')).toHaveTextContent(':ready:[ACCESS_DENIED]')
     })
     expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
   })
