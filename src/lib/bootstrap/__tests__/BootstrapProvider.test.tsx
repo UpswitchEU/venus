@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => {
     setEngine: vi.fn(),
     clearInitThrottle: vi.fn(),
     clearReloadCounter: vi.fn(),
+    refreshDelegatedContext: vi.fn().mockResolvedValue(undefined),
   }
 })
 
@@ -84,7 +85,7 @@ vi.mock('../../../stores/clientContext', () => {
 })
 
 vi.mock('../../auth/delegatedClientContextRefresh', () => ({
-  refreshDelegatedClientContextIfNeeded: vi.fn().mockResolvedValue(undefined),
+  refreshDelegatedClientContextIfNeeded: mocks.refreshDelegatedContext,
 }))
 
 function makeContext(
@@ -297,6 +298,31 @@ describe('BootstrapProvider', () => {
       expect(text).toContain(':ready:Failed to establish client context')
     })
     expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+  })
+
+  it('re-establishes missing delegated context before an explicit bootstrap retry', async () => {
+    mocks.clientContextState.isActingAsClient = false
+    const context = makeContext('val_retry_delegated', {
+      clientId: 'rel-retry',
+      mercuryPersonaMode: 'accountant',
+    })
+    mocks.refreshDelegatedContext.mockImplementationOnce(async () => {
+      mocks.clientContextState.isActingAsClient = true
+      mocks.clientContextState.relationshipId = 'rel-retry'
+      mocks.clientContextState.contextGateResolved = true
+    })
+    render(
+      <BootstrapProvider context={context}>
+        <Probe />
+      </BootstrapProvider>
+    )
+    expect(mocks.bootstrapViaTitan).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => {
+      expect(screen.getByTestId('report-state')).toHaveTextContent('val_retry_delegated:ready:ok')
+    })
+    expect(mocks.refreshDelegatedContext).toHaveBeenCalledWith(context)
+    expect(mocks.bootstrapViaTitan).toHaveBeenCalledTimes(1)
   })
 
   it('starts Titan bootstrap when delegated clientId context is already ready', async () => {

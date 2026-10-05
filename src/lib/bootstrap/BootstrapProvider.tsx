@@ -15,6 +15,7 @@ import { resetBootstrapSyncGateForRetry } from '../../hooks/useBootstrapSync'
 import { useClientContext } from '../../stores/clientContext'
 import { generalLogger } from '../../utils/logger'
 import { clearInitThrottle, clearReloadCounter, useAuthStore } from '../auth'
+import { refreshDelegatedClientContextIfNeeded } from '../auth/delegatedClientContextRefresh'
 import { navigateToSafeMercuryNavigationUrl } from '../return-url'
 import { setBootstrapState } from '../sessionInitialization'
 import {
@@ -431,8 +432,11 @@ export function BootstrapProvider({
       setBootstrapError(null)
       setIsBootstrapping(true)
     }
+    // A session deadline can fire before client-context initialization completes.
+    // Retry that authenticated exchange before attempting Titan bootstrap again.
+    await refreshDelegatedClientContextIfNeeded(activeContext)
     await runBootstrap()
-  }, [runBootstrap, mountedRef])
+  }, [activeContext, runBootstrap, mountedRef])
 
   // Auth-readiness subscription. Required for optimistic AuthGate paths:
   // when AuthGate renders children before auth has settled, the first

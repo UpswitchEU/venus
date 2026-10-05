@@ -7,7 +7,7 @@ const pending = {
   bootstrapMode: undefined,
   delegatedHandoffSignals: {
     isFromMercury: true,
-    reportId: 'val_existing',
+    urlIndicatesExisting: true,
     clientId: 'client-1',
     mode: 'accountant',
   },
@@ -43,7 +43,7 @@ describe('session stage recovery', () => {
       resolveValuationSessionStage({
         ...pending,
         status: 'error',
-        delegatedHandoffSignals: { isFromMercury: true, reportId: 'new' },
+        delegatedHandoffSignals: { isFromMercury: true, urlIndicatesExisting: false },
         reportId: 'new',
         urlIndicatesExisting: false,
       })

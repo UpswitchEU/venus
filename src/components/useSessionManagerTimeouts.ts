@@ -80,7 +80,7 @@ export function useSessionManagerTimeouts({
       const timeoutMessage =
         isDelegatedAccountantHandoff && authError
           ? authError
-          : 'Loading took too long. Please try refreshing the page.'
+          : '[TIMEOUT] Loading took too long. Please try again.'
 
       useSessionStore.setState({
         status: 'error',

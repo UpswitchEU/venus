@@ -447,7 +447,7 @@ export function useValuationSessionLoader({
     bootstrapRetryRef.current = false
     useSessionStore.getState().cancelActiveLoad(reportId)
 
-    if (bootstrapError && refreshBootstrap) {
+    if ((bootstrapError || isBootstrapping || !bootstrapComplete) && refreshBootstrap) {
       useSessionStore.setState({
         status: 'idle',
         errorMessage: null,
@@ -462,7 +462,15 @@ export function useValuationSessionLoader({
       })
       loadSession(reportId, detectedFlow, prefilledQueryRef.current)
     }
-  }, [reportId, detectedFlow, bootstrapError, refreshBootstrap, loadSession])
+  }, [
+    reportId,
+    detectedFlow,
+    bootstrapError,
+    isBootstrapping,
+    bootstrapComplete,
+    refreshBootstrap,
+    loadSession,
+  ])
 
   return {
     handleRetry,
