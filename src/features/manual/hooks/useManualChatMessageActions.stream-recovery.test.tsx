@@ -131,6 +131,31 @@ describe('useManualChatMessageActions stream recovery', () => {
     vi.unstubAllGlobals()
   })
 
+  it('sends parsed financial commands to the proposal flow without applying them locally', async () => {
+    const params = makeHookParams()
+    const { result } = renderHook(() => useManualChatMessageActions(params))
+    await act(async () => {
+      await result.current.handleChatMessage(
+        'Set EBITDA to 500k',
+        undefined,
+        [],
+        [
+          {
+            type: 'set',
+            field: 'ebitda',
+            label: 'EBITDA',
+            value: 500000,
+            originalText: 'Set EBITDA to 500k',
+          },
+        ]
+      )
+    })
+    expect(streamHarness.callbacks).not.toBeNull()
+    expect(params.handleApplyFieldUpdate).not.toHaveBeenCalled()
+    expect(params.setPendingUpdates).not.toHaveBeenCalled()
+    act(() => streamHarness.callbacks?.onDone?.('conv'))
+  })
+
   it('recovers via non-streaming chat after BFF stream_recovery failed + error SSE', async () => {
     const params = makeHookParams()
     const { result } = renderHook(() => useManualChatMessageActions(params))

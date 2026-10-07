@@ -15,6 +15,7 @@ export type NormalizationSource =
   | 'auto'
 
 export interface SuggestedNormalisation {
+  fiscalYear?: number
   id: string
   code: string
   description: string

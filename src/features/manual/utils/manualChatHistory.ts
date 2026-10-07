@@ -7,6 +7,7 @@ import {
 } from './manualChatToolCards'
 
 interface PersistedToolResult {
+  id?: string
   toolName: string
   result: unknown
 }
@@ -34,6 +35,7 @@ function getPersistedToolResults(message: Message): PersistedToolResult[] {
       const toolName = typeof result.toolName === 'string' ? result.toolName.trim() : ''
       if (!toolName) return null
       return {
+        ...(typeof result.id === 'string' ? { id: result.id } : {}),
         toolName,
         result: result.result,
       }
@@ -53,10 +55,16 @@ export function mapStoredMessageToManualChatMessage(
   }
 
   for (const persistedToolResult of getPersistedToolResults(message)) {
+    let index = 0
     const cards = parseManualChatStreamToolResult(
       persistedToolResult.toolName,
       persistedToolResult.result,
-      createId
+      persistedToolResult.id &&
+        ['suggest_normalization', 'suggest_normalization_batch'].includes(
+          persistedToolResult.toolName
+        )
+        ? () => `history-${persistedToolResult.id}-${index++}`
+        : createId
     )
     if (cards) {
       chatMessage = appendManualChatToolCardsToMessage(chatMessage, cards)

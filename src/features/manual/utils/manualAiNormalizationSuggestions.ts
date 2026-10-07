@@ -60,8 +60,17 @@ function readString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
-function readBoolean(value: unknown): boolean {
-  return value === true
+const AI_CATEGORY_ALIASES: Record<string, string> = {
+  owner_salary: 'owner_compensation_adjustment',
+  management_fee: 'owner_compensation_adjustment',
+  rent: 'related_party_transactions',
+  related_party: 'related_party_transactions',
+  one_time_costs: 'one_time_expenses',
+  depreciation: 'depreciation_adjustment',
+  insurance: 'discretionary_expenses',
+  vehicle: 'personal_expenses',
+  travel: 'discretionary_expenses',
+  other: 'other_adjustments',
 }
 
 function readFrontendCategory(value: unknown): NormalizationItem['category'] {
@@ -77,6 +86,7 @@ export function buildSuggestedNormalisationsFromItems(
 ): SuggestedNormalisation[] {
   return items.map((item) => ({
     id: item.id,
+    fiscalYear: item.year,
     code: item.ledgerCode,
     description: item.ledgerName,
     category: item.category,
@@ -137,6 +147,7 @@ export function buildManualImportedNormalizationSuggestions({
     reviewSuggestions,
     chatSuggestions: reviewSuggestions.map((suggestion) => ({
       id: suggestion.id,
+      fiscalYear: suggestion.fiscalYear,
       code: suggestion.code,
       description: suggestion.description,
       category: suggestion.category,
@@ -157,26 +168,50 @@ export function buildManualAiNormalizationSuggestions({
   items: NormalizationItem[]
   reviewSuggestions: SuggestedNormalisation[]
 } {
-  const items: NormalizationItem[] = suggestions.map((suggestion) => {
+  const items: NormalizationItem[] = suggestions.flatMap((suggestion) => {
     const record = asRecord(suggestion) ?? {}
-    const backendCategory = readString(record.category)
-    const amount = normalizationNumber(record.amount)
+    const rawCategory = readString(record.backendCategory) ?? readString(record.category)
+    const backendCategory = rawCategory
+      ? (AI_CATEGORY_ALIASES[rawCategory] ?? rawCategory)
+      : undefined
+    let rawAmount: number
+    try {
+      rawAmount = normalizationNumber(record.amount)
+    } catch {
+      return []
+    }
+    const direction = record.is_addback ?? record.isAddback
+    const amount =
+      typeof direction === 'boolean' ? (direction ? 1 : -1) * Math.abs(rawAmount) : rawAmount
+    const requestedYear = record.fiscal_year ?? record.fiscalYear ?? record.year
+    const year =
+      Number.isInteger(requestedYear) &&
+      Number(requestedYear) >= 2000 &&
+      Number(requestedYear) <= 2100
+        ? Number(requestedYear)
+        : filingYear
 
     return {
       id: readString(record.id) || createId(),
-      ledgerCode: readString(record.ledgerCode) || '',
+      ledgerCode: readString(record.ledgerCode) || readString(record.code) || '',
       ledgerName: readString(record.description) || '',
-      category: backendCategory ? mapBackendCategoryToFrontend(backendCategory) : 'other',
+      category:
+        typeof record.category === 'string' &&
+        FRONTEND_NORMALIZATION_CATEGORIES.has(record.category as NormalizationItem['category'])
+          ? readFrontendCategory(record.category)
+          : backendCategory
+            ? mapBackendCategoryToFrontend(backendCategory)
+            : 'other',
       backendCategory,
-      type: readBoolean(record.isAddback) ? 'add' : 'subtract',
+      type: amount < 0 ? 'subtract' : 'add',
       value: Math.abs(amount),
       adjustment: amount,
-      reason: readString(record.reason),
+      reason: readString(record.justification) ?? readString(record.reason),
       source: 'ai',
       sourceRef,
       status: 'pending',
       applyAllYears: false,
-      year: filingYear,
+      year,
     }
   })
 

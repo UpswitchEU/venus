@@ -95,9 +95,7 @@ export function ChatAssistantComposer({
             transition={{ duration: 0.12 }}
             className="max-h-12 overflow-y-auto px-1 text-xs text-foreground/55 leading-relaxed"
           >
-            <span className="text-foreground/35 mr-1.5">
-              {detectedCommands.length > 0 ? ca('normCommandDetected') : ca('detectedValues')}:
-            </span>
+            <span className="text-foreground/35 mr-1.5">{ca('detectedValues')}:</span>
             {detectedItems.map((item, index) => {
               const fieldLabelKey = `fieldLabels.${item.field}` as NormalizationHubTranslationKey
               const label = nh.has(fieldLabelKey) ? nh(fieldLabelKey) : item.label

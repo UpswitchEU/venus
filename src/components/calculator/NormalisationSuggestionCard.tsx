@@ -99,7 +99,10 @@ export const NormalisationSuggestionCard = forwardRef<
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-lg">{categoryIcons[suggestion.category]}</span>
-              <span className="text-sm font-medium text-foreground">{suggestion.description}</span>
+              <span className="text-sm font-medium text-foreground">
+                {suggestion.description}
+                {suggestion.fiscalYear ? ` (${suggestion.fiscalYear})` : ''}
+              </span>
             </div>
             <button
               type="button"
@@ -193,6 +196,7 @@ export const NormalisationSuggestionCard = forwardRef<
                   title={suggestion.description}
                 >
                   {suggestion.description}
+                  {suggestion.fiscalYear ? ` (${suggestion.fiscalYear})` : ''}
                 </span>
                 <span
                   className={cn(

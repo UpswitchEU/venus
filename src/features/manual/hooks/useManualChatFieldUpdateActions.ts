@@ -81,9 +81,15 @@ export function useManualChatFieldUpdateActions<TCollectedData extends object>({
   const handleRejectUpdate = useCallback(
     (field: string) => {
       setPendingUpdates((prev) => prev.filter((update) => update.field !== field))
+      setChatMessages((messages) =>
+        messages.map((message) => ({
+          ...message,
+          fieldUpdates: message.fieldUpdates?.filter((update) => update.field !== field),
+        }))
+      )
       toast.info(translate('suggestionRejected'))
     },
-    [setPendingUpdates, translate]
+    [setChatMessages, setPendingUpdates, translate]
   )
 
   return {

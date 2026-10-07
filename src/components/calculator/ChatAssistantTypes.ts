@@ -83,7 +83,7 @@ export type {
 
 export interface FieldUpdate {
   field: string
-  value: number
+  value: number | string | boolean
   label: string
   // YC-Standard: Impact framing + provenance
   impact?: {
@@ -97,6 +97,8 @@ export interface FieldUpdate {
 }
 
 export interface NormalisationSuggestion {
+  fiscalYear?: number
+  backendCategory?: string
   id: string
   code: string
   description: string
