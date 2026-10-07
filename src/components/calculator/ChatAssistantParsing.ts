@@ -1,3 +1,23 @@
+/** Decimal suffixes and grouped currency amounts in Dutch and English. */
+function parseHumanAmount(text: string, suffix?: string): number {
+  let value = text.replace(/[€$\s]/g, '')
+  const hasSuffix = Boolean(suffix)
+  if (value.includes('.') && value.includes(',')) {
+    const decimal = value.lastIndexOf('.') > value.lastIndexOf(',') ? '.' : ','
+    value = value.replace(decimal === '.' ? /,/g : /\./g, '').replace(',', '.')
+  } else if (!hasSuffix && /^\d{1,3}([.,]\d{3})+$/.test(value)) {
+    value = value.replace(/[.,]/g, '')
+  } else {
+    value = value.replace(',', '.')
+  }
+  const scale = /^(?:m|miljoen)$/i.test(suffix ?? '')
+    ? 1000000
+    : /^(?:k|duizend)$/i.test(suffix ?? '')
+      ? 1000
+      : 1
+  return Number(value) * scale
+}
+
 export interface ParsedValue {
   field: string
   label: string
@@ -58,16 +78,6 @@ export function parseNormalizationCommands(text: string): ParsedCommand[] {
     familieleden: { field: 'personal', label: 'Privékosten' },
   }
 
-  const parseValue = (numStr: string, suffix?: string): number => {
-    let value = parseFloat(numStr.replace(/\./g, '').replace(',', '.'))
-    if (suffix) {
-      const s = suffix.toLowerCase()
-      if (s === 'k' || s === 'duizend') value *= 1000
-      else if (s === 'm' || s === 'miljoen') value *= 1000000
-    }
-    return value
-  }
-
   const findField = (fieldText: string): { field: string; label: string } | null => {
     const normalized = fieldText.trim().toLowerCase()
     for (const [key, mapping] of Object.entries(fieldMappings)) {
@@ -98,10 +108,14 @@ export function parseNormalizationCommands(text: string): ParsedCommand[] {
 
       const fieldMapping = findField(fieldText)
       if (fieldMapping) {
-        const value = parseValue(numStr, suffix)
+        const value = parseHumanAmount(numStr, suffix)
         if (!commands.find((c) => c.field === fieldMapping.field && c.value === value)) {
           commands.push({
-            type: 'normalize',
+            type: /^(?:set|zet|pas)/i.test(match[0])
+              ? 'set'
+              : /^voeg/i.test(match[0])
+                ? 'add'
+                : 'normalize',
             field: fieldMapping.field,
             label: fieldMapping.label,
             value,
@@ -157,17 +171,9 @@ export function parseFinancialValues(text: string): ParsedValue[] {
     const regex = new RegExp(pattern.source, pattern.flags)
 
     while ((match = regex.exec(text)) !== null) {
-      let rawNumber = match[1] || match[0]
-
-      rawNumber = rawNumber.replace(/€\s*/g, '').replace(/\./g, '').replace(/,/g, '.')
-      let value = parseFloat(rawNumber)
-
       const originalMatch = match[0]
-      if (originalMatch.toLowerCase().includes('k')) {
-        value *= 1000
-      } else if (originalMatch.toLowerCase().includes('m')) {
-        value *= 1000000
-      }
+      const suffix = originalMatch.match(/[km]\b/i)?.[0]
+      const value = parseHumanAmount(match[1] || match[0], suffix)
 
       for (const fp of fieldPatterns) {
         if (fp.pattern.test(lowerText)) {
