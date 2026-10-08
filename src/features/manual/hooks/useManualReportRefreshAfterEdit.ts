@@ -1,21 +1,17 @@
-import { type Dispatch, type SetStateAction, useCallback } from 'react'
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef } from 'react'
 import type { ValuationReportData } from '../../../components/calculator'
 import { backendAPI } from '../../../services/backendApi'
 import { useManualResultsStore } from '../../../store/manual'
 import { APIError } from '../../../types/errors'
 import type { ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
+import { watchReportAccessScope } from '../../../utils/reportAccessScope'
+import { getRenderableReportHtml } from '../../../utils/safetyNetReportHtml'
+import { isPdfLikelyStaleVenus, type PdfStalenessMeta } from '../utils/isPdfLikelyStaleVenus'
 import {
-  getFirstRenderableReportHtml,
-  getRenderableReportHtml,
-  getRenderableReportHtmlFromCurrentOrFallback,
-} from '../../../utils/safetyNetReportHtml'
-import {
-  resolveSynthesisAwarePresentation,
-  shouldAlignRecommendedAskingWithSynthesis,
-} from '../components/manualReportPresentation'
-import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
-import { getManualHydratedValuationResults } from '../utils/manualLayoutAdapters'
+  mergePolledResultWithExisting,
+  reportPatchFromFreshResponse,
+} from './usePdfStalenessLifecycleReportPatch'
 
 type ManualPdfGenerator = () => Promise<string | null>
 
@@ -41,137 +37,106 @@ export function useManualReportRefreshAfterEdit({
   setReport,
   setResult,
 }: UseManualReportRefreshAfterEditParams): UseManualReportRefreshAfterEditResult {
+  const lifecycle = useRef(0)
+  const requestSequence = useRef(0)
+  const mounted = useRef(false)
+  useEffect(() => {
+    // A return to the same lookup ID still starts a new lifecycle.
+    void persistedReportLookupId
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      lifecycle.current += 1
+    }
+  }, [persistedReportLookupId])
+
   const refreshReportAfterEdit = useCallback(
     async (htmlFromPatch?: string) => {
-      if (!persistedReportLookupId) return false
+      if (!persistedReportLookupId || !mounted.current) return false
+      const generation = lifecycle.current
+      const request = ++requestSequence.current
+      const access = watchReportAccessScope()
+      let expectedResult = useManualResultsStore.getState().result
+      const isCurrent = () =>
+        mounted.current &&
+        lifecycle.current === generation &&
+        requestSequence.current === request &&
+        access.isCurrent() &&
+        useManualResultsStore.getState().result === expectedResult
 
       try {
         const fresh = await backendAPI.getReport(persistedReportLookupId)
-        const latestExistingResult = useManualResultsStore.getState().result
-        const nextValuationResults =
-          getManualHydratedValuationResults(fresh) ??
-          getManualHydratedValuationResults(latestExistingResult)
-        const mergedResult: ValuationResponse = {
-          ...(latestExistingResult || {}),
-          ...fresh,
-          html_report: getRenderableReportHtmlFromCurrentOrFallback(
-            [htmlFromPatch, fresh.html_report],
-            [latestExistingResult?.html_report],
-            {
-              currentRenderFingerprint: fresh.render_fingerprint,
-              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
-            }
-          ),
-          valuation_results: nextValuationResults ?? undefined,
-          fiscal_4x_anchor:
-            fresh.fiscal_4x_anchor ?? latestExistingResult?.fiscal_4x_anchor ?? null,
-          multiple_adjustment_summary:
-            fresh.multiple_adjustment_summary || latestExistingResult?.multiple_adjustment_summary,
-        }
-
-        setResult(mergedResult)
-
-        const storeSnap = useManualResultsStore.getState()
-        const presentation = resolveSynthesisAwarePresentation(
+        if (!isCurrent()) return false
+        const mergedResult = mergePolledResultWithExisting(fresh, expectedResult)
+        const patch = reportPatchFromFreshResponse(
           mergedResult,
-          storeSnap.selectedMethod,
-          {
-            preSelectedMethods: storeSnap.preSelectedMethods,
-            userWeights: storeSnap.userWeights,
-          }
+          canDownloadPdf,
+          useManualResultsStore.getState()
         )
 
-        const htmlForPreview = getFirstRenderableReportHtml(htmlFromPatch, fresh.html_report)
-        setReport((prev) => {
-          if (!prev) return prev
+        setResult(mergedResult)
+        expectedResult = useManualResultsStore.getState().result
+        setReport((prev) =>
+          prev && isCurrent() ? { ...prev, ...patch, htmlReport: mergedResult.html_report } : prev
+        )
 
-          const nextHtmlReport = getRenderableReportHtmlFromCurrentOrFallback(
-            [htmlFromPatch, fresh.html_report],
-            [prev.htmlReport],
-            {
-              currentRenderFingerprint: fresh.render_fingerprint,
-              fallbackRenderFingerprint: latestExistingResult?.render_fingerprint,
-            }
-          )
-          const pdfMeta: Pick<
-            ValuationReportData,
-            'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'
-          > = {
-            reportUpdatedAt: fresh.updated_at
-              ? new Date(String(fresh.updated_at))
-              : prev.reportUpdatedAt,
-            pdfGeneratedAt:
-              fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
-                ? new Date(String(fresh.pdf_generated_at))
-                : null,
-            pdfUrl: canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
-          }
-
-          const storeSnap = useManualResultsStore.getState()
-          const alignAsk = shouldAlignRecommendedAskingWithSynthesis(
-            mergedResult as ValuationResponse,
-            {
-              preSelectedMethods: storeSnap.preSelectedMethods,
-              userWeights: storeSnap.userWeights,
-            }
-          )
-
-          return {
-            ...prev,
-            htmlReport: nextHtmlReport,
-            valuation: presentation.valuation,
-            valueBasis: presentation.valueBasis,
-            valuationLow: presentation.valuationLow,
-            valuationHigh: presentation.valuationHigh,
-            ...(presentation.valuation == null || presentation.valueBasis === 'enterprise_value'
-              ? { recommendedAskingPrice: undefined }
-              : alignAsk
-                ? { recommendedAskingPrice: presentation.valuation }
-                : {}),
-            ...pdfMeta,
-          }
-        })
-
-        if (htmlForPreview) {
+        // The GET is newer than the edit response. Its HTML and fingerprint
+        // travel together; an earlier patch must not replace that snapshot.
+        if (mergedResult.html_report && isCurrent()) {
           regeneratePdfAfterValuationEdit({
             canDownloadPdf,
             generatePdf,
             isPdfGenerating,
-            reportMeta: {
-              reportUpdatedAt: fresh.updated_at ? new Date(String(fresh.updated_at)) : undefined,
-              pdfGeneratedAt:
-                fresh.pdf_generated_at != null && String(fresh.pdf_generated_at) !== ''
-                  ? new Date(String(fresh.pdf_generated_at))
-                  : null,
-              pdfUrl:
-                canDownloadPdf && typeof fresh.pdf_url === 'string' ? fresh.pdf_url : undefined,
-            },
+            reportMeta: patch,
           })
         }
-
         return true
       } catch (refreshErr) {
+        if (!isCurrent()) return false
         generalLogger.warn('[ManualValuationWorkspace] getReport after valuation edit failed', {
           error: refreshErr instanceof Error ? refreshErr.message : String(refreshErr),
         })
 
         const renderableHtmlFromPatch = getRenderableReportHtml(htmlFromPatch)
         if (renderableHtmlFromPatch) {
-          setReport((prev) => (prev ? { ...prev, htmlReport: renderableHtmlFromPatch } : prev))
-          const latestResult = useManualResultsStore.getState().result
+          // The patch can recover the preview, but cannot certify an old export.
           setResult(
-            latestResult ? { ...latestResult, html_report: renderableHtmlFromPatch } : latestResult
+            expectedResult
+              ? {
+                  ...expectedResult,
+                  html_report: renderableHtmlFromPatch,
+                  pdf_url: undefined,
+                  pdf_generated_at: null,
+                  render_fingerprint: undefined,
+                  pdf_render_fingerprint: null,
+                  pdf_coherent: false,
+                }
+              : expectedResult
+          )
+          expectedResult = useManualResultsStore.getState().result
+          setReport((prev) =>
+            prev && isCurrent()
+              ? {
+                  ...prev,
+                  htmlReport: renderableHtmlFromPatch,
+                  pdfUrl: undefined,
+                  pdfGeneratedAt: null,
+                  renderFingerprint: null,
+                  pdfRenderFingerprint: null,
+                  pdfCoherent: false,
+                }
+              : prev
           )
           regeneratePdfAfterValuationEdit({
             canDownloadPdf,
             generatePdf,
             isPdfGenerating,
-            // HTML came from patch fallback — PDF is stale by definition.
             forceRegenerate: true,
           })
         }
-
         return false
+      } finally {
+        access.dispose()
       }
     },
     [canDownloadPdf, generatePdf, isPdfGenerating, persistedReportLookupId, setReport, setResult]
@@ -190,7 +155,7 @@ function regeneratePdfAfterValuationEdit({
   canDownloadPdf: boolean
   generatePdf?: ManualPdfGenerator
   isPdfGenerating?: boolean
-  reportMeta?: Pick<ValuationReportData, 'reportUpdatedAt' | 'pdfGeneratedAt' | 'pdfUrl'>
+  reportMeta?: PdfStalenessMeta
   forceRegenerate?: boolean
 }) {
   if (!canDownloadPdf || !generatePdf || isPdfGenerating) return
