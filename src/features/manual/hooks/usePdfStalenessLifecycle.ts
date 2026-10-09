@@ -45,6 +45,7 @@ import { APIError } from '@/types/errors'
 import type { ValuationResponse } from '@/types/valuation'
 import { isSessionKey } from '@/utils/identifiers'
 import { generalLogger } from '@/utils/logger'
+import { watchReportAccessScope } from '@/utils/reportAccessScope'
 import { isPdfLikelyStaleVenus } from '../utils/isPdfLikelyStaleVenus'
 import { describePdfRefusal } from '../utils/pdfRefusalMessage'
 import {
@@ -180,6 +181,35 @@ export function usePdfStalenessLifecycle(
     persistedReportLookupId,
   })
 
+  const lifecycleRef = useRef(0)
+  const requestSequenceRef = useRef(0)
+  const retryInFlightRef = useRef<object | null>(null)
+  useEffect(() => {
+    void persistedReportLookupId
+    setIsPdfRetrying(false)
+    return () => {
+      lifecycleRef.current += 1
+      retryInFlightRef.current = null
+    }
+  }, [persistedReportLookupId, setIsPdfRetrying])
+
+  const beginRequest = useCallback(() => {
+    const lifecycle = lifecycleRef.current
+    const sequence = ++requestSequenceRef.current
+    const resultAtStart = useManualResultsStore.getState().result
+    const access = watchReportAccessScope()
+    const isCurrent = () =>
+      isMountedRef.current &&
+      lifecycleRef.current === lifecycle &&
+      requestSequenceRef.current === sequence &&
+      access.isCurrent()
+    return {
+      isCurrent,
+      canApply: () => isCurrent() && useManualResultsStore.getState().result === resultAtStart,
+      dispose: access.dispose,
+    }
+  }, [isMountedRef])
+
   const pdfStale = useMemo(
     () =>
       derivePdfStale({
@@ -241,13 +271,15 @@ export function usePdfStalenessLifecycle(
   }, [canDownloadPdf, isPdfReady, pdfGenerationState.url, setReport])
 
   const applyPolledReport = useCallback(
-    (fresh: ValuationResponse) => {
+    (fresh: ValuationResponse, isCurrent: () => boolean = () => true) => {
       const storeSnap = useManualResultsStore.getState()
-      const patch = reportPatchFromFreshResponse(fresh, canDownloadPdf, storeSnap)
       const latestExistingResult = storeSnap.result
       const mergedResult = mergePolledResultWithExisting(fresh, latestExistingResult)
+      const patch = reportPatchFromFreshResponse(mergedResult, canDownloadPdf, storeSnap)
       setResult(mergedResult)
-      setReport((prev) => (prev ? { ...prev, ...patch } : prev))
+      setReport((prev) =>
+        prev && isCurrent() ? { ...prev, ...patch, htmlReport: mergedResult.html_report } : prev
+      )
       resetSuccessfulPollBackoff()
 
       const pdfIsFresh =
@@ -314,16 +346,17 @@ export function usePdfStalenessLifecycle(
       }
       const pollLockId = acquirePollLock()
       if (pollLockId === null) return false
+      const request = beginRequest()
       try {
         const fresh = await getReport(
           lookupId,
           isSessionKey(lookupId) ? { bySession404Attempts: 1 } : undefined
         )
-        if (isActive && !isActive()) return false
-        applyPolledReport(fresh)
+        if (!request.canApply() || (isActive && !isActive())) return false
+        applyPolledReport(fresh, request.isCurrent)
         return true
       } catch (err) {
-        if (isActive && !isActive()) return false
+        if (!request.canApply() || (isActive && !isActive())) return false
         const isSession404 =
           err instanceof APIError && err.statusCode === 404 && isSessionKey(lookupId)
         if (isSession404) {
@@ -362,11 +395,13 @@ export function usePdfStalenessLifecycle(
         }
         return false
       } finally {
+        request.dispose()
         releasePollLock(pollLockId)
       }
     },
     [
       acquirePollLock,
+      beginRequest,
       applyPolledReport,
       extendWaitTimeoutForTransientError,
       getReport,
@@ -425,6 +460,7 @@ export function usePdfStalenessLifecycle(
       !persistedReportLookupId ||
       pdfWaitTimedOut ||
       isPdfGenerating ||
+      isPdfRetrying ||
       generationFailedThisCycle
     ) {
       return
@@ -454,6 +490,7 @@ export function usePdfStalenessLifecycle(
     persistedReportLookupId,
     pdfWaitTimedOut,
     isPdfGenerating,
+    isPdfRetrying,
     generationFailedThisCycle,
     runStalePollOnce,
     cancelPollLock,
@@ -486,7 +523,7 @@ export function usePdfStalenessLifecycle(
   ])
 
   const retry = useCallback(async () => {
-    if (!persistedReportLookupId) return
+    if (!persistedReportLookupId || retryInFlightRef.current) return
     if (!canDownloadPdf) {
       openStarterPaywall('pdf_download')
       return
@@ -496,7 +533,10 @@ export function usePdfStalenessLifecycle(
     // the post-await `isStillRelevant()` guards bail before any writes
     // reach the global `useManualResultsStore` / `setReport`.
     const startLookupId = persistedReportLookupId
-    const isStillRelevant = () => isMountedRef.current && lookupIdRef.current === startLookupId
+    const request = beginRequest()
+    const retryToken = {}
+    retryInFlightRef.current = retryToken
+    const isStillRelevant = request.canApply
 
     // Reset streak + wait state so the poll loop re-arms if the retry kicks
     // off a successful job. Without this reset, the user clicks retry, a
@@ -508,7 +548,7 @@ export function usePdfStalenessLifecycle(
       if (!isStillRelevant()) return
       const fresh = await getReport(startLookupId)
       if (!isStillRelevant()) return
-      const patch = applyPolledReport(fresh)
+      const patch = applyPolledReport(fresh, request.isCurrent)
       const pdfStillStaleAfterRetry =
         patch.reportUpdatedAt != null &&
         isPdfLikelyStaleVenus({
@@ -546,7 +586,11 @@ export function usePdfStalenessLifecycle(
         description: translate('pdfExportFailedDesc'),
       })
     } finally {
-      if (isStillRelevant()) setIsPdfRetrying(false)
+      request.dispose()
+      if (retryInFlightRef.current === retryToken) {
+        retryInFlightRef.current = null
+        if (isMountedRef.current) setIsPdfRetrying(false)
+      }
     }
   }, [
     generatePdf,
@@ -557,11 +601,11 @@ export function usePdfStalenessLifecycle(
     showRetryFailureToast,
     translate,
     applyPolledReport,
+    beginRequest,
     scheduleWaitTimeout,
     extendWaitTimeoutForTransientError,
     isMountedRef,
     isPdfGeneratingRef,
-    lookupIdRef,
     setIsPdfRetrying,
     startRetryCycle,
   ])

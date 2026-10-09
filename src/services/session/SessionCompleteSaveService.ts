@@ -6,8 +6,10 @@ import {
   businessTypeWeightsFromSegments,
   resolveBusinessTypeSegments,
 } from '../../utils/normalizeBusinessTypeSegments'
+import { watchReportAccessScope } from '../../utils/reportAccessScope'
 import { promoteSavedReportIdentity } from '../../utils/reportIdentityPromotion'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
+import { snapshotValue } from '../../utils/snapshotValue'
 import { validateOptionalValuationCompanyGraphContext } from '../../utils/valuationCompanyGraphContext'
 import {
   getEquityValueHigh,
@@ -40,10 +42,12 @@ function optionalNumber(value: number | null): number | undefined {
 
 export async function saveCompleteValuationSession(
   reportId: string,
-  data: CompleteSessionSaveData,
+  input: CompleteSessionSaveData,
   loadSession: LoadSessionForCompleteSave
 ): Promise<void> {
   const startTime = performance.now()
+  const data = snapshotValue(input)
+  const access = watchReportAccessScope()
 
   try {
     logger.debug('Saving complete session', {
@@ -94,21 +98,31 @@ export async function saveCompleteValuationSession(
       })
     }
 
-    if (Object.keys(sessionUpdate).length > 0) {
+    if (!access.isCurrent()) {
+      throw new ApplicationError(
+        'Report save cancelled: client context changed',
+        'SESSION_SAVE_COMPLETE_CANCELLED'
+      )
+    }
+    const hasReportAssets = !!(data.valuationResult || data.htmlReport)
+    if (Object.keys(sessionUpdate).length > 0 && !hasReportAssets) {
       const sessionUpdates: Partial<ValuationSession> = {
         sessionData: sessionUpdate,
       }
       await backendAPI.updateValuationSession(reportId, sessionUpdates, {
         timeout: VALUATION_OPERATION_TIMEOUT_MS,
       })
+      if (!access.isCurrent()) return
       logger.debug('Session data updated', { reportId })
     }
 
     if (data.valuationResult || data.htmlReport) {
       const saveResponse = await sessionAPI.saveValuationResult(reportId, {
+        sessionData: Object.keys(sessionUpdate).length > 0 ? sessionUpdate : undefined,
         valuationResult: data.valuationResult,
         htmlReport: data.htmlReport,
       })
+      if (!access.isCurrent()) return
       const identity = promoteSavedReportIdentity({
         previousId: reportId,
         response: saveResponse,
@@ -129,6 +143,7 @@ export async function saveCompleteValuationSession(
     try {
       globalSessionCache.remove(canonicalReportId)
       freshSession = await loadSession(canonicalReportId)
+      if (!access.isCurrent()) return
 
       if (freshSession) {
         const canonicalSession = { ...freshSession, reportId: canonicalReportId }
@@ -152,6 +167,7 @@ export async function saveCompleteValuationSession(
         })
       }
     } catch (cacheError) {
+      if (!access.isCurrent()) return
       if (preSaveCache) {
         globalSessionCache.set(canonicalReportId, preSaveCache)
       }
@@ -168,6 +184,7 @@ export async function saveCompleteValuationSession(
         const { broadcastReportUpdated } = await import('../../utils/auth/cross-domain-logout')
         const { useVersionHistoryStore } = await import('../../store/useVersionHistoryStore')
         const { useClientContext } = await import('../../stores/clientContext')
+        if (!access.isCurrent()) return
 
         const versionStore = useVersionHistoryStore.getState()
         const versions = versionStore.versions[canonicalReportId] || []
@@ -225,6 +242,9 @@ export async function saveCompleteValuationSession(
     })
   } catch (error) {
     const duration = performance.now() - startTime
+    if (error instanceof ApplicationError && error.code === 'SESSION_SAVE_COMPLETE_CANCELLED') {
+      throw error
+    }
 
     if (error instanceof ValidationError) {
       logger.warn('Failed to save complete session - validation error', {
@@ -258,5 +278,7 @@ export async function saveCompleteValuationSession(
         duration_ms: duration.toFixed(2),
       }
     )
+  } finally {
+    access.dispose()
   }
 }
