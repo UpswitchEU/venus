@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { toast } from 'sonner'
 import {
   type AgentChoiceSelection,
   ChatAssistantDrawer,
@@ -41,6 +42,7 @@ import {
 } from '../utils/manualAgentChoiceActions'
 import { canonicalAgentMethodSelection } from '../utils/manualAiValuationMethods'
 import type { ManualPendingFieldUpdate } from '../utils/manualChatCommandHandling'
+import { buildManualChatInputPatch } from '../utils/manualChatInputPatch'
 import {
   buildManualInputInitialData,
   buildManualLiveValuationSubmitData,
@@ -507,7 +509,38 @@ export function useManualAssistantController({
     pendingNormalizationsCount: pendingNormalizationCount,
     acceptedNormalizationsCount: assistantSuggestionContext.acceptedNormalizationsCount,
     hasCapBreach: assistantSuggestionContext.hasCapBreach,
-    onApplyFieldUpdate: handleApplyFieldUpdate,
+    onApplyFieldUpdate: (field, value) => {
+      const live = {
+        ...latestFormDataRef.current,
+        yearlyFinancials: getLiveYearlyFinancials(),
+      } as Partial<ManualValuationFormData>
+      const patch = buildManualChatInputPatch(live, field, value)
+      if (!patch) {
+        toast.error(
+          currentLocale === 'nl'
+            ? 'Deze wijziging kon niet worden toegepast. Controleer het veld, bedrag en boekjaar.'
+            : currentLocale === 'fr'
+              ? 'Impossible d’appliquer cette modification. Vérifiez le champ, le montant et l’exercice.'
+              : 'This change could not be applied. Check the field, amount and fiscal year.'
+        )
+        return false
+      }
+      const next = { ...live, ...patch }
+      latestFormDataRef.current = next
+      handleFormDataChange?.(next)
+      setAssistantInputPatch({ id: crypto.randomUUID(), type: 'set_fields', patch })
+      // The canonical panel/store bridge above owns the write, including years.
+      handleApplyFieldUpdate(field, value)
+      setChatMessages((messages) =>
+        messages.map((message) => ({
+          ...message,
+          fieldUpdates: message.fieldUpdates?.filter(
+            (update) => update.field !== field || update.value !== value
+          ),
+        }))
+      )
+      return true
+    },
     pendingUpdates,
     onAcceptUpdate: handleAcceptUpdate,
     onRejectUpdate: handleRejectUpdate,

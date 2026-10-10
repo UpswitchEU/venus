@@ -7,6 +7,7 @@ import {
 } from '../utils/manualFinancialRowMutations'
 
 export type ManualInputAssistantPatch =
+  | { id: string; type: 'set_fields'; patch: Partial<ManualValuationFormData> }
   | {
       id: string
       type: 'select_financial_years'
@@ -32,6 +33,11 @@ export function useManualInputAssistantPatchSync({
   useEffect(() => {
     if (!assistantPatch || appliedAssistantPatchIdRef.current === assistantPatch.id) return
     appliedAssistantPatchIdRef.current = assistantPatch.id
+
+    if (assistantPatch.type === 'set_fields') {
+      setFormData((prev) => ({ ...prev, ...assistantPatch.patch }))
+      return
+    }
 
     if (assistantPatch.type === 'select_financial_years') {
       setFormData((prev) => applyManualFinancialYearSelection(prev, assistantPatch.years).next)

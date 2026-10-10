@@ -1,6 +1,7 @@
 import type { ValuationFormData as VenusFormData } from '@/types/valuation'
 import { normalizeBusinessTypeId } from '@/utils/businessTypeIdAliases'
 import { parseEmployeeCount } from '@/utils/employeeCount'
+import { parseFinancialTransportNumber } from '@/utils/financialTransport'
 
 export interface ManualChatFieldUpdateBridge {
   collectedDataKey?: string
@@ -17,8 +18,14 @@ const FIELD_TO_COLLECTED_DATA_KEY: Record<string, string> = {
   legal_form: 'legalForm',
   country_code: 'country',
   founding_year: 'yearFounded',
+  foundingYear: 'yearFounded',
   address: 'address',
   ownerManagers: 'ownerManagers',
+  owner_managers: 'ownerManagers',
+  number_of_owners: 'ownerManagers',
+  employees: 'fteEmployees',
+  ownerSalary: 'ownerSalary',
+  owner_salary_addback: 'ownerSalary',
   number_of_employees: 'fteEmployees',
   fteEmployees: 'fteEmployees',
 }
@@ -28,8 +35,13 @@ function trimmedString(value: unknown): string {
 }
 
 function parseWholeNumber(value: unknown): number | null {
-  const numeric = typeof value === 'number' ? value : Number.parseInt(String(value), 10)
-  return Number.isNaN(numeric) ? null : numeric
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim()
+        ? Number(value)
+        : NaN
+  return Number.isFinite(numeric) && Number.isInteger(numeric) ? numeric : null
 }
 
 function buildAddressPatch(address: string): Partial<VenusFormData> {
@@ -67,7 +79,12 @@ export function buildManualChatFieldUpdateBridge(
     formPatch.legal_form = strVal
   } else if ((field === 'country_code' || field === 'country') && hasStr) {
     formPatch.country_code = strVal
-  } else if ((field === 'founding_year' || field === 'yearFounded') && yearVal !== null) {
+  } else if (
+    (field === 'founding_year' || field === 'yearFounded' || field === 'foundingYear') &&
+    yearVal !== null &&
+    yearVal >= 1800 &&
+    yearVal <= new Date().getFullYear()
+  ) {
     formPatch.founding_year = yearVal
   } else if (field === 'industry' && hasStr) {
     formPatch.industry = strVal
@@ -77,16 +94,23 @@ export function buildManualChatFieldUpdateBridge(
     formPatch.city = strVal
   } else if (field === 'address' && hasStr) {
     Object.assign(formPatch, buildAddressPatch(strVal))
-  } else if (field === 'ownerManagers' || field === 'owner_managers') {
+  } else if (
+    field === 'ownerManagers' ||
+    field === 'owner_managers' ||
+    field === 'number_of_owners'
+  ) {
     const ownerCount = parseWholeNumber(value)
     if (ownerCount !== null && ownerCount >= 0) {
       formPatch.number_of_owners = ownerCount
     }
-  } else if (field === 'fteEmployees' || field === 'number_of_employees') {
+  } else if (field === 'fteEmployees' || field === 'number_of_employees' || field === 'employees') {
     const employeeCount = parseEmployeeCount(value)
     if (employeeCount !== undefined) {
       formPatch.number_of_employees = employeeCount
     }
+  } else if (field === 'ownerSalary' || field === 'owner_salary_addback') {
+    const amount = parseFinancialTransportNumber(value)
+    if (amount !== undefined && amount >= 0) formPatch.owner_salary_addback = amount
   }
 
   return {

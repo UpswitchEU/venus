@@ -1,6 +1,8 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ValuationReportData } from '../../../components/calculator'
+import { useManualResultsStore } from '../../../store/manual'
+import { useClientContext } from '../../../stores/clientContext'
 import type { ValuationResponse } from '../../../types/valuation'
 import { useManualReportRefreshAfterEdit } from './useManualReportRefreshAfterEdit'
 
@@ -29,6 +31,8 @@ function makeFreshReport(): ValuationResponse {
 
 beforeEach(() => {
   getReport.mockReset()
+  useManualResultsStore.setState({ result: null })
+  useClientContext.setState({ isActingAsClient: false, relationshipId: null })
 })
 
 afterEach(() => {
@@ -36,6 +40,161 @@ afterEach(() => {
 })
 
 describe('useManualReportRefreshAfterEdit', () => {
+  function deferredReport() {
+    let resolve!: (value: ValuationResponse) => void
+    let reject!: (reason: Error) => void
+    const promise = new Promise<ValuationResponse>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+
+  it.each([
+    'navigate',
+    'away-and-back',
+    'unmount',
+    'client-switch',
+    'client-away-and-back',
+    'new-result',
+  ])('ignores a pending refresh after %s', async (change) => {
+    const pending = deferredReport()
+    getReport.mockReturnValueOnce(pending.promise)
+    const setReport = vi.fn()
+    const setResult = vi.fn()
+    const generatePdf = vi.fn().mockResolvedValue(null)
+    const { result, rerender, unmount } = renderHook(
+      ({ id }) =>
+        useManualReportRefreshAfterEdit({
+          canDownloadPdf: true,
+          generatePdf,
+          persistedReportLookupId: id,
+          setReport,
+          setResult,
+        }),
+      { initialProps: { id: REPORT_ID } }
+    )
+    const refresh = result.current.refreshReportAfterEdit('<div>patch</div>')
+    if (change === 'unmount') unmount()
+    else if (change.startsWith('client-')) {
+      useClientContext.setState({ isActingAsClient: true, relationshipId: 'other-client' })
+      if (change === 'client-away-and-back') {
+        useClientContext.setState({ isActingAsClient: false, relationshipId: null })
+      }
+    } else if (change === 'new-result') {
+      useManualResultsStore.setState({
+        result: { ...makeFreshReport(), valuation_id: 'val_newer' },
+      })
+    } else {
+      rerender({ id: 'another-report' })
+      if (change === 'away-and-back') rerender({ id: REPORT_ID })
+    }
+    await act(async () => {
+      pending.resolve({ ...makeFreshReport(), pdf_generated_at: null })
+      expect(await refresh).toBe(false)
+    })
+    expect(setResult).not.toHaveBeenCalled()
+    expect(setReport).not.toHaveBeenCalled()
+    expect(generatePdf).not.toHaveBeenCalled()
+  })
+
+  it('does not apply patch fallback or generate a PDF after navigation', async () => {
+    const pending = deferredReport()
+    getReport.mockReturnValueOnce(pending.promise)
+    const setReport = vi.fn()
+    const setResult = vi.fn()
+    const generatePdf = vi.fn().mockResolvedValue(null)
+    const { result, rerender } = renderHook(
+      ({ id }) =>
+        useManualReportRefreshAfterEdit({
+          canDownloadPdf: true,
+          generatePdf,
+          persistedReportLookupId: id,
+          setReport,
+          setResult,
+        }),
+      { initialProps: { id: REPORT_ID } }
+    )
+    const refresh = result.current.refreshReportAfterEdit('<div>old patch</div>')
+    rerender({ id: 'another-report' })
+    await act(async () => {
+      pending.reject(new Error('timeout'))
+      await refresh
+    })
+    expect(setReport).not.toHaveBeenCalled()
+    expect(setResult).not.toHaveBeenCalled()
+    expect(generatePdf).not.toHaveBeenCalled()
+  })
+
+  it('ignores an older refresh that finishes after the newer refresh', async () => {
+    const older = deferredReport()
+    getReport
+      .mockReturnValueOnce(older.promise)
+      .mockResolvedValueOnce({ ...makeFreshReport(), valuation_id: 'val_newer' })
+    const setResult = vi.fn()
+    const { result } = renderHook(() =>
+      useManualReportRefreshAfterEdit({
+        canDownloadPdf: false,
+        persistedReportLookupId: REPORT_ID,
+        setReport: vi.fn(),
+        setResult,
+      })
+    )
+    const first = result.current.refreshReportAfterEdit()
+    await act(async () => {
+      await result.current.refreshReportAfterEdit()
+    })
+    await act(async () => {
+      older.resolve(makeFreshReport())
+      expect(await first).toBe(false)
+    })
+    expect(setResult).toHaveBeenCalledTimes(1)
+    expect(setResult).toHaveBeenLastCalledWith(
+      expect.objectContaining({ valuation_id: 'val_newer' })
+    )
+  })
+
+  it('uses server HTML and PDF fingerprints after an edit even when dates suggest a fresh PDF', async () => {
+    getReport.mockResolvedValue({
+      ...makeFreshReport(),
+      render_fingerprint: 'new',
+      pdf_render_fingerprint: 'old',
+      pdf_coherent: false,
+    })
+    const generatePdf = vi.fn().mockResolvedValue(null)
+    const setResult = vi.fn()
+    let report = {
+      id: REPORT_ID,
+      htmlReport: '<div>old</div>',
+      pdfCoherent: true,
+    } as ValuationReportData
+    const { result } = renderHook(() =>
+      useManualReportRefreshAfterEdit({
+        canDownloadPdf: true,
+        generatePdf,
+        persistedReportLookupId: REPORT_ID,
+        setResult,
+        setReport: (update) => {
+          const next = typeof update === 'function' ? update(report) : update
+          if (next) report = next
+        },
+      })
+    )
+    await act(async () => {
+      await result.current.refreshReportAfterEdit('<div>earlier patch</div>')
+    })
+    expect(report).toMatchObject({
+      htmlReport: '<div>report</div>',
+      renderFingerprint: 'new',
+      pdfRenderFingerprint: 'old',
+      pdfCoherent: false,
+    })
+    expect(setResult).toHaveBeenCalledWith(
+      expect.objectContaining({ html_report: '<div>report</div>' })
+    )
+    expect(generatePdf).toHaveBeenCalledTimes(1)
+  })
+
   it('does not regenerate PDF when the refreshed report PDF is still fresh', async () => {
     getReport.mockResolvedValue(makeFreshReport())
     const generatePdf = vi.fn().mockResolvedValue('https://cdn.example/new.pdf')

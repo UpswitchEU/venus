@@ -23,6 +23,29 @@ describe('createSessionForNewReportIfAllowed', () => {
     resetBootstrapReportModeRegistryForTests()
   })
 
+  it('does not create a draft when the calling scope changes during the plan check', async () => {
+    recordBootstrapReportMode('val_new_report', 'new')
+    let resolve!: () => void
+    let active = true
+    vi.mocked(checkValuationCreationAllowed).mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolve = res
+        })
+    )
+    const pending = createSessionForNewReportIfAllowed(
+      'val_new_report',
+      'manual',
+      null,
+      () => active
+    )
+    await vi.waitFor(() => expect(checkValuationCreationAllowed).toHaveBeenCalledTimes(1))
+    active = false
+    resolve()
+    expect(await pending).toBeNull()
+    expect(backendAPI.createValuationSession).not.toHaveBeenCalled()
+  })
+
   it('refuses to create fallback sessions for UUID reports without bootstrap proof', async () => {
     const result = await createSessionForNewReportIfAllowed(
       '46e05c0c-6f40-4527-82cb-4560d6eee0ad',

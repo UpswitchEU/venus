@@ -24,11 +24,7 @@ import {
   appendManualChatAttachmentContext,
   buildManualChatAttachmentSummaries,
 } from '../utils/manualChatAttachments'
-import {
-  buildPendingUpdatesFromDetectedValues,
-  formatManualParsedCommandResponse,
-  type ManualPendingFieldUpdate,
-} from '../utils/manualChatCommandHandling'
+import { type ManualPendingFieldUpdate } from '../utils/manualChatCommandHandling'
 import { resolveReturnedConversationIdUpdate } from '../utils/manualChatConversationId'
 import {
   buildManualAssistantChatMessage,
@@ -111,7 +107,6 @@ export function useManualChatMessageActions<TCollectedData extends object>({
   conversationId,
   currentLocale,
   fieldContext,
-  handleApplyFieldUpdate,
   isAccountantMode,
   isChatGenerating,
   isLoadingHistory,
@@ -161,8 +156,8 @@ export function useManualChatMessageActions<TCollectedData extends object>({
     async (
       content: string,
       attachments?: File[],
-      detectedValues?: ParsedValue[],
-      parsedCommands?: ParsedCommand[],
+      _detectedValues?: ParsedValue[],
+      _parsedCommands?: ParsedCommand[],
       assistantIntent?: AssistantIntent
     ) => {
       // Allow non-empty user messages (e.g. quality-warning CTAs) while
@@ -224,34 +219,9 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       setIsChatGenerating(true)
 
       try {
-        // Handle parsed commands locally, no AI call needed.
-        if (parsedCommands?.length) {
-          parsedCommands.forEach((cmd) => handleApplyFieldUpdate(cmd.field, cmd.value))
-          await new Promise<void>((resolve) => setTimeout(resolve, 500))
-          if (!isActiveTurn()) return
-          setChatMessages((prev) => [
-            ...prev,
-            buildManualAssistantChatMessage({
-              id: crypto.randomUUID(),
-              content: formatManualParsedCommandResponse({
-                parsedCommands,
-                currentLocale,
-                heading: translate('normApplied'),
-              }),
-            }),
-          ])
-          setIsChatGenerating(false)
-          releaseTurn()
-          return
-        }
-
-        if (detectedValues?.length) {
-          setPendingUpdates((prev) => [
-            ...prev,
-            ...buildPendingUpdatesFromDetectedValues(detectedValues),
-          ])
-        }
-
+        // Financial text goes through the agent's validated proposal tools. The
+        // composer parser is only a typing hint: it cannot infer fiscal years,
+        // distinguish an add-back from an absolute value, or safely parse all locales.
         const attachmentSummaries = await buildManualChatAttachmentSummaries(attachments)
         const messageWithAttachmentContext = appendManualChatAttachmentContext(
           content,
@@ -542,7 +512,6 @@ export function useManualChatMessageActions<TCollectedData extends object>({
       conversationId,
       currentLocale,
       fieldContext,
-      handleApplyFieldUpdate,
       handleNormalisationSuggestions,
       isAccountantMode,
       clientUserId,

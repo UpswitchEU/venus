@@ -288,6 +288,23 @@ describe('normalization_suggestion', () => {
 // ---------------------------------------------------------------------
 
 describe('field_update', () => {
+  it('carries the fiscal year into both the mutation key and the approval label', () => {
+    const result = parseAIChatToolResults([
+      {
+        type: 'field_update',
+        data: { update: { field: 'revenue', value: 2500000, fiscal_year: 2024, label: 'Omzet' } },
+      },
+    ])
+    expect(result.fieldUpdates).toEqual([
+      {
+        field: 'revenue.2024',
+        value: 2500000,
+        label: 'Omzet (2024)',
+        source: 'ai',
+      },
+    ])
+  })
+
   it('parses a valid field_update envelope', () => {
     const result = parseAIChatToolResults([
       {
