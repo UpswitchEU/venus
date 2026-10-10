@@ -2409,7 +2409,7 @@
 		"suggestionRejected": "Suggestion rejetée",
 		"pdfGenerating": "Le PDF est en cours de génération...",
 		"pdfServerUnavailable": "PDF du serveur non disponible, génération de PDF local",
-		"pdfDownloaded": "Rapport PDF téléchargé",
+		"pdfDownloaded": "Téléchargement du PDF lancé",
 		"pdfExportFailed": "Échec de l'exportation PDF",
 		"pdfExportFailedDesc": "Veuillez réessayer.",
 		"pdfRefusal": {

@@ -2409,7 +2409,7 @@
 		"suggestionRejected": "Suggestion rejected",
 		"pdfGenerating": "PDF is being generated...",
 		"pdfServerUnavailable": "Server PDF not available, generating local PDF",
-		"pdfDownloaded": "PDF report downloaded",
+		"pdfDownloaded": "PDF download started",
 		"attestStarted": "Starting Upswitch Attest…",
 		"attestSuccess": "Signing invitation sent",
 		"attestSuccessDesc": "Check your email to complete the eIDAS signature.",

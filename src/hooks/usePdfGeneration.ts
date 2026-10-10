@@ -12,6 +12,7 @@ import { useIsMountedRef } from '../features/manual/hooks/useNavigationCancellat
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import { APIError } from '../types/errors'
+import { downloadBlob } from '../utils/downloadBlob'
 import { generalLogger } from '../utils/logger'
 import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
 import {
@@ -546,14 +547,7 @@ export function usePdfGeneration(
         }
         if (!isCurrentDownload()) return
 
-        const blobUrl = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = blobUrl
-        link.download = filename || `valuation-report-${targetReportId}-${Date.now()}.pdf`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(blobUrl)
+        downloadBlob(blob, filename || `valuation-report-${targetReportId}-${Date.now()}.pdf`)
       } catch (error) {
         if (error instanceof APIError && error.statusCode === 402) {
           throw error

@@ -36,7 +36,7 @@ function makeParams(
     exportFailedTitle: 'PDF export failed',
     exportFailedDescription: 'Please try again',
     generatingTitle: 'Generating PDF',
-    downloadedTitle: 'PDF downloaded',
+    downloadedTitle: 'PDF download started',
     describeRefusal: (refusal) => `localized:${refusal.code}`,
     ...overrides,
   }
@@ -88,7 +88,7 @@ describe('useManualPdfExportController', () => {
 
     expect(result.current.isExporting).toBe(false)
     expect(result.current.downloadHistory).toHaveLength(1)
-    expect(toast.success).toHaveBeenCalledWith('PDF downloaded')
+    expect(toast.success).toHaveBeenCalledWith('PDF download started')
   })
 
   it('shows generating toast instead of stale warning while PDF job is in flight', async () => {
@@ -131,7 +131,7 @@ describe('useManualPdfExportController', () => {
       'report-1'
     )
     expect(toast.warning).not.toHaveBeenCalled()
-    expect(toast.success).toHaveBeenCalledWith('PDF downloaded')
+    expect(toast.success).toHaveBeenCalledWith('PDF download started')
   })
 
   it("shows the server's reason when the report cannot be turned into a PDF", async () => {

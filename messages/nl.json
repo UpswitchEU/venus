@@ -2409,7 +2409,7 @@
 		"suggestionRejected": "Suggestie afgewezen",
 		"pdfGenerating": "PDF wordt gegenereerd...",
 		"pdfServerUnavailable": "Server PDF niet beschikbaar, lokale PDF wordt gegenereerd",
-		"pdfDownloaded": "PDF rapport gedownload",
+		"pdfDownloaded": "Download van PDF gestart",
 		"pdfExportFailed": "PDF export mislukt",
 		"pdfExportFailedDesc": "Probeer het opnieuw.",
 		"pdfRefusal": {
