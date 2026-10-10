@@ -183,6 +183,28 @@ describe('usePdfGeneration', () => {
     expect(result.current.state.error).toBe('PDF download timed out — please try again.')
   })
 
+  it('hands a verified PDF to the browser without revoking it when the report unmounts', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('%PDF-1.7\n%%EOF')))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:verified-pdf')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement
+    ) {
+      expect(this.isConnected).toBe(true)
+      expect(this.download).toBe('client-report.pdf')
+    })
+    const h = renderHook(() => usePdfGeneration('report-a'))
+    await act(async () => {
+      await h.result.current.downloadPdf(undefined, 'client-report.pdf')
+    })
+    expect(click).toHaveBeenCalledOnce()
+    h.unmount()
+    expect(revoke).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:verified-pdf')
+  })
+
   it('treats transient 503 on download as a retriable APIError without latching error state', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: 'pooler blip' }), {
