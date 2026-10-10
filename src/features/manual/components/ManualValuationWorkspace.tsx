@@ -191,10 +191,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     setReport,
     setRightPanelView,
   } = useManualReportUiState({ initialTab: initialTab ?? 'preview' })
-  const outputStale = React.useMemo(
-    () => persistedFinancialInputsDiffer(formStoreData, result),
-    [formStoreData, result]
-  )
+  const outputStale = persistedFinancialInputsDiffer(formStoreData, result)
   const calculationStale = !!report && (isDirty || outputStale)
   const {
     preSelectedMethods,
