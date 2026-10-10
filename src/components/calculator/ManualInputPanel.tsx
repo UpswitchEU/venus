@@ -404,7 +404,7 @@ export function ManualInputPanel({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (isCalculating || !canSave) return
+    if (isCalculating || !canSubmit) return
     if (fieldValidation.hasErrors) {
       import('sonner').then(({ toast }) =>
         toast.error(mi('validation.checkFields'), {
