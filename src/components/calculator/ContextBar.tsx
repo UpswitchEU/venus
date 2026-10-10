@@ -29,6 +29,7 @@ export interface ContextBarProps {
   businessName?: string
   /** `unsaved`: the last save failed. It must never read as a harmless draft. */
   draftStatus?: 'draft' | 'saved' | 'saving' | 'unsaved'
+  hideSaveStatus?: boolean
   lastSaved?: Date
   onClientClick?: () => void
   onBusinessClick?: () => void
@@ -44,6 +45,7 @@ export function ContextBar({
   clientName,
   businessName,
   draftStatus = 'draft',
+  hideSaveStatus = false,
   lastSaved,
   onClientClick,
   onBusinessClick,
@@ -192,50 +194,52 @@ export function ContextBar({
 
         {clientApprovalStatus !== 'none' && <div className="h-4 w-px bg-foreground/[0.08]" />}
 
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          className={cn(
-            'flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs sm:min-h-0',
-            draftStatus === 'saved'
-              ? 'bg-success/10 text-success'
-              : draftStatus === 'unsaved'
-                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                : draftStatus === 'saving'
-                  ? 'bg-foreground/[0.06] text-muted-foreground'
-                  : 'bg-foreground/[0.04] text-muted-foreground'
-          )}
-        >
-          {draftStatus === 'unsaved' ? (
-            <>
-              <AlertCircle className="w-3 h-3" />
-              {t('notSaved')}
-            </>
-          ) : draftStatus === 'saved' ? (
-            <>
-              <Check className="w-3 h-3" />
-              {t('saved')}
-            </>
-          ) : draftStatus === 'saving' ? (
-            <>
-              <motion.div
-                animate={reducedMotion ? undefined : { rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-              >
+        {!hideSaveStatus && (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className={cn(
+              'flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs sm:min-h-0',
+              draftStatus === 'saved'
+                ? 'bg-success/10 text-success'
+                : draftStatus === 'unsaved'
+                  ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                  : draftStatus === 'saving'
+                    ? 'bg-foreground/[0.06] text-muted-foreground'
+                    : 'bg-foreground/[0.04] text-muted-foreground'
+            )}
+          >
+            {draftStatus === 'unsaved' ? (
+              <>
+                <AlertCircle className="w-3 h-3" />
+                {t('notSaved')}
+              </>
+            ) : draftStatus === 'saved' ? (
+              <>
+                <Check className="w-3 h-3" />
+                {t('saved')}
+              </>
+            ) : draftStatus === 'saving' ? (
+              <>
+                <motion.div
+                  animate={reducedMotion ? undefined : { rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                >
+                  <Clock className="w-3 h-3" />
+                </motion.div>
+                {t('saving')}
+              </>
+            ) : (
+              <>
                 <Clock className="w-3 h-3" />
-              </motion.div>
-              {t('saving')}
-            </>
-          ) : (
-            <>
-              <Clock className="w-3 h-3" />
-              {t('draft')}
-            </>
-          )}
-        </div>
+                {t('draft')}
+              </>
+            )}
+          </div>
+        )}
 
-        {lastSaved && draftStatus === 'saved' && (
+        {!hideSaveStatus && lastSaved && draftStatus === 'saved' && (
           <span className="text-xs text-muted-foreground">{formatTime(lastSaved)}</span>
         )}
       </div>

@@ -549,7 +549,10 @@ export const ValuationSessionManager: React.FC<ValuationSessionManagerProps> = R
 
     // Use bootstrap error when session store has no error (bootstrap failed before loadSession)
     const rawEffectiveError =
-      assetSaveFailure?.error || sessionSaveError || error || bootstrap?.bootstrapError || null
+      (session ? null : assetSaveFailure?.error || sessionSaveError) ||
+      error ||
+      bootstrap?.bootstrapError ||
+      null
     const normalizedEffectiveError = normalizeValuationSessionManagerErrorMessage(rawEffectiveError)
     // The card never shows `[CODE]`: a recognised code gets localized copy below,
     // anything else keeps its sentence without the diagnostic wrapper.

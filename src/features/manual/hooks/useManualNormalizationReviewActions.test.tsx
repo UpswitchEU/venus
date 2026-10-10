@@ -2,7 +2,9 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizationItem } from '../../../components/calculator'
 import { normalizationService } from '../../../services/ebitdaNormalizationService'
+import { useReportRecoveryStore } from '../../../store/reportRecoveryStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
+import { persistOrDeleteNormalizationsForYears } from '../../../utils/normalizationPersist'
 import { useManualNormalizationReviewActions } from './useManualNormalizationReviewActions'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
@@ -65,6 +67,8 @@ function renderActions(recalculate = vi.fn().mockResolvedValue(undefined)) {
 describe('useManualNormalizationReviewActions rejection acknowledgement', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.mocked(persistOrDeleteNormalizationsForYears).mockReset().mockResolvedValue(undefined)
+    useReportRecoveryStore.setState({ step: null })
     useNormalizationStore.getState().clear()
     useNormalizationStore.getState().setItems([{ ...item }])
   })
@@ -108,7 +112,34 @@ describe('useManualNormalizationReviewActions rejection acknowledgement', () => 
     expect(recalculate).not.toHaveBeenCalled()
   })
 
-  it('treats the acknowledged rejection as the only required save before recalculation', async () => {
+  it.each([
+    'accept',
+    'reject',
+  ])('retains the desired %s edit and defers calculation if year persistence fails', async (action) => {
+    useNormalizationStore
+      .getState()
+      .setItems([
+        { ...item, source: 'manual', status: action === 'reject' ? 'accepted' : 'pending' },
+      ])
+    vi.mocked(persistOrDeleteNormalizationsForYears).mockRejectedValue(
+      Object.assign(new Error('Temporary outage'), { status: 503 })
+    )
+    const { result, recalculate } = renderActions()
+    await act(async () => {
+      if (action === 'accept') await result.current.handleAcceptNormalisation(item.id)
+      else await result.current.handleRejectNormalisation(item.id)
+    })
+    expect(useNormalizationStore.getState().items[0]?.status).toBe(
+      action === 'accept' ? 'accepted' : 'rejected'
+    )
+    expect(recalculate).not.toHaveBeenCalled()
+    expect(useReportRecoveryStore.getState().step).toMatchObject({
+      stage: 'inputs',
+      failure: { kind: 'temporary' },
+    })
+  })
+
+  it('persists year adjustments after an acknowledged rejection before recalculation', async () => {
     const remember = vi.spyOn(normalizationService, 'rememberRejection').mockResolvedValue({
       schema_version: 'normalization_decision.v1',
       id: 'decision-1',
@@ -128,6 +159,12 @@ describe('useManualNormalizationReviewActions rejection acknowledgement', () => 
       expect.objectContaining({ ledgerCode: '610000', fiscalYear: 2025 })
     )
     expect(useNormalizationStore.getState().items[0]?.status).toBe('rejected')
+    expect(persistOrDeleteNormalizationsForYears).toHaveBeenCalledWith(
+      'val_1787500000000_advisor_normalization_test',
+      [2025],
+      { 2025: 100_000 },
+      [expect.objectContaining({ status: 'rejected' })]
+    )
     expect(recalculate).toHaveBeenCalledWith([
       expect.objectContaining({ id: item.id, status: 'rejected' }),
     ])

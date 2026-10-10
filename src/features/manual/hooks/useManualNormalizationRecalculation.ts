@@ -1,21 +1,26 @@
-import { useTranslations } from 'next-intl'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { NormalizationItem, ValuationReportData } from '../../../components/calculator'
 import type { SynthesisWeightSelection } from '../../../lib/synthesis/synthesisWeights'
 import { reportAssetService, valuationService } from '../../../services'
 import { useManualResultsStore } from '../../../store/manual'
+import { useManualFormStore } from '../../../store/manual/useManualFormStore'
 import {
   mergePreparerMultipleIntoRequest,
   usePreparerMultipleStore,
 } from '../../../store/manual/usePreparerMultipleStore'
+import { clearReportRecovery, deferReportRecovery } from '../../../store/reportRecoveryStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { persistOrDeleteNormalizationsForYears } from '../../../utils/normalizationPersist'
-import { toastSaveFailure } from '../../../utils/saveErrorHandling'
+import {
+  persistenceFailure,
+  requirePersistenceAcknowledgement,
+} from '../../../utils/persistenceOutcome'
+import { reportAccessScope } from '../../../utils/reportAccessScope'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
 import {
   buildAcceptedNormalizationSignature,
@@ -23,7 +28,7 @@ import {
 } from '../utils/manualNormalizationPersistence'
 import { buildManualNormalizationRecalcSource } from '../utils/manualNormalizationRecalcSource'
 import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
-import { buildManualReportAssets } from '../utils/manualReportAssets'
+import { buildManualReportAssets, formKeysChangedSinceSubmit } from '../utils/manualReportAssets'
 import { applyPostCalculateHtmlRecovery } from '../utils/manualReportHtmlRecoveryUtil'
 import {
   getManualEmployeeCountIssue,
@@ -98,9 +103,9 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
   translate,
   translatePreparer,
 }: UseManualNormalizationRecalculationParams<TCollectedData>): UseManualNormalizationRecalculationResult {
-  const translateReport = useTranslations('report')
   const recalcMountedRef = useIsMountedRef()
   const recalcLookupIdRef = useLatestRef<string | undefined>(resolvedReportId || reportId)
+  const runSequence = useRef(0)
 
   const recalculateWithNormalizations = useCallback(
     async (normalizations: NormalizationItem[]) => {
@@ -108,8 +113,16 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       if (!report || !idForApi) return
 
       const startLookupId = idForApi
+      const runId = ++runSequence.current
+      const scope = reportAccessScope()
+      let resultSequence = useManualResultsStore.getState().resultAnnouncementSeq
       const isStillRelevant = () =>
-        recalcMountedRef.current && recalcLookupIdRef.current === startLookupId
+        recalcMountedRef.current &&
+        recalcLookupIdRef.current === startLookupId &&
+        runSequence.current === runId &&
+        reportAccessScope() === scope &&
+        useManualResultsStore.getState().resultAnnouncementSeq === resultSequence
+      const submittedForm = useManualFormStore.getState().formData
 
       const acceptedNorms = normalizations.filter(
         (normalization) => normalization.status === 'accepted'
@@ -155,6 +168,23 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
           return
         }
 
+        try {
+          await useSessionStore
+            .getState()
+            .updateSessionData({ ...requestSource, _normalizations: normalizations })
+          requirePersistenceAcknowledgement(await useSessionStore.getState().saveSession('user'))
+          requirePersistenceAcknowledgement(
+            await useNormalizationStore.getState().retryPersist(idForApi)
+          )
+        } catch (error) {
+          if (!isStillRelevant()) return
+          deferReportRecovery(idForApi, 'inputs', error, () =>
+            recalculateWithNormalizations(useNormalizationStore.getState().items)
+          )
+          return
+        }
+        if (!isStillRelevant()) return
+        clearReportRecovery(idForApi)
         const calcResult = await valuationService.calculateValuation(request)
         if (!isStillRelevant()) return
         if (!calcResult) return
@@ -163,9 +193,10 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         setDraftStatus('saving')
         setResult(calcResult)
         useManualResultsStore.getState().announceNewResult()
+        resultSequence = useManualResultsStore.getState().resultAnnouncementSeq
         let durableSaveSucceeded = true
-        try {
-          await reportAssetService.saveReportAssets(
+        const saveResult = () =>
+          reportAssetService.saveReportAssets(
             idForApi,
             buildManualReportAssets({
               sessionData: requestSource as unknown as Record<string, unknown>,
@@ -173,9 +204,16 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
               taxLatencyItems: useTaxLatencyStore.getState().items,
               valuationResult: calcResult,
               name: sessionName ?? undefined,
+              changedFormKeys: formKeysChangedSinceSubmit(
+                submittedForm as unknown as Record<string, unknown>,
+                useManualFormStore.getState().formData as unknown as Record<string, unknown>
+              ),
             })
           )
+        try {
+          await saveResult()
         } catch (saveError) {
+          if (!isStillRelevant()) return
           durableSaveSucceeded = false
           generalLogger.warn(
             '[ManualValuationWorkspace] Failed to sync recalculated normalization report assets',
@@ -184,7 +222,14 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
               error: saveError instanceof Error ? saveError.message : String(saveError),
             }
           )
-          toastSaveFailure(saveError, translateReport)
+          deferReportRecovery(idForApi, 'result', saveError, async () => {
+            if (!isStillRelevant()) return
+            await saveResult()
+            if (!isStillRelevant()) return
+            recordManualValuationSaved([idForApi, useSessionStore.getState().session?.reportId])
+            setDraftStatus('saved')
+            setLastSaved(new Date())
+          })
         }
         if (!isStillRelevant()) {
           durableSaveInFlightRef.current = false
@@ -212,6 +257,17 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         durableSaveInFlightRef.current = false
       } catch (error) {
         if (!isStillRelevant()) return
+        const failure = persistenceFailure(error)
+        if (
+          failure.code === 'ADVISORY_VERIFICATION_UNAVAILABLE' ||
+          failure.code === 'ADVISORY_SUBSCRIPTION_REQUIRED'
+        ) {
+          useSessionStore.setState({ saveFailure: failure })
+          deferReportRecovery(idForApi, 'inputs', error, () =>
+            recalculateWithNormalizations(useNormalizationStore.getState().items)
+          )
+          return
+        }
         generalLogger.warn(
           '[ManualValuationWorkspace] Normalization recalculation failed (non-blocking)',
           {
@@ -221,6 +277,8 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         toast.error(translate('normRecalcFailed'), {
           description: translate('normRecalcFailedDesc'),
         })
+      } finally {
+        if (runSequence.current === runId) durableSaveInFlightRef.current = false
       }
     },
     [
@@ -246,7 +304,6 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       synthesisSelection,
       translate,
       translatePreparer,
-      translateReport,
     ]
   )
 
@@ -277,6 +334,10 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         generalLogger.warn('[ManualValuationWorkspace] Sync after normalization edit failed', {
           error: error instanceof Error ? error.message : String(error),
         })
+        deferReportRecovery(idForApi, 'inputs', error, () =>
+          recalculateWithNormalizations(useNormalizationStore.getState().items)
+        )
+        return
       }
 
       await recalculateWithNormalizations(norms)

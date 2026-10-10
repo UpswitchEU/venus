@@ -21,7 +21,7 @@ import {
 beforeEach(resetSessionStoreHarness)
 
 describe('Save Error Handling', () => {
-  it('should write save failures to errorMessage', async () => {
+  it('returns a deferred outcome and keeps failed edits mounted', async () => {
     const session = {
       reportId: 'val_save_123',
       currentView: 'manual' as const,
@@ -43,9 +43,13 @@ describe('Save Error Handling', () => {
       errorMessage: 'stale message',
     })
 
-    await expect(useSessionStore.getState().saveSession('user')).rejects.toThrow('Save exploded')
+    await expect(useSessionStore.getState().saveSession('user')).resolves.toMatchObject({
+      status: 'deferred',
+      failure: { kind: 'validation', message: 'Save exploded' },
+    })
 
-    expect(useSessionStore.getState().errorMessage).toBe('Save exploded')
+    expect(useSessionStore.getState().errorMessage).toBeNull()
+    expect(useSessionStore.getState().saveErrorMessage).toBe('Save exploded')
     expect(useSessionStore.getState().isSaving).toBe(false)
   })
 
@@ -73,7 +77,10 @@ describe('Save Error Handling', () => {
       errorMessage: 'stale message',
     })
 
-    await expect(useSessionStore.getState().saveSession('autosave')).resolves.toBeUndefined()
+    await expect(useSessionStore.getState().saveSession('autosave')).resolves.toMatchObject({
+      status: 'deferred',
+      failure: { kind: 'temporary' },
+    })
 
     expect(useSessionStore.getState().errorMessage).toBeNull()
     expect(useSessionStore.getState().isSaving).toBe(false)
@@ -104,7 +111,10 @@ describe('Save Error Handling', () => {
       errorMessage: 'stale message',
     })
 
-    await expect(useSessionStore.getState().saveSession('autosave')).resolves.toBeUndefined()
+    await expect(useSessionStore.getState().saveSession('autosave')).resolves.toMatchObject({
+      status: 'deferred',
+      failure: { kind: 'temporary' },
+    })
 
     expect(useSessionStore.getState().errorMessage).toBeNull()
     expect(useSessionStore.getState().isSaving).toBe(false)
@@ -135,7 +145,10 @@ describe('Save Error Handling', () => {
       errorMessage: 'stale message',
     })
 
-    await expect(useSessionStore.getState().saveSession('autosave')).resolves.toBeUndefined()
+    await expect(useSessionStore.getState().saveSession('autosave')).resolves.toMatchObject({
+      status: 'deferred',
+      failure: { kind: 'temporary' },
+    })
 
     expect(useSessionStore.getState().errorMessage).toBeNull()
     expect(useSessionStore.getState().isSaving).toBe(false)
@@ -166,11 +179,12 @@ describe('Save Error Handling', () => {
       errorMessage: 'stale message',
     })
 
-    await expect(useSessionStore.getState().saveSession('autosave')).rejects.toThrow(
-      'validation failed for registry row 503'
-    )
+    await expect(useSessionStore.getState().saveSession('autosave')).resolves.toMatchObject({
+      status: 'deferred',
+      failure: { kind: 'validation' },
+    })
 
-    expect(useSessionStore.getState().errorMessage).toBe(
+    expect(useSessionStore.getState().saveErrorMessage).toBe(
       'Failed to save session: validation failed for registry row 503'
     )
     expect(useSessionStore.getState().isSaving).toBe(false)
@@ -248,7 +262,7 @@ describe('Save Error Handling', () => {
     })
 
     resolveSave?.()
-    await savePromise
+    await expect(savePromise).resolves.toEqual({ status: 'skipped' })
 
     expect(useSessionStore.getState().hasUnsavedChanges).toBe(true)
     expect(useSessionStore.getState().session?.name).toBe('Changed while saving')

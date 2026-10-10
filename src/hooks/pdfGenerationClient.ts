@@ -6,6 +6,7 @@ import {
 } from '../utils/indicativeReportExport'
 import { savedPartialAssessment, savedPartialExportRequest } from '../utils/partialReportExport'
 import { isPdfTransientUpstreamStatus } from '../utils/pdfTransientUpstream'
+import { type PersistenceFailure, persistenceFailure } from '../utils/persistenceOutcome'
 import {
   buildPdfAccessErrorContext,
   getPdfAccessGateMessage,
@@ -41,7 +42,7 @@ export type PdfGenerationAcceptedResult = Extract<
 
 export type PdfStatusRequestResult =
   | PdfStatusPollResult
-  | { status: 'access-gated' }
+  | { status: 'access-gated'; failure?: PersistenceFailure }
   | { status: 'transient'; httpStatus: number }
 
 export function buildPdfGenerationUrl(reportId: string): string {
@@ -76,7 +77,16 @@ export async function requestPdfGenerationStart({
   if (!response.ok) {
     const errBody = await response.json().catch(() => ({}))
     if (isPdfTransientUpstreamStatus(response.status)) {
-      throw new APIError('PDF generation temporarily unavailable', response.status)
+      throw new APIError(
+        'PDF generation temporarily unavailable',
+        response.status,
+        undefined,
+        true,
+        {
+          responseData: errBody,
+          headers: { 'retry-after': response.headers.get('retry-after') },
+        }
+      )
     }
     if (response.status === 402) {
       throw new APIError(
@@ -114,6 +124,14 @@ export async function requestPdfStatusPoll({
   })
 
   if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}))
+    const failure = persistenceFailure({
+      status: response.status,
+      responseData: errBody,
+      headers: { 'retry-after': response.headers.get('retry-after') },
+    })
+    if (failure.code?.startsWith('ADVISORY_') || response.status === 401 || response.status === 403)
+      return { status: 'access-gated', failure }
     if (isPdfTransientUpstreamStatus(response.status)) {
       return { status: 'transient', httpStatus: response.status }
     }
@@ -235,7 +253,10 @@ export async function requestPdfDownload({
       throw new APIError(errMsg, 402, undefined, true, buildPdfAccessErrorContext(errBody))
     }
     if (isPdfTransientUpstreamStatus(response.status)) {
-      throw new APIError('PDF download temporarily unavailable', response.status)
+      throw new APIError('PDF download temporarily unavailable', response.status, undefined, true, {
+        responseData: errBody,
+        headers: { 'retry-after': response.headers.get('retry-after') },
+      })
     }
     const refusal = pdfRefusalFromBody(errBody)
     if (refusal) throw new PdfRequestRefusedError(refusal, response.status)

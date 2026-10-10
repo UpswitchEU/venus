@@ -3,9 +3,11 @@ import { toast } from 'sonner'
 import type { DownloadHistoryItem } from '../../../components/calculator'
 import { type PdfRefusal, PdfRequestRefusedError } from '../../../hooks/pdfGenerationModel'
 import { trackPDFDownload } from '../../../lib/analytics'
+import { useSessionStore } from '../../../store/useSessionStore'
 import { APIError } from '../../../types/errors'
 import { generalLogger } from '../../../utils/logger'
 import { isPdfTransientUpstreamStatus } from '../../../utils/pdfTransientUpstream'
+import { persistenceFailure } from '../../../utils/persistenceOutcome'
 import {
   buildManualDownloadHistoryItem,
   buildManualPdfFilename,
@@ -17,6 +19,7 @@ interface ManualPdfExportReport {
 }
 
 export interface UseManualPdfExportControllerParams {
+  upstreamBlocked?: boolean
   report?: ManualPdfExportReport | null
   reportId: string
   resolvedReportId?: string | null
@@ -55,6 +58,7 @@ export interface UseManualPdfExportControllerResult {
 const PDF_EXPORT_TOAST_ID = 'pdf-gen'
 
 export function useManualPdfExportController({
+  upstreamBlocked = false,
   report,
   reportId,
   resolvedReportId,
@@ -101,7 +105,7 @@ export function useManualPdfExportController({
   }, [])
 
   const handleExport = useCallback(async () => {
-    if (isExportingRef.current) return
+    if (upstreamBlocked || isExportingRef.current) return
     if (!report) return
     if (!canDownloadPdf) {
       openPdfPaywall()
@@ -153,7 +157,12 @@ export function useManualPdfExportController({
       toast.success(downloadedTitle)
     } catch (error) {
       if (error instanceof APIError && error.statusCode === 402) {
-        if (isCurrentRun()) openPdfPaywall()
+        if (isCurrentRun()) {
+          const failure = persistenceFailure(error)
+          if (failure.code === 'ADVISORY_SUBSCRIPTION_REQUIRED')
+            useSessionStore.setState({ saveFailure: failure })
+          else openPdfPaywall()
+        }
         return
       }
       if (error instanceof APIError && isPdfTransientUpstreamStatus(error.statusCode)) {
@@ -185,6 +194,7 @@ export function useManualPdfExportController({
       }
     }
   }, [
+    upstreamBlocked,
     canDownloadPdf,
     defaultFilename,
     describeRefusal,

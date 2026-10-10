@@ -38,6 +38,7 @@ export function ManualLayoutContextBar({
       clientName={clientCrumb}
       businessName={businessName}
       draftStatus={draftStatus}
+      hideSaveStatus
       lastSaved={lastSaved}
       onClientClick={clientContextId ? onOpenMercuryClientForInvite : undefined}
       onBusinessClick={clientContextId ? onOpenMercuryClientForInvite : undefined}

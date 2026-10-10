@@ -7,10 +7,7 @@ import {
   useRef,
 } from 'react'
 import { PANEL_WIDTH_STORAGE_KEY } from '../../../hooks/panelResizeModel'
-import {
-  enableNormalizationAutoPersist,
-  setNormalizationToastMessages,
-} from '../../../store/useNormalizationStore'
+import { enableNormalizationAutoPersist } from '../../../store/useNormalizationStore'
 import { enableTaxLatencyAutoPersist } from '../../../store/useTaxLatencyStore'
 import type { ValuationFormData } from '../../../types/valuation'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
@@ -34,13 +31,6 @@ export function useManualPanelStorageReset() {
       // localStorage may be unavailable in embedded/private contexts.
     }
   }, [])
-}
-
-export function useManualToastMessageLifecycle(translate: (key: string) => string) {
-  useEffect(() => {
-    setNormalizationToastMessages((key) => translate(key))
-    return () => setNormalizationToastMessages(null)
-  }, [translate])
 }
 
 export function useManualSessionPersistenceLifecycles({

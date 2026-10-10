@@ -79,7 +79,7 @@ export function writeBrowserRecoveryValue<T>(
     const raw = JSON.stringify(envelope)
     if (new TextEncoder().encode(raw).length > (options.maxBytes ?? 500_000)) return false
     storage.setItem(key, raw)
-    return true
+    return storage.getItem(key) === raw
   } catch {
     return false
   }
@@ -145,7 +145,7 @@ export function removeBrowserRecoveryValue(
   if (!storage || !key) return false
   try {
     storage.removeItem(key)
-    return true
+    return storage.getItem(key) === null
   } catch {
     return false
   }

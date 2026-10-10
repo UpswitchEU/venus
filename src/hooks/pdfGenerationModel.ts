@@ -1,9 +1,9 @@
 /** Let the BFF return its structured 504 before the browser gives up. */
-export const PDF_DOWNLOAD_FETCH_MS = 125_000
+export const PDF_DOWNLOAD_FETCH_MS = 60_000
 export const PDF_STATUS_FETCH_MS = 10_000
 export const PDF_STATUS_POLL_INTERVAL_MS = 2_000
 export const PDF_STATUS_POLL_MAX_BACKOFF_MS = 16_000
-export const PDF_STATUS_MAX_POLL_MS = 5 * 60_000
+export const PDF_STATUS_MAX_POLL_MS = 60_000
 
 export type TimeoutAbortHandle = {
   signal: AbortSignal
@@ -172,13 +172,22 @@ export async function blobStartsWithPdfMagic(blob: Blob): Promise<boolean> {
 
 export function buildPdfAccessErrorContext(errBody: unknown): Record<string, unknown> {
   const body = asRecord(errBody) ?? {}
-  const code = typeof body.code === 'string' ? body.code : undefined
+  const details = asRecord(body.details) ?? {}
+  const code =
+    typeof body.code === 'string'
+      ? body.code
+      : typeof details.code === 'string'
+        ? details.code
+        : undefined
   const inviteAdvisorRequired =
     body.inviteAdvisorRequired === true || code === 'INVITE_ADVISOR_REQUIRED'
   return {
     upgradeRequired: inviteAdvisorRequired ? false : true,
     inviteAdvisorRequired,
     ...(code ? { code } : {}),
+    ...(typeof (body.canManageBilling ?? details.canManageBilling) === 'boolean'
+      ? { canManageBilling: body.canManageBilling ?? details.canManageBilling }
+      : {}),
     ...(typeof body.action === 'string' ? { action: body.action } : {}),
     ...(typeof body.required_tier === 'string' ? { required_tier: body.required_tier } : {}),
   }

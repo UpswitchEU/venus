@@ -85,7 +85,15 @@ export interface UsePdfGenerationReturn {
  * - Handles download when ready
  * - Checks session store for existing PDF URL on mount
  */
-export function usePdfGeneration(reportId: string | null): UsePdfGenerationReturn {
+export function usePdfGeneration(
+  reportId: string | null,
+  revisionKey = ''
+): UsePdfGenerationReturn {
+  const identity = JSON.stringify([reportId, revisionKey])
+  const identityRef = useRef(identity)
+  const stateIdentityRef = useRef(identity)
+  identityRef.current = identity
+  const deadlineRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [state, setState] = useState<PdfGenerationState>({
     status: 'none',
     url: null,
@@ -105,12 +113,11 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   const downloadRunIdRef = useRef(0)
   activeReportIdRef.current = reportId
 
-  // Get session data to check existing PDF
-  const getSessionData = useSessionStore((s) => s.getSessionData)
-
   // Reset report-scoped state when the active report changes. This prevents
   // late completions for report A from marking report B as ready/error.
   useEffect(() => {
+    stateIdentityRef.current = identity
+    if (deadlineRef.current) clearTimeout(deadlineRef.current)
     generationRunIdRef.current++
     pollRunIdRef.current++
     downloadRunIdRef.current++
@@ -130,23 +137,13 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       abortControllerRef.current = null
     }
 
-    const sessionData = getSessionData()
-    if (reportId && sessionData?.pdfUrl) {
-      setState({
-        status: 'ready',
-        url: sessionData.pdfUrl as string,
-        error: null,
-        progress: 100,
-      })
-      return
-    }
     setState({
       status: 'none',
       url: null,
       error: null,
       progress: 0,
     })
-  }, [getSessionData, reportId])
+  }, [identity])
 
   // Keep isGeneratingRef in sync with status
   isGeneratingRef.current = state.status === 'generating'
@@ -155,6 +152,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   // this effect handles the polling-interval + abort-controller teardown.
   useEffect(() => {
     return () => {
+      if (deadlineRef.current) clearTimeout(deadlineRef.current)
       if (pollingRef.current) {
         clearTimeout(pollingRef.current)
       }
@@ -172,6 +170,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
    */
   const startPolling = useCallback(
     (jobId: string) => {
+      const pollIdentity = identityRef.current
       const pollRunId = ++pollRunIdRef.current
       if (pollingRef.current) {
         clearTimeout(pollingRef.current)
@@ -195,7 +194,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }
 
       const scheduleNextPoll = (delayMs: number) => {
-        if (pollRunIdRef.current !== pollRunId) return
+        if (pollRunIdRef.current !== pollRunId || identityRef.current !== pollIdentity) return
         stopPollingTimer()
         pollingRef.current = setTimeout(() => {
           void runPoll()
@@ -203,7 +202,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }
 
       const runPoll = async () => {
-        if (pollRunIdRef.current !== pollRunId) return
+        if (pollRunIdRef.current !== pollRunId || identityRef.current !== pollIdentity) return
         if (pollInFlightRef.current) {
           scheduleNextPoll(PDF_STATUS_POLL_INTERVAL_MS)
           return
@@ -236,7 +235,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
             jobId,
             signal: statusAbortHandle.signal,
           })
-          if (pollRunIdRef.current !== pollRunId) return
+          if (pollRunIdRef.current !== pollRunId || identityRef.current !== pollIdentity) return
 
           if (pollResult.status === 'transient') {
             consecutiveTransientErrors++
@@ -251,6 +250,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
           }
 
           if (pollResult.status === 'access-gated') {
+            if (pollResult.failure) useSessionStore.setState({ saveFailure: pollResult.failure })
             stopPollingTimer()
             isGeneratingRef.current = false
             shouldContinuePolling = false
@@ -343,6 +343,8 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       return null
     }
     const targetReportId = reportId
+    const targetIdentity = identity
+    stateIdentityRef.current = targetIdentity
 
     // Guard: Prevent concurrent generation (double-click, rapid navigation)
     if (isGeneratingRef.current) {
@@ -354,6 +356,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
     const isCurrentGeneration = () =>
       mountedRef.current &&
       generationRunIdRef.current === generationRunId &&
+      identityRef.current === targetIdentity &&
       activeReportIdRef.current === targetReportId
 
     // Abort any existing request before starting new one
@@ -368,6 +371,23 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       error: null,
       progress: 10,
     })
+
+    if (deadlineRef.current) clearTimeout(deadlineRef.current)
+    deadlineRef.current = setTimeout(() => {
+      if (!isCurrentGeneration() || !isGeneratingRef.current) return
+      generationRunIdRef.current++
+      pollRunIdRef.current++
+      abortControllerRef.current?.abort()
+      statusPollAbortRef.current?.abort()
+      if (pollingRef.current) clearTimeout(pollingRef.current)
+      isGeneratingRef.current = false
+      setState({
+        status: 'error',
+        url: null,
+        error: 'PDF generation timed out — please try again.',
+        progress: 0,
+      })
+    }, PDF_STATUS_MAX_POLL_MS)
 
     let generationTimedOut = false
     try {
@@ -425,6 +445,10 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
         return null
       }
       if (error instanceof APIError && error.statusCode === 402) {
+        if (isCurrentGeneration()) {
+          isGeneratingRef.current = false
+          setState({ status: 'error', url: null, error: error.message, progress: 0 })
+        }
         throw error
       }
       if (error instanceof PdfRequestRefusedError) {
@@ -465,7 +489,7 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
       }
       return null
     }
-  }, [mountedRef, reportId, startPolling])
+  }, [mountedRef, reportId, startPolling, identity])
 
   /**
    * Download the PDF file via proxy (avoids CORS/403 when fetching Supabase storage directly)
@@ -572,10 +596,13 @@ export function usePdfGeneration(reportId: string | null): UsePdfGenerationRetur
   )
 
   return {
-    state,
+    state:
+      stateIdentityRef.current === identity
+        ? state
+        : { status: 'none', url: null, error: null, progress: 0 },
     generatePdf,
     downloadPdf,
-    isReady: state.status === 'ready',
-    isGenerating: state.status === 'generating',
+    isReady: stateIdentityRef.current === identity && state.status === 'ready',
+    isGenerating: stateIdentityRef.current === identity && state.status === 'generating',
   }
 }

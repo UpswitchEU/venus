@@ -26,6 +26,7 @@ type ManualNavigationReport = UseManualPdfExportControllerParams['report'] & {
 }
 
 export interface UseManualNavigationControllerParams {
+  upstreamBlocked?: boolean
   flushFormBeforeNavigation: () => Promise<void>
   isNavigationBusy: () => boolean
   activeSessionKey?: string | null
@@ -55,6 +56,7 @@ export interface UseManualNavigationControllerParams {
 }
 
 export function useManualNavigationController({
+  upstreamBlocked = false,
   flushFormBeforeNavigation,
   isNavigationBusy,
   activeSessionKey,
@@ -93,6 +95,7 @@ export function useManualNavigationController({
   )
 
   const { isExporting, downloadHistory, handleExport } = useManualPdfExportController({
+    upstreamBlocked,
     report,
     reportId,
     resolvedReportId,

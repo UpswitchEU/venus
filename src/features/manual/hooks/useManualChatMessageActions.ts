@@ -62,7 +62,7 @@ type SetManualChatMessages = Dispatch<SetStateAction<ChatMessage[]>>
 type SetManualPendingUpdates = Dispatch<SetStateAction<ManualPendingFieldUpdate[]>>
 type SetManualSuggestedNormalisations = Dispatch<SetStateAction<SuggestedNormalisation[]>>
 type AddNormalizationItems = (items: NormalizationItem[]) => void
-type PersistNormalizationsToSession = (reportId: string) => void | Promise<void>
+type PersistNormalizationsToSession = (reportId: string) => void | Promise<unknown>
 
 export interface UseManualChatMessageActionsParams<TCollectedData extends object> {
   chatMessages: ChatMessage[]

@@ -38,6 +38,7 @@ interface ToolbarOverflowMenuProps {
   normalizationFeatureLocked?: boolean
   onNormalizationFeatureLocked?: () => void
   isExporting: boolean
+  pdfBlocked?: boolean
   pdfPlanLocked: boolean
   pdfDownloadTooltip: string | null
   downloadHistory: DownloadHistoryItem[]
@@ -72,6 +73,7 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
   onNormalizationFeatureLocked,
   isExporting,
   pdfPlanLocked,
+  pdfBlocked = false,
   pdfDownloadTooltip,
   downloadHistory,
   compactTouchTarget = false,
@@ -292,11 +294,11 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
             type="button"
             role="menuitem"
             onClick={onDownload}
-            disabled={!hasReport || isExporting}
+            disabled={!hasReport || isExporting || pdfBlocked}
             title={pdfPlanLocked ? (pdfDownloadTooltip ?? undefined) : undefined}
             className={cn(
               'w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left text-sm',
-              !hasReport || isExporting
+              !hasReport || isExporting || pdfBlocked
                 ? 'opacity-50 cursor-not-allowed'
                 : pdfPlanLocked
                   ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-500/10'

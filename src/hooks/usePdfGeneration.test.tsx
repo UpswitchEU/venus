@@ -103,6 +103,56 @@ describe('usePdfGeneration', () => {
     })
   })
 
+  it('does not promote an unverified session PDF to a current artifact', () => {
+    mocks.getSessionData.mockReturnValue({ pdfUrl: 'https://cdn.example/old.pdf' })
+    const h = renderHook(() => usePdfGeneration('report-a'))
+    expect(h.result.current.isReady).toBe(false)
+  })
+
+  it('invalidates a completed PDF when the acknowledged report revision changes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(jsonResponse({ success: true, pdfUrl: 'https://cdn.example/v1.pdf' }))
+    )
+    const h = renderHook(({ revision }) => usePdfGeneration('report-a', revision), {
+      initialProps: { revision: 'v1' },
+    })
+    await act(async () => {
+      await h.result.current.generatePdf()
+    })
+    expect(h.result.current.isReady).toBe(true)
+    h.rerender({ revision: 'v2' })
+    expect(h.result.current.isReady).toBe(false)
+    expect(h.result.current.state.url).toBeNull()
+  })
+
+  it('releases generation after 60 seconds even when a status request is stuck', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === 'POST'
+          ? jsonResponse({ success: true, jobId: 'job-1' })
+          : new Promise(() => {
+              /* Deliberately stalled status request. */
+            })
+      )
+    )
+    const h = renderHook(() => usePdfGeneration('report-a'))
+    await act(async () => {
+      await h.result.current.generatePdf()
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_001)
+    })
+    expect(h.result.current.isGenerating).toBe(false)
+    expect(h.result.current.state.status).toBe('error')
+    h.unmount()
+    vi.useRealTimers()
+  })
+
   it('treats transient 503 on download as a retriable APIError without latching error state', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ error: 'pooler blip' }), {

@@ -363,3 +363,42 @@ describe('ordinary partial assessment PDF download', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 })
+
+it('preserves firm verification and billing-manager metadata during status polling', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'ADVISORY_SUBSCRIPTION_REQUIRED',
+          details: { canManageBilling: true },
+        }),
+        { status: 402 }
+      )
+    )
+  )
+  await expect(
+    requestPdfStatusPoll({ jobId: 'job', headers: {}, signal: new AbortController().signal })
+  ).resolves.toMatchObject({
+    status: 'access-gated',
+    failure: { kind: 'subscription', canManageBilling: true },
+  })
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'ADVISORY_VERIFICATION_UNAVAILABLE',
+          retryAfterMs: 8000,
+        }),
+        { status: 503, headers: { 'Retry-After': '20' } }
+      )
+    )
+  )
+  await expect(
+    requestPdfStatusPoll({ jobId: 'job', headers: {}, signal: new AbortController().signal })
+  ).resolves.toMatchObject({
+    status: 'access-gated',
+    failure: { kind: 'temporary', retryAfterMs: 20000 },
+  })
+})

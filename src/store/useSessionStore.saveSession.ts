@@ -1,14 +1,11 @@
 import type { StateCreator } from 'zustand'
 import { storeLogger } from '../utils/logger'
+import { persistenceFailure } from '../utils/persistenceOutcome'
 import { watchReportAccessScope } from '../utils/reportAccessScope'
 import { isSameReportIdentity } from '../utils/reportIdentityPromotion'
 import type { SessionStore } from './useSessionStore'
 import { deriveMarkSavedState } from './useSessionStore.dirtyState'
-import {
-  asSessionDataRecord,
-  isNonCriticalSaveFailureMessage,
-  readString,
-} from './useSessionStore.helpers'
+import { asSessionDataRecord, readString } from './useSessionStore.helpers'
 
 type StoreSet = Parameters<StateCreator<SessionStore>>[0]
 type StoreGet = Parameters<StateCreator<SessionStore>>[1]
@@ -19,12 +16,12 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
 
     if (!state.engine) {
       storeLogger.warn('[Session] Cannot save - engine not initialized')
-      return
+      return { status: 'skipped' }
     }
 
     if (!state.session) {
       storeLogger.warn('[Session] Cannot save: no active session')
-      return
+      return { status: 'skipped' }
     }
 
     if (state.isSaving) {
@@ -52,7 +49,7 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
       })
 
       await state.engine.saveSession(reason)
-      if (!isCurrent()) return
+      if (!isCurrent()) return { status: 'skipped' }
 
       const savedSession = state.engine.getSession()
       if (savedSession) {
@@ -83,11 +80,14 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
       }
 
       set((current) => deriveMarkSavedState(current, saveStartDirtyVersion))
+      if (get().dirtyVersion === saveStartDirtyVersion) set({ saveFailure: null })
+      return { status: get().dirtyVersion === saveStartDirtyVersion ? 'acknowledged' : 'skipped' }
     } catch (error) {
-      if (!isCurrent()) return
+      if (!isCurrent()) return { status: 'skipped' }
       const message = error instanceof Error ? error.message : 'Failed to save session'
+      const failure = persistenceFailure(error)
 
-      if (isNonCriticalSaveFailureMessage(message)) {
+      if (failure.kind !== 'access') {
         storeLogger.warn('[Session] Background save failed; keeping the report available', {
           reportId: state.session.reportId,
           error: message,
@@ -99,8 +99,10 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
           isSaving: false,
           errorMessage: null,
           saveErrorMessage: message,
+          saveFailure: failure,
+          hasUnsavedChanges: true,
         })
-        return
+        return { status: 'deferred', failure }
       }
 
       storeLogger.error('[Session] Save failed', {
@@ -113,6 +115,7 @@ export function createSaveSessionAction(set: StoreSet, get: StoreGet): SessionSt
         isSaving: false,
         errorMessage: message,
         saveErrorMessage: message,
+        saveFailure: failure,
       })
 
       throw error

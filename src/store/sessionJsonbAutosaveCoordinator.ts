@@ -1,4 +1,6 @@
 import { generalLogger } from '../utils/logger'
+import type { PersistenceOutcome } from '../utils/persistenceOutcome'
+import { watchReportAccessScope } from '../utils/reportAccessScope'
 
 type PersistTimer = ReturnType<typeof setTimeout>
 
@@ -7,9 +9,10 @@ interface SessionJsonbAutosaveCoordinatorOptions<TState, TItem> {
   getItems: () => TItem[]
   selectItems: (state: TState) => TItem[]
   subscribe: (listener: (state: TState) => void) => () => void
-  persistToSession: (reportId: string) => Promise<void>
+  persistToSession: (reportId: string) => Promise<PersistenceOutcome>
   saveRecoveryBuffer: (reportId: string, items: TItem[]) => void
   clearRecoveryBuffer: (reportId: string) => void
+  canClearRecoveryBuffer?: (reportId: string) => boolean
   isVisibilityPersistBlocked?: () => boolean
   resetPendingOnEnable?: boolean
   debounceMs?: number
@@ -25,6 +28,8 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
   private pendingReportId: string | null = null
   private pendingVisibilityFlushReportId: string | null = null
   private lastItemsJson = ''
+  private generation = 0
+  private getActiveReportId: (() => string | undefined) | null = null
 
   constructor(private readonly options: SessionJsonbAutosaveCoordinatorOptions<TState, TItem>) {
     this.debounceMs = options.debounceMs ?? 300
@@ -32,6 +37,8 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
   }
 
   enable(getReportId: () => string | undefined): () => void {
+    this.generation++
+    this.getActiveReportId = getReportId
     this.lastItemsJson = JSON.stringify(this.options.getItems())
     if (this.options.resetPendingOnEnable) {
       this.pendingReportId = null
@@ -84,6 +91,7 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
       if (!reportId) return
 
       this.pendingReportId = reportId
+      this.options.saveRecoveryBuffer(reportId, items)
       this.clearTimer()
       const attemptPersist = async () => {
         if (this.inFlight) {
@@ -96,6 +104,7 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
     })
 
     return () => {
+      this.generation++
       unsubscribeStore()
       if (typeof window !== 'undefined') {
         window.removeEventListener('beforeunload', handleBeforeUnload)
@@ -115,6 +124,7 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
   }
 
   private async runPersist(reportId: string): Promise<void> {
+    if (this.getActiveReportId?.() !== reportId) return
     const deferRemainingMs = this.options.getDeferRemainingMs(reportId)
     if (deferRemainingMs > 0) {
       if (Number.isFinite(deferRemainingMs)) {
@@ -133,10 +143,22 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
     }
 
     this.inFlight = true
+    const generation = this.generation
+    const itemsJson = JSON.stringify(this.options.getItems())
+    const access = watchReportAccessScope()
+    this.options.saveRecoveryBuffer(reportId, this.options.getItems())
     try {
-      await this.options.persistToSession(reportId)
-      this.options.clearRecoveryBuffer(reportId)
-      this.pendingReportId = null
+      const outcome = await this.options.persistToSession(reportId)
+      if (
+        outcome?.status === 'acknowledged' &&
+        generation === this.generation &&
+        access.isCurrent() &&
+        itemsJson === JSON.stringify(this.options.getItems()) &&
+        (this.options.canClearRecoveryBuffer?.(reportId) ?? true)
+      ) {
+        this.options.clearRecoveryBuffer(reportId)
+        this.pendingReportId = null
+      }
     } catch (error) {
       generalLogger.warn(
         `[${this.options.storeName}] Session persist failed — keeping safety buffer`,
@@ -145,6 +167,7 @@ export class SessionJsonbAutosaveCoordinator<TState, TItem> {
         }
       )
     } finally {
+      access.dispose()
       this.inFlight = false
       this.flushPendingVisibilityPersist()
     }

@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import { useReportRecoveryStore } from '../../../store/reportRecoveryStore'
 import type {
   ValuationFormData,
   ValuationRequest,
@@ -179,9 +180,7 @@ describe('useManualCalculationCompletion', () => {
       await act(async () => {
         await complete(run)
       })
-      const retry = toast.warning.mock.calls.at(-1)?.[1]?.action?.onClick as
-        | (() => void)
-        | undefined
+      const retry = useReportRecoveryStore.getState().step?.resume as (() => void) | undefined
       expect(retry).toBeTypeOf('function')
 
       stillTarget = false
@@ -215,8 +214,10 @@ describe('useManualCalculationCompletion', () => {
         return true
       })
     await act(async () => {
-      toast.warning.mock.calls.at(-1)?.[1]?.action?.onClick()
-      await Promise.resolve()
+      const retry = useReportRecoveryStore.getState().step?.resume()
+      if (outcome === 'failed' || outcome === 'nothing-to-retry')
+        await expect(retry).rejects.toThrow()
+      else await retry
     })
     expect(notifyParent).not.toHaveBeenCalled()
   })
@@ -299,17 +300,17 @@ describe('useManualCalculationCompletion', () => {
         await view.complete()
       })
       expect(toast.error).not.toHaveBeenCalled()
-      expect(toast.warning).toHaveBeenCalledTimes(1)
-      const [title, options] = toast.warning.mock.calls[0]
-      return { ...view, title, options }
+      expect(toast.warning).not.toHaveBeenCalled()
+      const step = useReportRecoveryStore.getState().step
+      expect(step?.stage).toBe('result')
+      return { ...view, step, options: { action: { onClick: step?.resume } } }
     }
 
     it('explains that the result is kept and offers a retry instead of an alarming error', async () => {
-      const { title, options, setDraftStatus } = await failFirstSave()
+      const { step, setDraftStatus } = await failFirstSave()
 
-      expect(title).toBe('saveResultNotSaved')
-      expect(options.description).toBe('saveResultRetryDesc')
-      expect(options.action.label).toBe('saveRetry')
+      expect(step?.failure.kind).toBe('temporary')
+      expect(step?.resume).toBeTypeOf('function')
       expect(setDraftStatus).toHaveBeenLastCalledWith('draft')
     })
 

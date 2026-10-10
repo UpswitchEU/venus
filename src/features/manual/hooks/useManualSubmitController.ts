@@ -29,6 +29,7 @@ import {
 } from '../utils/accountingReconnectResume'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
+import { buildManualLiveValuationSubmitData } from '../utils/manualInputData'
 import { calculateSavedManualAssessment } from '../utils/manualPartialAssessment'
 import { shouldBlockExtremePreparerMultiple } from '../utils/manualPreparerMultipleGuard'
 import {
@@ -59,6 +60,7 @@ export interface UseManualSubmitControllerParams {
   currentLocale: string
   getLatestVersion: (reportId: string) => ManualVersionBaseline | null
   isAccountantMode: boolean
+  latestFormDataRef?: MutableRefObject<Partial<ValuationFormData>>
   linkedIdentifier: string | null
   lastSubmittedFinancialSnapshotRef: MutableRefObject<SubmittedFinancialSnapshot | null>
   preSelectedMethod: string | null | undefined
@@ -129,6 +131,7 @@ export function useManualSubmitController({
   getLatestVersion,
   isAccountantMode,
   linkedIdentifier,
+  latestFormDataRef,
   lastSubmittedFinancialSnapshotRef,
   preSelectedMethod,
   reportId,
@@ -326,9 +329,16 @@ export function useManualSubmitController({
         }
 
         const retrySubmit = () => {
-          if (lastSubmittedDataRef.current) {
-            void handleManualSubmit(lastSubmittedDataRef.current)
+          if (submitRun.isStillTarget() && lastSubmittedDataRef.current) {
+            return handleManualSubmit(
+              buildManualLiveValuationSubmitData({
+                initialData: lastSubmittedDataRef.current,
+                liveData: latestFormDataRef?.current,
+                fallbackYearlyFinancials: [],
+              })
+            )
           }
+          return Promise.resolve(false)
         }
 
         options?.onWillSubmit?.()
@@ -388,7 +398,7 @@ export function useManualSubmitController({
           error,
           retrySubmit: () => {
             if (lastSubmittedDataRef.current) {
-              void handleManualSubmit(lastSubmittedDataRef.current)
+              return handleManualSubmit(lastSubmittedDataRef.current)
             }
           },
           submitRun,
@@ -406,6 +416,7 @@ export function useManualSubmitController({
       getLatestVersion,
       handleManualSubmitError,
       linkedIdentifier,
+      latestFormDataRef,
       preSelectedMethod,
       reportId,
       resolvedReportId,

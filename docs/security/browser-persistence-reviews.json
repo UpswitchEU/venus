@@ -176,10 +176,10 @@
       "dependencies": {}
     },
     "src/utils/browserRecoveryStorage.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-10",
       "reviewBy": "2026-12-31",
-      "sourceSha256": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190",
-      "assessment": "Central classified envelope enforces maximum 24-hour retention, finite timestamps, expiry/ordering checks, byte bounds and malformed removal. Legacy normalization/tax callers consume entries immediately; signup legacy also has its own finite bounded timestamp.",
+      "sourceSha256": "bd976ed940951896059fd5f7f1b1b12e3050619cc9f547303d90859862392391",
+      "assessment": "Re-reviewed 10 October: classified envelope still enforces maximum 24-hour retention, finite timestamps, expiry/ordering checks, byte bounds and malformed removal. Writes now read back and compare the serialized envelope, so dropped/quota/restricted writes cannot count as successful recovery. No added payload or storage destination.",
       "dependencies": {}
     },
     "src/utils/capitalHistoryPrefill.ts": {
@@ -222,12 +222,12 @@
       }
     },
     "src/utils/workflowRecoveryStorage.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-10",
       "reviewBy": "2026-12-31",
       "sourceSha256": "272f950a875673ddf3fafb4a1ec97b1374e9c7c48eb26141d3b5e677fc8099c4",
-      "assessment": "Reviewed common adapter: central TTL, typed snapshots, 100 kB, session-only, legacy local deletion, no read/write before identity resolution, stale update removal on failed writes.",
+      "assessment": "Reviewed common adapter: central TTL, typed snapshots, 100 kB, session-only, legacy local deletion, no read/write before identity resolution, stale update removal on failed writes. Re-reviewed the shared writer change: read-back verification strengthens write acknowledgement; this caller\u2019s payload, scope, byte bound and retention remain unchanged.",
       "dependencies": {
-        "src/utils/browserRecoveryStorage.ts": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190"
+        "src/utils/browserRecoveryStorage.ts": "bd976ed940951896059fd5f7f1b1b12e3050619cc9f547303d90859862392391"
       }
     },
     "src/services/businessTypeSuggestionApi.ts": {
@@ -238,38 +238,46 @@
       "dependencies": {}
     },
     "src/utils/landingStudioHandoff.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-10",
       "reviewBy": "2026-12-31",
       "sourceSha256": "6793c61b9d125f512032cb7ad50ddab7edcd803b3788e5e39ca3b86fcd617960",
-      "assessment": "Replaced arbitrary form snapshot with explicit startup/company-form field projection; one-shot 24-hour/100 kB recovery. Rejects malformed/future/expired entries including legacy timestamped envelopes. Company form identity is intentional signup context, never user authorization.",
+      "assessment": "Replaced arbitrary form snapshot with explicit startup/company-form field projection; one-shot 24-hour/100 kB recovery. Rejects malformed/future/expired entries including legacy timestamped envelopes. Company form identity is intentional signup context, never user authorization. Re-reviewed the shared writer change: read-back verification strengthens write acknowledgement; this caller\u2019s payload, scope, byte bound and retention remain unchanged.",
       "dependencies": {
         "src/utils/startupHandoffPayload.ts": "f49cf55d68a2af6e09d6cb323279491230195ae9be0e185c901bfe8dae4e05ab",
-        "src/utils/browserRecoveryStorage.ts": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190"
+        "src/utils/browserRecoveryStorage.ts": "bd976ed940951896059fd5f7f1b1b12e3050619cc9f547303d90859862392391"
       }
     },
     "src/features/manual/utils/accountingReconnectResume.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-10",
       "reviewBy": "2026-12-31",
       "sourceSha256": "ad6f7e99a33d3af4c387efd822ebef40e66173407139d5dc61c25348b5de4884",
-      "assessment": "One thirty-minute draft with sanitized form fields, provider/client/report binding, byte bound, state validation and consumption after resume. OAuth nonce is correlation, not provider credentials.",
+      "assessment": "One thirty-minute draft with sanitized form fields, provider/client/report binding, byte bound, state validation and consumption after resume. OAuth nonce is correlation, not provider credentials. Re-reviewed the shared writer change: read-back verification strengthens write acknowledgement; this caller\u2019s payload, scope, byte bound and retention remain unchanged.",
       "dependencies": {
         "src/features/manual/utils/accountingReconnectDraft.ts": "1e384193480cd154f33e6c4eab0b774d0fc1b793a1d066c4a87a26c90736fd79",
-        "src/utils/browserRecoveryStorage.ts": "b1276f6f32647bc96833fc22ed34951f33f3ee2daaadd6143e2531fa2ab7a190"
+        "src/utils/browserRecoveryStorage.ts": "bd976ed940951896059fd5f7f1b1b12e3050619cc9f547303d90859862392391"
       }
     },
     "src/store/useNormalizationStore.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-10",
       "reviewBy": "2026-12-31",
-      "sourceSha256": "05de9e40b7d9aae1fc0eaf555268907437d6d71e0e33eafbcb50892c435d438a",
-      "assessment": "Central 24-hour pending-normalization recovery keyed by report. Arrays filtered through item validator and consumed on read; use after authenticated session restoration. No auth material or report assets produced by writer.",
-      "dependencies": {}
+      "sourceSha256": "df585e031661e9dab153a271b317112264b33c6488be01e08ddc15236d5d941e",
+      "assessment": "Report-keyed normalization items plus revision-aware per-year update/removal payloads are temporary workflow recovery, explicitly requested for this incident. Full authorized user/delegated advisor/client scope is checked before restoration. Maximum 24 hours and 500 kB via the shared envelope; no credentials, access decisions, full manual draft or rendered report assets. Restoration does not consume the buffer. Only acknowledged matching items with no pending year mutations clear it; deferred saves and newer edits retain it. Local-write success is verified. Release audit: recovery keys now include the authenticated/delegated identity scope; old scoped envelopes remain readable without consuming them, and only matching acknowledged buffers are cleared. Failed removals retain the recovery marker.",
+      "dependencies": {
+        "src/utils/browserRecoveryStorage.ts": "bd976ed940951896059fd5f7f1b1b12e3050619cc9f547303d90859862392391",
+        "src/store/sessionJsonbAutosaveCoordinator.ts": "4c2b7bd9bfe7661921e482e1feab7f0811e69c34edc41e02030aecf3fdbef725",
+        "src/utils/reportAccessScope.ts": "eaafce4f1cff0f51c323f33cc5a1046c6eee9b519eb52cb154516080b5bbb5d2",
+        "src/store/normalizationPersistenceQueue.ts": "8ac7c4cf2deb877f40a742597e93833ea5380e70e943afe239690e33534a07c5"
+      }
     },
     "src/store/useTaxLatencyStore.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-10",
       "reviewBy": "2026-12-31",
-      "sourceSha256": "9bbe231d9a4f35217413b537aceea8a22defe5fe21b94df9628af1e086c75153",
-      "assessment": "Central 24-hour pending-tax recovery keyed by report. Entries canonicalized and consumed on read after session restoration; no report assets or authorization decisions.",
-      "dependencies": {}
+      "sourceSha256": "a96016a95b9ee64009b7ec807354236b78350c2a9cdce6acd0c3614c230aba5d",
+      "assessment": "Re-reviewed shared persistence outcome integration: tax latency items remain canonicalized, report-keyed, within the central 24-hour/500 kB envelope, and consumed on restoration as before. Autosave clears its safety copy only on acknowledged unchanged items. No report assets, credentials or authorization decisions are introduced.",
+      "dependencies": {
+        "src/utils/browserRecoveryStorage.ts": "bd976ed940951896059fd5f7f1b1b12e3050619cc9f547303d90859862392391",
+        "src/store/sessionJsonbAutosaveCoordinator.ts": "4c2b7bd9bfe7661921e482e1feab7f0811e69c34edc41e02030aecf3fdbef725"
+      }
     },
     "src/lib/posthog-init.ts": {
       "reviewedAt": "2026-10-01",

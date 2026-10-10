@@ -4,10 +4,13 @@ import {
   reportAssetService,
 } from '../../../services/report/ReportAssetService'
 import { useManualFormStore } from '../../../store/manual/useManualFormStore'
+import { resumeReportRecovery, useReportRecoveryStore } from '../../../store/reportRecoveryStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { deepEqual } from '../../../utils/deepEqual'
+import { requirePersistenceAcknowledgement } from '../../../utils/persistenceOutcome'
+import { reportAccessScope } from '../../../utils/reportAccessScope'
 import { isSameReportIdentity } from '../../../utils/reportIdentityPromotion'
 import { canonicalizeTaxLatencyWireArray } from '../../../utils/taxLatencyWire'
 
@@ -50,7 +53,12 @@ export async function saveManualWorkspaceBeforeNavigation({
 
   // A failed result may contain an older input snapshot. Persist/recover it
   // first, then flush the current form so newer edits remain authoritative.
-  await reportAssetService.retryFailedSave(reportId)
+  const recovery = () => {
+    const step = useReportRecoveryStore.getState().step
+    return step?.reportId === reportId && step.scope === reportAccessScope() ? step : null
+  }
+  if (recovery()?.stage === 'result') await resumeReportRecovery(reportId)
+  else await reportAssetService.retryFailedSave(reportId)
   check()
   await flushForm()
   check()
@@ -73,9 +81,15 @@ export async function saveManualWorkspaceBeforeNavigation({
     })
     check()
   }
+  requirePersistenceAcknowledgement(await useNormalizationStore.getState().retryPersist(reportId))
+  check()
   const pending = useSessionStore.getState()
   if (pending.hasUnsavedChanges || pending.isSaving || pending.saveErrorMessage) {
-    await pending.saveSession('user')
+    requirePersistenceAcknowledgement(await pending.saveSession('user'))
+    check()
+  }
+  if (recovery()?.stage === 'inputs') {
+    await resumeReportRecovery(reportId)
     check()
   }
   const saved = useSessionStore.getState()
@@ -85,6 +99,7 @@ export async function saveManualWorkspaceBeforeNavigation({
     saved.saveErrorMessage ||
     failedReportAssetSave(reportId) ||
     pendingReportAssetSave(reportId) ||
+    recovery() ||
     !deepEqual(form, useManualFormStore.getState().formData) ||
     !deepEqual(normalizations, useNormalizationStore.getState().items) ||
     !deepEqual(taxItems, useTaxLatencyStore.getState().items)

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { deferReportRecovery, useReportRecoveryStore } from '../../../store/reportRecoveryStore'
 import {
   saveManualWorkspaceBeforeNavigation,
   WorkspaceSaveNotReadyError,
@@ -13,6 +14,7 @@ const env = vi.hoisted(() => ({
   update: vi.fn(),
   save: vi.fn(),
   flush: vi.fn(),
+  retryNorm: vi.fn(),
   failed: vi.fn(),
   pending: vi.fn(),
   current: true,
@@ -25,7 +27,7 @@ vi.mock('../../../store/manual/useManualFormStore', () => ({
   useManualFormStore: { getState: () => ({ formData: env.form }) },
 }))
 vi.mock('../../../store/useNormalizationStore', () => ({
-  useNormalizationStore: { getState: () => ({ items: env.norms }) },
+  useNormalizationStore: { getState: () => ({ items: env.norms, retryPersist: env.retryNorm }) },
 }))
 vi.mock('../../../store/useTaxLatencyStore', () => ({
   useTaxLatencyStore: { getState: () => ({ items: env.tax }) },
@@ -47,6 +49,7 @@ const run = () =>
 
 beforeEach(() => {
   vi.resetAllMocks()
+  useReportRecoveryStore.setState({ step: null })
   env.current = true
   env.busy = false
   env.norms = []
@@ -64,11 +67,13 @@ beforeEach(() => {
   }
   env.recover.mockResolvedValue(false)
   env.flush.mockResolvedValue(undefined)
+  env.retryNorm.mockResolvedValue({ status: 'acknowledged' })
   env.update.mockImplementation(async () => {
     env.state.hasUnsavedChanges = true
   })
   env.save.mockImplementation(async () => {
     env.state.hasUnsavedChanges = false
+    return { status: 'acknowledged' }
   })
 })
 
@@ -97,6 +102,14 @@ describe('workspace save before navigation', () => {
     expect(order).toEqual(['result', 'form'])
     expect(env.update).not.toHaveBeenCalled()
     expect(env.save).not.toHaveBeenCalled()
+  })
+  it('completes result persistence and versioning before navigating', async () => {
+    const resume = vi.fn().mockResolvedValue(undefined)
+    deferReportRecovery('report-a', 'result', new Error('offline'), resume)
+    await run()
+    expect(resume).toHaveBeenCalledOnce()
+    expect(env.recover).not.toHaveBeenCalled()
+    expect(useReportRecoveryStore.getState().step).toBeNull()
   })
   it('saves normalization edits that still sit in their separate debounce queue', async () => {
     env.norms = [{ id: 'adjustment-a', status: 'accepted', adjustment: 12000 }]

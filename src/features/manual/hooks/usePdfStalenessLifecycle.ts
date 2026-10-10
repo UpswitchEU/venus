@@ -1,3 +1,5 @@
+import { useSessionStore } from '../../../store/useSessionStore'
+import { persistenceFailure } from '../../../utils/persistenceOutcome'
 /**
  * usePdfStalenessLifecycle — owns the entire "is the PDF fresh enough to
  * download?" lifecycle. Before Phase 4c.2 Hook 3, this was 3 effects, 4 refs,
@@ -8,8 +10,7 @@
  * Behaviour pinned (preserved from the inline implementation):
  *   1. `pdfStale` flips true when `report.reportUpdatedAt` is newer than
  *      `report.pdfGeneratedAt` (via `isPdfLikelyStaleVenus`).
- *   2. While stale, a sliding wait timeout (60s base, extended on transient
- *      5xx poll errors up to 180s) and a 2.5s poll interval against
+ *   2. While stale, a bounded 60-second wait timeout and a 2.5s poll interval against
  *      `/reports/{id}` run in parallel. Polling pauses while `usePdfGeneration`
  *      is actively generating so we do not hammer Titan alongside status polls.
  *   3. Poll success merges the fresh result + report and resets the
@@ -388,7 +389,7 @@ export function usePdfStalenessLifecycle(
 
   // ─── Effect E — wait timer + per-cycle reset ───────────────────────────
   useEffect(() => {
-    if (!pdfStale || isPdfGenerating) {
+    if (!pdfStale) {
       setPdfWaitTimedOut(false)
       clearWaitTimer()
       if (!pdfStale) {
@@ -400,14 +401,15 @@ export function usePdfStalenessLifecycle(
     // (a fresh edit bumps `reportUpdatedAt`, this effect re-runs). Without
     // this reset, a streak that accumulated against a prior edit's failed
     // job would carry into the new cycle and prematurely surface "stalled".
+    void report?.reportUpdatedAt
     const lastPdfGeneratedAtMs =
       report?.pdfGeneratedAt instanceof Date ? report.pdfGeneratedAt.getTime() : null
     resetStaleCycle(lastPdfGeneratedAtMs)
     return () => clearWaitTimer()
   }, [
     pdfStale,
-    isPdfGenerating,
     report?.pdfGeneratedAt,
+    report?.reportUpdatedAt,
     clearWaitTimer,
     resetFreshCycle,
     resetStaleCycle,
@@ -525,7 +527,10 @@ export function usePdfStalenessLifecycle(
     } catch (err) {
       if (!isStillRelevant()) return
       if (err instanceof APIError && err.statusCode === 402) {
-        openStarterPaywall('pdf_download')
+        const failure = persistenceFailure(err)
+        if (failure.code === 'ADVISORY_SUBSCRIPTION_REQUIRED')
+          useSessionStore.setState({ saveFailure: failure })
+        else openStarterPaywall('pdf_download')
         return
       }
       if (err instanceof PdfRequestRefusedError) {

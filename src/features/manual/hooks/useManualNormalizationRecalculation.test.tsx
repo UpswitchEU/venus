@@ -2,9 +2,11 @@ import { act, renderHook } from '@testing-library/react'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizationItem, ValuationReportData } from '../../../components/calculator'
-import { valuationService } from '../../../services'
+import { reportAssetService, valuationService } from '../../../services'
 import { useManualFormStore } from '../../../store/manual/useManualFormStore'
+import { useManualResultsStore } from '../../../store/manual/useManualResultsStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
+import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
 import { useManualNormalizationRecalculation } from './useManualNormalizationRecalculation'
@@ -106,6 +108,10 @@ function addUserTaxLatency() {
 // save receipt then let the return to Mercury announce "valuation added".
 describe('useManualNormalizationRecalculation headcount', () => {
   beforeEach(() => {
+    vi.spyOn(useSessionStore.getState(), 'updateSessionData').mockResolvedValue(undefined)
+    vi.spyOn(useSessionStore.getState(), 'saveSession').mockResolvedValue({
+      status: 'acknowledged',
+    })
     vi.mocked(toast.warning).mockClear()
     vi.mocked(valuationService.calculateValuation)
       .mockReset()
@@ -113,6 +119,7 @@ describe('useManualNormalizationRecalculation headcount', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     vi.useRealTimers()
     useNormalizationStore.setState(initialNormalizationSnapshot, true)
     useTaxLatencyStore.setState(initialTaxLatencySnapshot, true)
@@ -130,6 +137,30 @@ describe('useManualNormalizationRecalculation headcount', () => {
     expect(toast.warning).toHaveBeenCalledWith('employeeCountMissing', {
       description: 'employeeCountMissingDesc',
     })
+  })
+
+  it('drops a delayed normalization calculation after a newer result owns the report', async () => {
+    let resolve!: (value: never) => void
+    vi.mocked(valuationService.calculateValuation).mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        })
+    )
+    const { result } = renderRecalculation(4)
+    let pending!: Promise<void>
+    await act(async () => {
+      pending = result.current.recalculateWithNormalizations([acceptedNormalization])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(valuationService.calculateValuation).toHaveBeenCalledOnce()
+    act(() => useManualResultsStore.getState().announceNewResult())
+    await act(async () => {
+      resolve({ valuation_id: 'older-result', html_report: '<p>Older</p>' } as never)
+      await pending
+    })
+    expect(reportAssetService.saveReportAssets).not.toHaveBeenCalled()
   })
 
   it('recalculates with the headcount the advisor typed, 0 included', async () => {

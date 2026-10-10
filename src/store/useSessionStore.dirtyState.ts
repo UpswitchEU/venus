@@ -1,7 +1,9 @@
+import type { PersistenceFailure } from '../utils/persistenceOutcome'
 export interface SessionDirtyState {
   dirtyVersion: number
   errorMessage: string | null
   saveErrorMessage?: string | null
+  saveFailure?: PersistenceFailure | null
   hasUnsavedChanges: boolean
   isSaving: boolean
   lastSaved: Date | null
@@ -19,6 +21,9 @@ export function deriveMarkSavedState(
     ...current,
     hasUnsavedChanges: hasNewerChanges ? current.hasUnsavedChanges : false,
     lastSaved: now,
+    ...(current.saveFailure !== undefined
+      ? { saveFailure: hasNewerChanges ? current.saveFailure : null }
+      : {}),
     isSaving: false,
     errorMessage: hasNewerChanges ? current.errorMessage : null,
     ...(current.saveErrorMessage !== undefined

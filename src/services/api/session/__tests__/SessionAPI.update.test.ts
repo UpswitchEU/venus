@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { persistenceFailure } from '../../../../utils/persistenceOutcome'
 import type { SessionAPI, ValuationSession } from './SessionAPI.testHarness'
 import { executeRequestSpy, resetSessionApiHarness } from './SessionAPI.testHarness'
 
@@ -101,58 +102,32 @@ describe('SessionAPI', () => {
       expect(executeRequestSpy).not.toHaveBeenCalled()
     })
 
-    it('retries transient Premature close failures once before failing the save', async () => {
-      vi.useFakeTimers()
+    it.each([
+      429, 499, 500, 503, 504,
+    ])('preserves %s for report-level retry without a second transport attempt', async (status) => {
+      executeRequestSpy.mockRejectedValue({
+        response: {
+          status,
+          data: { code: 'ADVISORY_VERIFICATION_UNAVAILABLE', message: 'Temporary outage' },
+          headers: { 'retry-after': '30' },
+        },
+      })
+      let caught: unknown
       try {
-        executeRequestSpy
-          .mockRejectedValueOnce({
-            response: { status: 500, data: { message: 'Premature close' } },
-          })
-          .mockResolvedValueOnce({
-            session_key: 'val_update_123',
-            session_data: { company_name: 'Updated Corp' },
-          })
-
-        const resultPromise = api.updateValuationSession('val_update_123', {
+        await api.updateValuationSession('val_update_123', {
           reportId: 'val_update_123',
           updates: { sessionData: { company_name: 'Updated Corp' } },
         })
-
-        await vi.advanceTimersByTimeAsync(500)
-        const result = await resultPromise
-
-        expect(result.success).toBe(true)
-        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
-      } finally {
-        vi.useRealTimers()
+      } catch (error) {
+        caught = error
       }
-    })
-
-    it('treats HTTP 499 session PATCH responses as transient client-abort failures', async () => {
-      vi.useFakeTimers()
-      try {
-        executeRequestSpy
-          .mockRejectedValueOnce({
-            response: { status: 499, data: { message: 'Client closed request' } },
-          })
-          .mockResolvedValueOnce({
-            session_key: 'val_update_499',
-            session_data: { company_name: 'Updated Corp' },
-          })
-
-        const resultPromise = api.updateValuationSession('val_update_499', {
-          reportId: 'val_update_499',
-          updates: { sessionData: { company_name: 'Updated Corp' } },
-        })
-
-        await vi.advanceTimersByTimeAsync(500)
-        const result = await resultPromise
-
-        expect(result.success).toBe(true)
-        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
-      } finally {
-        vi.useRealTimers()
-      }
+      expect(persistenceFailure(caught)).toMatchObject({
+        status,
+        code: 'ADVISORY_VERIFICATION_UNAVAILABLE',
+        retryAfterMs: 30000,
+        kind: 'temporary',
+      })
+      expect(executeRequestSpy).toHaveBeenCalledTimes(1)
     })
 
     it('uses the session PATCH retry policy instead of nested generic HttpClient retries', async () => {
@@ -176,75 +151,6 @@ describe('SessionAPI', () => {
           timeout: 20000,
         })
       )
-    })
-
-    it('reuses the session PATCH policy for rate-limit retries', async () => {
-      vi.useFakeTimers()
-      try {
-        executeRequestSpy
-          .mockRejectedValueOnce({
-            response: { status: 429, headers: { 'retry-after': '1' } },
-          })
-          .mockResolvedValueOnce({
-            session_key: 'val_update_rate_limited',
-            session_data: { company_name: 'Updated Corp' },
-          })
-
-        const resultPromise = api.updateValuationSession('val_update_rate_limited', {
-          reportId: 'val_update_rate_limited',
-          updates: { sessionData: { company_name: 'Updated Corp' } },
-        })
-
-        await vi.advanceTimersByTimeAsync(1000)
-        const result = await resultPromise
-
-        expect(result.success).toBe(true)
-        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
-        expect(executeRequestSpy.mock.calls[1][0]).toEqual(
-          expect.objectContaining({
-            method: 'PATCH',
-            url: '/api/v2/valuations/sessions/val_update_rate_limited',
-            data: { session_data: { company_name: 'Updated Corp' } },
-          })
-        )
-        expect(executeRequestSpy.mock.calls[1][1]).toEqual(
-          expect.objectContaining({
-            retry: expect.objectContaining({ maxRetries: 0 }),
-            timeout: 20000,
-          })
-        )
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it('surfaces rate-limit failure after one retry without claiming the save succeeded', async () => {
-      vi.useFakeTimers()
-      try {
-        executeRequestSpy.mockRejectedValue({
-          response: { status: 429, headers: { 'retry-after': '1' } },
-        })
-
-        const resultPromise = api.updateValuationSession('val_noncritical_rate_limited', {
-          reportId: 'val_noncritical_rate_limited',
-          updates: { status: 'active' },
-        })
-
-        const rejection = expect(resultPromise).rejects.toBeInstanceOf(Error)
-        await vi.advanceTimersByTimeAsync(1000)
-        await rejection
-        expect(executeRequestSpy).toHaveBeenCalledTimes(2)
-        for (const [, options] of executeRequestSpy.mock.calls) {
-          expect(options).toEqual(
-            expect.objectContaining({
-              retry: expect.objectContaining({ maxRetries: 0 }),
-              timeout: 20000,
-            })
-          )
-        }
-      } finally {
-        vi.useRealTimers()
-      }
     })
 
     it('maps PATCH updates to Titan session_data and strips report HTML blobs', async () => {
