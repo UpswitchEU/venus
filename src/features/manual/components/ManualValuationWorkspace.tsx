@@ -191,6 +191,11 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     setReport,
     setRightPanelView,
   } = useManualReportUiState({ initialTab: initialTab ?? 'preview' })
+  const outputStale = React.useMemo(
+    () => persistedFinancialInputsDiffer(formStoreData, result),
+    [formStoreData, result]
+  )
+  const calculationStale = !!report && (isDirty || outputStale)
   const {
     preSelectedMethods,
     userWeights,
@@ -279,7 +284,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     pdfGenerationFailure,
     handleRetryPdfStalled,
   } = useManualReportReadinessController({
-    upstreamBlocked: recovery.blocked,
+    upstreamBlocked: recovery.blocked || calculationStale,
     reportId,
     resolvedReportId,
     reportHydrationLookupId,
@@ -588,7 +593,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     recentValuations,
     showNewValuationModal,
   } = useManualNavigationController({
-    upstreamBlocked: recovery.blocked,
+    upstreamBlocked: recovery.blocked || calculationStale,
     flushFormBeforeNavigation,
     isNavigationBusy: () =>
       isCalculating ||
@@ -800,16 +805,14 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     restorationComplete,
   })
   const lastFullYear = getCurrentFilingYear()
-  const outputStale = React.useMemo(
-    () => persistedFinancialInputsDiffer(formStoreData, result),
-    [formStoreData, result]
-  )
   return (
     <>
       <ManualLayoutChrome
         recoveryStatusProps={{
           recovery,
           hasReport: !!report,
+          calculationStale,
+          updateValuationFormId: 'manual-valuation-inputs',
           pdfStale,
           pdfFailed: pdfWaitTimedOut || !!pdfGenerationFailure,
           pdfRetrying: isPdfRetrying,
@@ -820,7 +823,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
         chatDrawerOpen={chatDrawerOpen}
         isMobile={isMobile}
         navProps={{
-          pdfBlocked: recovery.blocked,
+          pdfBlocked: recovery.blocked || calculationStale,
           accountantDisplayName,
           activeReportId: resolvedReportId || reportId,
           assistantOpenTasksCount,
