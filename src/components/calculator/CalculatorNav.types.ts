@@ -78,6 +78,7 @@ export interface CalculatorNavProps {
   downloadHistory?: DownloadHistoryItem[]
   onRedownload?: (item: DownloadHistoryItem) => void
   canDownloadPdf?: boolean
+  pdfBlocked?: boolean
   isAccountantMode?: boolean
   onExitClientView?: () => void
   showSourceDataToggle?: boolean

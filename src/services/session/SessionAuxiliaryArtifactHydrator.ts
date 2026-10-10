@@ -105,7 +105,7 @@ function hydrateNormalizationsFromRecoveryOrMetadata(
 
     const normStore = useNormalizationStore.getState()
     const recovered = recoverPendingNormalizations(options.reportId)
-    if (recovered && recovered.length > 0) {
+    if (recovered !== null) {
       normStore.setItems(normalizeImportedLedgerReviewStatuses(recovered, reportedEbitdaByYear))
       generalLogger.info('[SessionRestoration] Normalizations recovered from localStorage', {
         count: recovered.length,

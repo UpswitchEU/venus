@@ -52,7 +52,7 @@ type ReportAssets = {
   name?: string
 }
 
-type FailedAssetSave = { assets: ReportAssets; error: string }
+type FailedAssetSave = { assets: ReportAssets; error: string; cause?: unknown }
 const failedAssetSaves = new Map<string, FailedAssetSave>()
 const saveStateListeners = new Set<() => void>()
 export function subscribeReportAssetSaveState(listener: () => void): () => void {
@@ -171,7 +171,11 @@ export class ReportAssetService {
       notifySaveState()
     } catch (error) {
       if (canUpdateView() && pendingReportAssetSaves.get(queueKey) === savePromise) {
-        failedAssetSaves.set(queueKey, { assets: assetsSnapshot, error: getErrorMessage(error) })
+        failedAssetSaves.set(queueKey, {
+          assets: assetsSnapshot,
+          error: getErrorMessage(error),
+          cause: error,
+        })
         notifySaveState()
       }
       throw error

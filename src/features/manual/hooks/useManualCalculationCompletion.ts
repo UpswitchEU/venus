@@ -5,6 +5,7 @@ import { MOBILE_VIEWPORT_QUERY } from '../../../hooks/useMobileViewport'
 import { reportAssetService } from '../../../services'
 import { valuationAuditService } from '../../../services/audit/ValuationAuditService'
 import { useManualFormStore, useManualResultsStore } from '../../../store/manual'
+import { clearReportRecovery, deferReportRecovery } from '../../../store/reportRecoveryStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { useVersionHistoryStore } from '../../../store/useVersionHistoryStore'
@@ -17,7 +18,6 @@ import type {
 import { generalLogger } from '../../../utils/logger'
 import { postMessageToMercuryParent } from '../../../utils/mercuryParentMessaging'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
-import { toastSaveFailure } from '../../../utils/saveErrorHandling'
 import { MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT } from '../utils/manualAgentNextHandoff'
 import {
   buildSubmittedFinancialSnapshot,
@@ -192,6 +192,7 @@ export function useManualCalculationCompletion({
       }
       const markDurablySaved = () => {
         durablySaved = true
+        if (idForApi) clearReportRecovery(idForApi)
         setDraftStatus('saved')
         setLastSaved(new Date())
         if (idForApi) {
@@ -230,8 +231,13 @@ export function useManualCalculationCompletion({
           // still re-send the failed payload instead of silently doing nothing.
           if (useManualResultsStore.getState().resultAnnouncementSeq === announcementSeq) {
             retryInFlight = true
-            const recovered = await reportAssetService.retryFailedSave(idForApi).catch(() => false)
-            retryInFlight = false
+            let recovered: boolean
+            try {
+              recovered = await reportAssetService.retryFailedSave(idForApi)
+            } finally {
+              retryInFlight = false
+            }
+            if (!recovered) throw new Error('Result save was not acknowledged')
             if (
               recovered &&
               useManualResultsStore.getState().resultAnnouncementSeq === announcementSeq
@@ -250,12 +256,10 @@ export function useManualCalculationCompletion({
         durableSaveInFlightRef.current = false
         retryInFlight = false
         if (retryResult.aborted) return
+        if (useManualResultsStore.getState().resultAnnouncementSeq !== announcementSeq) return
         if (!retryResult.durableSaveSucceeded) {
           setDraftStatus('draft')
-          toastSaveFailure(retryResult.saveError, translateReport, {
-            onRetry: () => void retryResultSave(),
-          })
-          return
+          throw retryResult.saveError ?? new Error('Result save was not acknowledged')
         }
         markDurablySaved()
         toast.success(translateReport('saveRetrySucceeded'))
@@ -277,9 +281,7 @@ export function useManualCalculationCompletion({
               ? saveResult.saveError.message
               : String(saveResult.saveError),
         })
-        toastSaveFailure(saveResult.saveError, translateReport, {
-          onRetry: () => void retryResultSave(),
-        })
+        if (idForApi) deferReportRecovery(idForApi, 'result', saveResult.saveError, retryResultSave)
       }
 
       if (saveResult.durableSaveSucceeded) {

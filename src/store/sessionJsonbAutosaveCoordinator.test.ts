@@ -25,7 +25,7 @@ function createHarness(
   let items: TestItem[] = []
   let listener: ((state: TestState) => void) | null = null
   const unsubscribe = vi.fn()
-  const persistToSession = vi.fn().mockResolvedValue(undefined)
+  const persistToSession = vi.fn().mockResolvedValue({ status: 'acknowledged' })
   const saveRecoveryBuffer = vi.fn()
   const clearRecoveryBuffer = vi.fn()
 
@@ -144,6 +144,34 @@ describe('SessionJsonbAutosaveCoordinator', () => {
 
     expect(harness.persistToSession).toHaveBeenCalledTimes(1)
     expect(harness.persistToSession).toHaveBeenCalledWith('report-1')
+    stop()
+  })
+  it.each(['deferred', 'skipped'])('retains recovery data for a %s save', async (status) => {
+    const h = createHarness()
+    h.persistToSession.mockResolvedValue({ status })
+    const stop = h.coordinator.enable(() => 'report-1')
+    h.setItems([{ id: 'pending' }])
+    expect(h.saveRecoveryBuffer).toHaveBeenCalledWith('report-1', [{ id: 'pending' }])
+    await vi.advanceTimersByTimeAsync(300)
+    expect(h.clearRecoveryBuffer).not.toHaveBeenCalled()
+    stop()
+  })
+  it('does not clear a newer edit when an older save acknowledges', async () => {
+    const h = createHarness()
+    let finish!: (value: unknown) => void
+    h.persistToSession.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    const stop = h.coordinator.enable(() => 'report-1')
+    h.setItems([{ id: 'old' }])
+    await vi.advanceTimersByTimeAsync(300)
+    h.setItems([{ id: 'new' }])
+    finish({ status: 'acknowledged' })
+    await Promise.resolve()
+    expect(h.clearRecoveryBuffer).not.toHaveBeenCalled()
     stop()
   })
 })

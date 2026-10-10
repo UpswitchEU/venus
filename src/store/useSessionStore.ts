@@ -21,6 +21,7 @@ import type { ISessionEngine, SessionDataRecord } from '../services/session/Sess
 import { createSessionEngine, releaseSessionEngine } from '../services/session/SessionEngineFactory'
 import type { ValuationSession } from '../types/valuation'
 import { storeLogger } from '../utils/logger'
+import type { PersistenceFailure, PersistenceOutcome } from '../utils/persistenceOutcome'
 import { deriveMarkSavedState, deriveMarkUnsavedState } from './useSessionStore.dirtyState'
 import {
   buildNoEngineHydratedSession,
@@ -64,6 +65,7 @@ export type SessionStatus = 'idle' | 'loading' | 'loaded' | 'error'
 export type SessionRenderError = 'payload_too_large' | 'html_recovery_failed'
 
 export interface SessionStore {
+  saveFailure: PersistenceFailure | null
   saveErrorMessage: string | null
   /** Invalidates callbacks even when navigation returns to the same engine. */
   engineRevision: number
@@ -114,7 +116,7 @@ export interface SessionStore {
   updateSession: (updates: Partial<ValuationSession>) => void
   hydrateSession: (updates: Partial<ValuationSession>) => void
   updateSessionData: (data: Partial<SessionDataRecord>) => Promise<void>
-  saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<void>
+  saveSession: (reason?: 'user' | 'autosave' | 'system') => Promise<PersistenceOutcome>
   clearSession: () => void
   completeInitialization: () => void
   /**
@@ -195,6 +197,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   // Save state
   isSaving: false,
   saveErrorMessage: null,
+  saveFailure: null,
   engineRevision: 0,
   lastSaved: null,
   hasUnsavedChanges: false,
@@ -235,6 +238,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         renderError: null,
         isSaving: false,
         saveErrorMessage: null,
+        saveFailure: null,
         hasUnsavedChanges: false,
         dirtyVersion: 0,
         restorationComplete: false,
@@ -564,6 +568,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       renderError: null,
       isSaving: false,
       saveErrorMessage: null,
+      saveFailure: null,
       engineRevision: get().engineRevision + 1,
       lastSaved: null,
       hasUnsavedChanges: false,

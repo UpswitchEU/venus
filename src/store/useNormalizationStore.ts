@@ -21,16 +21,21 @@ import {
   getMercurySourceApp,
   getSessionAutosaveDeferRemainingMs,
 } from '../hooks/formSessionAutosaveDefer'
-import { isUpstreamPoolPressureHttpStatus } from '../hooks/sessionPoolPressureCircuit'
-import { NormalizationAPIError } from '../services/ebitdaNormalizationService'
 import {
   readBrowserRecoveryValue,
   removeBrowserRecoveryValue,
   writeBrowserRecoveryValue,
 } from '../utils/browserRecoveryStorage'
+import { deepEqual } from '../utils/deepEqual'
 import { generalLogger } from '../utils/logger'
 import { appliesToYear } from '../utils/normalizationMath'
+import type { PersistenceOutcome } from '../utils/persistenceOutcome'
+import { reportAccessScope, watchReportAccessScope } from '../utils/reportAccessScope'
 import { isValidSessionId } from '../utils/sessionIdValidation'
+import {
+  type NormalizationMutation,
+  NormalizationPersistenceQueue,
+} from './normalizationPersistenceQueue'
 import {
   acceptNormalizationItem,
   acceptNormalizationItems,
@@ -71,6 +76,8 @@ interface NormalizationStore {
   isLoading: boolean
   isSaving: boolean
   lastFailedPersist: LastFailedPersist
+  pendingMutations: NormalizationMutation[]
+  recoveryBuffered: boolean
 
   // Actions — mutate items
   setItems: (items: NormalizationItem[]) => void
@@ -84,15 +91,20 @@ interface NormalizationStore {
   clear: () => void
 
   // Persistence actions
-  persistToSession: (reportId: string) => Promise<void>
-  persistToTitan: (reportId: string, year: number, reportedEbitda?: number) => Promise<void>
+  persistToSession: (reportId: string) => Promise<PersistenceOutcome>
+  persistToTitan: (
+    reportId: string,
+    year: number,
+    reportedEbitda?: number
+  ) => Promise<PersistenceOutcome>
+  deleteFromTitan: (reportId: string, year: number) => Promise<PersistenceOutcome>
   /** Persist all accepted items for given years to Titan. Call before calculate. */
   persistAllToTitan: (
     reportId: string,
     originalEBITDAByYear: Record<number, number>,
     years: number[]
-  ) => Promise<void>
-  retryPersist: () => Promise<void>
+  ) => Promise<PersistenceOutcome>
+  retryPersist: (reportId?: string) => Promise<PersistenceOutcome>
   loadFromTitan: (sessionId: string) => Promise<void>
   loadFromSession: (sessionData: unknown) => void
 
@@ -104,54 +116,6 @@ interface NormalizationStore {
   getTotalAdjustment: () => number
   getAcceptedTotalAdjustment: () => number
   getNormalizedEbitda: (originalEbitda: number) => number
-}
-
-// ─────────────────────────────────────────
-// TOAST I18N — set by ManualLayout or provider so store can show translated toasts
-// ─────────────────────────────────────────
-
-type ToastMessageKey =
-  | 'normalizationNotSaved'
-  | 'normalizationNotSavedDesc'
-  | 'normalizationConflictDesc'
-  | 'normalizationNotSavedRetry'
-  | 'normalizationNotSavedSession'
-
-type ToastMessageGetter = (key: ToastMessageKey) => string
-
-let toastMessageGetter: ToastMessageGetter | null = null
-
-export function setNormalizationToastMessages(getter: ToastMessageGetter | null) {
-  toastMessageGetter = getter
-}
-
-const TOAST_FALLBACKS: Record<ToastMessageKey, string> = {
-  normalizationNotSaved: 'Adjustments not saved',
-  normalizationNotSavedDesc:
-    'Your adjustments are saved locally. Sync will be retried automatically.',
-  normalizationConflictDesc:
-    'Another update finished first (e.g. valuation or sync). Retrying automatically…',
-  normalizationNotSavedRetry: 'Retry now',
-  normalizationNotSavedSession:
-    'Session not found. Calculate your valuation first or refresh the page.',
-}
-
-function getToastMessage(key: ToastMessageKey, error?: unknown): string {
-  if (key === 'normalizationNotSavedDesc' && error instanceof NormalizationAPIError) {
-    if (error.status === 404) {
-      return (
-        toastMessageGetter?.('normalizationNotSavedSession') ??
-        TOAST_FALLBACKS.normalizationNotSavedSession
-      )
-    }
-    if (error.status === 409) {
-      return (
-        toastMessageGetter?.('normalizationConflictDesc') ??
-        TOAST_FALLBACKS.normalizationConflictDesc
-      )
-    }
-  }
-  return toastMessageGetter?.(key) ?? TOAST_FALLBACKS[key]
 }
 
 function getNormalizationSessionPersistDeferRemainingMs(reportId: string): number {
@@ -169,13 +133,15 @@ function getNormalizationSessionPersistDeferRemainingMs(reportId: string): numbe
 // ─────────────────────────────────────────
 
 export const useNormalizationStore = create<NormalizationStore>()(
-  devtools(
+  devtools<NormalizationStore>(
     (set, get) => ({
       // Initial state
       items: [],
       isLoading: false,
       isSaving: false,
       lastFailedPersist: null,
+      pendingMutations: [],
+      recoveryBuffered: false,
 
       // ─── Mutate ───
 
@@ -230,134 +196,107 @@ export const useNormalizationStore = create<NormalizationStore>()(
           'bulkReject'
         ),
 
-      clear: () => set({ items: [] }, false, 'clear'),
+      clear: () => {
+        normalizationMutations.clear()
+        set({ items: [], lastFailedPersist: null, recoveryBuffered: false }, false, 'clear')
+      },
 
       // ─── Persistence ───
 
       persistToSession: async (reportId) => {
-        if (!reportId) return
-        const deferRemainingMs = getNormalizationSessionPersistDeferRemainingMs(reportId)
-        if (deferRemainingMs > 0) return
-
+        if (!reportId) return { status: 'skipped' }
         const sessionState = useSessionStore.getState()
         const { session, updateSessionData, saveSession } = sessionState
-        if (!session || session.reportId !== reportId) return
-
+        if (!session || session.reportId !== reportId) return { status: 'skipped' }
         const { items } = get()
-        await updateSessionData({ _normalizations: items })
-        await saveSession('autosave')
-        generalLogger.debug('[NormalizationStore] Persisted to session', {
-          reportId: reportId.substring(0, 12),
-          count: items.length,
-        })
+        if (
+          sessionState.restorationComplete &&
+          sessionState.status === 'loaded' &&
+          !sessionState.hasUnsavedChanges &&
+          !sessionState.isSaving &&
+          !sessionState.saveFailure &&
+          deepEqual(
+            (session.sessionData as Record<string, unknown> | undefined)?._normalizations,
+            items
+          ) &&
+          !get().pendingMutations.some(
+            (p) => p.reportId === reportId && p.scope === reportAccessScope()
+          )
+        ) {
+          clearLocalStorage(reportId)
+          return { status: 'acknowledged' }
+        }
+        const deferRemainingMs = getNormalizationSessionPersistDeferRemainingMs(reportId)
+        if (deferRemainingMs > 0) return { status: 'skipped' }
+        const access = watchReportAccessScope()
+        try {
+          await updateSessionData({ _normalizations: items })
+          if (!access.isCurrent() || useSessionStore.getState().session?.reportId !== reportId)
+            return { status: 'skipped' }
+          const outcome = await saveSession('autosave')
+          if (
+            outcome.status === 'acknowledged' &&
+            access.isCurrent() &&
+            get().items === items &&
+            useSessionStore.getState().session?.reportId === reportId &&
+            !get().pendingMutations.some(
+              (p) => p.reportId === reportId && p.scope === reportAccessScope()
+            )
+          ) {
+            clearLocalStorage(reportId)
+          }
+          return outcome
+        } finally {
+          access.dispose()
+        }
       },
 
       persistToTitan: async (reportId, year, reportedEbitda) => {
-        if (!reportId || !isValidSessionId(reportId)) return
-        try {
-          const { items } = get()
-          set({ isSaving: true, lastFailedPersist: null })
-          const doPersist = async (): Promise<void> => {
-            const { normalizationService } = await import('../services/ebitdaNormalizationService')
-            const request = buildTitanNormalizationRequest({
-              items,
+        if (!isValidSessionId(reportId)) return { status: 'skipped' }
+        return normalizationMutations.enqueue([
+          {
+            reportId,
+            year,
+            operation: 'save',
+            request: buildTitanNormalizationRequest({
+              items: get().items,
               reportId,
-              reportedEbitda,
               year,
-            })
-            await normalizationService.saveNormalization(request)
-          }
-          const isRetryable = (err: unknown): boolean => {
-            if (err instanceof NormalizationAPIError) {
-              if (err.status === 409) return true
-              const code =
-                err.details && typeof err.details === 'object' && 'code' in err.details
-                  ? (err.details as { code?: string }).code
-                  : undefined
-              if (code === 'NORMALIZATION_SNAPSHOT_CONFLICT') return true
-              if (isUpstreamPoolPressureHttpStatus(err.status)) return false
-              return err.status >= 500
-            }
-            if (err instanceof TypeError) return true
-            return false
-          }
-          const backoffMs = (err: unknown, attempt: number): number => {
-            if (err instanceof NormalizationAPIError && err.status === 409) {
-              return Math.min(100 + 120 * attempt, 450)
-            }
-            return 1000
-          }
-          const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-          let lastError: unknown
-          for (let attempt = 0; attempt <= 2; attempt++) {
-            try {
-              await doPersist()
-              generalLogger.debug('[NormalizationStore] Persisted to Titan API', {
-                reportId: reportId.substring(0, 12),
-                year,
-                count: get().items.filter((n) => n.status === 'accepted').length,
-              })
-              return
-            } catch (error) {
-              lastError = error
-              if (attempt < 2 && isRetryable(error)) {
-                generalLogger.debug('[NormalizationStore] Retrying persist', {
-                  attempt: attempt + 1,
-                  status: error instanceof NormalizationAPIError ? error.status : undefined,
-                })
-                await sleep(backoffMs(error, attempt))
-              } else {
-                break
-              }
-            }
-          }
-          set({ lastFailedPersist: { reportId, year, reportedEbitda } })
-          generalLogger.warn('[NormalizationStore] Titan persist failed (non-blocking)', {
-            error: lastError instanceof Error ? lastError.message : String(lastError),
-          })
-          import('sonner')
-            .then(({ toast }) => {
-              const retryPersist = useNormalizationStore.getState().retryPersist
-              toast.warning(getToastMessage('normalizationNotSaved'), {
-                description: getToastMessage('normalizationNotSavedDesc', lastError),
-                duration: 8000,
-                action: {
-                  label: getToastMessage('normalizationNotSavedRetry'),
-                  onClick: () => retryPersist(),
-                },
-              })
-            })
-            .catch((err) => {
-              generalLogger.debug('[NormalizationStore] Toast display failed (non-critical)', {
-                error: err instanceof Error ? err.message : String(err),
-              })
-            })
-        } finally {
-          set({ isSaving: false })
-          normalizationSessionAutosave.flushPendingVisibilityPersist()
-        }
+              reportedEbitda,
+            }),
+          },
+        ])
       },
 
-      retryPersist: async () => {
-        const { lastFailedPersist } = get()
-        if (!lastFailedPersist) return
-        const { reportId, year, reportedEbitda } = lastFailedPersist
-        set({ lastFailedPersist: null })
-        await get().persistToTitan(reportId, year, reportedEbitda)
+      deleteFromTitan: async (reportId, year) => {
+        if (!isValidSessionId(reportId)) return { status: 'skipped' }
+        return normalizationMutations.enqueue([{ reportId, year, operation: 'delete' }])
+      },
+
+      retryPersist: async (reportId) => {
+        const target = reportId ?? useSessionStore.getState().session?.reportId
+        return target ? normalizationMutations.retry(target) : { status: 'skipped' }
       },
 
       persistAllToTitan: async (reportId, originalEBITDAByYear, years) => {
-        if (!reportId || !isValidSessionId(reportId)) return
-        const { items, persistToTitan: persistYear } = get()
+        if (!isValidSessionId(reportId)) return { status: 'skipped' }
+        const { items } = get()
         const accepted = items.filter((n) => n.status === 'accepted')
-        if (accepted.length === 0) return
-
-        const yearsToPersist = years.filter((year) => accepted.some((n) => appliesToYear(n, year)))
-        if (yearsToPersist.length === 0) return
-
-        for (const year of yearsToPersist) {
-          await persistYear(reportId, year, originalEBITDAByYear[year] ?? 0)
-        }
+        return normalizationMutations.enqueue(
+          years.map((year) => ({
+            reportId,
+            year,
+            operation: accepted.some((n) => appliesToYear(n, year))
+              ? ('save' as const)
+              : ('delete' as const),
+            request: buildTitanNormalizationRequest({
+              items,
+              reportId,
+              year,
+              reportedEbitda: originalEBITDAByYear[year] ?? 0,
+            }),
+          }))
+        )
       },
 
       loadFromTitan: async (sessionId) => {
@@ -410,6 +349,31 @@ export const useNormalizationStore = create<NormalizationStore>()(
   )
 )
 
+const normalizationMutations = new NormalizationPersistenceQueue((pendingMutations, isSaving) => {
+  const failed = pendingMutations.find((item) => item.failure)
+  useNormalizationStore.setState({
+    pendingMutations,
+    isSaving,
+    lastFailedPersist: failed
+      ? {
+          reportId: failed.reportId,
+          year: failed.year,
+          reportedEbitda: failed.request?.reported_ebitda,
+        }
+      : null,
+  })
+  const activeReportId = useSessionStore.getState().session?.reportId
+  if (
+    activeReportId &&
+    (useNormalizationStore.getState().recoveryBuffered ||
+      pendingMutations.some(
+        (p) => p.reportId === activeReportId && p.scope === reportAccessScope()
+      ))
+  ) {
+    saveToLocalStorage(activeReportId, useNormalizationStore.getState().items)
+  }
+})
+
 // ─────────────────────────────────────────
 // LOCAL-STORAGE SAFETY NET
 // Synchronous fallback for beforeunload — survives even if the
@@ -417,13 +381,37 @@ export const useNormalizationStore = create<NormalizationStore>()(
 // ─────────────────────────────────────────
 
 const LS_PENDING_PREFIX = '_norm_pending_'
+export function normalizationRecoveryKey(reportId: string) {
+  return `${LS_PENDING_PREFIX}${reportId}:${encodeURIComponent(reportAccessScope())}`
+}
 
 function saveToLocalStorage(reportId: string, items: NormalizationItem[]) {
-  writeBrowserRecoveryValue(`${LS_PENDING_PREFIX}${reportId}`, items)
+  const buffered = writeBrowserRecoveryValue(
+    `${LS_PENDING_PREFIX}${reportId}:${encodeURIComponent(reportAccessScope())}`,
+    {
+      scope: reportAccessScope(),
+      items,
+      mutations: useNormalizationStore
+        .getState()
+        .pendingMutations.filter((p) => p.reportId === reportId && p.scope === reportAccessScope()),
+    }
+  )
+  useNormalizationStore.setState({ recoveryBuffered: buffered })
+  return buffered
 }
 
 function clearLocalStorage(reportId: string) {
-  removeBrowserRecoveryValue(`${LS_PENDING_PREFIX}${reportId}`)
+  const cleared = removeBrowserRecoveryValue(normalizationRecoveryKey(reportId))
+  const legacyKey = `${LS_PENDING_PREFIX}${reportId}`
+  const legacy = readBrowserRecoveryValue<{ scope: string }>(
+    legacyKey,
+    (value): value is { scope: string } =>
+      !!value && typeof value === 'object' && 'scope' in value && typeof value.scope === 'string',
+    { allowLegacy: false }
+  )
+  const legacyCleared =
+    legacy?.scope === reportAccessScope() ? removeBrowserRecoveryValue(legacyKey) : true
+  useNormalizationStore.setState({ recoveryBuffered: !cleared || !legacyCleared })
 }
 
 /**
@@ -433,20 +421,47 @@ function clearLocalStorage(reportId: string) {
  */
 export function recoverPendingNormalizations(reportId: string): NormalizationItem[] | null {
   if (!reportId || typeof window === 'undefined') return null
-  const items = readBrowserRecoveryValue<unknown[]>(
-    `${LS_PENDING_PREFIX}${reportId}`,
-    (value): value is unknown[] => Array.isArray(value)
-  )
-  if (!items) return null
-
-  const normalized = items.filter(isNormalizationItem)
-  if (normalized.length > 0) {
-    clearLocalStorage(reportId)
-    return normalized
+  const readBuffer = (key: string) =>
+    readBrowserRecoveryValue<{
+      scope: string
+      items: unknown[]
+      mutations?: NormalizationMutation[]
+    }>(
+      key,
+      (value): value is { scope: string; items: unknown[] } =>
+        !!value &&
+        typeof value === 'object' &&
+        'scope' in value &&
+        typeof value.scope === 'string' &&
+        'items' in value &&
+        Array.isArray(value.items),
+      { allowLegacy: false }
+    )
+  const saved =
+    readBuffer(normalizationRecoveryKey(reportId)) ?? readBuffer(`${LS_PENDING_PREFIX}${reportId}`)
+  if (!saved || saved.scope !== reportAccessScope()) return null
+  useNormalizationStore.setState({
+    items: saved.items.filter(isNormalizationItem),
+    recoveryBuffered: true,
+  })
+  if (Array.isArray(saved.mutations)) {
+    normalizationMutations.restore(
+      saved.mutations.filter(
+        (p) =>
+          !!p &&
+          typeof p === 'object' &&
+          p.reportId === reportId &&
+          p.scope === reportAccessScope() &&
+          Number.isInteger(p.year) &&
+          (p.operation === 'delete' ||
+            (p.operation === 'save' &&
+              p.request?.session_id === reportId &&
+              p.request.year === p.year))
+      )
+    )
   }
-
-  clearLocalStorage(reportId)
-  return null
+  useNormalizationStore.setState({ recoveryBuffered: true })
+  return saved.items.filter(isNormalizationItem)
 }
 
 // ─────────────────────────────────────────
@@ -466,6 +481,10 @@ const normalizationSessionAutosave = new SessionJsonbAutosaveCoordinator<
   persistToSession: (reportId) => useNormalizationStore.getState().persistToSession(reportId),
   saveRecoveryBuffer: saveToLocalStorage,
   clearRecoveryBuffer: clearLocalStorage,
+  canClearRecoveryBuffer: (reportId) =>
+    !useNormalizationStore
+      .getState()
+      .pendingMutations.some((p) => p.reportId === reportId && p.scope === reportAccessScope()),
   isVisibilityPersistBlocked: () => useNormalizationStore.getState().isSaving,
   getDeferRemainingMs: getNormalizationSessionPersistDeferRemainingMs,
 })

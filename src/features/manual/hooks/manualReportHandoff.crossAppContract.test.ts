@@ -198,7 +198,9 @@ describe('manual report handoff load contract', () => {
     expect(workspaceSource).toMatch(/pdfStalePollLookupId/)
     expect(controllerSource).toMatch(/usePdfStalenessLifecycle/)
     expect(controllerSource).toMatch(/isPdfReady/)
-    expect(controllerSource).toMatch(/persistedReportLookupId: pdfStalePollLookupId \?\? null/)
+    expect(controllerSource).toMatch(
+      /persistedReportLookupId: upstreamBlocked \? null : \(pdfStalePollLookupId \?\? null\)/
+    )
   })
 
   it('useManualReportIdentifiers exposes pdfStalePollLookupId fallback for val_* routes', () => {

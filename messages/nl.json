@@ -1,4 +1,19 @@
 {
+	"reportRecovery": {
+		"saving": "Je wijzigingen worden opgeslagen…",
+		"subscription": "Het abonnement van je kantoor vereist aandacht.",
+		"access": "Je toegang tot dit rapport vereist aandacht. Je wijzigingen blijven in dit tabblad.",
+		"saveFailed": "We konden je laatste wijzigingen niet opslaan. Ze blijven in dit tabblad.",
+		"preparing": "Wijzigingen opgeslagen. Je PDF wordt voorbereid…",
+		"pdfFailed": "Wijzigingen opgeslagen. We konden de PDF niet voorbereiden.",
+		"saved": "Alle wijzigingen opgeslagen",
+		"automaticRetry": "Een nieuwe opslagpoging is automatisch gepland.",
+		"manageSubscription": "Abonnement beheren",
+		"askOwner": "Vraag je kantooreigenaar om hulp.",
+		"retrySave": "Opnieuw opslaan",
+		"retryPdf": "PDF opnieuw proberen",
+		"downloadPdf": "PDF downloaden"
+	},
 	"navigationSave": {
 		"saving": "Wijzigingen opslaan voordat u vertrekt…",
 		"failed": "Uw laatste wijzigingen konden niet worden opgeslagen.",

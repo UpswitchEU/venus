@@ -1,4 +1,19 @@
 {
+	"reportRecovery": {
+		"saving": "Saving your changes…",
+		"subscription": "Your firm’s subscription needs attention.",
+		"access": "Your access to this report needs attention. Your changes remain in this tab.",
+		"saveFailed": "We couldn’t save your latest changes. They remain in this tab.",
+		"preparing": "Changes saved. Preparing your PDF…",
+		"pdfFailed": "Changes saved. We couldn’t prepare the PDF.",
+		"saved": "All changes saved",
+		"automaticRetry": "A save retry is scheduled automatically.",
+		"manageSubscription": "Manage subscription",
+		"askOwner": "Ask your firm owner.",
+		"retrySave": "Retry save",
+		"retryPdf": "Retry PDF",
+		"downloadPdf": "Download PDF"
+	},
 	"navigationSave": {
 		"saving": "Saving before leaving…",
 		"failed": "Your latest changes could not be saved.",

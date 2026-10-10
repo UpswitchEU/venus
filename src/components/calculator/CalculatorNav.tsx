@@ -74,6 +74,7 @@ export function CalculatorNav({
   downloadHistory = [],
   onRedownload,
   canDownloadPdf = false,
+  pdfBlocked = false,
   isAccountantMode = false,
   onExitClientView,
   showSourceDataToggle = false,
@@ -389,6 +390,7 @@ export function CalculatorNav({
               onFullscreen={onFullscreen}
               isExporting={isExporting}
               pdfPlanLocked={pdfPlanLocked}
+              pdfBlocked={pdfBlocked}
               pdfDownloadTooltip={pdfDownloadTooltip}
               downloadHistory={downloadHistory}
               showSignAttest={showSignAttest}
@@ -494,6 +496,7 @@ export function CalculatorNav({
               onNormalizationFeatureLocked={onNormalizationFeatureLocked}
               isExporting={isExporting}
               pdfPlanLocked={pdfPlanLocked}
+              pdfBlocked={pdfBlocked}
               pdfDownloadTooltip={pdfDownloadTooltip}
               downloadHistory={downloadHistory}
               compactTouchTarget

@@ -1,4 +1,19 @@
 {
+	"reportRecovery": {
+		"saving": "Enregistrement de vos modifications…",
+		"subscription": "L’abonnement de votre cabinet nécessite votre attention.",
+		"access": "Votre accès à ce rapport nécessite votre attention. Vos modifications restent dans cet onglet.",
+		"saveFailed": "Nous n’avons pas pu enregistrer vos dernières modifications. Elles restent dans cet onglet.",
+		"preparing": "Modifications enregistrées. Préparation de votre PDF…",
+		"pdfFailed": "Modifications enregistrées. Nous n’avons pas pu préparer le PDF.",
+		"saved": "Toutes les modifications sont enregistrées",
+		"automaticRetry": "Une nouvelle tentative d’enregistrement est prévue automatiquement.",
+		"manageSubscription": "Gérer l’abonnement",
+		"askOwner": "Contactez le propriétaire de votre cabinet.",
+		"retrySave": "Réessayer l’enregistrement",
+		"retryPdf": "Réessayer le PDF",
+		"downloadPdf": "Télécharger le PDF"
+	},
 	"navigationSave": {
 		"saving": "Enregistrement avant de quitter…",
 		"failed": "Vos dernières modifications n’ont pas pu être enregistrées.",

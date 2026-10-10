@@ -43,6 +43,7 @@ function jsonResponse(body: unknown): Response {
 
 describe('usePdfGeneration', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     mocks.getSessionData.mockReturnValue({})
@@ -101,6 +102,85 @@ describe('usePdfGeneration', () => {
       error: null,
       progress: 0,
     })
+  })
+
+  it('does not promote an unverified session PDF to a current artifact', () => {
+    mocks.getSessionData.mockReturnValue({ pdfUrl: 'https://cdn.example/old.pdf' })
+    const h = renderHook(() => usePdfGeneration('report-a'))
+    expect(h.result.current.isReady).toBe(false)
+  })
+
+  it('invalidates a completed PDF when the acknowledged report revision changes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(jsonResponse({ success: true, pdfUrl: 'https://cdn.example/v1.pdf' }))
+    )
+    const h = renderHook(({ revision }) => usePdfGeneration('report-a', revision), {
+      initialProps: { revision: 'v1' },
+    })
+    await act(async () => {
+      await h.result.current.generatePdf()
+    })
+    expect(h.result.current.isReady).toBe(true)
+    h.rerender({ revision: 'v2' })
+    expect(h.result.current.isReady).toBe(false)
+    expect(h.result.current.state.url).toBeNull()
+  })
+
+  it('releases generation after 60 seconds even when a status request is stuck', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === 'POST'
+          ? jsonResponse({ success: true, jobId: 'job-1' })
+          : new Promise(() => {
+              /* Deliberately stalled status request. */
+            })
+      )
+    )
+    const h = renderHook(() => usePdfGeneration('report-a'))
+    await act(async () => {
+      await h.result.current.generatePdf()
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_001)
+    })
+    expect(h.result.current.isGenerating).toBe(false)
+    expect(h.result.current.state.status).toBe('error')
+    h.unmount()
+    vi.useRealTimers()
+  })
+
+  it('times out a PDF body that stalls after successful response headers', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('%PDF-1.7\n'))
+            init?.signal?.addEventListener(
+              'abort',
+              () => {
+                controller.error(new DOMException('Download aborted', 'AbortError'))
+              },
+              { once: true }
+            )
+          },
+        })
+        return new Response(body, { headers: { 'Content-Type': 'application/pdf' } })
+      })
+    )
+    const { result } = renderHook(() => usePdfGeneration('report-a'))
+    const download = result.current.downloadPdf().catch((error: unknown) => error)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_001)
+    })
+    expect(await download).toMatchObject({ name: 'AbortError' })
+    expect(result.current.state.error).toBe('PDF download timed out — please try again.')
   })
 
   it('treats transient 503 on download as a retriable APIError without latching error state', async () => {
