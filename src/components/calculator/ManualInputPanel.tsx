@@ -404,6 +404,7 @@ export function ManualInputPanel({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (isCalculating || !canSubmit) return
     if (fieldValidation.hasErrors) {
       import('sonner').then(({ toast }) =>
         toast.error(mi('validation.checkFields'), {
@@ -504,7 +505,11 @@ export function ManualInputPanel({
     <>
       <div className="h-full flex flex-col bg-background overflow-hidden">
         <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-          <form onSubmit={handleSubmit} className="p-6 space-y-6 flex flex-col">
+          <form
+            id="manual-valuation-inputs"
+            onSubmit={handleSubmit}
+            className="p-6 space-y-6 flex flex-col"
+          >
             <CompanyIdentificationSection
               formData={formData}
               initialData={initialData}

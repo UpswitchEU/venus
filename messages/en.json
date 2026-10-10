@@ -1,5 +1,7 @@
 {
 	"reportRecovery": {
+		"calculationStale": "Your changes need to be included in a new valuation before downloading.",
+		"updateValuation": "Update valuation",
 		"saving": "Saving your changes…",
 		"subscription": "Your firm’s subscription needs attention.",
 		"access": "Your access to this report needs attention. Your changes remain in this tab.",

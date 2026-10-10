@@ -12,6 +12,8 @@ export function ManualReportRecoveryStatus({
   retryPdf,
   downloadPdf,
   isExporting = false,
+  calculationStale = false,
+  updateValuationFormId,
 }: {
   recovery: ReturnType<typeof useReportRecovery>
   hasReport: boolean
@@ -21,6 +23,8 @@ export function ManualReportRecoveryStatus({
   retryPdf: () => Promise<void>
   downloadPdf?: () => Promise<void>
   isExporting?: boolean
+  calculationStale?: boolean
+  updateValuationFormId?: string
 }) {
   const t = useTranslations('reportRecovery')
   const locale = useLocale()
@@ -38,11 +42,13 @@ export function ManualReportRecoveryStatus({
           ? 'saveFailed'
           : blocked
             ? 'saving'
-            : pdfStale
-              ? pdfFailed
-                ? 'pdfFailed'
-                : 'preparing'
-              : 'saved'
+            : calculationStale
+              ? 'calculationStale'
+              : pdfStale
+                ? pdfFailed
+                  ? 'pdfFailed'
+                  : 'preparing'
+                : 'saved'
   return (
     <div
       role="status"
@@ -74,7 +80,12 @@ export function ManualReportRecoveryStatus({
           {t('retrySave')}
         </AuroraButton>
       )}
-      {!blocked && !pdfStale && hasReport && downloadPdf && (
+      {!blocked && calculationStale && updateValuationFormId && (
+        <AuroraButton size="sm" type="submit" form={updateValuationFormId}>
+          {t('updateValuation')}
+        </AuroraButton>
+      )}
+      {!blocked && !calculationStale && !pdfStale && hasReport && downloadPdf && (
         <AuroraButton
           size="sm"
           loading={isExporting}
@@ -84,7 +95,7 @@ export function ManualReportRecoveryStatus({
           {t('downloadPdf')}
         </AuroraButton>
       )}
-      {!blocked && pdfStale && pdfFailed && (
+      {!blocked && !calculationStale && pdfStale && pdfFailed && (
         <AuroraButton
           size="sm"
           loading={pdfRetrying}

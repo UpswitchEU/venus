@@ -1,5 +1,7 @@
 {
 	"reportRecovery": {
+		"calculationStale": "Werk de waardering bij met uw wijzigingen voordat u de PDF downloadt.",
+		"updateValuation": "Waardering bijwerken",
 		"saving": "Je wijzigingen worden opgeslagen…",
 		"subscription": "Het abonnement van je kantoor vereist aandacht.",
 		"access": "Je toegang tot dit rapport vereist aandacht. Je wijzigingen blijven in dit tabblad.",

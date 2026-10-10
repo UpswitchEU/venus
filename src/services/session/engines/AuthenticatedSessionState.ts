@@ -33,17 +33,19 @@ export function mergeAuthenticatedSessionUpdate(
     updatedAt,
   }
 
-  if (updates.sessionData) {
+  // Both envelopes are read by legacy consumers, and partialData wins when
+  // building the save payload. Apply each explicit edit to both envelopes so
+  // a copy hydrated from an earlier response cannot shadow the latest edit.
+  // Explicit partialData keeps its existing precedence when both are supplied.
+  if (updates.sessionData || updates.partialData) {
+    const editedFields = { ...updates.sessionData, ...updates.partialData }
     mergedSession.sessionData = {
       ...(currentSession.sessionData || {}),
-      ...updates.sessionData,
+      ...editedFields,
     }
-  }
-
-  if (updates.partialData) {
     mergedSession.partialData = {
       ...(currentSession.partialData || {}),
-      ...updates.partialData,
+      ...editedFields,
     }
   }
 

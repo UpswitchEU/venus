@@ -12,6 +12,37 @@ const base = {
   retryPdf: vi.fn(),
 }
 describe('one report status', () => {
+  it('requires an updated calculation before offering an old PDF or a PDF retry', () => {
+    const view = render(
+      <ManualReportRecoveryStatus
+        {...base}
+        calculationStale
+        updateValuationFormId="manual-valuation-inputs"
+        downloadPdf={vi.fn()}
+      />
+    )
+    expect(screen.getByText('calculationStale')).toBeVisible()
+    expect(screen.queryByText('pdfFailed')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'retryPdf' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'updateValuation' })).toHaveAttribute(
+      'form',
+      'manual-valuation-inputs'
+    )
+    expect(screen.getByRole('button', { name: 'updateValuation' })).toHaveAttribute(
+      'type',
+      'submit'
+    )
+    view.rerender(
+      <ManualReportRecoveryStatus
+        {...base}
+        calculationStale
+        pdfStale={false}
+        downloadPdf={vi.fn()}
+      />
+    )
+    expect(screen.queryByText('saved')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'downloadPdf' })).toBeNull()
+  })
   it('suppresses downstream PDF actions during a save failure', () => {
     render(
       <ManualReportRecoveryStatus

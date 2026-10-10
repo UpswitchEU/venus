@@ -1,5 +1,7 @@
 {
 	"reportRecovery": {
+		"calculationStale": "Mettez à jour la valorisation avec vos modifications avant de télécharger le PDF.",
+		"updateValuation": "Mettre à jour la valorisation",
 		"saving": "Enregistrement de vos modifications…",
 		"subscription": "L’abonnement de votre cabinet nécessite votre attention.",
 		"access": "Votre accès à ce rapport nécessite votre attention. Vos modifications restent dans cet onglet.",
