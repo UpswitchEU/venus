@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ManualReportRecoveryStatus } from '../features/manual/components/ManualReportRecoveryStatus'
+import { useReportRecovery } from '../features/manual/hooks/useReportRecovery'
 import {
   clearScopedGlobalBootstrapResult,
   getScopedGlobalBootstrapResult,
@@ -14,12 +16,16 @@ import {
   reportAssetService,
 } from '../services/report/ReportAssetService'
 import { useManualResultsStore } from '../store/manual/useManualResultsStore'
+import { useReportRecoveryStore } from '../store/reportRecoveryStore'
+import { useNormalizationStore } from '../store/useNormalizationStore'
 import { useSessionStore } from '../store/useSessionStore'
 import { useClientContext } from '../stores/clientContext'
 import type { ValuationSession } from '../types/valuation'
 import { REPORT_IDENTITY_PROMOTED_EVENT } from '../utils/reportIdentityPromotion'
 import { ValuationFlowSelector } from './ValuationFlowSelector'
 import { ValuationSessionManager } from './ValuationSessionManager'
+
+vi.mock('next-intl', () => ({ useLocale: () => 'en', useTranslations: () => (key: string) => key }))
 
 const state = vi.hoisted(() => ({ bootstrap: null as any, mounts: 0, refresh: vi.fn() }))
 vi.mock('../lib/bootstrap', async (original) => ({
@@ -35,11 +41,21 @@ vi.mock('next-view-transitions', () => ({
 }))
 vi.mock('../features/valuation/components/ValuationFlow', () => ({
   ValuationFlow: () => {
+    const activeReportId = useSessionStore((s) => s.session?.reportId ?? sessionKey)
+    const recovery = useReportRecovery(activeReportId)
     useEffect(() => {
       state.mounts++
     }, [])
     return (
       <article>
+        <ManualReportRecoveryStatus
+          recovery={recovery}
+          hasReport
+          pdfStale={false}
+          pdfFailed={false}
+          pdfRetrying={false}
+          retryPdf={async () => undefined}
+        />
         <p>Generated valuation</p>
         <input aria-label="Report note" defaultValue="original" />
       </article>
@@ -78,6 +94,8 @@ describe('calculation → save → UUID → refresh with the real session manage
     state.mounts = 0
     state.refresh.mockReset().mockResolvedValue(undefined)
     pendingReportAssetSaves.clear()
+    useReportRecoveryStore.setState({ step: null })
+    useNormalizationStore.getState().clear()
     useClientContext.setState({ isActingAsClient: false, relationshipId: null })
     useManualResultsStore.setState({ result: null, htmlReport: null })
     window.localStorage.clear()
@@ -103,6 +121,8 @@ describe('calculation → save → UUID → refresh with the real session manage
       errorMessage: null,
       hasUnsavedChanges: false,
       saveErrorMessage: null,
+      saveFailure: null,
+      isSaving: false,
       session: {
         reportId: sessionKey,
         currentView: 'manual',
@@ -183,10 +203,11 @@ describe('calculation → save → UUID → refresh with the real session manage
         reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
       ).rejects.toThrow()
     })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Save temporarily unavailable')
-    fireEvent.click(screen.getByRole('button', { name: /tryAgain/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent('saveFailed')
+    expect(failedReportAssetSave(sessionKey)?.error).toContain('Save temporarily unavailable')
+    fireEvent.click(screen.getByRole('button', { name: 'retrySave' }))
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('saved'))
     expect(save.mock.calls[1]).toEqual(save.mock.calls[0])
     expect(state.refresh).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Report note')).toBe(note)
@@ -327,10 +348,11 @@ describe('calculation → save → UUID → refresh with the real session manage
         .saveSession('autosave')
         .catch(() => undefined)
     })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Service Unavailable (503)')
-    fireEvent.click(screen.getByRole('button', { name: /tryAgain/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent('saveFailed')
+    expect(useSessionStore.getState().saveFailure?.kind).toBe('temporary')
+    fireEvent.click(screen.getByRole('button', { name: 'retrySave' }))
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('saved'))
     expect(state.refresh).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Report note')).toBe(note)
     expect(note).toHaveValue('keep unsaved draft')
