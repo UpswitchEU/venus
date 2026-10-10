@@ -524,24 +524,18 @@ export function usePdfGeneration(
         )
       }
 
-      let downloadTimedOut = false
+      // Keep the deadline through body consumption: headers alone are not a completed download.
+      const downloadAbortHandle = createTimeoutAbortHandle(PDF_DOWNLOAD_FETCH_MS, signal)
       try {
         // Use proxy to avoid CORS/403 when fetching Supabase storage from browser.
         // BFF runs Titan GET + optional POST generate + storage stream.
-        const downloadAbortHandle = createTimeoutAbortHandle(PDF_DOWNLOAD_FETCH_MS, signal)
-        let response: Response
-        try {
-          response = await requestPdfDownload({
-            headers: pdfFetchHeaders(),
-            reportId: targetReportId,
-            signal: downloadAbortHandle.signal,
-            savedReport: { valuation_result: useSessionStore.getState().session?.valuationResult },
-            language: document.documentElement.lang.split('-')[0]?.toLowerCase(),
-          })
-        } finally {
-          downloadTimedOut = downloadAbortHandle.didTimeout()
-          downloadAbortHandle.cleanup()
-        }
+        const response = await requestPdfDownload({
+          headers: pdfFetchHeaders(),
+          reportId: targetReportId,
+          signal: downloadAbortHandle.signal,
+          savedReport: { valuation_result: useSessionStore.getState().session?.valuationResult },
+          language: document.documentElement.lang.split('-')[0]?.toLowerCase(),
+        })
         if (!isCurrentDownload()) return
 
         const blob = await response.blob()
@@ -573,8 +567,11 @@ export function usePdfGeneration(
           }
           throw error
         }
-        if (error instanceof Error && error.name === 'AbortError') {
-          if (downloadTimedOut && isCurrentDownload()) {
+        if (
+          downloadAbortHandle.signal.aborted ||
+          (error instanceof Error && error.name === 'AbortError')
+        ) {
+          if (downloadAbortHandle.didTimeout() && isCurrentDownload()) {
             setState((prev) => ({
               ...prev,
               error: 'PDF download timed out — please try again.',
@@ -590,6 +587,8 @@ export function usePdfGeneration(
           }))
         }
         throw error
+      } finally {
+        downloadAbortHandle.cleanup()
       }
     },
     [reportId, mountedRef]

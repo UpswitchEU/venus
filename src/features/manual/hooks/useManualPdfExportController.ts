@@ -156,12 +156,17 @@ export function useManualPdfExportController({
       trackPDFDownload()
       toast.success(downloadedTitle)
     } catch (error) {
+      const failure = persistenceFailure(error)
+      if (
+        failure.code === 'ADVISORY_SUBSCRIPTION_REQUIRED' ||
+        failure.code === 'ADVISORY_VERIFICATION_UNAVAILABLE'
+      ) {
+        if (isCurrentRun()) useSessionStore.setState({ saveFailure: failure })
+        return
+      }
       if (error instanceof APIError && error.statusCode === 402) {
         if (isCurrentRun()) {
-          const failure = persistenceFailure(error)
-          if (failure.code === 'ADVISORY_SUBSCRIPTION_REQUIRED')
-            useSessionStore.setState({ saveFailure: failure })
-          else openPdfPaywall()
+          openPdfPaywall()
         }
         return
       }

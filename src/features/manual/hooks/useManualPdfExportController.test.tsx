@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PdfRequestRefusedError } from '../../../hooks/pdfGenerationModel'
+import { useSessionStore } from '../../../store/useSessionStore'
 import { APIError } from '../../../types/errors'
 import { useManualPdfExportController } from './useManualPdfExportController'
 
@@ -43,6 +44,7 @@ function makeParams(
 
 describe('useManualPdfExportController', () => {
   afterEach(() => {
+    useSessionStore.setState({ saveFailure: null })
     vi.restoreAllMocks()
     Object.values(toast).forEach((fn) => fn.mockReset())
   })
@@ -168,6 +170,27 @@ describe('useManualPdfExportController', () => {
     expect(toast.error).toHaveBeenCalledWith('PDF export failed', {
       description: 'Please try again',
     })
+  })
+
+  it.each([
+    ['ADVISORY_VERIFICATION_UNAVAILABLE', 503, 'temporary'],
+    ['ADVISORY_SUBSCRIPTION_REQUIRED', 402, 'subscription'],
+  ] as const)('routes %s during download into the same report recovery status', async (code, status, kind) => {
+    const download = vi.fn().mockRejectedValue(
+      new APIError('Firm access', status, undefined, true, {
+        responseData: { code, canManageBilling: true },
+      })
+    )
+    const params = makeParams(download)
+    const { result } = renderHook(() => useManualPdfExportController(params))
+    await act(async () => {
+      await result.current.handleExport()
+    })
+    expect(useSessionStore.getState().saveFailure).toMatchObject({ code, kind })
+    expect(result.current.isExporting).toBe(false)
+    expect(params.openPdfPaywall).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
   it('warns on transient download errors without a hard export failure toast', async () => {

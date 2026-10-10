@@ -43,6 +43,7 @@ function jsonResponse(body: unknown): Response {
 
 describe('usePdfGeneration', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     mocks.getSessionData.mockReturnValue({})
@@ -151,6 +152,35 @@ describe('usePdfGeneration', () => {
     expect(h.result.current.state.status).toBe('error')
     h.unmount()
     vi.useRealTimers()
+  })
+
+  it('times out a PDF body that stalls after successful response headers', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('%PDF-1.7\n'))
+            init?.signal?.addEventListener(
+              'abort',
+              () => {
+                controller.error(new DOMException('Download aborted', 'AbortError'))
+              },
+              { once: true }
+            )
+          },
+        })
+        return new Response(body, { headers: { 'Content-Type': 'application/pdf' } })
+      })
+    )
+    const { result } = renderHook(() => usePdfGeneration('report-a'))
+    const download = result.current.downloadPdf().catch((error: unknown) => error)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_001)
+    })
+    expect(await download).toMatchObject({ name: 'AbortError' })
+    expect(result.current.state.error).toBe('PDF download timed out — please try again.')
   })
 
   it('treats transient 503 on download as a retriable APIError without latching error state', async () => {
