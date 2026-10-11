@@ -289,6 +289,26 @@ describe('buildValuationCurveRows', () => {
 })
 
 describe('buildHeadlineFallbackRows', () => {
+  it.each([
+    { current_year_data: { year: 2025 }, report_context: { latest_year: 2024 } },
+    { report_context: { latest_year: '2025' } },
+  ])('uses the priced financial year ahead of the report creation year', (basis) => {
+    const rows = buildHeadlineFallbackRows({
+      ...basis,
+      equity_value_low: 782063.53,
+      equity_value_mid: 1045539.48,
+      equity_value_high: 1309015.43,
+      valuation_date: '2026-10-11',
+    } as unknown as ValuationResponse)
+    expect(rows[0]).toMatchObject({
+      id: 'headline:2025',
+      label: '2025',
+      observedAt: '2025-12-31T00:00:00.000Z',
+      valueMid: 1045539.48,
+      isForecast: false,
+    })
+  })
+
   it('returns [] when the result is missing or has no midpoint', () => {
     expect(buildHeadlineFallbackRows(null)).toEqual([])
     expect(buildHeadlineFallbackRows({} as ValuationResponse)).toEqual([])

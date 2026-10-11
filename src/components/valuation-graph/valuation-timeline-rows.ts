@@ -223,8 +223,8 @@ export function buildValuationCurveRows(result: ValuationResponse | null | undef
 
 /**
  * Fallback single dated point built from the headline equity band, for results
- * that predate the timeline (legacy persisted reports). Anchored to the valuation
- * date's fiscal year so it sits where its timeline point would.
+ * without a timeline. Prefer the priced financial year; the report creation date
+ * can be a later calendar year. Legacy date-only results retain their fallback.
  */
 export function buildHeadlineFallbackRows(
   result: ValuationResponse | null | undefined
@@ -237,10 +237,13 @@ export function buildHeadlineFallbackRows(
 
   const dateSource = result.valuation_date || result.timestamp
   const parsed = dateSource ? new Date(dateSource) : null
+  const financialYear =
+    toFiscalYear(result.current_year_data?.year) ?? toFiscalYear(result.report_context?.latest_year)
   const year =
-    parsed && !Number.isNaN(parsed.getTime())
+    financialYear ??
+    (parsed && !Number.isNaN(parsed.getTime())
       ? parsed.getUTCFullYear()
-      : new Date().getUTCFullYear()
+      : new Date().getUTCFullYear())
 
   return buildChartRows([
     {
