@@ -35,7 +35,7 @@ export interface ValuationInputData {
     inventory_turnover: number
     receivables_turnover: number
     payables_turnover: number
-    revenue_growth: number
+    revenue_growth: number | null
     financial_health_description: string
   }
 }
