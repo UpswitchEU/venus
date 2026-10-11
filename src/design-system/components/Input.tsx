@@ -166,7 +166,8 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
     const hasError = hasVisibleFieldError(error, touched)
     const state = deriveFieldVisualState({ disabled, hasError, isFocused, success })
     const shouldShake = useFieldErrorShake(hasError)
-    const fieldId = props.id || props.name
+    const generatedId = React.useId()
+    const fieldId = props.id || props.name || generatedId
     const errorId = getFieldErrorId(fieldId)
 
     const shouldTruncateLabel = truncateLabel
@@ -197,7 +198,7 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
         {useStackedLabel && (
           <div className="mb-1.5 flex items-start justify-between gap-2">
             <label
-              htmlFor={props.id || props.name}
+              htmlFor={fieldId}
               className={cn(
                 'block text-[12px] font-medium leading-snug transition-colors',
                 stackedLabelState
@@ -267,12 +268,13 @@ const AuroraInput = React.forwardRef<HTMLInputElement, AuroraInputProps>(
               useStackedLabel ? (placeholderProp ?? '') : (placeholderProp ?? ' ')
             }
             {...props}
+            id={fieldId}
           />
 
           {/* Floating Label — only when truncateLabel is true (default). */}
           {label && !useStackedLabel && (
             <label
-              htmlFor={props.id || props.name}
+              htmlFor={fieldId}
               title={typeof label === 'string' ? label : undefined}
               className={cn(
                 floatingLabelVariants({ state, floated: isLabelFloated, size }),

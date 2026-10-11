@@ -259,6 +259,8 @@ export function CalculatorNav({
               <AuroraButton
                 variant={isAssistantOpen ? 'primary' : 'ghost'}
                 size="sm"
+                aria-label={t('assistant.title')}
+                aria-pressed={isAssistantOpen}
                 onClick={onOpenAssistant}
                 className={cn(
                   'gap-1.5 transition-all duration-200 relative',
@@ -304,6 +306,7 @@ export function CalculatorNav({
                 <AuroraButton
                   variant="ghost"
                   size="sm"
+                  aria-label={t('normalization.title')}
                   onClick={
                     normalizationFeatureLocked
                       ? (onNormalizationFeatureLocked ?? onOpenNormalization)

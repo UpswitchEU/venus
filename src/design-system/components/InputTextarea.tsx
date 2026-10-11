@@ -103,7 +103,8 @@ export const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProp
     const hasError = hasVisibleFieldError(error, touched)
     const state = deriveFieldVisualState({ disabled, hasError, isFocused, success })
     const shouldShake = useFieldErrorShake(hasError)
-    const fieldId = props.id || props.name
+    const generatedId = React.useId()
+    const fieldId = props.id || props.name || generatedId
     const errorId = getFieldErrorId(fieldId)
     const isFloated = isFocused || hasValue
 
@@ -143,11 +144,12 @@ export const AuroraTextarea = React.forwardRef<HTMLTextAreaElement, TextareaProp
             aria-describedby={hasError ? errorId : undefined}
             placeholder=" "
             {...props}
+            id={fieldId}
           />
 
           {label && (
             <label
-              htmlFor={props.id || props.name}
+              htmlFor={fieldId}
               className={cn(floatingLabelVariants({ state, floated: isFloated, size }))}
             >
               {label}
