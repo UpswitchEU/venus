@@ -11,7 +11,6 @@ import {
   type RightPanelView,
   type ValuationReportData,
 } from '../../../components/calculator'
-import { AcademicValidationNotice } from '../../../components/calculator/sections/AcademicValidationNotice'
 import { ErrorState } from '../../../components/ErrorState'
 import { ReportPlaceholder } from '../../../components/skeletons/ReportPlaceholder'
 import { SafeReportHtml } from '../../../components/valuation/report/SafeReportHtml'
@@ -69,9 +68,6 @@ function HtmlReportSurface({
   return (
     <div className="relative">
       {isMethodSwitchRendering && <MethodSwitchOverlay translate={translate} />}
-      <div className="sticky top-0 z-[5] mx-4 mt-3 space-y-2 bg-background/95 backdrop-blur-sm">
-        <AcademicValidationNotice className="border-b-0" />
-      </div>
       <SafeReportHtml html={report.htmlReport ?? ''} />
     </div>
   )
