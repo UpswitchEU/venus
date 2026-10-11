@@ -50,6 +50,19 @@ describe('useValuationToolbarDownload', () => {
     vi.clearAllMocks()
   })
 
+  it('releases native aborts without a failed-download notification', async () => {
+    const downloadPdf = vi.fn().mockRejectedValue(new DOMException('Cancelled', 'AbortError'))
+    usePdfGenerationMock.mockReturnValue(makePdfGenerationReturn({ downloadPdf }))
+    const h = renderHook(() => useValuationToolbarDownload(makeOptions()))
+    await act(async () => {
+      await h.result.current.handleDownload()
+    })
+    expect(h.result.current.isDownloading).toBe(false)
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
+    h.unmount()
+  })
+
   it('uses the caller-provided download override without invoking BFF PDF download', async () => {
     const downloadPdf = vi.fn().mockResolvedValue(undefined)
     const onDownload = vi.fn()

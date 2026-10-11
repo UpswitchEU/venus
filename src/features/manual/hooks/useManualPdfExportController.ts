@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { DownloadHistoryItem } from '../../../components/calculator'
-import { type PdfRefusal, PdfRequestRefusedError } from '../../../hooks/pdfGenerationModel'
+import {
+  isPdfAbortError,
+  type PdfRefusal,
+  PdfRequestRefusedError,
+} from '../../../hooks/pdfGenerationModel'
 import { trackPDFDownload } from '../../../lib/analytics'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { APIError } from '../../../types/errors'
@@ -174,7 +178,7 @@ export function useManualPdfExportController({
         if (isCurrentRun()) toast.warning(transientDownloadHint)
         return
       }
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (isPdfAbortError(error)) {
         return
       }
       if (!isCurrentRun()) return

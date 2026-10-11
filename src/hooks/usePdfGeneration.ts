@@ -26,6 +26,7 @@ import {
   derivePdfPollDelay,
   derivePdfPollProgress,
   describeInvalidPdfPayloadSnippet,
+  isPdfAbortError,
   PDF_DOWNLOAD_FETCH_MS,
   PDF_STATUS_FETCH_MS,
   PDF_STATUS_MAX_POLL_MS,
@@ -112,6 +113,7 @@ export function usePdfGeneration(
   const generationRunIdRef = useRef(0)
   const pollRunIdRef = useRef(0)
   const downloadRunIdRef = useRef(0)
+  const downloadAbortRef = useRef<TimeoutAbortHandle | null>(null)
   activeReportIdRef.current = reportId
 
   // Reset report-scoped state when the active report changes. This prevents
@@ -122,6 +124,8 @@ export function usePdfGeneration(
     generationRunIdRef.current++
     pollRunIdRef.current++
     downloadRunIdRef.current++
+    downloadAbortRef.current?.abort()
+    downloadAbortRef.current = null
     isGeneratingRef.current = false
     pollInFlightRef.current = false
 
@@ -153,6 +157,8 @@ export function usePdfGeneration(
   // this effect handles the polling-interval + abort-controller teardown.
   useEffect(() => {
     return () => {
+      downloadAbortRef.current?.abort()
+      downloadAbortRef.current = null
       if (deadlineRef.current) clearTimeout(deadlineRef.current)
       if (pollingRef.current) {
         clearTimeout(pollingRef.current)
@@ -516,18 +522,28 @@ export function usePdfGeneration(
         throw new Error(msg)
       }
       const downloadRunId = ++downloadRunIdRef.current
+      const downloadIdentity = identityRef.current
       const isCurrentDownload = () => {
         const activeReportId = activeReportIdRef.current
         return (
           mountedRef.current &&
+          identityRef.current === downloadIdentity &&
           downloadRunIdRef.current === downloadRunId &&
           (activeReportId == null || activeReportId === targetReportId)
         )
       }
 
       // Keep the deadline through body consumption: headers alone are not a completed download.
+      downloadAbortRef.current?.abort()
       const downloadAbortHandle = createTimeoutAbortHandle(PDF_DOWNLOAD_FETCH_MS, signal)
+      downloadAbortRef.current = downloadAbortHandle
+      const assertCurrentDownload = () => {
+        if (!isCurrentDownload() || downloadAbortHandle.signal.aborted) {
+          throw new DOMException('PDF download cancelled', 'AbortError')
+        }
+      }
       try {
+        assertCurrentDownload()
         // Use proxy to avoid CORS/403 when fetching Supabase storage from browser.
         // BFF runs Titan GET + optional POST generate + storage stream.
         const response = await requestPdfDownload({
@@ -537,15 +553,15 @@ export function usePdfGeneration(
           savedReport: { valuation_result: useSessionStore.getState().session?.valuationResult },
           language: document.documentElement.lang.split('-')[0]?.toLowerCase(),
         })
-        if (!isCurrentDownload()) return
+        assertCurrentDownload()
 
         const blob = await response.blob()
-        if (!isCurrentDownload()) return
+        assertCurrentDownload()
         if (!(await blobStartsWithPdfMagic(blob))) {
           const snippet = (await blob.slice(0, 240).text()).trim()
           throw new Error(describeInvalidPdfPayloadSnippet(snippet))
         }
-        if (!isCurrentDownload()) return
+        assertCurrentDownload()
 
         downloadBlob(blob, filename || `valuation-report-${targetReportId}-${Date.now()}.pdf`)
       } catch (error) {
@@ -561,10 +577,7 @@ export function usePdfGeneration(
           }
           throw error
         }
-        if (
-          downloadAbortHandle.signal.aborted ||
-          (error instanceof Error && error.name === 'AbortError')
-        ) {
+        if (downloadAbortHandle.signal.aborted || isPdfAbortError(error)) {
           if (downloadAbortHandle.didTimeout() && isCurrentDownload()) {
             setState((prev) => ({
               ...prev,
@@ -583,6 +596,7 @@ export function usePdfGeneration(
         throw error
       } finally {
         downloadAbortHandle.cleanup()
+        if (downloadAbortRef.current === downloadAbortHandle) downloadAbortRef.current = null
       }
     },
     [reportId, mountedRef]

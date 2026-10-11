@@ -243,4 +243,25 @@ describe('useManualPdfExportController', () => {
     expect(result.current.downloadHistory).toHaveLength(0)
     expect(toast.success).not.toHaveBeenCalled()
   })
+
+  it('releases a cancelled export without reporting a download, then allows retry', async () => {
+    const downloadPdf = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('Report revision changed', 'AbortError'))
+      .mockResolvedValueOnce(undefined)
+    const h = renderHook(() => useManualPdfExportController(makeParams(downloadPdf)))
+    await act(async () => {
+      await h.result.current.handleExport()
+    })
+    expect(h.result.current.isExporting).toBe(false)
+    expect(h.result.current.downloadHistory).toHaveLength(0)
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(toast.error).not.toHaveBeenCalled()
+    await act(async () => {
+      await h.result.current.handleExport()
+    })
+    expect(h.result.current.downloadHistory).toHaveLength(1)
+    expect(toast.success).toHaveBeenCalledOnce()
+    h.unmount()
+  })
 })

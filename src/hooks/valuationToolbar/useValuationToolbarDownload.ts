@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { APIError } from '../../types/errors'
 import { generalLogger } from '../../utils/logger'
 import { isPdfTransientUpstreamStatus } from '../../utils/pdfTransientUpstream'
+import { isPdfAbortError } from '../pdfGenerationModel'
 import { type PdfGenerationState, usePdfGeneration } from '../usePdfGeneration'
 
 type ValuationToolbarDownloadToastKey =
@@ -107,7 +108,7 @@ export const useValuationToolbarDownload = ({
         return
       }
 
-      if (err instanceof Error && err.name === 'AbortError') return
+      if (isPdfAbortError(err)) return
       if (!isCurrentRun()) return
 
       generalLogger.error('[ValuationToolbar] PDF download failed', {
