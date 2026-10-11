@@ -5,6 +5,13 @@ export const PDF_STATUS_POLL_INTERVAL_MS = 2_000
 export const PDF_STATUS_POLL_MAX_BACKOFF_MS = 16_000
 export const PDF_STATUS_MAX_POLL_MS = 60_000
 
+/** Native DOMException values can come from a different realm than Error. */
+export function isPdfAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
+  )
+}
+
 export type TimeoutAbortHandle = {
   signal: AbortSignal
   abort: () => void

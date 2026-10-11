@@ -223,6 +223,83 @@ describe('usePdfGeneration', () => {
     expect(result.current.state.error).toBeNull()
   })
 
+  it.each([
+    'headers',
+    'body',
+  ] as const)('rejects an obsolete download during %s without handing it to the browser', async (phase) => {
+    let resolveHeaders!: (response: Response) => void
+    let resolveBody!: (blob: Blob) => void
+    let requestSignal: AbortSignal | null | undefined
+    const response = new Response('%PDF-1.7\n%%EOF')
+    const pdf = await response.blob()
+    vi.spyOn(response, 'blob').mockImplementation(
+      () => new Promise<Blob>((resolve) => (resolveBody = resolve))
+    )
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      requestSignal = init?.signal
+      // Simulate a transport that can settle even after cancellation.
+      return phase === 'headers'
+        ? new Promise<Response>((resolve) => (resolveHeaders = resolve))
+        : Promise.resolve(response)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const createUrl = vi.spyOn(URL, 'createObjectURL')
+    const h = renderHook(({ revision }) => usePdfGeneration('report-a', revision), {
+      initialProps: { revision: 'v1' },
+    })
+    let download!: Promise<unknown>
+    await act(async () => {
+      download = h.result.current.downloadPdf().catch((error: unknown) => error)
+    })
+    if (phase === 'body') expect(response.blob).toHaveBeenCalledOnce()
+
+    h.rerender({ revision: 'v2' })
+    expect(requestSignal?.aborted).toBe(true)
+    await act(async () => {
+      if (phase === 'headers') resolveHeaders(response)
+      else resolveBody(pdf)
+      expect(await download).toMatchObject({ name: 'AbortError' })
+    })
+    expect(createUrl).not.toHaveBeenCalled()
+    expect(h.result.current.state.error).toBeNull()
+    h.unmount()
+  })
+
+  it('aborts a pending download on unmount', async () => {
+    let requestSignal: AbortSignal | null | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        requestSignal = init?.signal
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Cancelled', 'AbortError'))
+          )
+        })
+      })
+    )
+    const h = renderHook(() => usePdfGeneration('report-a'))
+    const download = h.result.current.downloadPdf().catch((error: unknown) => error)
+    h.unmount()
+    expect(requestSignal?.aborted).toBe(true)
+    expect(await download).toMatchObject({ name: 'AbortError' })
+  })
+
+  it('does not request or deliver a PDF for an already cancelled export', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const h = renderHook(() => usePdfGeneration('report-a'))
+    const controller = new AbortController()
+    controller.abort()
+    await expect(
+      h.result.current.downloadPdf(undefined, undefined, controller.signal)
+    ).rejects.toMatchObject({
+      name: 'AbortError',
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+    h.unmount()
+  })
+
   it('keeps polling after transient 503 on status checks', async () => {
     vi.useFakeTimers()
     let statusCalls = 0
