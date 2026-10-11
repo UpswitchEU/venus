@@ -232,6 +232,17 @@ export interface AiLooseToolResultEnvelope {
 	data?: unknown;
 }
 
+/** Persisted by authorized action endpoints, never by a proposal-only tool. */
+export interface AiActionOutcome {
+	type: 'action_outcome';
+	status: 'completed' | 'rejected';
+	actionId: string;
+	toolName: string;
+	client_id: string;
+	report_id?: string;
+	resultId?: string;
+}
+
 export interface AiCreditSnapshot {
 	remaining: number;
 	limit: number;
