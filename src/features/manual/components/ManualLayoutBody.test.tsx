@@ -56,6 +56,41 @@ describe('ManualLayoutBody', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('supports mobile tab keyboard selection, wrapping and a single tab stop', () => {
+    render(<ManualLayoutBody {...baseProps} isMobile />)
+    const input = screen.getByRole('tab', { name: 'Input' })
+    const output = screen.getByRole('tab', { name: 'Output' })
+    input.focus()
+
+    for (const key of ['ArrowRight', 'ArrowLeft', 'End']) {
+      fireEvent.keyDown(input, { key })
+      expect(output).toHaveFocus()
+      expect(output).toHaveAttribute('aria-selected', 'true')
+      expect(output).toHaveAttribute('tabindex', '0')
+      expect(input).toHaveAttribute('tabindex', '-1')
+      expect(screen.getByRole('tabpanel', { name: 'Output' })).toHaveAttribute(
+        'id',
+        output.getAttribute('aria-controls')
+      )
+
+      fireEvent.keyDown(output, { key: key === 'End' ? 'Home' : key })
+      expect(input).toHaveFocus()
+      expect(input).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('tabpanel', { name: 'Input' })).toHaveAttribute(
+        'id',
+        input.getAttribute('aria-controls')
+      )
+    }
+
+    fireEvent.keyDown(input, { key: 'Tab' })
+    expect(input).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('uses localized mobile labels without an English conjunction', () => {
+    render(<ManualLayoutBody {...baseProps} isMobile inputLabel="Invoer" outputLabel="Rapport" />)
+    expect(screen.getByRole('tablist', { name: 'Invoer / Rapport' })).toBeInTheDocument()
+  })
+
   it('keeps the out-of-date marker beside the report without a duplicate heading', () => {
     render(
       <ManualLayoutBody

@@ -294,6 +294,19 @@ test('synthetic company survives save recovery, refresh, history and PDF downloa
   await expect(companyName).toHaveValue('Manual company without KBO')
   await expect(revenue).toHaveValue('1,600,000.42')
   expect(calculations).toBe(1)
+  if (isMobile) {
+    const inputsTab = page.getByRole('tab', { name: 'Inputs', exact: true })
+    const reportTab = page.getByRole('tab', { name: 'Report', exact: true })
+    await inputsTab.press('ArrowRight')
+    await expect(reportTab).toBeFocused()
+    await expect(reportTab).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tabpanel', { name: 'Report', exact: true })).toBeVisible()
+    await reportTab.press('Home')
+    await expect(inputsTab).toBeFocused()
+    await expect(page.getByRole('tabpanel', { name: 'Inputs', exact: true })).toBeVisible()
+    await expect(companyName).toHaveValue('Manual company without KBO')
+    await expect(revenue).toHaveValue('1,600,000.42')
+  }
   await page.getByRole('button', { name: 'More actions', exact: true }).click()
   await page.getByRole('menuitem', { name: /version history/i }).click()
   if (isMobile) {
