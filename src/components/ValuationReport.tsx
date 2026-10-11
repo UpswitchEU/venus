@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransitionRouter } from 'next-view-transitions'
+import { useRouter } from 'next/navigation'
 import React, { Suspense, useEffect, useRef } from 'react'
 import { ENGINE_TO_MERCURY_MESSAGE_TYPES } from '../constants/crossAppMessages'
 import { useBootstrapSync } from '../hooks/useBootstrapSync'
@@ -67,7 +67,7 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
     initialVersion,
     urlParams = {},
   }) => {
-    const router = useTransitionRouter()
+    const router = useRouter()
 
     // Extract URL action and tab parameters (for Mercury integration)
     const urlAction = urlParams.action || undefined
@@ -92,12 +92,14 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
 
     // LOOP FIX: Ref to prevent duplicate URL sync when effect re-runs (e.g. after remount)
     const urlSyncAttemptedRef = useRef(false)
+    const canonicalNavigationRef = useRef<string | null>(null)
     const sessionReportTrackedRef = useRef(false)
 
     // Reset when reportId changes (client-side nav to different report)
     useEffect(() => {
       const scopedReportId = reportId
       urlSyncAttemptedRef.current = false
+      canonicalNavigationRef.current = null
       sessionReportTrackedRef.current = false
       generalLogger.debug('Reset report-scoped ValuationReport guards', {
         reportId: scopedReportId?.substring(0, 30),
@@ -114,6 +116,8 @@ export const ValuationReport: React.FC<ValuationReportProps> = React.memo(
       const navigateToCanonicalReport = (canonicalReportId: string): void => {
         if (!isUuid(canonicalReportId) || canonicalReportId === reportId) return
         const target = `${UrlGeneratorService.reportById(canonicalReportId)}${window.location.search}`
+        if (canonicalNavigationRef.current === target) return
+        canonicalNavigationRef.current = target
         router.replace(target)
       }
 

@@ -239,6 +239,22 @@ describe('useManualCalculationCompletion', () => {
       expect(setIsDirty).not.toHaveBeenCalledWith(true)
     })
 
+    it('does not mark unchanged figures stale when calculation metadata is hydrated', async () => {
+      const { complete, setIsDirty } = renderCompletion()
+      useManualFormStore.getState().updateFormData({
+        current_year_data: {
+          ...submittedForm.current_year_data,
+          year: 2025,
+          reported_ebitda: 150_000,
+        },
+        _last_valuation_request: request,
+      })
+      await act(async () => {
+        await complete()
+      })
+      expect(setIsDirty).toHaveBeenLastCalledWith(false)
+    })
+
     it('does not write the submit-time copy of an edited field back, and keeps the flag armed', async () => {
       const { complete, setIsDirty } = renderCompletion()
       // The advisor corrects the founding year and revenue while the engine is running.

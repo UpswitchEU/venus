@@ -8,8 +8,8 @@ import { ValuationReport } from './ValuationReport'
 const updateUrlMock = vi.fn()
 const replaceMock = vi.fn()
 
-vi.mock('next-view-transitions', () => ({
-  useTransitionRouter: () => ({
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
     push: vi.fn(),
     replace: replaceMock,
   }),
@@ -114,6 +114,13 @@ describe('ValuationReport URL sync', () => {
         },
       })
     )
+
+    window.dispatchEvent(
+      new CustomEvent('upswitch:report-identity-promoted', {
+        detail: { previousId: sessionKey, reportId: reportUuid },
+      })
+    )
+    expect(replaceMock).toHaveBeenCalledTimes(1)
 
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith(
