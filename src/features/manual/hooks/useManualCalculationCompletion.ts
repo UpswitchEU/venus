@@ -19,6 +19,7 @@ import { generalLogger } from '../../../utils/logger'
 import { postMessageToMercuryParent } from '../../../utils/mercuryParentMessaging'
 import { snapshotNormalizationsToVersion } from '../../../utils/normalizationSnapshot'
 import { MANUAL_AGENT_NEXT_PREPARE_LISTING_PROMPT } from '../utils/manualAgentNextHandoff'
+import { hasFinancialInputsChangedSinceSubmit } from '../utils/manualFinancialChanges'
 import {
   buildSubmittedFinancialSnapshot,
   type SubmittedFinancialSnapshot,
@@ -146,8 +147,14 @@ export function useManualCalculationCompletion({
         })
       }
       // The result reflects the submitted inputs, so "inputs changed" only stays armed for
-      // edits made while it ran. Later edits re-arm it through the form change handler.
-      setIsDirty(changedFormKeys.length > 0)
+      // financial edits made while it ran. Result/identity hydration also changes store keys,
+      // but those are not edits to the figures. Keep that broader diff for save merging only.
+      setIsDirty(
+        hasFinancialInputsChangedSinceSubmit(
+          { ...buildSubmittedFinancialSnapshot(useManualFormStore.getState().formData) },
+          buildSubmittedFinancialSnapshot(request)
+        )
+      )
 
       if (willPersist) {
         durableSaveInFlightRef.current = true

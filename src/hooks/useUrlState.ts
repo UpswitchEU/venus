@@ -8,8 +8,7 @@
  * - Syncs URL with component state
  */
 
-import { useSearchParams } from 'next/navigation'
-import { useTransitionRouter } from 'next-view-transitions'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { parseReportModeSearchParam, shouldPreserveMercuryEmbedMode } from '@/utils/reportMode'
 
@@ -46,7 +45,7 @@ const URL_UPDATE_RESET_DELAY_MS = 400
 
 export function useUrlState({ reportId, onStateChange }: UseUrlStateOptions): UseUrlStateReturn {
   void reportId
-  const router = useTransitionRouter()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const isUpdatingRef = useRef(false)
   const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
