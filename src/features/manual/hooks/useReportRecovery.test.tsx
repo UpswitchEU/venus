@@ -95,7 +95,7 @@ describe('one report recovery coordinator', () => {
     await act(async () => {
       await h.result.current.retry()
     })
-    expect(persist).toHaveBeenCalledWith('report-123')
+    expect(persist).toHaveBeenCalledWith('report-123', 'user')
     expect(h.result.current.blocked).toBe(false)
     h.unmount()
   })

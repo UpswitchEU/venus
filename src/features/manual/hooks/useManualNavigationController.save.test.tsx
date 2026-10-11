@@ -53,7 +53,7 @@ vi.mock('./useManualNewValuationFlow', () => ({
 }))
 
 beforeEach(() => vi.resetAllMocks())
-const renderNavigation = () =>
+const renderNavigation = (overrides = {}) =>
   renderHook(() =>
     useManualNavigationController({
       reportId: 'report-a',
@@ -62,10 +62,29 @@ const renderNavigation = () =>
       translateReport: (key: string) => key,
       flushFormBeforeNavigation: vi.fn(),
       isNavigationBusy: () => false,
+      ...overrides,
     } as never)
   )
 
 describe('workspace exit entry points', () => {
+  it.each([
+    'handlePreview',
+    'handleShowHistory',
+    'handleShowGraph',
+  ] as const)('%s makes its output visible on mobile', (action) => {
+    const setRightPanelView = vi.fn()
+    const setShowFullscreenModal = vi.fn()
+    const { result } = renderNavigation({
+      isMobile: true,
+      setRightPanelView,
+      setShowFullscreenModal,
+    })
+    act(() => result.current[action]())
+    expect(setRightPanelView).toHaveBeenCalledWith(
+      { handlePreview: 'preview', handleShowHistory: 'history', handleShowGraph: 'graph' }[action]
+    )
+    expect(setShowFullscreenModal).toHaveBeenCalledWith(true)
+  })
   it.each([
     ...Object.keys(env.actions),
     'handleConfirmNewValuation',

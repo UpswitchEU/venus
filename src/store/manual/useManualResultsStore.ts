@@ -344,13 +344,14 @@ export const useManualResultsStore = create<ManualResultsStore>((set, get) => ({
           })
         }
 
-        // ✅ OPTIMISTIC: Update session cache immediately for instant refresh UX
-        // This ensures page refresh shows the result without waiting for backend save
+        // Result hydration also runs on reload and background report refreshes.
+        // Mirror the result without creating an edit; calculation persistence
+        // owns the durable save and existing unsaved form edits stay dirty.
         try {
           if (typeof window !== 'undefined') {
             const session = useSessionStore.getState().session
             if (session) {
-              useSessionStore.getState().updateSession({
+              useSessionStore.getState().hydrateSession({
                 valuationResult: normalizedResult,
                 htmlReport: renderableHtmlReport,
               })

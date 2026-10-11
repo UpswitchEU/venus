@@ -91,7 +91,7 @@ interface NormalizationStore {
   clear: () => void
 
   // Persistence actions
-  persistToSession: (reportId: string) => Promise<PersistenceOutcome>
+  persistToSession: (reportId: string, reason?: 'autosave' | 'user') => Promise<PersistenceOutcome>
   persistToTitan: (
     reportId: string,
     year: number,
@@ -203,7 +203,7 @@ export const useNormalizationStore = create<NormalizationStore>()(
 
       // ─── Persistence ───
 
-      persistToSession: async (reportId) => {
+      persistToSession: async (reportId, reason = 'autosave') => {
         if (!reportId) return { status: 'skipped' }
         const sessionState = useSessionStore.getState()
         const { session, updateSessionData, saveSession } = sessionState
@@ -227,13 +227,17 @@ export const useNormalizationStore = create<NormalizationStore>()(
           return { status: 'acknowledged' }
         }
         const deferRemainingMs = getNormalizationSessionPersistDeferRemainingMs(reportId)
-        if (deferRemainingMs > 0) return { status: 'skipped' }
+        // Recovery must drain its buffer after saving the form. Otherwise that
+        // preceding PATCH starts a quiet window and every retry stops here.
+        // The API still owns server backoff; unfinished restoration stays gated.
+        if (deferRemainingMs > 0 && (reason === 'autosave' || !Number.isFinite(deferRemainingMs)))
+          return { status: 'skipped' }
         const access = watchReportAccessScope()
         try {
           await updateSessionData({ _normalizations: items })
           if (!access.isCurrent() || useSessionStore.getState().session?.reportId !== reportId)
             return { status: 'skipped' }
-          const outcome = await saveSession('autosave')
+          const outcome = await saveSession(reason)
           if (
             outcome.status === 'acknowledged' &&
             access.isCurrent() &&

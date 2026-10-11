@@ -177,7 +177,13 @@ export function CalculatorNav({
               Mirrors MinimalHeader's `<Link href="/">` home affordance. */}
           <Link
             href="/"
-            aria-label={navLocale === 'nl' ? 'Upswitch — startpagina' : 'Upswitch — home'}
+            aria-label={
+              navLocale === 'nl'
+                ? 'Upswitch — startpagina'
+                : navLocale === 'fr'
+                  ? 'Upswitch — accueil'
+                  : 'Upswitch — home'
+            }
             className="-ml-1 mr-0.5 inline-flex min-h-[44px] min-w-[36px] shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 md:hidden"
           >
             <img
@@ -272,7 +278,9 @@ export function CalculatorNav({
                     aria-label={
                       navLocale === 'nl'
                         ? `${openTasksCount} openstaande taak${openTasksCount === 1 ? '' : 'en'} in de assistent`
-                        : `${openTasksCount} pending task${openTasksCount === 1 ? '' : 's'} in assistant`
+                        : navLocale === 'fr'
+                          ? `${openTasksCount} tâche${openTasksCount === 1 ? '' : 's'} en attente dans l’assistant`
+                          : `${openTasksCount} pending task${openTasksCount === 1 ? '' : 's'} in assistant`
                     }
                   >
                     {openTasksCount > 9 ? '9+' : openTasksCount}
@@ -287,7 +295,9 @@ export function CalculatorNav({
                   normalizationFeatureLocked
                     ? navLocale === 'nl'
                       ? 'EBITDA-normalisatie & belastinglatenties — Starter+'
-                      : 'EBITDA normalization & tax latencies — Starter+'
+                      : navLocale === 'fr'
+                        ? 'Normalisation de l’EBITDA et fiscalité latente — Starter+'
+                        : 'EBITDA normalization & tax latencies — Starter+'
                     : t('normalization.title')
                 }
               >
@@ -319,7 +329,9 @@ export function CalculatorNav({
                       aria-label={
                         navLocale === 'nl'
                           ? `${normalizationCount} normalisatie${normalizationCount === 1 ? '' : 's'} ter beoordeling`
-                          : `${normalizationCount} pending normalization${normalizationCount === 1 ? '' : 's'}`
+                          : navLocale === 'fr'
+                            ? `${normalizationCount} normalisation${normalizationCount === 1 ? '' : 's'} à examiner`
+                            : `${normalizationCount} pending normalization${normalizationCount === 1 ? '' : 's'}`
                       }
                     >
                       {normalizationCount > 9 ? '9+' : normalizationCount}
@@ -467,7 +479,9 @@ export function CalculatorNav({
                     aria-label={
                       navLocale === 'nl'
                         ? `${openTasksCount} openstaande taak${openTasksCount === 1 ? '' : 'en'} in de assistent`
-                        : `${openTasksCount} pending task${openTasksCount === 1 ? '' : 's'} in assistant`
+                        : navLocale === 'fr'
+                          ? `${openTasksCount} tâche${openTasksCount === 1 ? '' : 's'} en attente dans l’assistant`
+                          : `${openTasksCount} pending task${openTasksCount === 1 ? '' : 's'} in assistant`
                     }
                   >
                     {openTasksCount > 9 ? '9+' : openTasksCount}

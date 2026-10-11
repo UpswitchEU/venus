@@ -100,6 +100,7 @@ describe('syncBootstrapSession', () => {
       city: 'Brussels',
       _bootstrapPrefill: true,
     })
+    expect(useSessionStore.getState().restorationComplete).toBe(false)
   })
 
   it('hydrates country-only new report prefill even below the confidence gate', () => {
@@ -129,6 +130,27 @@ describe('syncBootstrapSession', () => {
       country_code: 'BE',
     })
     expect(useManualFormStore.getState().formData.country_code).toBe('BE')
+    expect(useSessionStore.getState().restorationComplete).toBe(true)
+  })
+
+  it('unblocks persistence for a new report with no imported prefill', () => {
+    const state = makeBootstrapState({
+      report: {
+        mode: 'new',
+        reportId: 'val_new_empty',
+        hasExistingData: false,
+        status: 'draft',
+      },
+    })
+    syncBootstrapSession(state)
+    expect(useSessionStore.getState()).toMatchObject({
+      status: 'loaded',
+      restorationComplete: true,
+      session: { reportId: 'val_new_empty' },
+    })
+    const complete = vi.spyOn(useSessionStore.getState(), 'setRestorationComplete')
+    syncBootstrapSession(state)
+    expect(complete).not.toHaveBeenCalled()
   })
 
   it('hydrates current year and visible grid from existing-report accounting yearData', () => {

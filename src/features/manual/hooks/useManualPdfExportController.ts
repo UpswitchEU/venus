@@ -97,6 +97,7 @@ export function useManualPdfExportController({
     abortRef.current = null
     toast.dismiss(PDF_EXPORT_TOAST_ID)
     setIsExporting(false)
+    setDownloadHistory([])
   }, [currentPdfReportId])
 
   useEffect(() => {

@@ -16,6 +16,66 @@ const t = ((key: string) => {
 }) as never
 
 describe('CalculatorNavToolbarOverflowMenu', () => {
+  it.each([
+    { pdfBlocked: true },
+    { isExporting: true },
+    { hasReport: false },
+  ])('blocks recent downloads when export is unavailable: %j', (state) => {
+    const onRedownload = vi.fn()
+    render(
+      <ToolbarOverflowMenu
+        navLocale="en"
+        t={t}
+        hasReport
+        rightPanelView="report"
+        showSourceDataToggle={false}
+        sourceDataOpen={false}
+        onDownload={vi.fn()}
+        onRedownload={onRedownload}
+        isExporting={false}
+        pdfPlanLocked={false}
+        pdfDownloadTooltip={null}
+        downloadHistory={[
+          {
+            id: 'old-export',
+            fileName: 'prior-report.pdf',
+            timestamp: new Date(),
+          },
+        ]}
+        {...state}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    const recent = screen.getByRole('menuitem', { name: /prior-report.pdf/ })
+    expect(recent).toBeDisabled()
+    fireEvent.click(recent)
+    expect(onRedownload).not.toHaveBeenCalled()
+  })
+
+  it('localizes French overflow controls and pending-normalization labels', () => {
+    render(
+      <ToolbarOverflowMenu
+        navLocale="fr"
+        t={t}
+        hasReport
+        rightPanelView="report"
+        showSourceDataToggle
+        sourceDataOpen={false}
+        onToggleSourceData={vi.fn()}
+        onOpenNormalization={vi.fn()}
+        normalizationCount={2}
+        isExporting={false}
+        pdfPlanLocked={false}
+        pdfDownloadTooltip={null}
+        downloadHistory={[]}
+      />
+    )
+    const trigger = screen.getByRole('button', { name: 'Plus d’actions' })
+    expect(screen.getByLabelText('2 normalisations à examiner')).toBeInTheDocument()
+    fireEvent.click(trigger)
+    expect(screen.getByText('Données sources')).toBeInTheDocument()
+  })
+
   it('does not show a normalization badge when the normalization action is hidden', () => {
     render(
       <ToolbarOverflowMenu

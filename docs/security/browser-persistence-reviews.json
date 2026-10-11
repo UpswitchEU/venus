@@ -258,10 +258,10 @@
       }
     },
     "src/store/useNormalizationStore.ts": {
-      "reviewedAt": "2026-10-10",
+      "reviewedAt": "2026-10-11",
       "reviewBy": "2026-12-31",
-      "sourceSha256": "df585e031661e9dab153a271b317112264b33c6488be01e08ddc15236d5d941e",
-      "assessment": "Report-keyed normalization items plus revision-aware per-year update/removal payloads are temporary workflow recovery, explicitly requested for this incident. Full authorized user/delegated advisor/client scope is checked before restoration. Maximum 24 hours and 500 kB via the shared envelope; no credentials, access decisions, full manual draft or rendered report assets. Restoration does not consume the buffer. Only acknowledged matching items with no pending year mutations clear it; deferred saves and newer edits retain it. Local-write success is verified. Release audit: recovery keys now include the authenticated/delegated identity scope; old scoped envelopes remain readable without consuming them, and only matching acknowledged buffers are cleared. Failed removals retain the recovery marker.",
+      "sourceSha256": "21e9ba757192e39028e890e2ba9f83391da545854c5e8bc85d4b133e99f155ea",
+      "assessment": "Report-keyed normalization items plus revision-aware per-year update/removal payloads are temporary workflow recovery, explicitly requested for this incident. Full authorized user/delegated advisor/client scope is checked before restoration. Maximum 24 hours and 500 kB via the shared envelope; no credentials, access decisions, full manual draft or rendered report assets. Restoration does not consume the buffer. Only acknowledged matching items with no pending year mutations clear it; deferred saves and newer edits retain it. Local-write success is verified. Release audit: recovery keys now include the authenticated/delegated identity scope; old scoped envelopes remain readable without consuming them, and only matching acknowledged buffers are cleared. Failed removals retain the recovery marker. Re-reviewed explicit retry: it may pass finite autosave quiet windows after a preceding acknowledged form save, while restoration/status gates and API backoff remain. Payload fields, storage destination, access scope, size and expiry are unchanged; acknowledgement is still required before buffer removal.",
       "dependencies": {
         "src/utils/browserRecoveryStorage.ts": "bd976ed940951896059fd5f7f1b1b12e3050619cc9f547303d90859862392391",
         "src/store/sessionJsonbAutosaveCoordinator.ts": "4c2b7bd9bfe7661921e482e1feab7f0811e69c34edc41e02030aecf3fdbef725",

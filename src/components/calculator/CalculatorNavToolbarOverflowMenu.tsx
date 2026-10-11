@@ -109,12 +109,16 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
 
   if (!hasAnyAction) return null
 
-  const sourceDataLabel = navLocale === 'nl' ? 'Brondata' : 'Source data'
-  const moreLabel = navLocale === 'nl' ? 'Meer acties' : 'More actions'
+  const sourceDataLabel =
+    navLocale === 'nl' ? 'Brondata' : navLocale === 'fr' ? 'Données sources' : 'Source data'
+  const moreLabel =
+    navLocale === 'nl' ? 'Meer acties' : navLocale === 'fr' ? 'Plus d’actions' : 'More actions'
   const upgradeLabel =
     navLocale === 'nl'
       ? 'Upgrade voor PDF-download (Starter)'
-      : 'Upgrade for PDF download (Starter)'
+      : navLocale === 'fr'
+        ? 'Passer à Starter pour télécharger le PDF'
+        : 'Upgrade for PDF download (Starter)'
   const triggerActive =
     (sourceDataOpen && hasSourceData) ||
     (rightPanelView === 'history' && hasReport) ||
@@ -151,7 +155,9 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
               aria-label={
                 navLocale === 'nl'
                   ? `${normalizationCount} normalisatie${normalizationCount === 1 ? '' : 's'} ter beoordeling`
-                  : `${normalizationCount} pending normalization${normalizationCount === 1 ? '' : 's'}`
+                  : navLocale === 'fr'
+                    ? `${normalizationCount} normalisation${normalizationCount === 1 ? '' : 's'} à examiner`
+                    : `${normalizationCount} pending normalization${normalizationCount === 1 ? '' : 's'}`
               }
             >
               {normalizationCount > 9 ? '9+' : normalizationCount}
@@ -398,8 +404,9 @@ export const ToolbarOverflowMenu: React.FC<ToolbarOverflowMenuProps> = ({
                 key={item.id}
                 type="button"
                 role="menuitem"
+                disabled={!hasReport || isExporting || pdfBlocked}
                 onClick={() => (pdfPlanLocked ? void onDownload?.() : void onRedownload?.(item))}
-                className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors text-left"
+                className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-3.5 h-3.5 text-primary" aria-hidden />
