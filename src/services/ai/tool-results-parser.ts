@@ -192,10 +192,16 @@ export function parseAIChatToolResults(toolResults: unknown): ParsedToolResults 
         }
         if (typeof label !== 'string') break
         const confidence = update.confidence
+        const fiscalYear =
+          Number.isInteger(update.fiscal_year) &&
+          Number(update.fiscal_year) >= 1900 &&
+          Number(update.fiscal_year) <= 2100
+            ? Number(update.fiscal_year)
+            : undefined
         out.fieldUpdates.push({
-          field,
+          field: fiscalYear ? `${field}.${fiscalYear}` : field,
           value,
-          label,
+          label: fiscalYear ? `${label} (${fiscalYear})` : label,
           source: 'ai',
           ...(confidence === 'high' || confidence === 'medium' || confidence === 'low'
             ? { confidence }

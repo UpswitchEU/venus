@@ -19,6 +19,7 @@ import { getMercuryUrl } from '@/utils/getMercuryUrl'
 import { ChatAssistantProposalCards } from './ChatAssistantProposalCards'
 import type { AgentChoiceSelection, ChatMessage, FieldContext } from './ChatAssistantTypes'
 import { CommandPillProvider, StreamingMarkdown } from './StreamingMarkdown'
+import { formatAssistantFieldValue } from './utils/assistantFieldValue'
 
 // Empty state — matches Mercury AdvisorAIDockPanel (dot + title + description).
 export function EmptyState({ fieldContext }: { fieldContext?: FieldContext }) {
@@ -332,7 +333,7 @@ export function MessageBubble({
                     {update.label}
                     <span className="text-foreground/35 mx-1.5">·</span>
                     <span className="font-mono">
-                      €{Math.round(update.value).toLocaleString(currencyLocale)}
+                      {formatAssistantFieldValue(update.field, update.value, currencyLocale)}
                     </span>
                   </p>
                   {meta.length > 0 && (

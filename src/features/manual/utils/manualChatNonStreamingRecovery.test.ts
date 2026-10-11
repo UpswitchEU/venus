@@ -238,7 +238,7 @@ describe('runManualChatNonStreamingRecovery', () => {
       conversationId: 'conv-next',
       fallback: true,
       fieldUpdates: [{ field: 'revenue', value: 100000, label: 'Revenue' }],
-      normalisationSuggestions: [{ description: 'Owner salary addback' }],
+      normalisationSuggestions: [{ description: 'Owner salary addback', amount: 20000 }],
     })
     const patchAssistantMessage = vi.fn()
     const setConversationId = vi.fn()

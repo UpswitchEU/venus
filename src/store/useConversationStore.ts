@@ -49,7 +49,7 @@ export interface ConversationStore {
   setToolInProgress: (toolName: string | null) => void
 
   // Server-side history
-  loadHistory: (reportId: string) => Promise<void>
+  loadHistory: (reportId: string, force?: boolean) => Promise<void>
 
   // Initialization state management
   getInitializationState: (
@@ -197,6 +197,7 @@ const initializationState = new Map<
 >()
 
 export const useConversationStore = create<ConversationStore>((set, get) => {
+  let historyRequestGeneration = 0
   return {
     messages: [],
     isStreaming: false,
@@ -330,6 +331,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
     },
 
     clearMessages: () => {
+      ++historyRequestGeneration
       set({
         messages: [],
         currentStreamingMessageId: null,
@@ -364,9 +366,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
      * Load conversation history from the server for a given report.
      * When reportId changes (e.g. accountant switches clients), reload for the new report.
      */
-    loadHistory: async (reportId: string) => {
+    loadHistory: async (reportId: string, force = false) => {
       const state = get()
-      if (state.historyLoaded && state.lastLoadedReportId === reportId) return
+      if (!force && state.historyLoaded && state.lastLoadedReportId === reportId) return
+      const generation = ++historyRequestGeneration
 
       // Clear messages when switching reports (accountant: client A → B) to avoid showing stale history
       if (state.lastLoadedReportId && state.lastLoadedReportId !== reportId) {
@@ -381,7 +384,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
 
         // Guard: if the user switched reports while the request was in-flight,
         // discard this stale response to avoid overwriting the newer report's data.
-        if (get().lastLoadedReportId !== reportId) return
+        if (generation !== historyRequestGeneration || get().lastLoadedReportId !== reportId) return
 
         if (conversationId) {
           const convertedMessages = mapServerHistoryToMessages(messages)
@@ -401,7 +404,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => {
           set({ historyLoaded: true, lastLoadedReportId: reportId })
         }
       } catch (error) {
-        if (get().lastLoadedReportId !== reportId) return
+        if (generation !== historyRequestGeneration || get().lastLoadedReportId !== reportId) return
         storeLogger.warn('Failed to load conversation history', {
           error: error instanceof Error ? error.message : String(error),
         })

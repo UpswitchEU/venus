@@ -444,6 +444,21 @@ class AIChatServiceImpl {
   /**
    * Load conversation history from the server.
    */
+  async resetConversation(reportId: string): Promise<string> {
+    const response = await fetch('/api/ai/conversations/reset', {
+      method: 'POST',
+      headers: getAIChatRequestHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ reportId }),
+    })
+    if (!response.ok) throw new Error('Conversation reset failed')
+    const data = await response.json()
+    if (typeof data.conversationId !== 'string' || !data.conversationId) {
+      throw new Error('Conversation reset returned no conversation')
+    }
+    return data.conversationId
+  }
+
   async loadHistory(reportId: string): Promise<{
     conversationId: string | null
     messages: Array<{

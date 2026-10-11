@@ -1,8 +1,10 @@
+import { getManualResultsSnapshot } from '../../store/manualResultsSnapshot'
 import type { ValuationSession } from '../../types/valuation'
 import { applyRecoveredReportHtml } from '../../utils/applyRecoveredReportHtml'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { isSessionKey, isUuid } from '../../utils/identifiers'
 import { createContextLogger } from '../../utils/logger'
+import { watchReportAccessScope } from '../../utils/reportAccessScope'
 import {
   buildRecoveryEligibilitySession,
   extractRenderableHtmlFromSessionPayload,
@@ -28,18 +30,25 @@ function optionalString(value: unknown): string | undefined {
 }
 
 export async function revalidateSessionCacheInBackground(reportId: string): Promise<void> {
+  const access = watchReportAccessScope()
+  const resultAtStart = getManualResultsSnapshot()?.valuationResult
+  const isCurrent = () =>
+    access.isCurrent() && getManualResultsSnapshot()?.valuationResult === resultAtStart
   try {
     logger.debug('Starting background revalidation', { reportId })
 
     let sessionResponse = await backendAPI.getValuationSession(reportId)
+    if (!isCurrent()) return
 
     if (sessionResponse?.session) {
       validateSessionData(sessionResponse.session)
       let normalizedSession = normalizeSessionDates(sessionResponse.session)
       let mergedSession = mergeSessionFields(normalizedSession)
       await backfillSparseSessionFromStoreSeed(reportId, mergedSession)
+      if (!isCurrent()) return
 
       const afterEnsure = await tryRefetchAfterEnsureHtml(reportId, mergedSession)
+      if (!isCurrent()) return
       if (afterEnsure?.session) {
         sessionResponse = afterEnsure
         validateSessionData(sessionResponse.session)
@@ -93,6 +102,7 @@ export async function revalidateSessionCacheInBackground(reportId: string): Prom
 
       try {
         const { useSessionStore } = await import('../../store/useSessionStore')
+        if (!isCurrent()) return
         const currentStoreSession = useSessionStore.getState().session
         const storeRid = currentStoreSession?.reportId
         const shouldSyncStore =
@@ -102,6 +112,7 @@ export async function revalidateSessionCacheInBackground(reportId: string): Prom
 
         if (shouldSyncStore) {
           const { useManualResultsStore } = await import('../../store/manual/useManualResultsStore')
+          if (!isCurrent() || useSessionStore.getState().session !== currentStoreSession) return
           const existingResult = useManualResultsStore.getState().result
           const standaloneHtmlReport = useManualResultsStore.getState().htmlReport
           const revalidatedScreenHtml = extractRenderableHtmlFromSessionPayload(mergedSession)
@@ -192,5 +203,7 @@ export async function revalidateSessionCacheInBackground(reportId: string): Prom
       reportId,
       error: getErrorMessage(error),
     })
+  } finally {
+    access.dispose()
   }
 }

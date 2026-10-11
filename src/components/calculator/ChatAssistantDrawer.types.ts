@@ -60,7 +60,7 @@ export interface ChatAssistantDrawerProps {
   onResolveStartupIssue?: (issueId: string, prompt: string) => void
   onApplyStartupIssueQuickFix?: (issueId: string) => void
   onJumpToStartupIssue?: (issueId: string) => void
-  onApplyFieldUpdate?: (field: string, value: unknown) => void
+  onApplyFieldUpdate?: (field: string, value: unknown) => boolean | void
   pendingUpdates?: PendingAssistantUpdate[]
   onAcceptUpdate?: (field: string) => void
   onRejectUpdate?: (field: string) => void

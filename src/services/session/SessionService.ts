@@ -22,6 +22,7 @@ import type { ValuationSession } from '../../types/valuation'
 import { sessionCircuitBreaker } from '../../utils/circuitBreaker'
 import { getErrorMessage } from '../../utils/errors/errorConverter'
 import { createContextLogger } from '../../utils/logger'
+import { watchReportAccessScope } from '../../utils/reportAccessScope'
 import { retrySessionOperation } from '../../utils/retryWithBackoff'
 import { globalSessionCache } from '../../utils/sessionCacheManager'
 import { fetchValuationSessionWithCompletedReportRetry } from './SessionBackendLookup'
@@ -108,6 +109,9 @@ export class SessionService {
   ): Promise<ValuationSession | null> {
     const startTime = performance.now()
     const ABSOLUTE_TIMEOUT = 12000 // 12 seconds max
+    const access = watchReportAccessScope()
+    let active = true
+    const isCurrent = () => active && access.isCurrent()
 
     try {
       // SECURITY: prefilledQuery should come from session data, not URL
@@ -124,17 +128,20 @@ export class SessionService {
       // Wrap the entire load operation with an absolute timeout
       const loadPromise = retrySessionOperation(
         async () => {
+          if (!isCurrent()) return null
           return await sessionCircuitBreaker.execute(async () => {
             const sessionResponse = await fetchValuationSessionWithCompletedReportRetry(reportId)
+            if (!isCurrent()) return null
 
             if (!sessionResponse?.session) {
-              return createSessionForNewReportIfAllowed(reportId, flow, prefilledQuery)
+              return createSessionForNewReportIfAllowed(reportId, flow, prefilledQuery, isCurrent)
             }
 
             return hydrateExistingValuationSession(
               reportId,
               sessionResponse.session,
-              prefilledQuery
+              prefilledQuery,
+              isCurrent
             )
           })
         },
@@ -196,7 +203,7 @@ export class SessionService {
         })
       }
 
-      return session
+      return isCurrent() ? session : null
     } catch (error) {
       const duration = performance.now() - startTime
 
@@ -231,6 +238,9 @@ export class SessionService {
         })
         return null
       }
+    } finally {
+      active = false
+      access.dispose()
     }
   }
 
@@ -248,7 +258,13 @@ export class SessionService {
    * Save complete session with form data, valuation assets, cache refresh, and broadcast.
    */
   async saveCompleteSession(reportId: string, data: CompleteSessionSaveData): Promise<void> {
-    return saveCompleteValuationSession(reportId, data, (id) => this.loadSession(id))
+    // Complete-save owns the guarded cache write. General loading hydrates
+    // from the current form and writes cache internally, which is unsafe if
+    // the advisor changes clients while this refresh is awaiting the server.
+    return saveCompleteValuationSession(reportId, data, async (id) => {
+      const response = await fetchValuationSessionWithCompletedReportRetry(id)
+      return response?.session ?? null
+    })
   }
 
   /**

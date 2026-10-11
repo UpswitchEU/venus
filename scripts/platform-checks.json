@@ -58,8 +58,8 @@
     },
     "vendor/ai-actions/src/index.ts": {
       "source": "UpswitchEU/venus/vendor/ai-actions/src/index.ts",
-      "revision": "0ac39520f0913eb7776245124a6743172ec8c836",
-      "sha256": "de50a55dfc9482daa98936dffc5121d7ee9836d55c9240d97c2abab57c2a1f45"
+      "revision": "assistant-action-outcome-v1-cadbc7fb7897",
+      "sha256": "cadbc7fb7897fd3aca327c941a90fcac70fb9b67d7b90c72be3a3f224ab1f38d"
     },
     "tests/contracts/valuation-methods.v1.json": {
       "source": "UpswitchEU/valuation-iq/src/domain/method_keys.py",

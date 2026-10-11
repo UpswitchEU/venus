@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/design-system/utils'
 import type { PendingAssistantUpdate } from './ChatAssistantDrawer.types'
 import type { QualityWarning, StartupAssistantIssue } from './ChatAssistantTypes'
+import { formatAssistantFieldValue } from './utils/assistantFieldValue'
 
 interface StartupIssueRailProps {
   startupIssues: StartupAssistantIssue[]
@@ -184,7 +185,7 @@ export function QualityWarningRail({
 interface PendingFieldUpdatesCardProps {
   pendingUpdates: PendingAssistantUpdate[]
   currencyLocale: string
-  onApplyFieldUpdate?: (field: string, value: unknown) => void
+  onApplyFieldUpdate?: (field: string, value: unknown) => boolean | void
   onAcceptUpdate?: (field: string) => void
   onRejectUpdate?: (field: string) => void
 }
@@ -214,16 +215,15 @@ export function PendingFieldUpdatesCard({
                 {update.label}
               </span>
               <span className="font-mono text-foreground/65 tabular-nums">
-                {typeof update.value === 'number'
-                  ? `€${Math.round(update.value).toLocaleString(currencyLocale)}`
-                  : String(update.value ?? '')}
+                {formatAssistantFieldValue(update.field, update.value, currencyLocale)}
               </span>
               <span className="flex items-center gap-2 text-xs shrink-0">
                 <button
                   type="button"
                   onClick={() => {
-                    onApplyFieldUpdate?.(update.field, update.value)
-                    onAcceptUpdate?.(update.field)
+                    if (onApplyFieldUpdate?.(update.field, update.value) !== false) {
+                      onAcceptUpdate?.(update.field)
+                    }
                   }}
                   className="inline-flex min-h-11 items-center rounded-full px-2.5 text-primary/85 hover:text-primary transition-colors touch-manipulation sm:min-h-0 sm:px-0"
                 >

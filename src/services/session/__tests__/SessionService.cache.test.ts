@@ -8,9 +8,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ValuationSession } from '../../../types/valuation'
+import { useClientContext } from '../../../stores/clientContext'
+import type { ValuationResponse, ValuationSession } from '../../../types/valuation'
 import { globalSessionCache } from '../../../utils/sessionCacheManager'
 import { backendAPI } from '../../backendApi'
+import { revalidateSessionCacheInBackground } from '../SessionBackgroundRevalidation'
 import { SessionService } from '../SessionService'
 
 const sessionApiMocks = vi.hoisted(() => ({
@@ -73,19 +75,40 @@ describe('SessionService - Cache Update Strategy', () => {
       final_valuation_eur: 1000000,
       html_report: '<html>Full Report</html>',
       info_tab_html: '<html>Info Tab</html>',
-    } as any,
+    } as ValuationResponse,
   }
 
   beforeEach(() => {
     sessionService = SessionService.getInstance()
     vi.clearAllMocks()
+    useClientContext.setState({ isActingAsClient: false, relationshipId: null })
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    useClientContext.setState({ isActingAsClient: false, relationshipId: null })
   })
 
   describe('saveCompleteSession - Cache Update (Phase 1)', () => {
+    it('does not let the reload helper write old report data into a new client cache', async () => {
+      let resolve!: (value: { success: boolean; session: ValuationSession }) => void
+      vi.mocked(globalSessionCache.get).mockReturnValue(null)
+      vi.mocked(backendAPI.getValuationSession).mockImplementationOnce(
+        () =>
+          new Promise((res) => {
+            resolve = res
+          })
+      )
+      const save = sessionService.saveCompleteSession(mockReportId, {
+        valuationResult: mockSession.valuationResult,
+      })
+      await vi.waitFor(() => expect(backendAPI.getValuationSession).toHaveBeenCalledTimes(1))
+      useClientContext.setState({ isActingAsClient: true, relationshipId: 'different-client' })
+      resolve({ success: true, session: mockSession })
+      await save
+      expect(globalSessionCache.set).not.toHaveBeenCalled()
+    })
+
     it('should UPDATE cache with fresh data after save (not invalidate)', async () => {
       // Mock backend response with complete session
       vi.mocked(backendAPI.getValuationSession).mockResolvedValue({
@@ -131,6 +154,33 @@ describe('SessionService - Cache Update Strategy', () => {
   })
 
   describe('loadSession - Stale-While-Revalidate (Phase 2)', () => {
+    it.each([
+      'load',
+      'load-switch-back',
+      'background',
+    ])('%s drops a delayed response from an earlier client context', async (operation) => {
+      let resolve!: (value: { success: boolean; session: ValuationSession }) => void
+      vi.mocked(globalSessionCache.get).mockReturnValue(null)
+      vi.mocked(backendAPI.getValuationSession).mockImplementationOnce(
+        () =>
+          new Promise((res) => {
+            resolve = res
+          })
+      )
+      const pending =
+        operation === 'background'
+          ? revalidateSessionCacheInBackground(mockReportId)
+          : sessionService.loadSession(mockReportId)
+      await vi.waitFor(() => expect(backendAPI.getValuationSession).toHaveBeenCalledTimes(1))
+      useClientContext.setState({ isActingAsClient: true, relationshipId: 'new-client' })
+      if (operation === 'load-switch-back')
+        useClientContext.setState({ isActingAsClient: false, relationshipId: null })
+      resolve({ success: true, session: mockSession })
+      const session = await pending
+      expect(globalSessionCache.set).not.toHaveBeenCalled()
+      if (operation !== 'background') expect(session).toBeNull()
+    })
+
     it('should return cached data immediately if available', async () => {
       const cachedSession = {
         ...mockSession,

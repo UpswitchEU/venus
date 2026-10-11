@@ -1,5 +1,7 @@
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import type { ChatMessage } from '../../../components/calculator'
+import { aiChatService } from '../../../services/ai/AIChatService'
 import { useConversationStore } from '../../../store/useConversationStore'
 import {
   buildManualChatRetryPlan,
@@ -10,6 +12,7 @@ import { mapStoredMessagesToManualChatMessages } from '../utils/manualChatHistor
 import type { ManualChatSendHandler } from './useManualChatMessageActions'
 
 export interface UseManualChatSessionActionsParams {
+  currentLocale?: string
   chatDrawerOpen: boolean
   chatMessages: readonly ChatMessage[]
   clearConversationMessages: () => void
@@ -17,7 +20,7 @@ export interface UseManualChatSessionActionsParams {
   isChatGenerating: boolean
   isLoadingHistory: boolean
   lastLoadedReportId?: string | null
-  loadHistory: (reportId: string) => Promise<void>
+  loadHistory: (reportId: string, force?: boolean) => Promise<void>
   manualChatReportId?: string | null
   setChatMessages: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void
   setConversationId: (conversationId: string | null) => void
@@ -30,6 +33,7 @@ export interface UseManualChatSessionActionsParams {
   ) => void
   setToolInProgress: (toolName: string | null) => void
   streamCleanupRef: MutableRefObject<(() => void) | null>
+  restoreProposals?: (messages: ChatMessage[]) => ChatMessage[]
 }
 
 export interface UseManualChatSessionActionsResult {
@@ -38,13 +42,13 @@ export interface UseManualChatSessionActionsResult {
 }
 
 export function useManualChatSessionActions({
+  currentLocale = 'en',
   chatDrawerOpen,
   chatMessages,
   clearConversationMessages,
   handleChatMessage,
   isChatGenerating,
   isLoadingHistory,
-  lastLoadedReportId,
   loadHistory,
   manualChatReportId,
   setChatMessages,
@@ -54,32 +58,69 @@ export function useManualChatSessionActions({
   setPendingUpdates,
   setToolInProgress,
   streamCleanupRef,
+  restoreProposals,
 }: UseManualChatSessionActionsParams): UseManualChatSessionActionsResult {
   const generatingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hydratedScopeRef = useRef<string | null>(null)
+  const historyGenerationRef = useRef(0)
+  const resetInFlightRef = useRef(false)
 
   useEffect(() => {
-    const needsLoad =
-      manualChatReportId &&
-      chatDrawerOpen &&
-      !isLoadingHistory &&
-      lastLoadedReportId !== manualChatReportId
-    if (!needsLoad) return
+    if (!manualChatReportId) hydratedScopeRef.current = null
+    return () => {
+      ++historyGenerationRef.current
+    }
+  }, [manualChatReportId])
 
+  useEffect(() => {
+    if (!manualChatReportId || !chatDrawerOpen || hydratedScopeRef.current === manualChatReportId)
+      return
+    const generation = ++historyGenerationRef.current
+    let cancelled = false
+    setChatMessages([])
+    setPendingUpdates([])
     setIsLoadingHistory(true)
-    loadHistory(manualChatReportId)
-      .then(() => {
-        const storeMessages = useConversationStore.getState().messages
-        setChatMessages(mapStoredMessagesToManualChatMessages(storeMessages))
-      })
-      .finally(() => setIsLoadingHistory(false))
+    void (async () => {
+      try {
+        await loadHistory(manualChatReportId, true)
+        const state = useConversationStore.getState()
+        if (
+          cancelled ||
+          generation !== historyGenerationRef.current ||
+          state.lastLoadedReportId !== manualChatReportId
+        )
+          return
+        const messages = mapStoredMessagesToManualChatMessages(state.messages)
+        hydratedScopeRef.current = manualChatReportId
+        const restored = restoreProposals ? restoreProposals(messages) : messages
+        setChatMessages((live) => {
+          const liveIds = new Set(live.map((message) => message.id))
+          return [...restored.filter((message) => !liveIds.has(message.id)), ...live]
+        })
+      } catch {
+        if (!cancelled && generation === historyGenerationRef.current) {
+          toast.error(
+            currentLocale === 'nl'
+              ? 'Het gesprek kon niet worden geladen. Probeer opnieuw.'
+              : 'Could not load the conversation. Please try again.'
+          )
+        }
+      } finally {
+        if (!cancelled && generation === historyGenerationRef.current) setIsLoadingHistory(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [
     chatDrawerOpen,
-    isLoadingHistory,
-    lastLoadedReportId,
+    currentLocale,
     loadHistory,
     manualChatReportId,
     setChatMessages,
     setIsLoadingHistory,
+    setPendingUpdates,
+    restoreProposals,
   ])
 
   useEffect(() => {
@@ -126,22 +167,45 @@ export function useManualChatSessionActions({
     ]
   )
 
-  const handleNewConversation = useCallback(() => {
-    if (streamCleanupRef.current) {
-      streamCleanupRef.current()
-      streamCleanupRef.current = null
-    }
+  const handleNewConversation = useCallback(async () => {
+    if (resetInFlightRef.current || isLoadingHistory || !manualChatReportId) return
+    resetInFlightRef.current = true
+    streamCleanupRef.current?.()
+    streamCleanupRef.current = null
     setIsChatGenerating(false)
     setToolInProgress(null)
-    setChatMessages([])
-    setPendingUpdates([])
-    clearConversationMessages()
-    setConversationId(null)
+    setIsLoadingHistory(true)
+    const generation = ++historyGenerationRef.current
+    try {
+      const conversationId = await aiChatService.resetConversation(manualChatReportId)
+      if (generation !== historyGenerationRef.current) return
+      clearConversationMessages()
+      useConversationStore.setState({ historyLoaded: true, lastLoadedReportId: manualChatReportId })
+      hydratedScopeRef.current = manualChatReportId
+      setConversationId(conversationId)
+      setChatMessages([])
+      setPendingUpdates([])
+    } catch {
+      if (generation === historyGenerationRef.current) {
+        toast.error(
+          currentLocale === 'nl'
+            ? 'Een nieuw gesprek starten is niet gelukt. Je huidige gesprek is behouden.'
+            : 'Could not start a new conversation. Your current conversation has been kept.'
+        )
+      }
+    } finally {
+      resetInFlightRef.current = false
+      if (generation === historyGenerationRef.current) setIsLoadingHistory(false)
+    }
   }, [
     clearConversationMessages,
+    currentLocale,
+    isLoadingHistory,
+    manualChatReportId,
     setChatMessages,
     setConversationId,
     setIsChatGenerating,
+    setIsLoadingHistory,
     setPendingUpdates,
     setToolInProgress,
     streamCleanupRef,

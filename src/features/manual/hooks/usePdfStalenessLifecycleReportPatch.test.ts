@@ -15,6 +15,55 @@ function valuationResponse(partial: Record<string, unknown>): ValuationResponse 
 }
 
 describe('usePdfStalenessLifecycleReportPatch', () => {
+  it.each([
+    { valuation_id: 'val_pdf_patch', render_fingerprint: 'different' },
+    { valuation_id: 'val_new_run', render_fingerprint: 'original' },
+    { valuation_id: 'val_new_run' },
+    { valuation_id: 'val_pdf_patch' },
+  ])('does not carry prices or assets across incompatible snapshots: %j', (identity) => {
+    const existing = valuationResponse({
+      render_fingerprint: 'original',
+      html_report: '<main>Old report</main>',
+      fiscal_4x_anchor: { source: 'old' },
+      multiple_adjustment_summary: { retained: true },
+      recommended_asking_price: 1_200_000,
+      pdf_url: 'https://example.test/old.pdf',
+      pdf_coherent: true,
+      valuation_results: { dcf: { available: true, value: 1_000_000 } },
+    })
+    const fresh = identity as ValuationResponse
+    const merged = mergePolledResultWithExisting(fresh, existing)
+    expect(merged.valuation_results).toBeUndefined()
+    expect(merged.equity_value_mid).toBeUndefined()
+    expect(merged.recommended_asking_price).toBeUndefined()
+    expect(merged.fiscal_4x_anchor).toBeNull()
+    expect(merged.multiple_adjustment_summary).toBeUndefined()
+    expect(merged.html_report).toBeUndefined()
+    expect(merged.pdf_url).toBeUndefined()
+    expect(merged.pdf_coherent).not.toBe(true)
+  })
+
+  it('retains compatible legacy partial results without fingerprints', () => {
+    const existing = valuationResponse({
+      valuation_results: { dcf: { available: true, value: 1_000_000 } },
+    })
+    const merged = mergePolledResultWithExisting(
+      { valuation_id: 'val_pdf_patch' } as ValuationResponse,
+      existing
+    )
+    expect(merged.valuation_results?.dcf.value).toBe(1_000_000)
+  })
+
+  it('clears a previous asking price when the refreshed report has none', () => {
+    const patch = reportPatchFromFreshResponse(valuationResponse({}), true, {
+      selectedMethod: 'dcf',
+      preSelectedMethods: [],
+      userWeights: {},
+    })
+    expect(Object.hasOwn(patch, 'recommendedAskingPrice')).toBe(true)
+    expect(patch.recommendedAskingPrice).toBeUndefined()
+  })
+
   it('preserves existing renderable HTML when the polled response has no replacement', () => {
     const existing = valuationResponse({
       html_report: '<main>Existing full report</main>',
