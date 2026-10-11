@@ -73,7 +73,9 @@ export function resolvePdfDownloadTooltip(pdfPlanLocked: boolean, navLocale: str
   if (!pdfPlanLocked) return null
   return navLocale === 'nl'
     ? 'Read-only met watermerk — klik voor opties om de PDF zonder watermerk te ontgrendelen'
-    : 'Read-only with watermark — click for options to unlock the watermark-free PDF'
+    : navLocale === 'fr'
+      ? 'Lecture seule avec filigrane — cliquez pour débloquer le PDF sans filigrane'
+      : 'Read-only with watermark — click for options to unlock the watermark-free PDF'
 }
 
 export function resolveCalculatorNavMethodLabels({

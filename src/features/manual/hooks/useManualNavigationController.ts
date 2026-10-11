@@ -125,7 +125,10 @@ export function useManualNavigationController({
   const handleShowHistory = useCallback(() => {
     trackVersionHistoryOpen()
     setRightPanelView('history')
-  }, [setRightPanelView])
+    if (isMobile) {
+      setShowFullscreenModal(true)
+    }
+  }, [isMobile, setRightPanelView, setShowFullscreenModal])
 
   const handleShowGraph = useCallback(() => {
     setRightPanelView('graph')

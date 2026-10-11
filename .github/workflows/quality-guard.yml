@@ -5,6 +5,8 @@ on:
     paths:
       - "app/**"
       - "src/**"
+      - "tests/e2e/**"
+      - "playwright.audit.config.ts"
       - "scripts/**"
       - "docs/security/browser-persistence*.json"
       - "docs/security/browser-persistence*.md"
@@ -26,6 +28,8 @@ on:
     paths:
       - "app/**"
       - "src/**"
+      - "tests/e2e/**"
+      - "playwright.audit.config.ts"
       - "scripts/**"
       - "docs/security/browser-persistence*.json"
       - "docs/security/browser-persistence*.md"
@@ -107,3 +111,30 @@ jobs:
 
       - name: Verify build tooling is absent from production traces
         run: node --test scripts/verify-production-build-dependencies.test.mjs && node scripts/verify-production-build-dependencies.mjs
+
+  critical-browser-journey:
+    name: Save recovery and report download across browsers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.6"
+      - name: Enable pnpm
+        run: corepack enable && corepack prepare pnpm@10.26.2 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install browser runtimes
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - name: Exercise manual input, save interruption, recovery, reload, history and PDF transport
+        run: pnpm run test:e2e:audit
+      - name: Retain browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: critical-browser-failures
+          path: |
+            playwright-report/audit/
+            test-results/
+          retention-days: 7

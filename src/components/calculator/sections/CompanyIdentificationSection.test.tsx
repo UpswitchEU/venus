@@ -36,12 +36,19 @@ vi.mock('@/design-system', () => ({
     onChange,
     value,
     label,
+    manualEntry,
   }: {
     onChange: (name: string) => void
     value: string
     label: string
+    manualEntry?: { label: string; onContinue: () => void }
   }) => (
-    <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
+    <>
+      <input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
+      {value.trim() && manualEntry && (
+        <button onClick={manualEntry.onContinue}>{manualEntry.label}</button>
+      )}
+    </>
   ),
   KboConfirmedCard: () => <div data-testid="kbo-confirmed" />,
 }))

@@ -347,23 +347,16 @@ export function CompanyIdentificationSection({
           disabled={isCalculating}
           countryCode={searchCountry}
           noResultsHint={searchCountry === 'NL' ? mi('registryNlNoResults') : undefined}
-        />
-      )}
-
-      {!selectedCompany && companySearchValue.trim() && (
-        <button
-          type="button"
-          disabled={isCalculating}
-          className="text-xs font-medium text-primary hover:underline"
-          onClick={() => {
-            const name = companySearchValue.trim()
-            updateField('companyName', name)
-            updateFormData({ company_name: name })
-            document.getElementById('manual-business-type')?.focus({ preventScroll: true })
+          manualEntry={{
+            label: mi('continueWithoutRegistry'),
+            onContinue: () => {
+              const name = companySearchValue.trim()
+              updateField('companyName', name)
+              updateFormData({ company_name: name })
+              document.getElementById('manual-business-type')?.focus({ preventScroll: true })
+            },
           }}
-        >
-          {mi('continueWithoutRegistry')}
-        </button>
+        />
       )}
 
       <AnimatePresence>

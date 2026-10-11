@@ -58,6 +58,7 @@ export function useReportRecovery(reportId: string, workInProgress = false) {
       contextRef.current === context &&
       access.isCurrent() &&
       useSessionStore.getState().session?.reportId === reportId
+    let phase = 'session'
     try {
       if (!current()) return
       const state = useSessionStore.getState()
@@ -65,16 +66,19 @@ export function useReportRecovery(reportId: string, workInProgress = false) {
         requirePersistenceAcknowledgement(await state.saveSession('user'))
       }
       if (!current()) return
+      phase = 'normalizations'
       requirePersistenceAcknowledgement(
         await useNormalizationStore.getState().retryPersist(reportId)
       )
       if (!current()) return
       if (useNormalizationStore.getState().recoveryBuffered) {
+        phase = 'normalization-buffer'
         requirePersistenceAcknowledgement(
-          await useNormalizationStore.getState().persistToSession(reportId)
+          await useNormalizationStore.getState().persistToSession(reportId, 'user')
         )
       }
       if (!current()) return
+      phase = 'report-assets'
       const continuation = useReportRecoveryStore.getState().step
       if (continuation?.reportId === reportId && continuation.scope === reportAccessScope()) {
         await resumeReportRecovery(reportId)
@@ -86,8 +90,12 @@ export function useReportRecovery(reportId: string, workInProgress = false) {
       if (current())
         generalLogger.warn('report_save_recovery_deferred', {
           reportId,
+          phase,
+          sessionStatus: useSessionStore.getState().status,
+          restorationComplete: useSessionStore.getState().restorationComplete,
           code: persistenceFailure(error).code,
           status: persistenceFailure(error).status,
+          message: persistenceFailure(error).message,
         })
       /* Stores retain structured failures; a manual retry remains available. */
     } finally {

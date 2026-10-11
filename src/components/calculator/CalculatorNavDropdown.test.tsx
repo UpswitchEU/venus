@@ -10,6 +10,46 @@ const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototyp
 const originalVisualViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport')
 
 describe('CalculatorNavDropdown', () => {
+  it('opens by keyboard, skips disabled items, wraps, and restores focus on Escape', () => {
+    render(
+      <Dropdown trigger={<button type="button">Actions</button>}>
+        <button type="button" disabled>
+          Unavailable
+        </button>
+        <button type="button">First</button>
+        <button type="button">Last</button>
+      </Dropdown>
+    )
+    const trigger = screen.getByRole('button', { name: 'Actions' })
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(screen.getByRole('button', { name: 'First' })).toHaveFocus()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'First' }), { key: 'ArrowUp' })
+    expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Last' }), { key: 'Home' })
+    expect(screen.getByRole('button', { name: 'First' })).toHaveFocus()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'First' }), { key: 'End' })
+    expect(screen.getByRole('button', { name: 'Last' })).toHaveFocus()
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Last' }), { key: 'Escape' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveFocus()
+  })
+
+  it('preserves text editing keys inside searchable menus', () => {
+    render(
+      <Dropdown keepOpen trigger={<button type="button">Search menu</button>}>
+        <input aria-label="Search" />
+        <button type="button">Result</button>
+      </Dropdown>
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Search menu' }))
+    const input = screen.getByRole('textbox', { name: 'Search' })
+    input.focus()
+    fireEvent.keyDown(input, { key: 'Home' })
+    expect(input).toHaveFocus()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.getByRole('button', { name: 'Search menu' })).toHaveFocus()
+  })
   beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 })
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 360 })

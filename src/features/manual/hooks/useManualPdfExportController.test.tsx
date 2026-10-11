@@ -43,6 +43,26 @@ function makeParams(
 }
 
 describe('useManualPdfExportController', () => {
+  it('clears recent downloads when the active report changes', async () => {
+    const download = vi.fn().mockResolvedValue(undefined)
+    const { result, rerender } = renderHook(
+      ({ reportId }) =>
+        useManualPdfExportController(
+          makeParams(download, {
+            reportId,
+            resolvedReportId: reportId,
+          })
+        ),
+      { initialProps: { reportId: 'report-1' } }
+    )
+    await act(async () => {
+      await result.current.handleExport()
+    })
+    expect(result.current.downloadHistory).toHaveLength(1)
+    rerender({ reportId: 'report-2' })
+    expect(result.current.downloadHistory).toEqual([])
+  })
+
   afterEach(() => {
     useSessionStore.setState({ saveFailure: null })
     vi.restoreAllMocks()

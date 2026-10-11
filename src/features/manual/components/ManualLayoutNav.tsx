@@ -172,6 +172,7 @@ export function ManualLayoutNav({
         isMobile
           ? undefined
           : (item: DownloadHistoryItem) => {
+              if (pdfBlocked || isExporting) return
               if (!canDownloadPdf) {
                 openStarterPaywall('pdf_download')
                 return

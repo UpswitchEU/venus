@@ -31,6 +31,8 @@ describe('ManualLayoutBody', () => {
     expect(screen.getByTestId('input-panel')).toBeInTheDocument()
     expect(screen.getByTestId('report-workspace')).toBeInTheDocument()
     expect(screen.getByTestId('resize-handle')).toBeInTheDocument()
+    expect(screen.queryByText('Input')).not.toBeInTheDocument()
+    expect(screen.queryByText('Output')).not.toBeInTheDocument()
   })
 
   it('lets mobile users switch between input and output without losing either panel', () => {
@@ -54,7 +56,7 @@ describe('ManualLayoutBody', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
-  it('marks the report out of date in its own header, not in a banner', () => {
+  it('keeps the out-of-date marker beside the report without a duplicate heading', () => {
     render(
       <ManualLayoutBody
         {...baseProps}
@@ -64,7 +66,7 @@ describe('ManualLayoutBody', () => {
     const pill = screen.getByRole('status')
     expect(pill).toHaveTextContent('Out of date')
     expect(pill).toHaveAttribute('title', 'The figures changed.')
-    expect(pill.parentElement).toHaveTextContent('Output')
+    expect(screen.queryByText('Output')).not.toBeInTheDocument()
   })
 
   it('marks the mobile report tab when the report is out of date', () => {

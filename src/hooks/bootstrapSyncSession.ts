@@ -463,6 +463,17 @@ export function syncBootstrapSession(state: SessionBootstrapState): void {
     }
 
     applyCountryPrefillIfNewReport(report, prefillData)
+    // New reports deliberately skip loadSession/SessionRestorationService. Once
+    // their bootstrap form is hydrated, no restoration remains to unblock saves.
+    const hydrated = useSessionStore.getState()
+    if (
+      report.mode === 'new' &&
+      hydrated.session?.reportId === report.reportId &&
+      hydrated.status === 'loaded' &&
+      !hydrated.restorationComplete
+    ) {
+      hydrated.setRestorationComplete(true)
+    }
   } catch (error) {
     logger.error('Failed to sync session', {
       error: error instanceof Error ? error.message : String(error),

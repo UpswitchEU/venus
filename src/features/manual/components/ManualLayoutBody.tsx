@@ -18,7 +18,7 @@ export interface ManualLayoutBodyProps {
   outputLabel: string
   /**
    * The shown valuation was calculated from other figures than the ones in the form.
-   * Said once, where the stale figures are, instead of in a banner over the workspace.
+   * Shown beside the report only when its figures are stale.
    */
   outputStale?: { label: string; hint: string } | null
   reportId: string
@@ -85,13 +85,10 @@ export function ManualLayoutBody({
   }
 
   return (
-    <div className="flex-1 min-w-0 overflow-hidden m-4 rounded-xl border border-foreground/[0.06]">
+    <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
       <ResizablePanelGroup className="h-full w-full">
         <ResizablePanel defaultSize={35} minSize={25} maxSize={50}>
           <div className="h-full flex flex-col min-h-0">
-            <div className="shrink-0 border-b border-foreground/[0.06] px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/45">
-              {inputLabel}
-            </div>
             <div className="flex-1 min-h-0 overflow-y-auto" data-manual-layout-scroll>
               <StartupAwareInputPanel key={reportId} {...manualInputProps} />
             </div>
@@ -105,12 +102,11 @@ export function ManualLayoutBody({
 
         <ResizablePanel defaultSize={65} minSize={35}>
           <div className="flex h-full min-h-0 flex-col">
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-foreground/[0.06] px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/45">
-              <span>{outputLabel}</span>
-              {outputStale ? (
+            {outputStale ? (
+              <div className="shrink-0 px-4 pt-3">
                 <OutputStalePill label={outputStale.label} hint={outputStale.hint} />
-              ) : null}
-            </div>
+              </div>
+            ) : null}
             <div className="min-h-0 flex-1">
               <ManualReportWorkspace {...workspaceProps} />
             </div>
