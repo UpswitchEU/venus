@@ -116,7 +116,9 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
     const hasValue = value !== '' && value !== undefined && value !== null
 
     const state = deriveFieldVisualState({ disabled, hasError, isFocused })
-    const errorId = getFieldErrorId(name)
+    const generatedId = React.useId()
+    const fieldId = name || generatedId
+    const errorId = getFieldErrorId(fieldId)
 
     const isFloated = isFocused || hasValue
 
@@ -233,6 +235,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
             type="text"
             inputMode="decimal"
             name={name}
+            id={fieldId}
             value={value}
             onChange={onChange}
             onFocus={handleFocus}
@@ -259,7 +262,7 @@ export const AuroraNumberInput = React.forwardRef<HTMLInputElement, AuroraNumber
 
           {/* Floating Label */}
           <label
-            htmlFor={name}
+            htmlFor={fieldId}
             className={cn(
               'absolute transition-all duration-200 ease-in-out pointer-events-none origin-left font-medium',
               prefix ? 'left-10' : 'left-4',

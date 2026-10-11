@@ -4,6 +4,8 @@
 		"updateValuation": "Mettre à jour la valorisation",
 		"saving": "Enregistrement de vos modifications…",
 		"subscription": "L’abonnement de votre cabinet nécessite votre attention.",
+		"accountSubscription": "Cette action nécessite un abonnement conseil actif. Vos modifications restent dans cet onglet.",
+		"accountSubscriptionHelp": "Utilisez un compte avec accès conseil ou contactez Upswitch pour obtenir de l’aide.",
 		"access": "Votre accès à ce rapport nécessite votre attention. Vos modifications restent dans cet onglet.",
 		"saveFailed": "Nous n’avons pas pu enregistrer vos dernières modifications. Elles restent dans cet onglet.",
 		"preparing": "Modifications enregistrées. Préparation de votre PDF…",

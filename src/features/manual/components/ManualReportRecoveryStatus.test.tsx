@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ManualReportRecoveryStatus } from './ManualReportRecoveryStatus'
 
 vi.mock('next-intl', () => ({ useLocale: () => 'en', useTranslations: () => (key: string) => key }))
+const auth = vi.hoisted(() => ({ role: 'accountant' as string | undefined }))
+vi.mock('../../../lib/auth/store', () => ({
+  useAuthStore: (selector: (state: { user: { role?: string } }) => unknown) =>
+    selector({ user: { role: auth.role } }),
+}))
 const base = {
   recovery: { failure: null, saving: false, blocked: false, scheduled: false, retry: vi.fn() },
   hasReport: true,
@@ -12,6 +17,9 @@ const base = {
   retryPdf: vi.fn(),
 }
 describe('one report status', () => {
+  beforeEach(() => {
+    auth.role = 'accountant'
+  })
   it('requires an updated calculation before offering an old PDF or a PDF retry', () => {
     const view = render(
       <ManualReportRecoveryStatus
@@ -101,5 +109,29 @@ describe('one report status', () => {
     )
     expect(screen.queryByRole('link')).toBeNull()
     expect(screen.getByText('askOwner')).toBeVisible()
+  })
+
+  it.each([
+    'buyer',
+    'seller',
+    undefined,
+  ])('keeps the subscription gate without inventing a firm owner for %s', (role) => {
+    auth.role = role
+    render(
+      <ManualReportRecoveryStatus
+        {...base}
+        downloadPdf={vi.fn()}
+        recovery={{
+          ...base.recovery,
+          blocked: true,
+          failure: { kind: 'subscription', message: 'required', canManageBilling: false },
+        }}
+      />
+    )
+    expect(screen.getByText('accountSubscription')).toBeVisible()
+    expect(screen.getByText('accountSubscriptionHelp')).toBeVisible()
+    expect(screen.queryByText('askOwner')).toBeNull()
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })
