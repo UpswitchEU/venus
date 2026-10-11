@@ -4,6 +4,8 @@
 		"updateValuation": "Waardering bijwerken",
 		"saving": "Je wijzigingen worden opgeslagen…",
 		"subscription": "Het abonnement van je kantoor vereist aandacht.",
+		"accountSubscription": "Voor deze actie is een actief adviesabonnement nodig. Je wijzigingen blijven in dit tabblad staan.",
+		"accountSubscriptionHelp": "Gebruik een account met adviestoegang of neem contact op met Upswitch voor hulp.",
 		"access": "Je toegang tot dit rapport vereist aandacht. Je wijzigingen blijven in dit tabblad.",
 		"saveFailed": "We konden je laatste wijzigingen niet opslaan. Ze blijven in dit tabblad.",
 		"preparing": "Wijzigingen opgeslagen. Je PDF wordt voorbereid…",

@@ -4,6 +4,8 @@
 		"updateValuation": "Update valuation",
 		"saving": "Saving your changes…",
 		"subscription": "Your firm’s subscription needs attention.",
+		"accountSubscription": "This action requires an active advisory subscription. Your changes remain in this tab.",
+		"accountSubscriptionHelp": "Use an account with advisory access, or contact Upswitch for help.",
 		"access": "Your access to this report needs attention. Your changes remain in this tab.",
 		"saveFailed": "We couldn’t save your latest changes. They remain in this tab.",
 		"preparing": "Changes saved. Preparing your PDF…",

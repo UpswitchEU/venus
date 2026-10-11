@@ -1,5 +1,6 @@
 import { useLocale, useTranslations } from 'next-intl'
 import { AuroraButton } from '../../../design-system/components/Button'
+import { useAuthStore } from '../../../lib/auth/store'
 import { getMercuryUrl } from '../../../utils/getMercuryUrl'
 import type { useReportRecovery } from '../hooks/useReportRecovery'
 
@@ -28,14 +29,18 @@ export function ManualReportRecoveryStatus({
 }) {
   const t = useTranslations('reportRecovery')
   const locale = useLocale()
+  const userRole = useAuthStore((state) => state.user?.role)
   const { failure, saving, blocked, scheduled, retry } = recovery
   if (!hasReport && !blocked) return null
   const subscription = failure?.kind === 'subscription'
+  const firmSubscription = failure?.canManageBilling === true || userRole === 'accountant'
   const accessDenied = failure?.kind === 'access'
   const message = saving
     ? 'saving'
     : subscription
-      ? 'subscription'
+      ? firmSubscription
+        ? 'subscription'
+        : 'accountSubscription'
       : accessDenied
         ? 'access'
         : failure
@@ -73,7 +78,9 @@ export function ManualReportRecoveryStatus({
             {t('manageSubscription')}
           </a>
         ) : (
-          <span className="text-sm">{t('askOwner')}</span>
+          <span className="text-sm">
+            {t(firmSubscription ? 'askOwner' : 'accountSubscriptionHelp')}
+          </span>
         ))}
       {!saving && failure && !subscription && !accessDenied && (
         <AuroraButton size="sm" onClick={() => void retry()}>
