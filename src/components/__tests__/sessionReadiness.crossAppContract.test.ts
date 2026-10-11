@@ -597,7 +597,8 @@ describe('sessionReadiness Mercury report URL contract', () => {
     const normalizationSource = readFileSync(normalizationPath, 'utf8')
     const taxSource = readFileSync(taxPath, 'utf8')
     expect(normalizationSource).toMatch(/updateSessionData\(\{ _normalizations: items \}\)/)
-    expect(normalizationSource).toMatch(/saveSession\('autosave'\)/)
+    expect(normalizationSource).toMatch(/persistToSession: async \(reportId, reason = 'autosave'\)/)
+    expect(normalizationSource).toMatch(/saveSession\(reason\)/)
     expect(normalizationSource).not.toMatch(/sessionService\.saveSession/)
     expect(taxSource).toMatch(
       /updateSessionData\(\{\s*tax_latencies: canonicalTaxLatencies,\s*_taxLatencies: items,\s*\}\)/

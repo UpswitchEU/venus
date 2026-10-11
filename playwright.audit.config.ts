@@ -3,7 +3,9 @@ import { defineConfig, devices } from '@playwright/test'
 // Isolated browser gate: every API response is owned by the test fixture.
 // Override local deployment settings so even unhandled server requests stay local.
 const baseURL = 'http://127.0.0.1:3001'
-const unavailableBackendURL = 'http://127.0.0.1:9'
+// Use a normal unbound port: Firefox and WebKit reject reserved ports before
+// Playwright can intercept the request, obscuring the actual application flow.
+const unavailableBackendURL = 'http://127.0.0.1:39799'
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: ['manual-company-without-registry.spec.ts'],

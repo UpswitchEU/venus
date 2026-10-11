@@ -60,9 +60,11 @@ function makeCompany(id: string, name: string): KBOCompany {
 function TestHarness({
   searchFn,
   selectedCompany = null,
+  onContinue,
 }: {
   searchFn: (query: string, signal?: AbortSignal) => Promise<unknown[]>
   selectedCompany?: KBOCompany | null
+  onContinue?: () => void
 }) {
   const [value, setValue] = React.useState(selectedCompany?.name ?? '')
 
@@ -76,6 +78,9 @@ function TestHarness({
       searchFn={searchFn}
       selectedCompany={selectedCompany}
       debounceMs={10}
+      manualEntry={
+        onContinue ? { label: 'Continue without registry match', onContinue } : undefined
+      }
     />
   )
 }
@@ -83,6 +88,47 @@ function TestHarness({
 describe('Venus KBOSearchInput', () => {
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('keeps manual entry reachable inside a failed registry search without losing the name', async () => {
+    vi.useFakeTimers()
+    const onContinue = vi.fn()
+    render(
+      <TestHarness
+        searchFn={vi.fn().mockRejectedValue(new Error('Unavailable'))}
+        onContinue={onContinue}
+      />
+    )
+    const input = screen.getByRole('textbox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Manual company' } })
+    await act(async () => {
+      vi.advanceTimersByTime(20)
+    })
+    const action = screen.getByRole('button', { name: 'Continue without registry match' })
+    expect(screen.getByRole('listbox')).toContainElement(action)
+    fireEvent.click(action)
+    expect(onContinue).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(input).toHaveValue('Manual company')
+  })
+
+  it('keeps a dismissed popup closed when an in-flight search completes', async () => {
+    vi.useFakeTimers()
+    const pending = createDeferred<KBOCompany[]>()
+    render(<TestHarness searchFn={() => pending.promise} />)
+    const input = screen.getByRole('textbox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'Manual company' } })
+    await act(async () => {
+      vi.advanceTimersByTime(20)
+    })
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(screen.queryByRole('listbox')).toBeNull()
+    await act(async () => {
+      pending.resolve([])
+    })
+    expect(screen.queryByRole('listbox')).toBeNull()
   })
 
   it('ignores whitespace-only input for min-length gating', async () => {

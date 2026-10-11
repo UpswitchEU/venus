@@ -58,6 +58,8 @@ export interface KBOSearchInputProps extends VariantProps<typeof searchFieldVari
   description?: string
   /** Optional empty-state message (overrides default noResultsHint) */
   noResultsHint?: string
+  /** Keep manual entry reachable while the registry popup covers the next field. */
+  manualEntry?: { label: string; onContinue: () => void }
 }
 
 function defaultKBOSearch(_query: string, _signal?: AbortSignal): KBOCompany[] {
@@ -89,6 +91,7 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       countryCode = 'BE',
       description,
       noResultsHint: noResultsHintOverride,
+      manualEntry,
     },
     ref
   ) => {
@@ -136,7 +139,11 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
     const trimmedValueLength = trimmedValue.length
     const canSearch = !selectedCompany && trimmedValueLength >= minQueryLength
     const shouldShowDropdown =
-      !disabled && !selectedCompany && isFocused && trimmedValueLength >= minQueryLength
+      showDropdown &&
+      !disabled &&
+      !selectedCompany &&
+      isFocused &&
+      trimmedValueLength >= minQueryLength
 
     // Update dropdown position when open (for Portal)
     React.useLayoutEffect(() => {
@@ -178,7 +185,6 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           const found = await searchFn(query, signal)
           if (!signal.aborted && isCurrent()) {
             setResults(found)
-            setShowDropdown(true)
             setSearchError(null)
           }
         } catch (err) {
@@ -194,7 +200,6 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                 ? err.message
                 : tRef.current('searchUnavailable')
           )
-          setShowDropdown(true)
         } finally {
           clearTimeout(timeoutId)
           release()
@@ -326,6 +331,22 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
       trimmedValueLength >= 3 &&
       !results.some((r) => r.name.toLowerCase().startsWith(trimmedValue.toLowerCase()))
 
+    const manualEntryAction = manualEntry && !selectedCompany && !disabled && trimmedValue && (
+      <button
+        type="button"
+        className="text-xs font-medium text-primary hover:underline"
+        onClick={() => {
+          cancelRequest()
+          setIsSearching(false)
+          setShowDropdown(false)
+          setIsFocused(false)
+          manualEntry.onContinue()
+        }}
+      >
+        {manualEntry.label}
+      </button>
+    )
+
     return (
       <div ref={containerRef} className={cn(searchContainerVariants({ size }), className)}>
         <div
@@ -432,12 +453,13 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
           <p className="mt-2 text-xs text-foreground/50">{description}</p>
         )}
 
+        {!shouldShowDropdown && manualEntryAction && (
+          <div className="mt-2">{manualEntryAction}</div>
+        )}
+
         {/* Search Results Dropdown - Portal to escape overflow (Clarity parity) */}
         {typeof document !== 'undefined' &&
-          !disabled &&
-          !selectedCompany &&
-          isFocused &&
-          trimmedValueLength >= minQueryLength &&
+          shouldShowDropdown &&
           dropdownRect &&
           createPortal(
             <motion.div
@@ -568,6 +590,11 @@ export const KBOSearchInput = React.forwardRef<HTMLInputElement, KBOSearchInputP
                     </div>
                   </button>
                 ))
+              )}
+              {manualEntryAction && (
+                <div className="px-4 py-3 border-t border-foreground/[0.08]">
+                  {manualEntryAction}
+                </div>
               )}
             </motion.div>,
             document.body
