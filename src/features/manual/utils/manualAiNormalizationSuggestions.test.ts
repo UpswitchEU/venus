@@ -75,6 +75,7 @@ describe('manualAiNormalizationSuggestions', () => {
     expect(result.reviewSuggestions).toEqual([
       {
         id: 'norm-1',
+        fiscalYear: 2025,
         code: '620',
         description: 'Owner salary add-back',
         category: 'salary',
@@ -88,6 +89,7 @@ describe('manualAiNormalizationSuggestions', () => {
       },
       {
         id: 'norm-2',
+        fiscalYear: 2025,
         code: '',
         description: 'One-off grant',
         category: 'other',
@@ -103,13 +105,13 @@ describe('manualAiNormalizationSuggestions', () => {
   })
 
   it('rejects invalid amounts instead of creating zero suggestions', () => {
-    expect(() =>
+    expect(
       buildManualAiNormalizationSuggestions({
         suggestions: [{ category: 'not_real', amount: 'nope' }],
         filingYear: 2026,
         createId: idFactory(),
       })
-    ).toThrow(/Normalization amount/)
+    ).toEqual({ items: [], reviewSuggestions: [] })
   })
 
   it('builds review suggestions from existing normalization items', () => {
@@ -135,6 +137,7 @@ describe('manualAiNormalizationSuggestions', () => {
       {
         id: 'existing',
         code: '610',
+        fiscalYear: 2025,
         description: 'Rent normalization',
         category: 'rent',
         amount: 12_000,
@@ -199,6 +202,7 @@ describe('manualAiNormalizationSuggestions', () => {
       suggestions: [
         {
           id: 'exact-row-1',
+          fiscalYear: 2025,
           code: '620',
           description: 'Owner compensation',
           category: 'salary',
@@ -234,6 +238,7 @@ describe('manualAiNormalizationSuggestions', () => {
     expect(result.chatSuggestions).toEqual([
       {
         id: 'exact-row-1',
+        fiscalYear: 2025,
         code: '620',
         description: 'Owner compensation',
         category: 'salary',

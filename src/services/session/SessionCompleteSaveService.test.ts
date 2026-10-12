@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
+import { useClientContext } from '../../stores/clientContext'
 import type { ValuationResponse, ValuationSession } from '../../types/valuation'
 import { saveCompleteValuationSession } from './SessionCompleteSaveService'
 
@@ -53,19 +53,113 @@ vi.mock('../../store/useVersionHistoryStore', () => ({
   },
 }))
 
-vi.mock('../../stores/clientContext', () => ({
-  useClientContext: {
-    getState: () => ({
-      isActingAsClient: false,
-      relationshipId: null,
-    }),
-  },
-}))
-
 describe('saveCompleteValuationSession', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('window', {})
+    useClientContext.setState({ isActingAsClient: false, relationshipId: null })
+  })
+
+  it.each([
+    'switch',
+    'switch-back',
+  ])('does not promote, reload, cache or broadcast an old save after a client %s', async (change) => {
+    let resolve!: (response: object) => void
+    mocks.saveValuationResult.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolve = res
+        })
+    )
+    const loadSession = vi.fn()
+    const save = saveCompleteValuationSession(
+      'report-a',
+      { valuationResult: { valuation_id: 'val_a' } },
+      loadSession
+    )
+    await vi.waitFor(() => expect(mocks.saveValuationResult).toHaveBeenCalledTimes(1))
+    useClientContext.setState({ isActingAsClient: true, relationshipId: 'client-b' })
+    if (change === 'switch-back')
+      useClientContext.setState({ isActingAsClient: false, relationshipId: null })
+    resolve({ reportId: 'report-a' })
+    await save
+    expect(mocks.promoteSavedReportIdentity).not.toHaveBeenCalled()
+    expect(loadSession).not.toHaveBeenCalled()
+    expect(mocks.cacheSet).not.toHaveBeenCalled()
+    expect(mocks.cacheRemove).not.toHaveBeenCalled()
+    expect(mocks.broadcastReportUpdated).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    'resolve',
+    'reject',
+  ])('does not restore cache or broadcast if scope changes during a reload that will %s', async (outcome) => {
+    let resolve!: (session: ValuationSession) => void
+    let reject!: (error: Error) => void
+    const loadSession = vi.fn(
+      () =>
+        new Promise<ValuationSession>((res, rej) => {
+          resolve = res
+          reject = rej
+        })
+    )
+    mocks.cacheGet.mockReturnValueOnce({ reportId: 'report-a', name: 'Old cached report' })
+    const save = saveCompleteValuationSession(
+      'report-a',
+      { valuationResult: { valuation_id: 'val_a' } },
+      loadSession
+    )
+    await vi.waitFor(() => expect(loadSession).toHaveBeenCalledTimes(1))
+    useClientContext.setState({ isActingAsClient: true, relationshipId: 'client-b' })
+    if (outcome === 'resolve')
+      resolve({ reportId: 'report-a', name: 'Old report' } as ValuationSession)
+    else reject(new Error('timeout'))
+    await save
+    expect(mocks.cacheSet).not.toHaveBeenCalled()
+    expect(mocks.broadcastReportUpdated).not.toHaveBeenCalled()
+  })
+
+  it('sends the original inputs and result in one save even if the caller edits them while saving', async () => {
+    const data = {
+      formData: { company_name: 'Original company', business_type_weights: { accounting: 100 } },
+      valuationResult: { valuation_id: 'val_original', equity_value_mid: 42 },
+      htmlReport: '<main>Original</main>',
+    }
+    const save = saveCompleteValuationSession('report-a', data, async () => null)
+    data.formData.company_name = 'New company'
+    data.formData.business_type_weights.accounting = 20
+    data.valuationResult.equity_value_mid = 99
+    data.htmlReport = '<main>New</main>'
+    await save
+    expect(mocks.updateValuationSession).not.toHaveBeenCalled()
+    expect(mocks.saveValuationResult).toHaveBeenCalledWith(
+      'report-a',
+      expect.objectContaining({
+        sessionData: expect.objectContaining({
+          company_name: 'Original company',
+          business_type_weights: { accounting: 100 },
+        }),
+        valuationResult: { valuation_id: 'val_original', equity_value_mid: 42 },
+        htmlReport: '<main>Original</main>',
+      })
+    )
+    expect(mocks.broadcastReportUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        valuationResult: expect.objectContaining({ equity_value_mid: 42 }),
+      })
+    )
+  })
+
+  it('rejects a save cancelled before transport rather than acknowledging it as persisted', async () => {
+    const save = saveCompleteValuationSession(
+      'report-a',
+      { valuationResult: { valuation_id: 'val_a' } },
+      vi.fn()
+    )
+    useClientContext.setState({ isActingAsClient: true, relationshipId: 'client-b' })
+    await expect(save).rejects.toMatchObject({ code: 'SESSION_SAVE_COMPLETE_CANCELLED' })
+    expect(mocks.saveValuationResult).not.toHaveBeenCalled()
+    expect(mocks.updateValuationSession).not.toHaveBeenCalled()
   })
 
   it('broadcasts the saved zero midpoint and asking price without synthesizing a price', async () => {

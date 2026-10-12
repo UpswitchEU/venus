@@ -1,4 +1,11 @@
-import { type Dispatch, type MutableRefObject, type SetStateAction, useMemo, useState } from 'react'
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react'
 import type {
   ChatMessage,
   FieldContext,
@@ -8,9 +15,12 @@ import type {
   SuggestedNormalisation,
   ValuationReportData,
 } from '../../../components/calculator'
+import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import type { ValuationFormData } from '../../../types/valuation'
+import { getCurrentFilingYear } from '../../../utils/fiscalYear'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
 import type { ManualPendingFieldUpdate } from '../utils/manualChatCommandHandling'
+import { restoreManualChatProposals } from '../utils/manualChatProposalRestore'
 import { buildManualChatValuationSummary } from '../utils/manualChatRequestContext'
 import { useManualAgentPromptHandoff } from './useManualAgentPromptHandoff'
 import { useManualChatControllerState } from './useManualChatControllerState'
@@ -152,10 +162,45 @@ export function useManualChatController({
     setPendingPostValuationAgentPrompt,
   })
 
+  const restoreProposals = useCallback(
+    (messages: ChatMessage[]) => {
+      const restored = restoreManualChatProposals(
+        messages,
+        useNormalizationStore.getState().items,
+        getCurrentFilingYear()
+      )
+      if (restored.items.length) normalizationActions.addItems(restored.items)
+      setPendingUpdates(restored.fieldUpdates)
+      return restored.messages
+    },
+    [normalizationActions.addItems]
+  )
+
+  const displayedMessages = useMemo(
+    () =>
+      chatMessages.map((message) => ({
+        ...message,
+        normalisationSuggestions: message.normalisationSuggestions?.map((suggestion) => {
+          const item = normalizationItems.find((candidate) => candidate.id === suggestion.id)
+          return item
+            ? {
+                ...suggestion,
+                amount: item.adjustment,
+                reason: item.reason ?? suggestion.reason,
+                status: item.status,
+              }
+            : suggestion
+        }),
+      })),
+    [chatMessages, normalizationItems]
+  )
+
   const { handleRetry, handleNewConversation } = useManualChatSessionActions({
     chatDrawerOpen,
     chatMessages,
     clearConversationMessages: conversationStore.clearMessages,
+    currentLocale,
+    restoreProposals,
     handleChatMessage,
     isChatGenerating,
     isLoadingHistory,
@@ -180,7 +225,7 @@ export function useManualChatController({
 
   return {
     chatDrawerOpen,
-    chatMessages,
+    chatMessages: displayedMessages,
     fieldContext,
     handleAcceptUpdate,
     handleApplyFieldUpdate,

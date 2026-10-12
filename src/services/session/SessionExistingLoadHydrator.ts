@@ -29,13 +29,16 @@ function optionalString(value: unknown): string | undefined {
 export async function hydrateExistingValuationSession(
   reportId: string,
   session: ValuationSession,
-  prefilledQuery?: string | null
-): Promise<ValuationSession> {
+  prefilledQuery?: string | null,
+  isCurrent: () => boolean = () => true
+): Promise<ValuationSession | null> {
+  if (!isCurrent()) return null
   validateSessionData(session)
 
   const normalizedSession = normalizeSessionDates(session)
   const mergedSession = mergeSessionFields(normalizedSession)
   await backfillSparseSessionFromStoreSeed(reportId, mergedSession)
+  if (!isCurrent()) return null
 
   const mergedSessionData = asRecord(mergedSession.sessionData) ?? {}
   const companyName = optionalString(mergedSessionData.company_name)
@@ -63,6 +66,7 @@ export async function hydrateExistingValuationSession(
         clientUserId: `${clientUserId.substring(0, 8)}...`,
       })
       const businessCardData = await fetchBusinessCardData(clientUserId)
+      if (!isCurrent()) return null
       if (businessCardData) {
         mergeBusinessCardIntoSession(mergedSession, businessCardData, clientContext)
         logger.debug('Business card merged into existing session', {

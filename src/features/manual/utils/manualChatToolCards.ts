@@ -1,5 +1,7 @@
 import type { ChatMessage } from '@/components/calculator'
 import { parseAIChatToolResults } from '@/services/ai/tool-results-parser'
+import { getCurrentFilingYear } from '@/utils/fiscalYear'
+import { buildManualAiNormalizationSuggestions } from './manualAiNormalizationSuggestions'
 
 type FieldUpdateCard = NonNullable<ChatMessage['fieldUpdates']>[number]
 type NormalisationSuggestionCard = NonNullable<ChatMessage['normalisationSuggestions']>[number]
@@ -190,7 +192,7 @@ function cardWithGeneratedId(
   key: ManualChatToolCardKey,
   value: unknown,
   createId: () => string
-): Record<string, unknown> {
+): Record<string, unknown> | null {
   const base = asRecord(value) ?? {}
   const card = {
     ...base,
@@ -198,8 +200,21 @@ function cardWithGeneratedId(
   }
 
   if (key === 'normalisationSuggestions') {
+    const { items } = buildManualAiNormalizationSuggestions({
+      suggestions: [card],
+      filingYear: getCurrentFilingYear(),
+      createId,
+    })
+    const item = items[0]
+    if (!item) return null
     return {
       ...card,
+      code: item.ledgerCode,
+      category: item.category,
+      backendCategory: item.backendCategory,
+      amount: item.adjustment,
+      reason: item.reason ?? '',
+      fiscalYear: item.year,
       status: 'pending',
     }
   }
@@ -223,7 +238,9 @@ export function addIdsToManualChatToolCards(
     pushIfAny(
       out,
       key,
-      (cards[key] ?? []).map((card) => cardWithGeneratedId(key, card, createId))
+      (cards[key] ?? [])
+        .map((card) => cardWithGeneratedId(key, card, createId))
+        .filter((card) => card !== null)
     )
   }
 

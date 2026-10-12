@@ -132,9 +132,12 @@ function throwCategorizedSessionCreationError(reportId: string, createError: unk
 export async function createSessionForNewReportIfAllowed(
   reportId: string,
   flow?: SessionFlow,
-  prefilledQuery?: string | null
+  prefilledQuery?: string | null,
+  isCurrent: () => boolean = () => true
 ): Promise<ValuationSession | null> {
+  if (!isCurrent()) return null
   const isNewReport = await bootstrapIndicatesNewReport(reportId)
+  if (!isCurrent()) return null
 
   if (!isNewReport) {
     logger.warn('Session not found and not a new report - may have been deleted', {
@@ -153,6 +156,7 @@ export async function createSessionForNewReportIfAllowed(
   try {
     beginNewJourney()
     await checkValuationCreationAllowed()
+    if (!isCurrent()) return null
 
     const prefilledSessionData = prefilledQuery
       ? ({ _prefilledQuery: prefilledQuery } as Partial<ValuationRequest>)
@@ -164,6 +168,7 @@ export async function createSessionForNewReportIfAllowed(
       sessionData: prefilledSessionData,
       partialData: prefilledSessionData,
     } as unknown as ValuationSession)
+    if (!isCurrent()) return null
 
     if (!createResponse?.session) {
       logger.error('Failed to create new session', { requestedReportId: reportId })
@@ -263,6 +268,7 @@ export async function createSessionForNewReportIfAllowed(
         clientUserId: `${clientUserId.substring(0, 8)}...`,
       })
       const businessCardData = await fetchBusinessCardData(clientUserId)
+      if (!isCurrent()) return null
       if (businessCardData) {
         mergeBusinessCardIntoSession(mergedSession, businessCardData, clientContext)
         logger.debug('Business card merged after session creation', {

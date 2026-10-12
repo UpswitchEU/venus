@@ -19,7 +19,7 @@ describe('ChatAssistantParsing', () => {
   it('parses add-back command value-first Dutch phrasing', () => {
     expect(parseNormalizationCommands('Voeg €35k toe aan eenmalige kosten')).toEqual([
       {
-        type: 'normalize',
+        type: 'add',
         field: 'oneTime',
         label: 'Eenmalige kosten',
         value: 35_000,
@@ -31,7 +31,7 @@ describe('ChatAssistantParsing', () => {
   it('parses English commands for mixed-language advisors', () => {
     expect(parseNormalizationCommands('Set EBITDA to 500k')).toEqual([
       {
-        type: 'normalize',
+        type: 'set',
         field: 'ebitda',
         label: 'EBITDA',
         value: 500_000,
@@ -60,5 +60,12 @@ describe('ChatAssistantParsing', () => {
         originalText: '500000',
       },
     ])
+  })
+})
+
+describe('Dutch and English decimal values', () => {
+  it.each(['2.5m', '2,5m'])('preserves the decimal in %s', (value) => {
+    expect(parseFinancialValues(`revenue ${value}`)[0]?.value).toBe(2500000)
+    expect(parseNormalizationCommands(`set EBITDA to ${value}`)[0]?.value).toBe(2500000)
   })
 })

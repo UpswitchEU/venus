@@ -1,4 +1,5 @@
 'use client'
+
 import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
 import { toast } from 'sonner'

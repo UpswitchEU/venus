@@ -12,7 +12,7 @@ describe('manualChatToolCards core parsing', () => {
     const cards = addIdsToManualChatToolCards(
       {
         fieldUpdates: [{ field: 'revenue', value: 1_000_000, label: 'Revenue' }],
-        normalisationSuggestions: [{ description: 'Owner salary add-back' }],
+        normalisationSuggestions: [{ description: 'Owner salary add-back', amount: 20000 }],
         valuationDefaultsPreviews: [{ status: 'ok' }],
         buyerReadyCards: [{ status: 'ready' }],
       },
@@ -58,6 +58,19 @@ describe('manualChatToolCards core parsing', () => {
     ])
   })
 
+  it('ignores malformed normalization cards without losing sibling proposals', () => {
+    const cards = addIdsToManualChatToolCards(
+      {
+        normalisationSuggestions: [{ amount: 'not-a-number' }, { category: 'rent', amount: 1000 }],
+        fieldUpdates: [{ field: 'revenue', value: 2500000, label: 'Revenue' }],
+      },
+      idFactory()
+    )
+    expect(cards.normalisationSuggestions).toHaveLength(1)
+    expect(cards.normalisationSuggestions?.[0].amount).toBe(1000)
+    expect(cards.fieldUpdates).toHaveLength(1)
+  })
+
   it('returns null for non-renderable stream tool results', () => {
     expect(parseManualChatStreamToolResult('unknown_tool', {}, idFactory())).toBeNull()
     expect(parseManualChatStreamToolResult('update_field_value', {}, idFactory())).toBeNull()
@@ -67,7 +80,7 @@ describe('manualChatToolCards core parsing', () => {
   it('adds ids to non-streaming response cards', () => {
     const cards = addIdsToManualChatToolCards(
       {
-        normalisationSuggestions: [{ category: 'rent' }],
+        normalisationSuggestions: [{ category: 'rent', amount: 1000 }],
         valuationRunRequests: [{ status: 'blocked', reason: 'missing' }],
       },
       idFactory()
