@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import React, { useId, useRef, useState } from 'react'
 import { cn } from '@/design-system/utils'
 import { readMobileViewportFallback, useMobileViewport } from '@/hooks/useMobileViewport'
+import { useCalculatorNavDropdownKeyboard } from './useCalculatorNavDropdownKeyboard'
 
 interface DropdownProps {
   trigger: React.ReactNode
@@ -76,6 +77,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
+  const keyboard = useCalculatorNavDropdownKeyboard({ open, setOpen, dropdownRef, menuRef })
   const mobileViewport = useMobileViewport()
   const isMobileViewport = mobileViewport.hasMeasured
     ? mobileViewport.matches
@@ -104,15 +106,6 @@ export const Dropdown: React.FC<DropdownProps> = ({
       document.removeEventListener('pointerdown', handleClickOutside, true)
       document.removeEventListener('mousedown', handleClickOutside, true)
     }
-  }, [open])
-
-  React.useEffect(() => {
-    if (!open) return
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
   }, [open])
 
   React.useLayoutEffect(() => {
@@ -206,7 +199,16 @@ export const Dropdown: React.FC<DropdownProps> = ({
   }, [align, avoidViewportOverflow, open, shouldAvoidViewportOverflow])
 
   return (
-    <div className={cn('relative', className)} ref={dropdownRef}>
+    <div
+      className={cn('relative', className)}
+      ref={dropdownRef}
+      onKeyDown={keyboard.onKeyDown}
+      onBlur={(event) => {
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) {
+          setOpen(false)
+        }
+      }}
+    >
       {React.isValidElement(trigger) ? (
         React.cloneElement(trigger as React.ReactElement<DropdownTriggerProps>, {
           onClick: (event: React.MouseEvent) => {

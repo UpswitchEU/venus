@@ -153,7 +153,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
       console.info('[Normalization] No data found for request', { status: 404, url: response.url })
     }
 
-    throw new NormalizationAPIError(response.status, errorMessage, errorDetails)
+    throw new NormalizationAPIError(response.status, errorMessage, {
+      ...errorDetails,
+      headers: { 'retry-after': response.headers.get('retry-after') },
+    })
   }
 
   // Handle 204 No Content
@@ -262,6 +265,7 @@ export class EbitdaNormalizationService {
     return runTitanNormalizationMutationExclusive(sid, async () => {
       const response = await fetch(`${this.baseURL}/api/normalization`, {
         method: 'POST',
+        signal: AbortSignal.timeout(60_000),
         credentials: 'include',
         headers: getNormalizationHeaders(),
         body: JSON.stringify(payload),
@@ -298,6 +302,7 @@ export class EbitdaNormalizationService {
       `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/rejections`,
       {
         method: 'POST',
+        signal: AbortSignal.timeout(60_000),
         credentials: 'include',
         headers: getNormalizationHeaders(),
         body: JSON.stringify({
@@ -349,6 +354,7 @@ export class EbitdaNormalizationService {
         `${this.baseURL}/api/normalization/${encodeURIComponent(sid)}/${year}`,
         {
           method: 'DELETE',
+          signal: AbortSignal.timeout(60_000),
           credentials: 'include',
           headers: getNormalizationHeaders(),
         }

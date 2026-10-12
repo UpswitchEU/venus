@@ -1,3 +1,4 @@
+import type { PersistenceOutcome } from '../utils/persistenceOutcome'
 /**
  * Tax Latency Store
  *
@@ -258,7 +259,7 @@ interface TaxLatencyStore {
   dismissCandidate: (id: string) => void
   clear: (options?: TaxLatencyMutationOptions) => void
 
-  persistToSession: (reportId: string) => Promise<void>
+  persistToSession: (reportId: string) => Promise<PersistenceOutcome>
   loadFromSession: (sessionData: Record<string, unknown> | null | undefined) => void
 
   getNetImpact: () => number
@@ -475,13 +476,13 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
         ),
 
       persistToSession: async (reportId) => {
-        if (!reportId) return
+        if (!reportId) return { status: 'skipped' }
         const deferRemainingMs = getTaxLatencySessionPersistDeferRemainingMs(reportId)
-        if (deferRemainingMs > 0) return
+        if (deferRemainingMs > 0) return { status: 'skipped' }
 
         const sessionState = useSessionStore.getState()
         const { session, updateSessionData, saveSession } = sessionState
-        if (!session || session.reportId !== reportId) return
+        if (!session || session.reportId !== reportId) return { status: 'skipped' }
 
         const { items } = get()
         let canonicalTaxLatencies: ReturnType<typeof canonicalizeTaxLatencyWireArray>
@@ -509,7 +510,8 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
           tax_latencies: canonicalTaxLatencies,
           _taxLatencies: items,
         })
-        await saveSession('autosave')
+        const outcome = await saveSession('autosave')
+        if (outcome.status !== 'acknowledged') return outcome
         const currentErrors = useManualFormStore.getState().validationErrors
         if (currentErrors.tax_latencies) {
           const { tax_latencies: _taxLatencyError, ...remainingErrors } = currentErrors
@@ -519,6 +521,7 @@ export const useTaxLatencyStore = create<TaxLatencyStore>()(
           reportId: reportId.substring(0, 12),
           count: items.length,
         })
+        return outcome
       },
 
       loadFromSession: (sessionData) => {

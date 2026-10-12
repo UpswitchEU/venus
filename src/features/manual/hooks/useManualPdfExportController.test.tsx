@@ -42,9 +42,42 @@ function makeParams(
 }
 
 describe('useManualPdfExportController', () => {
+  it('clears recent downloads when the active report changes', async () => {
+    const download = vi.fn().mockResolvedValue(undefined)
+    const { result, rerender } = renderHook(
+      ({ reportId }) =>
+        useManualPdfExportController(
+          makeParams(download, {
+            reportId,
+            resolvedReportId: reportId,
+          })
+        ),
+      { initialProps: { reportId: 'report-1' } }
+    )
+    await act(async () => {
+      await result.current.handleExport()
+    })
+    expect(result.current.downloadHistory).toHaveLength(1)
+    rerender({ reportId: 'report-2' })
+    expect(result.current.downloadHistory).toEqual([])
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
     Object.values(toast).forEach((fn) => fn.mockReset())
+  })
+
+  it('blocks every export entry point while inputs or adjustments still need saving', async () => {
+    const download = vi.fn()
+    const h = renderHook(() =>
+      useManualPdfExportController(makeParams(download, { upstreamBlocked: true }))
+    )
+    await act(async () => {
+      await h.result.current.handleExport()
+    })
+    expect(download).not.toHaveBeenCalled()
+    expect(h.result.current.isExporting).toBe(false)
+    expect(toast.loading).not.toHaveBeenCalled()
   })
 
   it('ignores rapid duplicate export clicks while one export is in flight', async () => {

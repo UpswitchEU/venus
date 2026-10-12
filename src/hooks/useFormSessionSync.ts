@@ -1,3 +1,4 @@
+import { requirePersistenceAcknowledgement } from '../utils/persistenceOutcome'
 /**
  * useFormSessionSync Hook
  *
@@ -632,7 +633,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         // This ensures form fields are saved even if user refreshes before submitting
         try {
           const { saveSession } = useSessionStore.getState()
-          await saveSession('autosave') // ✅ FIX: Mark as autosave (debounced form sync)
+          requirePersistenceAcknowledgement(await saveSession('autosave')) // ✅ FIX: Mark as autosave (debounced form sync)
           if (isCurrent()) confirmedSync.current = { target, generation, data, taxItems }
           generalLogger.debug('Synced form data to session and persisted to backend', {
             reportId: currentSession.reportId,
@@ -683,7 +684,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
         deferRetryTimerRef.current = null
       }
     }
-  }, [syncTarget])
+  }, [reportId])
 
   // Controlled navigation can await this while the form is still mounted.
   // Lifecycle/unload events cannot guarantee asynchronous persistence completes.
@@ -729,7 +730,7 @@ export const useFormSessionSync = ({ reportId, formData }: UseFormSessionSyncOpt
     // A previous failed write can leave the local session equal to the form.
     // Equality avoids another patch; it must not prevent retrying persistence.
     if (pending.hasUnsavedChanges || pending.isSaving || pending.saveErrorMessage) {
-      await pending.saveSession('user')
+      requirePersistenceAcknowledgement(await pending.saveSession('user'))
       confirmCurrentForm()
     }
     const saved = useSessionStore.getState()

@@ -17,7 +17,7 @@ vi.mock('../formSessionAutosaveDefer', () => ({
 
 const formData = { company_name: 'Client A', revenue: 100000, ebitda: 20000 } as ValuationFormData
 const updateSessionData = vi.fn().mockResolvedValue(undefined)
-const saveSession = vi.fn().mockResolvedValue(undefined)
+const saveSession = vi.fn().mockResolvedValue({ status: 'acknowledged' })
 const setSession = (reportId: string, sessionData: Record<string, unknown> = {}) => {
   useSessionStore.setState({
     session: { reportId, sessionData, name: 'Custom title' } as never,
@@ -36,7 +36,7 @@ describe('form autosave lifecycle', () => {
     vi.useFakeTimers()
     gate.until = 0
     updateSessionData.mockReset().mockResolvedValue(undefined)
-    saveSession.mockReset().mockResolvedValue(undefined)
+    saveSession.mockReset().mockResolvedValue({ status: 'acknowledged' })
     useTaxLatencyStore.setState({ items: [] })
     setSession('report-a')
   })
@@ -70,6 +70,7 @@ describe('form autosave lifecycle', () => {
     useSessionStore.setState({ hasUnsavedChanges: true, saveErrorMessage: 'offline' })
     saveSession.mockImplementationOnce(async () => {
       useSessionStore.setState({ hasUnsavedChanges: false, saveErrorMessage: null })
+      return { status: 'acknowledged' }
     })
     await act(async () => {
       await result.current()
@@ -83,14 +84,14 @@ describe('form autosave lifecycle', () => {
     saveSession
       .mockImplementationOnce(
         () =>
-          new Promise<void>((resolve) => {
-            finishFirst = resolve
+          new Promise<{ status: string }>((resolve) => {
+            finishFirst = () => resolve({ status: 'acknowledged' })
           })
       )
       .mockImplementationOnce(
         () =>
-          new Promise<void>((resolve) => {
-            finishSecond = resolve
+          new Promise<{ status: string }>((resolve) => {
+            finishSecond = () => resolve({ status: 'acknowledged' })
           })
       )
     const { result, rerender } = renderHook(useFormSessionSync, {

@@ -5,6 +5,7 @@ import type { NormalizationItem, ValuationReportData } from '../../../components
 import { valuationService } from '../../../services'
 import { useManualFormStore } from '../../../store/manual/useManualFormStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
+import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import type { CollectedData } from '../components/manualLayoutDataTypes'
 import { useManualNormalizationRecalculation } from './useManualNormalizationRecalculation'
@@ -106,6 +107,10 @@ function addUserTaxLatency() {
 // save receipt then let the return to Mercury announce "valuation added".
 describe('useManualNormalizationRecalculation headcount', () => {
   beforeEach(() => {
+    vi.spyOn(useSessionStore.getState(), 'updateSessionData').mockResolvedValue(undefined)
+    vi.spyOn(useSessionStore.getState(), 'saveSession').mockResolvedValue({
+      status: 'acknowledged',
+    })
     vi.mocked(toast.warning).mockClear()
     vi.mocked(valuationService.calculateValuation)
       .mockReset()
@@ -113,6 +118,7 @@ describe('useManualNormalizationRecalculation headcount', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     vi.useRealTimers()
     useNormalizationStore.setState(initialNormalizationSnapshot, true)
     useTaxLatencyStore.setState(initialTaxLatencySnapshot, true)

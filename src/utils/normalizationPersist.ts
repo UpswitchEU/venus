@@ -11,7 +11,7 @@
 import type { NormalizationItem } from '../components/calculator/UnifiedNormalizationModal'
 import { useNormalizationStore } from '../store/useNormalizationStore'
 import { getCurrentFilingYear } from './fiscalYear'
-import { appliesToYear } from './normalizationMath'
+import { requirePersistenceAcknowledgement } from './persistenceOutcome'
 import { isValidSessionId } from './sessionIdValidation'
 
 /** Request shape with financial years (from buildValuationRequest output) */
@@ -41,8 +41,6 @@ export async function persistNormalizationsBeforeCalculate(
   request: RequestWithYears
 ): Promise<boolean> {
   if (!isValidSessionId(reportId)) return true
-  const hasAnyNorm = useNormalizationStore.getState().items.some((n) => n.status === 'accepted')
-  if (!hasAnyNorm) return true
 
   const cyd = request.current_year_data
   const hy = request.historical_years_data || []
@@ -71,19 +69,11 @@ export async function persistNormalizationsBeforeCalculate(
   const persist = () =>
     useNormalizationStore.getState().persistAllToTitan(reportId, originalEBITDAByYear, yearsToUse)
 
-  for (let attempt = 0; attempt <= 2; attempt++) {
-    try {
-      await persist()
-      return true
-    } catch {
-      if (attempt < 2) {
-        await new Promise((r) => setTimeout(r, 1000))
-      } else {
-        return false
-      }
-    }
+  try {
+    return (await persist()).status === 'acknowledged'
+  } catch {
+    return false
   }
-  return false
 }
 
 /**
@@ -100,25 +90,11 @@ export async function persistOrDeleteNormalizationsForYears(
   reportId: string,
   years: number[],
   originalEBITDAByYear: Record<number, number>,
-  norms: NormalizationItem[]
+  _norms: NormalizationItem[]
 ): Promise<void> {
   if (!isValidSessionId(reportId)) return
-  const { normalizationService } = await import('../services/ebitdaNormalizationService')
-  const { persistToTitan } = useNormalizationStore.getState()
-
-  // Serialize per-year calls: Titan advisory-locks normalization by sessionKey;
-  // parallel requests still hold DB pool connections while waiting → pool starvation / 500s.
-  for (const year of years) {
-    const hasAcceptedForYear = norms.some((n) => appliesToYear(n, year))
-    if (hasAcceptedForYear) {
-      const rawReported = originalEBITDAByYear[year]
-      await persistToTitan(reportId, year, Number.isFinite(rawReported) ? rawReported : 0)
-    } else {
-      try {
-        await normalizationService.deleteNormalization(reportId, year)
-      } catch {
-        // best-effort delete (e.g. no row yet)
-      }
-    }
-  }
+  // Register the entire batch before sending any request, including removals.
+  requirePersistenceAcknowledgement(
+    await useNormalizationStore.getState().persistAllToTitan(reportId, originalEBITDAByYear, years)
+  )
 }

@@ -22,6 +22,7 @@ export function usePdfStalenessLifecycleRuntime({
   const unchangedStreakRef = useRef(0)
   const lastPolledPdfGeneratedAtMsRef = useRef<number | null>(null)
   const waitExtensionMsRef = useRef(0)
+  const waitDeadlineRef = useRef<number | null>(null)
   const waitTimerIdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const transientBackoffUntilRef = useRef(0)
   const transientErrorStreakRef = useRef(0)
@@ -67,9 +68,10 @@ export function usePdfStalenessLifecycleRuntime({
 
   const scheduleWaitTimeout = useCallback(() => {
     clearWaitTimer()
-    const delayMs = getPdfWaitDelayMs(waitExtensionMsRef.current)
+    waitDeadlineRef.current ??= Date.now() + getPdfWaitDelayMs(0)
+    const delayMs = Math.max(0, waitDeadlineRef.current - Date.now())
     waitTimerIdRef.current = setTimeout(() => {
-      if (!isPdfGeneratingRef.current) setPdfWaitTimedOut(true)
+      setPdfWaitTimedOut(true)
     }, delayMs)
   }, [clearWaitTimer])
 
@@ -84,6 +86,7 @@ export function usePdfStalenessLifecycleRuntime({
     unchangedStreakRef.current = 0
     lastPolledPdfGeneratedAtMsRef.current = null
     waitExtensionMsRef.current = 0
+    waitDeadlineRef.current = null
     resetTransientBackoff()
     cancelPollLock()
   }, [cancelPollLock, resetTransientBackoff])
@@ -101,6 +104,7 @@ export function usePdfStalenessLifecycleRuntime({
       unchangedStreakRef.current = 0
       lastPolledPdfGeneratedAtMsRef.current = lastPdfGeneratedAtMs
       waitExtensionMsRef.current = 0
+      waitDeadlineRef.current = null
       resetTransientBackoff()
       scheduleWaitTimeout()
     },
@@ -108,7 +112,6 @@ export function usePdfStalenessLifecycleRuntime({
   )
 
   const resetPostGenerationSync = useCallback(() => {
-    setPdfWaitTimedOut(false)
     clearWaitTimer()
     unchangedStreakRef.current = 0
     lastPolledPdfGeneratedAtMsRef.current = null
@@ -122,6 +125,7 @@ export function usePdfStalenessLifecycleRuntime({
     unchangedStreakRef.current = 0
     lastPolledPdfGeneratedAtMsRef.current = null
     waitExtensionMsRef.current = 0
+    waitDeadlineRef.current = null
     resetTransientBackoff()
     resetPollErrorCounts()
     setPdfWaitTimedOut(false)
@@ -134,7 +138,7 @@ export function usePdfStalenessLifecycleRuntime({
     resetPollErrorCounts()
   }, [resetPollErrorCounts, resetTransientBackoff])
 
-  const effectivePdfWaitTimedOut = pdfWaitTimedOut && !isPdfGenerating
+  const effectivePdfWaitTimedOut = pdfWaitTimedOut
 
   return {
     bySession404StreakRef,

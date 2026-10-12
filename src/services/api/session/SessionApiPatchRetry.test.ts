@@ -62,38 +62,21 @@ describe('SessionApiPatchRetry', () => {
     expect(circuitMocks.recordSuccessfulSessionPatch).toHaveBeenCalledTimes(1)
   })
 
-  it('retries transient server failures through the session PATCH retry budget', async () => {
-    vi.useFakeTimers()
-    try {
-      const executeRequest = vi
-        .fn()
-        .mockRejectedValueOnce({
-          response: { status: 500, data: { message: 'Premature close' } },
-        })
-        .mockResolvedValueOnce({ success: true })
-
-      const resultPromise = patchValuationSessionWithTransientRetry({
+  it.each([
+    429, 500, 503, 504,
+  ])('leaves %s retries and Retry-After to report recovery', async (status) => {
+    const error = {
+      response: { status, headers: { 'retry-after': '30' }, data: { message: 'Unavailable' } },
+    }
+    const executeRequest = vi.fn().mockRejectedValue(error)
+    await expect(
+      patchValuationSessionWithTransientRetry({
         executeRequest,
-        patchBody: { session_data: { company_name: 'Acme BV' } },
+        patchBody: {},
         reportId: 'val_transient_patch',
       })
-
-      await vi.advanceTimersByTimeAsync(500)
-      await expect(resultPromise).resolves.toEqual({ success: true })
-
-      expect(executeRequest).toHaveBeenCalledTimes(2)
-      expect(loggerMocks.warn).toHaveBeenCalledWith(
-        'Transient session PATCH failed, retrying',
-        expect.objectContaining({
-          attempt: 1,
-          reportId: 'val_transient_patch',
-          retryDelay: 500,
-          status: 500,
-        })
-      )
-    } finally {
-      vi.useRealTimers()
-    }
+    ).rejects.toBe(error)
+    expect(executeRequest).toHaveBeenCalledTimes(1)
   })
 
   it('does not retry 503 or 504 pool-pressure failures', async () => {

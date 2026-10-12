@@ -8,7 +8,6 @@ import {
   getPdfWaitDelayMs,
   getTransientPollBackoffDelayMs,
   isTransientPollError,
-  PDF_STALE_WAIT_EXTENSION_MS,
   PDF_STALE_WAIT_MAX_MS,
   PDF_STALE_WAIT_TIMEOUT_MS,
 } from './usePdfStalenessLifecycleModel'
@@ -62,7 +61,7 @@ describe('usePdfStalenessLifecycleModel', () => {
 
   it('caps wait-timeout extension at the lifecycle maximum', () => {
     expect(getPdfWaitDelayMs(0)).toBe(PDF_STALE_WAIT_TIMEOUT_MS)
-    expect(getNextPdfWaitExtensionMs(0)).toBe(PDF_STALE_WAIT_EXTENSION_MS)
+    expect(getNextPdfWaitExtensionMs(0)).toBe(0)
 
     let extension = 0
     for (let i = 0; i < 20; i++) {

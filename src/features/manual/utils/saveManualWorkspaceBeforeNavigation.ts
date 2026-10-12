@@ -8,6 +8,7 @@ import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import { deepEqual } from '../../../utils/deepEqual'
+import { requirePersistenceAcknowledgement } from '../../../utils/persistenceOutcome'
 import { isSameReportIdentity } from '../../../utils/reportIdentityPromotion'
 import { canonicalizeTaxLatencyWireArray } from '../../../utils/taxLatencyWire'
 
@@ -73,9 +74,11 @@ export async function saveManualWorkspaceBeforeNavigation({
     })
     check()
   }
+  requirePersistenceAcknowledgement(await useNormalizationStore.getState().retryPersist(reportId))
+  check()
   const pending = useSessionStore.getState()
   if (pending.hasUnsavedChanges || pending.isSaving || pending.saveErrorMessage) {
-    await pending.saveSession('user')
+    requirePersistenceAcknowledgement(await pending.saveSession('user'))
     check()
   }
   const saved = useSessionStore.getState()

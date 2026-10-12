@@ -141,6 +141,21 @@ describe('useManualReportReadinessController', () => {
     expect(getReportMock).toHaveBeenCalledWith('lookup-report', { bySession404Attempts: 2 })
   })
 
+  it('gates PDF work and changes its identity when saving or the report revision changes', async () => {
+    const h = renderHook(
+      (props: UseManualReportReadinessControllerParams) =>
+        useManualReportReadinessController(props),
+      { initialProps: makeParams({ upstreamBlocked: true }) }
+    )
+    expect(getLatestStalenessParams().persistedReportLookupId).toBeNull()
+    await expect(h.result.current.generatePdf()).resolves.toBeNull()
+    expect(usePdfGenerationMock.mock.results[0].value.generatePdf).not.toHaveBeenCalled()
+    const blockedIdentity = usePdfGenerationMock.mock.calls.at(-1)?.[1]
+    h.rerender(makeParams({ report: { ...makeReport(), renderFingerprint: 'acknowledged-v2' } }))
+    expect(getLatestStalenessParams().persistedReportLookupId).toBe('rep_1')
+    expect(usePdfGenerationMock.mock.calls.at(-1)?.[1]).not.toBe(blockedIdentity)
+  })
+
   it('uses the resolved report id for PDF generation', () => {
     renderHook(() =>
       useManualReportReadinessController(
@@ -148,6 +163,6 @@ describe('useManualReportReadinessController', () => {
       )
     )
 
-    expect(usePdfGenerationMock).toHaveBeenCalledWith('uuid-report')
+    expect(usePdfGenerationMock).toHaveBeenCalledWith('uuid-report', expect.any(String))
   })
 })

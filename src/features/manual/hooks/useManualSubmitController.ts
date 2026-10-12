@@ -327,7 +327,7 @@ export function useManualSubmitController({
 
         const retrySubmit = () => {
           if (lastSubmittedDataRef.current) {
-            void handleManualSubmit(lastSubmittedDataRef.current)
+            return handleManualSubmit(lastSubmittedDataRef.current)
           }
         }
 
@@ -388,7 +388,7 @@ export function useManualSubmitController({
           error,
           retrySubmit: () => {
             if (lastSubmittedDataRef.current) {
-              void handleManualSubmit(lastSubmittedDataRef.current)
+              return handleManualSubmit(lastSubmittedDataRef.current)
             }
           },
           submitRun,

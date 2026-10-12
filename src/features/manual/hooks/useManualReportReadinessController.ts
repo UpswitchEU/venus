@@ -4,6 +4,7 @@ import type { ValuationReportData } from '@/components/calculator'
 import { type UsePdfGenerationReturn, usePdfGeneration } from '@/hooks/usePdfGeneration'
 import { backendAPI } from '@/services/backendApi'
 import type { ValuationResponse, ValuationSession } from '@/types/valuation'
+import { reportAccessScope } from '@/utils/reportAccessScope'
 import {
   type UseManualReportHtmlRecoveryResult,
   useManualReportHtmlRecovery,
@@ -20,6 +21,7 @@ import {
 } from './usePdfStalenessLifecycle'
 
 export interface UseManualReportReadinessControllerParams {
+  upstreamBlocked?: boolean
   reportId: string
   resolvedReportId?: string | null
   reportHydrationLookupId?: string | null
@@ -53,6 +55,7 @@ export interface UseManualReportReadinessControllerResult
 }
 
 export function useManualReportReadinessController({
+  upstreamBlocked = false,
   reportId,
   resolvedReportId,
   reportHydrationLookupId,
@@ -74,11 +77,23 @@ export function useManualReportReadinessController({
 }: UseManualReportReadinessControllerParams): UseManualReportReadinessControllerResult {
   const {
     state: pdfGenerationState,
-    generatePdf,
+    generatePdf: generatePdfRaw,
     downloadPdf,
     isReady: isPdfReady,
     isGenerating: isPdfGenerating,
-  } = usePdfGeneration(resolvedReportId ?? reportId)
+  } = usePdfGeneration(
+    resolvedReportId ?? reportId,
+    JSON.stringify([
+      reportAccessScope(),
+      report?.renderFingerprint,
+      report?.reportUpdatedAt,
+      upstreamBlocked,
+    ])
+  )
+
+  const generatePdf = useCallback(async () => {
+    return upstreamBlocked ? null : generatePdfRaw()
+  }, [upstreamBlocked, generatePdfRaw])
 
   const {
     isHydratingEditModalData,
@@ -120,7 +135,7 @@ export function useManualReportReadinessController({
     isPdfReady,
     isPdfGenerating,
     pdfGenerationState,
-    persistedReportLookupId: pdfStalePollLookupId ?? null,
+    persistedReportLookupId: upstreamBlocked ? null : (pdfStalePollLookupId ?? null),
     canDownloadPdf,
     generatePdf,
     getReport,

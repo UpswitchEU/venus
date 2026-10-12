@@ -162,7 +162,11 @@ async function proxyToTitan(
     }
 
     const data = await titanResponse.json().catch(() => ({ success: false }))
-    return NextResponse.json(data, { status: titanResponse.status })
+    const retryAfter = titanResponse.headers.get('retry-after')
+    return NextResponse.json(data, {
+      status: titanResponse.status,
+      headers: retryAfter ? { 'Retry-After': retryAfter } : undefined,
+    })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       return NextResponse.json(

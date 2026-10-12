@@ -1,9 +1,14 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { valuationService } from '../../../services'
+import { useManualFormStore } from '../../../store/manual/useManualFormStore'
+import { clearReportRecovery, deferReportRecovery } from '../../../store/reportRecoveryStore'
+import { useNormalizationStore } from '../../../store/useNormalizationStore'
+import { useSessionStore } from '../../../store/useSessionStore'
 import type { ValuationRequest, ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { persistNormalizationsBeforeCalculate } from '../../../utils/normalizationPersist'
+import { requirePersistenceAcknowledgement } from '../../../utils/persistenceOutcome'
 import type { ManualSubmitRun } from './useManualSubmitRunGuard'
 
 type ManualCalculationExecutionTranslator = (key: string) => string
@@ -11,7 +16,7 @@ type ManualCalculationExecutionTranslator = (key: string) => string
 export interface RunManualCalculationExecutionParams {
   idForApi?: string | null
   request: ValuationRequest
-  retrySubmit: () => void
+  retrySubmit: () => Promise<unknown> | void
   submitRun: ManualSubmitRun
 }
 
@@ -42,7 +47,18 @@ export function useManualCalculationExecution({
       submitRun,
     }: RunManualCalculationExecutionParams): Promise<RunManualCalculationExecutionResult> => {
       if (idForApi) {
-        const persistOk = await persistNormalizationsBeforeCalculate(idForApi, request)
+        let persistOk = false
+        try {
+          const session = useSessionStore.getState()
+          await session.updateSessionData({
+            ...useManualFormStore.getState().formData,
+            _normalizations: useNormalizationStore.getState().items,
+          })
+          requirePersistenceAcknowledgement(await useSessionStore.getState().saveSession('user'))
+          persistOk = await persistNormalizationsBeforeCalculate(idForApi, request)
+        } catch {
+          /* The report-level recovery retains the exact failed prerequisite. */
+        }
         if (!submitRun.isStillTarget()) {
           submitRun.endLoading()
           generalLogger.info(
@@ -58,17 +74,22 @@ export function useManualCalculationExecution({
           generalLogger.warn(
             '[ManualValuationWorkspace] Pre-calculate normalization persist failed'
           )
-          toast.error(translate('persistFailed'), {
-            description: translate('persistFailedDesc'),
-            action: {
-              label: translate('retry'),
-              onClick: retrySubmit,
-            },
-          })
+          const failure =
+            useSessionStore.getState().saveFailure ??
+            useNormalizationStore.getState().pendingMutations.find((p) => p.failure)?.failure
+          deferReportRecovery(
+            idForApi,
+            'inputs',
+            failure ?? new Error('Save not acknowledged'),
+            async () => {
+              await retrySubmit()
+            }
+          )
           return { aborted: true, calculationDurationMs: 0, valuationResult: null }
         }
       }
 
+      if (idForApi) clearReportRecovery(idForApi)
       const calcStartTime = Date.now()
       // Include business_type_id + methodology in the diagnostic so a 422/500
       // post-mortem can tell whether the FE actually sent enough for the

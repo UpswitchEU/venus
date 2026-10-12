@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { RightPanelView, ValuationReportData } from '../../../components/calculator'
 import { useReportAssetSaveFailure } from '../../../hooks/useReportAssetSaveFailure'
+import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import type { SubmittedFinancialSnapshot } from '../utils/manualFinancialSnapshot'
 
@@ -24,11 +25,14 @@ export function useManualReportUiState({ initialTab }: UseManualReportUiStatePar
   const sessionSaveError = useSessionStore((state) => state.saveErrorMessage)
   const sessionSavedAt = useSessionStore((state) => state.lastSaved)
   const sessionReportId = useSessionStore((state) => state.session?.reportId)
+  const normalizationPending = useNormalizationStore(
+    (s) => s.recoveryBuffered || s.pendingMutations.some((p) => p.reportId === sessionReportId)
+  )
   const resultSaveFailure = useReportAssetSaveFailure(sessionReportId)
   // A rendered calculation is not a persistence acknowledgement. Session
   // failures and pending edits take precedence over an older calculation save.
   const draftStatus: 'draft' | 'saved' | 'saving' | 'unsaved' =
-    sessionSaveError || resultSaveFailure
+    sessionSaveError || resultSaveFailure || normalizationPending
       ? 'unsaved'
       : sessionSaving || calculationSaveStatus === 'saving'
         ? 'saving'

@@ -6,7 +6,7 @@ import { ManualLayoutBody } from './ManualLayoutBody'
 import { ManualLayoutContextBar } from './ManualLayoutContextBar'
 import { ManualLayoutModals } from './ManualLayoutModals'
 import { ManualLayoutNav } from './ManualLayoutNav'
-import { ManualPdfStaleBanner } from './ManualPdfStaleBanner'
+import { ManualReportRecoveryStatus } from './ManualReportRecoveryStatus'
 
 interface ManualLayoutChromeProps {
   bodyProps: ComponentProps<typeof ManualLayoutBody>
@@ -16,7 +16,7 @@ interface ManualLayoutChromeProps {
   isMobile: boolean
   modalsProps: ComponentProps<typeof ManualLayoutModals>
   navProps: ComponentProps<typeof ManualLayoutNav>
-  pdfStaleBannerProps: ComponentProps<typeof ManualPdfStaleBanner>
+  recoveryStatusProps: ComponentProps<typeof ManualReportRecoveryStatus>
 }
 
 export function ManualLayoutChrome({
@@ -27,7 +27,7 @@ export function ManualLayoutChrome({
   isMobile,
   modalsProps,
   navProps,
-  pdfStaleBannerProps,
+  recoveryStatusProps,
 }: ManualLayoutChromeProps) {
   return (
     <>
@@ -39,7 +39,7 @@ export function ManualLayoutChrome({
         )}
       >
         <ManualLayoutNav {...navProps} />
-        <ManualPdfStaleBanner {...pdfStaleBannerProps} />
+        <ManualReportRecoveryStatus {...recoveryStatusProps} />
         <ManualLayoutContextBar {...contextBarProps} />
         <ManualLayoutBody {...bodyProps} />
         <ManualLayoutModals {...modalsProps} />

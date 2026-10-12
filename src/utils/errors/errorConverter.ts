@@ -66,7 +66,7 @@ export function convertToApplicationError(
   const message = extractErrorMessage(error)
   return new ApplicationError(message || 'An unexpected error occurred', 'UNKNOWN_ERROR', {
     ...context,
-    originalError: String(error),
+    originalError: error,
   })
 }
 
@@ -83,6 +83,7 @@ function convertAxiosError(error: AxiosError, context?: Record<string, unknown>)
     method: error.config?.method,
     statusCode: status,
     responseData: error.response?.data,
+    headers: error.response?.headers,
   }
 
   // Network errors (no response)
@@ -126,6 +127,7 @@ function convertNativeError(error: Error, context?: Record<string, unknown>): Ap
   const errorContext = {
     ...context,
     errorName: error.name,
+    originalError: error,
     stack: error.stack,
   }
 

@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ManualReportRecoveryStatus } from '../features/manual/components/ManualReportRecoveryStatus'
+import { useReportRecovery } from '../features/manual/hooks/useReportRecovery'
 import {
   clearScopedGlobalBootstrapResult,
   getScopedGlobalBootstrapResult,
@@ -38,8 +40,18 @@ vi.mock('../features/valuation/components/ValuationFlow', () => ({
     useEffect(() => {
       state.mounts++
     }, [])
+    const reportId = useSessionStore((state) => state.session?.reportId) ?? sessionKey
+    const recovery = useReportRecovery(reportId)
     return (
       <article>
+        <ManualReportRecoveryStatus
+          recovery={recovery}
+          hasReport
+          pdfStale={false}
+          pdfFailed={false}
+          pdfRetrying={false}
+          retryPdf={async () => undefined}
+        />
         <p>Generated valuation</p>
         <input aria-label="Report note" defaultValue="original" />
       </article>
@@ -103,6 +115,8 @@ describe('calculation → save → UUID → refresh with the real session manage
       errorMessage: null,
       hasUnsavedChanges: false,
       saveErrorMessage: null,
+      saveFailure: null,
+      isSaving: false,
       session: {
         reportId: sessionKey,
         currentView: 'manual',
@@ -183,10 +197,10 @@ describe('calculation → save → UUID → refresh with the real session manage
         reportAssetService.saveReportAssets(sessionKey, { htmlReport: html })
       ).rejects.toThrow()
     })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Save temporarily unavailable')
-    fireEvent.click(screen.getByRole('button', { name: /tryAgain/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent('saveFailed')
+    fireEvent.click(screen.getByRole('button', { name: /retrySave/i }))
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('button', { name: /retrySave/i })).toBeNull())
     expect(save.mock.calls[1]).toEqual(save.mock.calls[0])
     expect(state.refresh).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Report note')).toBe(note)
@@ -327,10 +341,10 @@ describe('calculation → save → UUID → refresh with the real session manage
         .saveSession('autosave')
         .catch(() => undefined)
     })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Service Unavailable (503)')
-    fireEvent.click(screen.getByRole('button', { name: /tryAgain/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent('saveFailed')
+    fireEvent.click(screen.getByRole('button', { name: /retrySave/i }))
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('button', { name: /retrySave/i })).toBeNull())
     expect(state.refresh).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Report note')).toBe(note)
     expect(note).toHaveValue('keep unsaved draft')

@@ -1,4 +1,5 @@
 'use client'
+
 import { useLocale, useTranslations } from 'next-intl'
 import React from 'react'
 import { toast } from 'sonner'
@@ -39,7 +40,6 @@ import {
   useManualSubmitController,
   useManualSynthesisController,
   useManualSynthesisSkippedWarnings,
-  useManualToastMessageLifecycle,
   useManualVersionNavigation,
   useManualVersionSyncTimeoutRef,
   useManualWorkspaceStores,
@@ -48,6 +48,7 @@ import {
 } from '../hooks'
 import { useAccountingReconnectContext } from '../hooks/useAccountingReconnectContext'
 import { useAdvisorFormInteraction } from '../hooks/useAdvisorFormInteraction'
+import { useReportRecovery } from '../hooks/useReportRecovery'
 import type { ValuationRunTrigger } from '../hooks/useResultToReportBridge'
 import { MANUAL_SUBMIT_VALIDATION_TOAST_KEYS } from '../utils/manualSubmitValidation'
 import { persistedFinancialInputsDiffer } from '../utils/persistedFinancialInputMismatch'
@@ -93,7 +94,6 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   const startProposalVersionLabelRef = React.useRef<string | null>(null)
   const { isMobile } = useManualLayoutViewport()
   useManualPanelStorageReset()
-  useManualToastMessageLifecycle(t)
   const { user } = useAuth()
   const { allowedMethodKeys, normalizedPlanType, planFeatures } = useCredits()
   const { identity, isAccountantFlow } = useBootstrap()
@@ -261,8 +261,11 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     showFullscreenModal,
     showValuationEditModal,
   } = useManualModalState()
+  const recovery = useReportRecovery(
+    session?.reportId ?? resolvedReportId ?? reportId,
+    isCalculating || isGenerating || draftStatus === 'saving'
+  )
   const {
-    pdfGenerationState,
     generatePdf,
     downloadPdf,
     isPdfGenerating,
@@ -274,12 +277,11 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     retryReportHtmlRecovery,
     pdfStale,
     pdfWaitTimedOut,
-    pdfPollErrorCount,
-    pdfPollTransientCount,
     isPdfRetrying,
     pdfGenerationFailure,
     handleRetryPdfStalled,
   } = useManualReportReadinessController({
+    upstreamBlocked: recovery.blocked,
     reportId,
     resolvedReportId,
     reportHydrationLookupId,
@@ -587,6 +589,7 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
     recentValuations,
     showNewValuationModal,
   } = useManualNavigationController({
+    upstreamBlocked: recovery.blocked,
     flushFormBeforeNavigation,
     isNavigationBusy: () =>
       isCalculating ||
@@ -805,9 +808,20 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
   return (
     <>
       <ManualLayoutChrome
+        recoveryStatusProps={{
+          recovery,
+          hasReport: !!report,
+          pdfStale,
+          pdfFailed: pdfWaitTimedOut || !!pdfGenerationFailure,
+          pdfRetrying: isPdfRetrying,
+          retryPdf: handleRetryPdfStalled,
+          downloadPdf: canDownloadPdf ? handleExport : undefined,
+          isExporting,
+        }}
         chatDrawerOpen={chatDrawerOpen}
         isMobile={isMobile}
         navProps={{
+          pdfBlocked: recovery.blocked,
           accountantDisplayName,
           activeReportId: resolvedReportId || reportId,
           assistantOpenTasksCount,
@@ -871,20 +885,6 @@ const ManualValuationWorkspaceLoaded: React.FC<ManualValuationWorkspaceProps> = 
           user,
           versionControlLocked,
           versionHistoryForNav,
-        }}
-        pdfStaleBannerProps={{
-          canDownloadPdf,
-          isPdfRetrying,
-          onRetry: handleRetryPdfStalled,
-          persistedReportLookupId: pdfStalePollLookupId,
-          availablePdfUrl: pdfGenerationState.url,
-          pdfPollErrorCount,
-          pdfPollTransientCount,
-          pdfStale,
-          pdfWaitTimedOut,
-          generationFailure: pdfGenerationFailure,
-          report,
-          translate: t,
         }}
         contextBarProps={{
           businessName: collectedData.companyName,

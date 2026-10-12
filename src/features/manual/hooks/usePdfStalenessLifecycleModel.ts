@@ -8,7 +8,7 @@ export const PDF_STALE_POLL_MAX_MS = 120_000
 export const PDF_STALE_WAIT_TIMEOUT_MS = 60_000
 /** Extend the stall deadline when Titan is transiently unavailable (503 pooler blips). */
 export const PDF_STALE_WAIT_EXTENSION_MS = 20_000
-export const PDF_STALE_WAIT_MAX_MS = 180_000
+export const PDF_STALE_WAIT_MAX_MS = 60_000
 /** 12 polls x 2.5s = 30s of unchanged pdf_generated_at before surfacing the stalled banner. */
 export const PDF_STALE_UNCHANGED_STREAK_THRESHOLD = 12
 

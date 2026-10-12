@@ -11,6 +11,7 @@ export interface ManualLayoutNavProps {
   accountantDisplayName?: string
   activeReportId: string
   assistantOpenTasksCount: number
+  pdfBlocked?: boolean
   canDownloadPdf: boolean
   chatDrawerOpen: boolean
   companyName?: string
@@ -78,6 +79,7 @@ export function ManualLayoutNav({
   activeReportId,
   assistantOpenTasksCount,
   canDownloadPdf,
+  pdfBlocked = false,
   chatDrawerOpen,
   companyName,
   deletingValuationId,
@@ -170,6 +172,7 @@ export function ManualLayoutNav({
         isMobile
           ? undefined
           : (item: DownloadHistoryItem) => {
+              if (pdfBlocked || isExporting) return
               if (!canDownloadPdf) {
                 openStarterPaywall('pdf_download')
                 return
@@ -228,6 +231,7 @@ export function ManualLayoutNav({
         showFullAdvisorMethodNav ? () => openStarterPaywall('version_history') : undefined
       }
       canDownloadPdf={canDownloadPdf}
+      pdfBlocked={pdfBlocked}
     />
   )
 }

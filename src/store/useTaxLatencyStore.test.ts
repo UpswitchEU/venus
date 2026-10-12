@@ -248,7 +248,7 @@ describe('useTaxLatencyStore session boundary', () => {
 
   it('autosaves canonical public rows while retaining camelCase UI rows', async () => {
     const updateSessionData = vi.fn().mockResolvedValue(undefined)
-    const saveSession = vi.fn().mockResolvedValue(undefined)
+    const saveSession = vi.fn().mockResolvedValue({ status: 'acknowledged' })
     useSessionStore.setState({
       session: {
         reportId: 'val_tax_latency_autosave',
@@ -311,7 +311,7 @@ describe('useTaxLatencyStore session boundary', () => {
 
   it('does not mislabel a session transport failure as a tax-latency validation error', async () => {
     const updateSessionData = vi.fn().mockRejectedValue(new Error('Session transport failed'))
-    const saveSession = vi.fn().mockResolvedValue(undefined)
+    const saveSession = vi.fn().mockResolvedValue({ status: 'acknowledged' })
     useSessionStore.setState({
       session: {
         reportId: 'val_tax_latency_transport',

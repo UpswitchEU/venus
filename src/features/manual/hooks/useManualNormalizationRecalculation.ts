@@ -1,4 +1,3 @@
-import { useTranslations } from 'next-intl'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { NormalizationItem, ValuationReportData } from '../../../components/calculator'
@@ -9,13 +8,14 @@ import {
   mergePreparerMultipleIntoRequest,
   usePreparerMultipleStore,
 } from '../../../store/manual/usePreparerMultipleStore'
+import { clearReportRecovery, deferReportRecovery } from '../../../store/reportRecoveryStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { useSessionStore } from '../../../store/useSessionStore'
 import { useTaxLatencyStore } from '../../../store/useTaxLatencyStore'
 import type { ValuationFormData, ValuationResponse } from '../../../types/valuation'
 import { generalLogger } from '../../../utils/logger'
 import { persistOrDeleteNormalizationsForYears } from '../../../utils/normalizationPersist'
-import { toastSaveFailure } from '../../../utils/saveErrorHandling'
+import { requirePersistenceAcknowledgement } from '../../../utils/persistenceOutcome'
 import { mapClarityFormToVenusStore } from '../utils/manualFormMapper'
 import {
   buildAcceptedNormalizationSignature,
@@ -98,7 +98,6 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
   translate,
   translatePreparer,
 }: UseManualNormalizationRecalculationParams<TCollectedData>): UseManualNormalizationRecalculationResult {
-  const translateReport = useTranslations('report')
   const recalcMountedRef = useIsMountedRef()
   const recalcLookupIdRef = useLatestRef<string | undefined>(resolvedReportId || reportId)
 
@@ -155,6 +154,21 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
           return
         }
 
+        try {
+          await useSessionStore
+            .getState()
+            .updateSessionData({ ...requestSource, _normalizations: normalizations })
+          requirePersistenceAcknowledgement(await useSessionStore.getState().saveSession('user'))
+          requirePersistenceAcknowledgement(
+            await useNormalizationStore.getState().retryPersist(idForApi)
+          )
+        } catch (error) {
+          deferReportRecovery(idForApi, 'inputs', error, () =>
+            recalculateWithNormalizations(useNormalizationStore.getState().items)
+          )
+          return
+        }
+        clearReportRecovery(idForApi)
         const calcResult = await valuationService.calculateValuation(request)
         if (!isStillRelevant()) return
         if (!calcResult) return
@@ -184,7 +198,14 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
               error: saveError instanceof Error ? saveError.message : String(saveError),
             }
           )
-          toastSaveFailure(saveError, translateReport)
+          deferReportRecovery(idForApi, 'result', saveError, async () => {
+            if (!isStillRelevant()) return
+            await reportAssetService.retryFailedSave(idForApi)
+            if (!isStillRelevant()) return
+            recordManualValuationSaved([idForApi, useSessionStore.getState().session?.reportId])
+            setDraftStatus('saved')
+            setLastSaved(new Date())
+          })
         }
         if (!isStillRelevant()) {
           durableSaveInFlightRef.current = false
@@ -246,7 +267,6 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
       synthesisSelection,
       translate,
       translatePreparer,
-      translateReport,
     ]
   )
 
@@ -277,6 +297,10 @@ export function useManualNormalizationRecalculation<TCollectedData extends objec
         generalLogger.warn('[ManualValuationWorkspace] Sync after normalization edit failed', {
           error: error instanceof Error ? error.message : String(error),
         })
+        deferReportRecovery(idForApi, 'inputs', error, () =>
+          recalculateWithNormalizations(useNormalizationStore.getState().items)
+        )
+        return
       }
 
       await recalculateWithNormalizations(norms)

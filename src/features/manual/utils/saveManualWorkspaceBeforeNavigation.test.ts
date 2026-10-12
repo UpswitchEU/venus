@@ -13,6 +13,7 @@ const env = vi.hoisted(() => ({
   update: vi.fn(),
   save: vi.fn(),
   flush: vi.fn(),
+  retryNorm: vi.fn(),
   failed: vi.fn(),
   pending: vi.fn(),
   current: true,
@@ -25,7 +26,7 @@ vi.mock('../../../store/manual/useManualFormStore', () => ({
   useManualFormStore: { getState: () => ({ formData: env.form }) },
 }))
 vi.mock('../../../store/useNormalizationStore', () => ({
-  useNormalizationStore: { getState: () => ({ items: env.norms }) },
+  useNormalizationStore: { getState: () => ({ items: env.norms, retryPersist: env.retryNorm }) },
 }))
 vi.mock('../../../store/useTaxLatencyStore', () => ({
   useTaxLatencyStore: { getState: () => ({ items: env.tax }) },
@@ -64,11 +65,13 @@ beforeEach(() => {
   }
   env.recover.mockResolvedValue(false)
   env.flush.mockResolvedValue(undefined)
+  env.retryNorm.mockResolvedValue({ status: 'acknowledged' })
   env.update.mockImplementation(async () => {
     env.state.hasUnsavedChanges = true
   })
   env.save.mockImplementation(async () => {
     env.state.hasUnsavedChanges = false
+    return { status: 'acknowledged' }
   })
 })
 

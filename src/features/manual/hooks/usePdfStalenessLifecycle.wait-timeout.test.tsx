@@ -60,7 +60,7 @@ describe('usePdfStalenessLifecycle wait timeout', () => {
     expect(result.current.pdfPollTransientCount).toBeGreaterThanOrEqual(1)
   })
 
-  it('extends the stall deadline after transient 503 poll errors', async () => {
+  it('releases the wait within 60 seconds despite transient 503 poll errors', async () => {
     const report = makeReport({
       reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
       pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
@@ -86,15 +86,10 @@ describe('usePdfStalenessLifecycle wait timeout', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_001)
     })
-    expect(result.current.pdfWaitTimedOut).toBe(false)
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(42_000)
-    })
     expect(result.current.pdfWaitTimedOut).toBe(true)
   })
 
-  it('does not surface stalled while async PDF generation is in flight', () => {
+  it('bounds the wait even while async PDF generation remains in flight', () => {
     const report = makeReport({
       reportUpdatedAt: new Date('2026-05-01T14:00:00Z'),
       pdfGeneratedAt: new Date('2026-05-01T13:00:00Z'),
@@ -112,7 +107,7 @@ describe('usePdfStalenessLifecycle wait timeout', () => {
     expect(result.current.pdfWaitTimedOut).toBe(true)
 
     rerender(makeParams({ report, isPdfGenerating: true, persistedReportLookupId: null }))
-    expect(result.current.pdfWaitTimedOut).toBe(false)
+    expect(result.current.pdfWaitTimedOut).toBe(true)
   })
 
   it('resets pdfWaitTimedOut when staleness clears', () => {

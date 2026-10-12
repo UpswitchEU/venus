@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { trackAINormalizationAccept } from '@/lib/analytics'
 import type { NormalizationItem, SuggestedNormalisation } from '../../../components/calculator'
 import { normalizationService } from '../../../services/ebitdaNormalizationService'
+import { deferReportRecovery } from '../../../store/reportRecoveryStore'
 import { useNormalizationStore } from '../../../store/useNormalizationStore'
 import { generalLogger } from '../../../utils/logger'
 import { persistOrDeleteNormalizationsForYears } from '../../../utils/normalizationPersist'
@@ -103,29 +104,24 @@ export function useManualNormalizationReviewActions({
         return true
       } catch (error) {
         generalLogger.warn(
-          `[ManualValuationWorkspace] Titan persist failed after ${action} - rolling back`,
+          `[ManualValuationWorkspace] Titan persist failed after ${action} - keeping pending recovery`,
           {
             id,
             error: error instanceof Error ? error.message : String(error),
           }
         )
-        normalizationActions.updateItem(id, { status: 'pending' })
-        setSuggestedNormalisations((prev) =>
-          updateSuggestedNormalisationStatus(prev, id, 'pending')
+        deferReportRecovery(idForApi, 'inputs', error, () =>
+          recalculateWithNormalizations(useNormalizationStore.getState().items)
         )
-        toast.error(persistFailedTitle, { description: persistFailedDescription })
         return false
       }
     },
     [
       financialYears,
-      normalizationActions,
+      recalculateWithNormalizations,
       originalEBITDAByYear,
-      persistFailedDescription,
-      persistFailedTitle,
       reportId,
       resolvedReportId,
-      setSuggestedNormalisations,
     ]
   )
 
@@ -161,14 +157,11 @@ export function useManualNormalizationReviewActions({
       }
       normalizationActions.rejectItem(id)
       setSuggestedNormalisations((prev) => updateSuggestedNormalisationStatus(prev, id, 'rejected'))
-      // The acknowledged decision endpoint is the complete persistence action
-      // for a rejection. Re-saving the accepted-items list here creates a
-      // split-brain failure mode: the decision can be durable while a later,
-      // unrelated save fails and rolls the UI back to "pending". Accepted
-      // items did not change, so there is nothing else to persist.
+      if (!(await persistNormalizationChange(id, 'reject'))) return
       await recalculateWithNormalizations(useNormalizationStore.getState().items)
     },
     [
+      persistNormalizationChange,
       normalizationActions,
       recalculateWithNormalizations,
       reportId,
