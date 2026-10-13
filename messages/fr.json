@@ -58,6 +58,8 @@
 			"export": "Exporter",
 			"import": "Importer",
 			"print": "Imprimer",
+			"zoomIn": "Zoom avant",
+			"zoomOut": "Zoom arrière",
 			"preview": "Aperçu",
 			"view": "Voir",
 			"startOver": "Recommencer",
