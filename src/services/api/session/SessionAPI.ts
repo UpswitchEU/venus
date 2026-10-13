@@ -25,7 +25,10 @@ import {
   isValidationError,
 } from '../../../utils/errors/errorGuards'
 import { apiLogger } from '../../../utils/logger'
-import { stripReportBlobsFromSessionPatch } from '../../../utils/stripReportBlobsFromSessionPatch'
+import {
+  omitSessionValuationMirrors,
+  stripReportBlobsFromSessionPatch,
+} from '../../../utils/stripReportBlobsFromSessionPatch'
 import { validateOptionalValuationCompanyGraphContext } from '../../../utils/valuationCompanyGraphContext'
 import { type APIRequestConfig, HttpClient } from '../HttpClient'
 import { VALUATION_NO_RETRY } from '../valuationTimeouts'
@@ -531,9 +534,9 @@ export class SessionAPI extends HttpClient {
     options?: APIRequestConfig
   ): Promise<SaveValuationResultResponse> {
     validateOptionalValuationCompanyGraphContext(data.sessionData?.company_graph_context)
-    const sessionDataPayload = stripReportBlobsFromSessionPatch(data.sessionData) as
-      | SessionRecord
-      | undefined
+    const sessionDataPayload = stripReportBlobsFromSessionPatch(
+      data.valuationResult ? omitSessionValuationMirrors(data.sessionData) : data.sessionData
+    ) as SessionRecord | undefined
     const valuationResultPayload = stripValuationResultPayload(data.valuationResult)
 
     try {

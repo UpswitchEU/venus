@@ -61,6 +61,29 @@ export function stripReportBlobsFromValuationResult<T>(valuationResult: T): T {
 }
 
 /**
+ * PUT /result already carries the authoritative calculation separately. Restored
+ * sessions contain both result aliases, each with the full calculation trace;
+ * sending them again can triple the request size and exceed the server limit.
+ * Only use this when the request includes its own valuationResult.
+ */
+export function omitSessionValuationMirrors(sessionData: unknown, depth = 0): unknown {
+  if (sessionData == null || typeof sessionData !== 'object' || Array.isArray(sessionData)) {
+    return sessionData
+  }
+  if (depth > MAX_STRIP_DEPTH) throw new Error('Session envelope nesting exceeds the save limit')
+  const next = omitKeys(sessionData as Record<string, unknown>, [
+    'valuationResult',
+    'valuation_result',
+  ])
+  for (const key of NESTED_SESSION_ENVELOPE_KEYS) {
+    if (Object.hasOwn(next, key)) {
+      next[key] = omitSessionValuationMirrors(next[key], depth + 1)
+    }
+  }
+  return next
+}
+
+/**
  * Returns a copy with report HTML/PDF strings stripped. Does not mutate the input.
  * Recurses into `sessionData` / `partialData` / `session_data` envelopes (bounded depth).
  */

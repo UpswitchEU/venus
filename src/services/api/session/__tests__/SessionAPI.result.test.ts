@@ -51,6 +51,7 @@ describe('SessionAPI', () => {
       executeRequestSpy.mockResolvedValue({
         success: true,
         message: 'saved',
+        reportId: 'report-123',
         reportReady: true,
       })
 
@@ -90,17 +91,11 @@ describe('SessionAPI', () => {
           htmlReport: string
         }
       }
-      const sessionValuationResult = requestBody.data.sessionData.valuation_result as Record<
-        string,
-        unknown
-      >
-      const sessionDetails = sessionValuationResult.details as Record<string, unknown>
       const resultDetails = requestBody.data.valuationResult.details as Record<string, unknown>
 
       expect(requestBody.data.htmlReport).toBe(hugeHtml)
       expect(requestBody.data.sessionData.htmlReport).toBeUndefined()
-      expect(sessionValuationResult.html_report).toBeUndefined()
-      expect(sessionDetails.html_report).toBeUndefined()
+      expect(requestBody.data.sessionData.valuation_result).toBeUndefined()
       expect(requestBody.data.valuationResult.html_report).toBeUndefined()
       expect(requestBody.data.valuationResult.htmlReport).toBeUndefined()
       expect(requestBody.data.valuationResult.pdf_html_report).toBeUndefined()
@@ -109,10 +104,77 @@ describe('SessionAPI', () => {
       expect(resultDetails.method).toBe('dcf')
     })
 
+    it('keeps a restored large calculation once, with its full trace and canonical HTML', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        reportId: 'report-123',
+        reportReady: true,
+        message: 'saved',
+      })
+      const trace = { evidence: 'x'.repeat(10_000_000), equity_value_mid: 907614.48 }
+      const current = { equity_value_mid: 907614.48, detailed_results: trace }
+      const sessionData = {
+        company_name: 'Synthetic Corp',
+        revenue: 1600000.42,
+        historical_years_data: [{ year: 2024, revenue: 900000, ebitda: 90000 }],
+        _client_context: { relationship_id: 'client-123' },
+        valuationResult: current,
+        valuation_result: current,
+        session_data: { valuation_result: current, locale: 'en' },
+      }
+      await api.saveValuationResult('val_restored', {
+        sessionData,
+        valuationResult: current,
+        htmlReport: '<html>Current two-year report</html>',
+      })
+      const body = executeRequestSpy.mock.calls[0][0].data
+      expect(JSON.stringify(body).length).toBeLessThan(10_010_000)
+      expect(body.valuationResult).toEqual(current)
+      expect(body.htmlReport).toBe('<html>Current two-year report</html>')
+      expect(body.sessionData).toEqual({
+        company_name: sessionData.company_name,
+        revenue: sessionData.revenue,
+        historical_years_data: sessionData.historical_years_data,
+        _client_context: sessionData._client_context,
+        session_data: { locale: 'en' },
+      })
+      expect(sessionData.valuation_result).toBe(current)
+    })
+
+    it('retains an embedded result when no separate authoritative result is supplied', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        reportId: 'report-123',
+        reportReady: true,
+        message: 'saved',
+      })
+      await api.saveValuationResult('val_session_only', {
+        sessionData: { valuation_result: { equity_value_mid: 123 } },
+      })
+      expect(executeRequestSpy.mock.calls[0][0].data.sessionData.valuation_result).toEqual({
+        equity_value_mid: 123,
+      })
+    })
+
+    it.each([
+      undefined,
+      {},
+      { success: true },
+      { success: false, message: 'Not saved' },
+    ])('rejects an unacknowledged result response: %j', async (response) => {
+      executeRequestSpy.mockResolvedValue(response)
+      await expect(
+        api.saveValuationResult('val_unacknowledged', {
+          valuationResult: { equity_value_mid: 123 },
+        })
+      ).rejects.toThrow('not acknowledged')
+    })
+
     it('bounds result persistence to the session deadline', async () => {
       executeRequestSpy.mockResolvedValue({
         success: true,
         message: 'saved',
+        reportId: 'report-123',
         reportReady: true,
       })
 
@@ -138,6 +200,7 @@ describe('SessionAPI', () => {
       executeRequestSpy.mockResolvedValue({
         success: true,
         message: 'saved',
+        reportId: 'report-123',
         reportReady: true,
       })
 
