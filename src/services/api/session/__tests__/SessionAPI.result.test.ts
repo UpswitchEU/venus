@@ -166,6 +166,47 @@ describe('SessionAPI', () => {
       })
     })
 
+    it('does not resend the recursive version receipt returned by a fresh calculation', async () => {
+      executeRequestSpy.mockResolvedValue({
+        success: true,
+        reportId: 'report-123',
+        reportReady: true,
+        message: 'saved',
+      })
+      const financialEvidence = { executed_steps: 'x'.repeat(6_000_000) }
+      const economics = {
+        equity_value_mid: 907614.48,
+        details: { detailed_results: financialEvidence },
+        report_context: { normalized_ebitda: 196666.67, version: 'template-v1' },
+      }
+      // Titan returns the saved row after /calculate; both row fields contain
+      // outputs + valuationResult. Its persistence projection already omits it.
+      const versionData = { outputs: economics, valuationResult: economics }
+      const freshResult = {
+        ...economics,
+        version: {
+          id: 'durable-version-3',
+          version_data: versionData,
+          trigger_metadata: { versionData },
+        },
+      }
+      expect(new TextEncoder().encode(JSON.stringify(freshResult)).byteLength).toBeGreaterThan(
+        30_000_000
+      )
+      const htmlReport = '<html>Current report ' + '€'.repeat(70_000) + '</html>'
+      await api.saveValuationResult('val_fresh', {
+        sessionData: { revenue: 1600000.42 },
+        valuationResult: freshResult,
+        htmlReport,
+      })
+      const prepared = omitOversizedValuationResultReportBlobs(executeRequestSpy.mock.calls[0][0])
+      expect(prepared.omitted).toBe(false)
+      expect(prepared.estimatedBodyBytes).toBeLessThan(6_220_000)
+      expect(prepared.config.data.valuationResult).toEqual(economics)
+      expect(prepared.config.data.htmlReport).toBe(htmlReport)
+      expect(freshResult.version.version_data.outputs).toBe(economics)
+    })
+
     it.each([
       undefined,
       {},
