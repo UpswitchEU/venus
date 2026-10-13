@@ -235,11 +235,15 @@ export function stripValuationResultPayload(
 export function normalizeSaveValuationResultResponse(
   response: SaveValuationResultResponse | undefined
 ): SaveValuationResultResponse {
-  if (!response) {
-    return {
-      success: true,
-      message: 'Valuation result saved',
-    }
+  // HttpClient normalizes empty 200/204 bodies to { success: true }. A result
+  // write needs Titan's durable receipt, not that generic transport fallback.
+  if (
+    response?.success !== true ||
+    typeof response.reportId !== 'string' ||
+    !response.reportId.trim() ||
+    typeof response.reportReady !== 'boolean'
+  ) {
+    throw new Error('Valuation result save was not acknowledged')
   }
 
   return {

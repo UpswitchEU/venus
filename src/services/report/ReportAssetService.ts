@@ -252,6 +252,9 @@ export class ReportAssetService {
         htmlReport: assets.htmlReport,
         name: assets.name,
       })
+      if (saveResponse?.success !== true) {
+        throw new Error('Valuation result save was not acknowledged')
+      }
       const putResultDuration = performance.now() - putResultStartTime
       const identity = resolveSavedReportIdentity({
         previousId: reportId,
