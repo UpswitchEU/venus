@@ -18,7 +18,7 @@ import { type ReactNode, useState } from 'react'
 import { ReportSkeleton } from '@/components/skeletons/ReportSkeleton'
 import { SafeReportHtml } from '@/components/valuation/report/SafeReportHtml'
 import { AuroraButton } from '@/design-system'
-import { Modal, ModalContent } from '@/design-system/components/Modal'
+import { Modal, ModalContent, ModalTitle } from '@/design-system/components/Modal'
 import type { RightPanelView } from './CalculatorNav.types'
 import type { ValuationReportData } from './types'
 
@@ -78,8 +78,12 @@ export function FullscreenReportModal({
         size="full"
         variant="default"
         showClose={false}
+        description={isGraph ? t('report.graph') : t('reports.subtitle')}
         className="report-modal fixed inset-0 w-screen h-screen max-w-none max-h-none translate-x-0 translate-y-0 rounded-none p-0 flex flex-col overflow-hidden bg-background"
       >
+        <ModalTitle className="sr-only">
+          {isGraph ? t('report.graph') : t('reports.title')}
+        </ModalTitle>
         {/* Print Styles */}
         <style>{`
           @media print {
@@ -114,21 +118,25 @@ export function FullscreenReportModal({
             <>
               <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-foreground/[0.04] border border-foreground/10">
                 <button
+                  type="button"
                   onClick={handleZoomOut}
+                  aria-label={t('common.actions.zoomOut')}
                   disabled={zoom <= 50}
                   className="p-1.5 rounded text-foreground/50 hover:text-foreground disabled:opacity-30 transition-colors"
                 >
-                  <ZoomOut className="w-4 h-4" />
+                  <ZoomOut className="w-4 h-4" aria-hidden />
                 </button>
                 <span className="text-xs font-mono text-foreground/60 min-w-[3rem] text-center">
                   {zoom}%
                 </span>
                 <button
+                  type="button"
                   onClick={handleZoomIn}
+                  aria-label={t('common.actions.zoomIn')}
                   disabled={zoom >= 200}
                   className="p-1.5 rounded text-foreground/50 hover:text-foreground disabled:opacity-30 transition-colors"
                 >
-                  <ZoomIn className="w-4 h-4" />
+                  <ZoomIn className="w-4 h-4" aria-hidden />
                 </button>
               </div>
 
@@ -137,6 +145,7 @@ export function FullscreenReportModal({
               <button
                 type="button"
                 onClick={handlePrint}
+                aria-label={t('common.actions.print')}
                 className="hidden sm:block p-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
               >
                 <Printer className="w-4 h-4" aria-hidden />
@@ -161,6 +170,7 @@ export function FullscreenReportModal({
               size="sm"
               onClick={onDownload || onExport}
               disabled={isExporting}
+              aria-label={isExporting ? t('common.exporting') : t('report.exportPDF')}
               className="gap-1.5"
             >
               {isExporting ? (
@@ -181,6 +191,7 @@ export function FullscreenReportModal({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
+            aria-label={t('common.actions.close')}
             className="p-2 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
           >
             <X className="w-4 h-4" aria-hidden />
