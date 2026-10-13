@@ -252,6 +252,8 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
        * Create new version
        */
       createVersion: async (request: CreateVersionRequest) => {
+        const requiresDurableVersion =
+          Boolean(useAuthStore.getState().user) || useClientContext.getState().isActingAsClient
         // ✅ FIX: Prevent concurrent version creation for same reportId
         const creationKey = buildVersionCreationKey(request)
         if (pendingVersionCreations.has(creationKey)) {
@@ -316,7 +318,14 @@ export const useVersionHistoryStore = create<VersionHistoryStore>()(
 
             return version
           } catch (backendError) {
-            // Backend unavailable - create locally
+            // Signed-in history must be acknowledged by the server. Returning a
+            // local-only version hides the save failure and loses the audit
+            // snapshot on reload. Let the caller expose its retry action.
+            if (requiresDurableVersion) {
+              throw backendError
+            }
+
+            // Anonymous drafts may still keep an in-memory fallback.
             versionLogger.warn('Backend unavailable, creating local version', {
               reportId: request.reportId,
               backendError:

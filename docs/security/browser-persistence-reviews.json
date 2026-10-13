@@ -142,10 +142,10 @@
       }
     },
     "src/store/useVersionHistoryStore.ts": {
-      "reviewedAt": "2026-10-01",
+      "reviewedAt": "2026-10-11",
       "reviewBy": "2026-12-31",
-      "sourceSha256": "db632da52ed1c5f1f738aa8614c11554c58b1e4a7d3a88dbb499f5c664d61654",
-      "assessment": "Removed all version content, company identity, figures, reports and arbitrary spreads from persistence. Only ten report/version selections, bounded in-session TTL and full resolved user/client scope.",
+      "sourceSha256": "c3c64e8be2b7ed5e7ce985ecdbe73bd5fd18a60107a47d2048db72a7ab14b028",
+      "assessment": "Reviewed signed-in version failure propagation. Persistence still contains only ten opaque report/version selections, no report payloads or figures; bounded session TTL and resolved user/client scope are unchanged. Failed authenticated saves no longer introduce local-only history.",
       "dependencies": {
         "src/store/versionHistoryModel.ts": "7e8033ccf58dae2de69c8b9e64c5bd1adb4d3969e0ade0ff3b84d42f1263a27b",
         "src/utils/workflowRecoveryStorage.ts": "272f950a875673ddf3fafb4a1ec97b1374e9c7c48eb26141d3b5e677fc8099c4",
