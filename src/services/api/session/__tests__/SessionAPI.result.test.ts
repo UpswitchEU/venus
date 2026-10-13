@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  omitOversizedValuationResultReportBlobs,
+  VALUATION_RESULT_HTML_OMIT_BYTES,
+} from '../../HttpClientPayloadGuards'
 import type { SessionAPI, ValuationResponse } from './SessionAPI.testHarness'
 import { executeRequestSpy, resetSessionApiHarness } from './SessionAPI.testHarness'
 
@@ -113,6 +117,7 @@ describe('SessionAPI', () => {
       })
       const trace = { evidence: 'x'.repeat(10_000_000), equity_value_mid: 907614.48 }
       const current = { equity_value_mid: 907614.48, detailed_results: trace }
+      const htmlReport = `<html>Current two-year report ${'€'.repeat(70_000)}</html>`
       const sessionData = {
         company_name: 'Synthetic Corp',
         revenue: 1600000.42,
@@ -125,12 +130,17 @@ describe('SessionAPI', () => {
       await api.saveValuationResult('val_restored', {
         sessionData,
         valuationResult: current,
-        htmlReport: '<html>Current two-year report</html>',
+        htmlReport,
       })
-      const body = executeRequestSpy.mock.calls[0][0].data
-      expect(JSON.stringify(body).length).toBeLessThan(10_010_000)
+      const config = executeRequestSpy.mock.calls[0][0]
+      const prepared = omitOversizedValuationResultReportBlobs(config)
+      const body = prepared.config.data
+      const wireBytes = new TextEncoder().encode(JSON.stringify(body)).byteLength
+      expect(prepared.omitted).toBe(false)
+      expect(prepared.estimatedBodyBytes).toBe(wireBytes)
+      expect(wireBytes).toBeLessThan(VALUATION_RESULT_HTML_OMIT_BYTES)
       expect(body.valuationResult).toEqual(current)
-      expect(body.htmlReport).toBe('<html>Current two-year report</html>')
+      expect(body.htmlReport).toBe(htmlReport)
       expect(body.sessionData).toEqual({
         company_name: sessionData.company_name,
         revenue: sessionData.revenue,
