@@ -28,6 +28,13 @@ const NESTED_SESSION_ENVELOPE_KEYS = [
   'session_data',
 ] as const
 
+// Titan's calculation response includes the complete saved version row. That
+// receipt recursively contains the result again (version_data/trigger_metadata)
+// and is already stored in valuation_versions. Match Titan's persistence strip;
+// retain every economic field and calculation trace in the result itself.
+const RESULT_ARTIFACT_KEYS = [...TOP_LEVEL_BLOB_KEYS, 'version', 'pdf_bytes', 'pdf_base64']
+const NESTED_RESULT_KEYS = ['details', 'valuation_result', 'valuationResult', 'outputs'] as const
+
 function omitKeys<T extends Record<string, unknown>>(obj: T, keys: readonly string[]): T {
   const next = { ...obj }
   for (const k of keys) {
@@ -36,17 +43,15 @@ function omitKeys<T extends Record<string, unknown>>(obj: T, keys: readonly stri
   return next
 }
 
-function slimEmbeddedValuationForSessionPatch(v: unknown): unknown {
+function slimEmbeddedValuationForSessionPatch(v: unknown, depth = 0): unknown {
   if (v == null || typeof v !== 'object' || Array.isArray(v)) {
     return v
   }
-  const r = v as Record<string, unknown>
-  let trimmed = omitKeys(r, TOP_LEVEL_BLOB_KEYS)
-  const details = trimmed.details
-  if (details && typeof details === 'object' && !Array.isArray(details)) {
-    trimmed = {
-      ...trimmed,
-      details: omitKeys(details as Record<string, unknown>, TOP_LEVEL_BLOB_KEYS),
+  if (depth > MAX_STRIP_DEPTH) throw new Error('Result envelope nesting exceeds the save limit')
+  const trimmed = omitKeys(v as Record<string, unknown>, RESULT_ARTIFACT_KEYS)
+  for (const key of NESTED_RESULT_KEYS) {
+    if (Object.hasOwn(trimmed, key)) {
+      trimmed[key] = slimEmbeddedValuationForSessionPatch(trimmed[key], depth + 1)
     }
   }
   return trimmed

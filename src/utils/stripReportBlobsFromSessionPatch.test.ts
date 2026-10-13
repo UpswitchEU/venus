@@ -6,6 +6,36 @@ import {
 } from './stripReportBlobsFromSessionPatch'
 
 describe('stripReportBlobsFromSessionPatch', () => {
+  it('strips receipt and binary artifacts in known result envelopes, preserving economic evidence', () => {
+    const result = {
+      valuation_id: 'run-3',
+      version: { id: 'version-3', version_data: { outputs: { equity_value_mid: 42 } } },
+      pdf_bytes: [1, 2, 3],
+      pdf_base64: 'binary',
+      details: {
+        equity_value_mid: 42,
+        valuation_result: {
+          outputs: { version: { version_data: {} }, pdf_bytes: [1], normalized_ebitda: 12 },
+        },
+        detailed_results: { step_results: { '11': { synthesis: 42 } } },
+      },
+      report_context: { version: 'render-v1', academic_validation_issues: ['Indicative'] },
+    }
+    const slim = stripReportBlobsFromValuationResult(result)
+    expect(slim).toEqual({
+      valuation_id: 'run-3',
+      details: {
+        equity_value_mid: 42,
+        valuation_result: { outputs: { normalized_ebitda: 12 } },
+        detailed_results: result.details.detailed_results,
+      },
+      report_context: result.report_context,
+    })
+    expect(result.version.id).toBe('version-3')
+    expect(result.pdf_bytes).toEqual([1, 2, 3])
+    expect(stripReportBlobsFromValuationResult(slim)).toEqual(slim)
+  })
+
   it('removes top-level HTML/PDF keys without mutating original', () => {
     const original = {
       company_name: 'ACME',
